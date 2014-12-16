@@ -1207,8 +1207,12 @@ static int nfp3200_plat_probe(struct platform_device *pdev)
 
 	priv->nfp_dev_cpp = nfp_cpp_register_device(priv->cpp,
 						    NFP_DEV_CPP_TYPE, NULL);
-	priv->nfp_mon_err = nfp_cpp_register_device(priv->cpp,
-						    NFP_MON_ERR_TYPE, NULL);
+
+	if (NFP_CPP_MODEL_IS_3200(model))
+		priv->nfp_mon_err = nfp_cpp_register_device(priv->cpp,
+							    NFP_MON_ERR_TYPE,
+							    NULL);
+
 	for (i = 0; i < 4; i++) {
 		struct platform_device *vnic;
 

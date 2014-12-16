@@ -318,7 +318,7 @@ static int nfp_pci_probe(struct pci_dev *pdev,
 		goto err_nfp_cpp;
 	}
 
-	if (nfp_mon_err)
+	if (nfp_mon_err && pdev->device == PCI_DEVICE_NFP3200)
 		np->nfp_mon_err = nfp_cpp_register_device(np->cpp,
 				NFP_MON_ERR_TYPE, NULL);
 	if (nfp_dev_cpp)

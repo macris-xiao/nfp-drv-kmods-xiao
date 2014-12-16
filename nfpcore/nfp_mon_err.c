@@ -453,7 +453,6 @@ static int nfp_err_plat_probe(struct platform_device *pdev)
 	struct nfp_err_cdev *cdev;
 	struct device *dev;
 	int id, err;
-	uint32_t model;
 
 	if (pdev->id >= NFP_ERR_MAX) {
 		dev_err(&pdev->dev, "NFP Device %d: Exceeds limit of %d NFP Error Monitors\n",
@@ -465,13 +464,6 @@ static int nfp_err_plat_probe(struct platform_device *pdev)
 	if (cpp == NULL) {
 		dev_err(&pdev->dev, "NFP Device %d does not exist.\n",
 			pdev->id);
-		return -ENODEV;
-	}
-
-	model = nfp_cpp_model(cpp);
-	if (!NFP_CPP_MODEL_IS_3200(model)) {
-		/* FIXME: Add NFP6000 support */
-		nfp_cpp_free(cpp);
 		return -ENODEV;
 	}
 
