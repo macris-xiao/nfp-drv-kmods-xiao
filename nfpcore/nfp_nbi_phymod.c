@@ -9,6 +9,8 @@
 #include <linux/slab.h>
 #include <linux/string.h>
 
+#include "nfe_compat.h"
+
 #include "nfp_device.h"
 #include "nfp_resource.h"
 #include "nfp_hwinfo.h"

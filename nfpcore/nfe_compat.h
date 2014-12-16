@@ -401,6 +401,24 @@ static inline void ether_addr_copy(u8 *dst, const u8 *src)
 	(!list_empty(ptr) ? list_first_entry(ptr, type, member) : NULL)
 #endif
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 0, 0))
+static inline int compat_kstrtol(const char *cp, int base, long *valp)
+{
+	char *tmp;
+	long val;
+
+	val = simple_strtol(cp, &tmp, base);
+	if (!tmp || *tmp != 0)
+		return -EINVAL;
+
+	if (valp)
+		*valp = val;
+
+	return 0;
+}
+#define kstrtol(cp, base, valp) compat_kstrtol(cp, base, valp)
+#endif
+
 #endif	/* __KERNEL__NFE_COMPAT_H__ */
 
 /*
