@@ -53,17 +53,12 @@ struct nfp_resource_entry {
 #define NFP_RESOURCE_ARM_FDT            "arm.fdt"
 
 /**
- * ARM vNIC Interface
+ * ARM/PCI vNIC Interfaces 0..3
  */
-#define NFP_RESOURCE_ARM_VNIC           "arm.vnic"
-
-/**
- * ARM vNIC Interface 0..3
- */
-#define NFP_RESOURCE_VNIC_0             "vnic.0"
-#define NFP_RESOURCE_VNIC_1             "vnic.1"
-#define NFP_RESOURCE_VNIC_2             "vnic.2"
-#define NFP_RESOURCE_VNIC_3             "vnic.3"
+#define NFP_RESOURCE_VNIC_PCI_0         "vnic.p0"
+#define NFP_RESOURCE_VNIC_PCI_1         "vnic.p1"
+#define NFP_RESOURCE_VNIC_PCI_2         "vnic.p2"
+#define NFP_RESOURCE_VNIC_PCI_3         "vnic.p3"
 
 /**
  * NFP Hardware Info Database

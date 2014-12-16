@@ -598,16 +598,18 @@ static int nfp_net_vnic_probe(struct platform_device *pdev)
 	unsigned long barsz;
 	struct nfp_cpp_area *area;
 
+	res_name = pdev->dev.platform_data;
+	if (res_name == NULL) {
+		dev_err(&pdev->dev, "Resource name not specified\n");
+		return -EINVAL;
+	}
+
 	nfp = nfp_device_open(pdev->id);
 	if (nfp == NULL) {
 		dev_err(&pdev->dev, "NFP Device %d does not exist.\n",
 			pdev->id);
 		return -ENODEV;
 	}
-
-	res_name = pdev->dev.platform_data;
-	if (res_name == NULL)
-		res_name = NFP_RESOURCE_ARM_VNIC;
 
 	res = nfp_resource_acquire(nfp, res_name);
 	if (!res) {

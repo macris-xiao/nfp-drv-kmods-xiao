@@ -34,6 +34,7 @@
 #include "nfp3200/nfp_em.h"
 
 #include "nfp-bsp/nfp_target.h"
+#include "nfp-bsp/nfp_resource.h"
 
 #include "nfp_mon_err.h"
 #include "nfp_dev_cpp.h"
@@ -60,7 +61,7 @@ struct nfp_plat_bar {
 struct nfp3200_plat {
 	struct device *dev;
 
-	struct platform_device *nfp_dev_cpp, *nfp_mon_err, *nfp_net_vnic;
+	struct platform_device *nfp_dev_cpp, *nfp_mon_err, *nfp_net_vnic[4];
 	struct nfp_cpp *cpp;
 	struct nfp_cpp_operations op;
 	int (*target_pushpull)(uint32_t cpp_id, uint64_t address);
@@ -114,6 +115,13 @@ struct nfp_plat_event_priv {
 	uint32_t mask;
 	unsigned int type;
 	int em_slot;
+};
+
+static const char *nfp_pci_vnic[] = {
+	NFP_RESOURCE_VNIC_PCI_0,
+	NFP_RESOURCE_VNIC_PCI_1,
+	NFP_RESOURCE_VNIC_PCI_2,
+	NFP_RESOURCE_VNIC_PCI_3,
 };
 
 static void bar_lock(struct nfp_plat_bar *bar)
@@ -1157,7 +1165,8 @@ static int nfp3200_plat_probe(struct platform_device *pdev)
 {
 	struct nfp3200_plat *priv;
 	const struct of_device_id *of_id;
-	int err;
+	int i, err;
+	uint32_t model;
 
 	of_id = of_match_device(nfp3200_plat_match, &pdev->dev);
 	if (!of_id) {
@@ -1194,12 +1203,22 @@ static int nfp3200_plat_probe(struct platform_device *pdev)
 	priv->cpp = nfp_cpp_from_operations(&priv->op);
 	BUG_ON(priv->cpp == NULL);
 
+	model = nfp_cpp_model(priv->cpp);
+
 	priv->nfp_dev_cpp = nfp_cpp_register_device(priv->cpp,
-						    NFP_DEV_CPP_TYPE);
+						    NFP_DEV_CPP_TYPE, NULL);
 	priv->nfp_mon_err = nfp_cpp_register_device(priv->cpp,
-						    NFP_MON_ERR_TYPE);
-	priv->nfp_net_vnic = nfp_cpp_register_device(priv->cpp,
-						     NFP_NET_VNIC_TYPE);
+						    NFP_MON_ERR_TYPE, NULL);
+	for (i = 0; i < 4; i++) {
+		struct platform_device *vnic;
+
+		if (i > 1 && NFP_CPP_MODEL_IS_3200(model))
+			break;
+
+		vnic = nfp_cpp_register_device(priv->cpp, NFP_NET_VNIC_TYPE,
+					       (void *)nfp_pci_vnic[i]);
+		priv->nfp_net_vnic[i] = vnic;
+	}
 
 	return 0;
 }
@@ -1207,8 +1226,11 @@ static int nfp3200_plat_probe(struct platform_device *pdev)
 static int nfp3200_plat_remove(struct platform_device *pdev)
 {
 	struct nfp3200_plat *priv = platform_get_drvdata(pdev);
+	int i;
 
-	nfp_cpp_unregister_device(priv->nfp_net_vnic);
+	for (i = 0; i < 4; i++)
+		nfp_cpp_unregister_device(priv->nfp_net_vnic[i]);
+
 	nfp_cpp_unregister_device(priv->nfp_mon_err);
 	nfp_cpp_unregister_device(priv->nfp_dev_cpp);
 	nfp_cpp_free(priv->cpp);

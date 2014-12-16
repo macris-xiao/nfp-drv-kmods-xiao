@@ -55,7 +55,7 @@ struct nfp_pci {
 	struct platform_device *nfp_mon_err;
 	struct platform_device *nfp_dev_cpp;
 	struct platform_device *nfp_net_null;
-	struct platform_device *nfp_net_vnic[4];
+	struct platform_device *nfp_net_vnic;
 
 #ifdef CONFIG_PCI_IOV
 	/* SR-IOV handling */
@@ -248,15 +248,11 @@ static void nfp_sriov_attr_remove(struct device *dev)
 #endif /* CONFIG_PCI_IOV */
 #endif /* Linux kernel version */
 
-static const char *nfp3200_vnic[] = {
-	NFP_RESOURCE_ARM_VNIC,
-};
-
-static const char *nfp6000_vnic[] = {
-	NFP_RESOURCE_VNIC_0,
-	NFP_RESOURCE_VNIC_1,
-	NFP_RESOURCE_VNIC_2,
-	NFP_RESOURCE_VNIC_3,
+static const char *nfp_pci_vnic[] = {
+	NFP_RESOURCE_VNIC_PCI_0,
+	NFP_RESOURCE_VNIC_PCI_1,
+	NFP_RESOURCE_VNIC_PCI_2,
+	NFP_RESOURCE_VNIC_PCI_3,
 };
 
 static int nfp_pci_probe(struct pci_dev *pdev,
@@ -264,8 +260,6 @@ static int nfp_pci_probe(struct pci_dev *pdev,
 {
 	struct nfp_pci *np;
 	int err;
-	const char **vnic;
-	int vnics = 0;
 
 	err = pci_enable_device(pdev);
 	if (err < 0)
@@ -298,8 +292,6 @@ static int nfp_pci_probe(struct pci_dev *pdev,
 	switch (pdev->device) {
 	case PCI_DEVICE_NFP3200:
 		np->cpp = nfp_cpp_from_nfp3200_pcie(pdev, pdev->irq);
-		vnic = nfp3200_vnic;
-		vnics = ARRAY_SIZE(nfp3200_vnic);
 		break;
 	case PCI_DEVICE_NFP6000:
 		np->cpp = nfp_cpp_from_nfp6000_pcie(pdev, pdev->irq);
@@ -313,8 +305,6 @@ static int nfp_pci_probe(struct pci_dev *pdev,
 			}
 		}
 #endif
-		vnic = nfp6000_vnic;
-		vnics = ARRAY_SIZE(nfp6000_vnic);
 		break;
 	default:
 		err = -ENODEV;
@@ -335,15 +325,13 @@ static int nfp_pci_probe(struct pci_dev *pdev,
 		np->nfp_dev_cpp = nfp_cpp_register_device(np->cpp,
 				NFP_DEV_CPP_TYPE, NULL);
 	if (nfp_net_vnic) {
-		int i;
-		for (i = 0; i < vnics; i++) {
-			struct platform_device *child;
+		uint16_t interface = nfp_cpp_interface(np->cpp);
+		int unit = NFP_CPP_INTERFACE_UNIT_of(interface);
 
-			child = nfp_cpp_register_device(np->cpp,
-					NFP_NET_VNIC_TYPE,
-					(void *)vnic[i]);
-			np->nfp_net_vnic[i] = child;
-		}
+		if (unit < ARRAY_SIZE(nfp_pci_vnic))
+			np->nfp_net_vnic = nfp_cpp_register_device(np->cpp,
+						NFP_NET_VNIC_TYPE,
+						(void *)nfp_pci_vnic[unit]);
 	}
 	if (nfp_net_null)
 		np->nfp_net_null = nfp_cpp_register_device(np->cpp,
@@ -368,10 +356,8 @@ err_dma_mask:
 static void nfp_pci_remove(struct pci_dev *pdev)
 {
 	struct nfp_pci *np = pci_get_drvdata(pdev);
-	int i;
 
-	for (i = 0; i < ARRAY_SIZE(np->nfp_net_vnic); i++)
-		nfp_cpp_unregister_device(np->nfp_net_vnic[i]);
+	nfp_cpp_unregister_device(np->nfp_net_vnic);
 	nfp_cpp_unregister_device(np->nfp_net_null);
 	nfp_cpp_unregister_device(np->nfp_dev_cpp);
 	nfp_cpp_unregister_device(np->nfp_mon_err);
