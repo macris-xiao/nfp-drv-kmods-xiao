@@ -1203,7 +1203,8 @@ static struct lock_class_key nfp_cpp_resource_lock_key;
 #endif
 
 struct platform_device *nfp_cpp_register_device(struct nfp_cpp *cpp,
-						const char *type)
+						const char *type,
+						void *priv)
 {
 	struct device *dev = nfp_cpp_device(cpp);
 	struct platform_device *pdev;
@@ -1216,6 +1217,7 @@ struct platform_device *nfp_cpp_register_device(struct nfp_cpp *cpp,
 		return NULL;
 	}
 
+	pdev->dev.platform_data = priv;
 	pdev->dev.parent = dev;
 
 	err = platform_device_add(pdev);

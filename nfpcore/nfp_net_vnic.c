@@ -591,6 +591,7 @@ static int nfp_net_vnic_probe(struct platform_device *pdev)
 	int err;
 	struct nfp_device *nfp;
 	uint16_t interface;
+	const char *res_name;
 	struct nfp_resource *res;
 	uint64_t cpp_addr;
 	uint32_t cpp_id;
@@ -604,10 +605,14 @@ static int nfp_net_vnic_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	res = nfp_resource_acquire(nfp, NFP_RESOURCE_ARM_VNIC);
+	res_name = pdev->dev.platform_data;
+	if (res_name == NULL)
+		res_name = NFP_RESOURCE_ARM_VNIC;
+
+	res = nfp_resource_acquire(nfp, res_name);
 	if (!res) {
 		dev_err(&pdev->dev, "No '%s' resource present\n",
-			NFP_RESOURCE_ARM_VNIC);
+			res_name);
 		err = -ENOENT;
 		goto err_resource_acquire;
 	}
