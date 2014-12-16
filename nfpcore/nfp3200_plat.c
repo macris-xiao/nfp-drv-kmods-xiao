@@ -1206,26 +1206,23 @@ static int nfp3200_plat_probe(struct platform_device *pdev)
 	model = nfp_cpp_model(priv->cpp);
 
 	priv->nfp_dev_cpp = nfp_cpp_register_device(priv->cpp,
-						    NFP_DEV_CPP_TYPE, NULL);
+						    NFP_DEV_CPP_TYPE);
 
 	if (NFP_CPP_MODEL_IS_3200(model))
 		priv->nfp_mon_err = nfp_cpp_register_device(priv->cpp,
 							    NFP_MON_ERR_TYPE,
-							    NULL);
+							    NULL, 0);
 
 	for (i = 0; i < 4; i++) {
 		struct platform_device *vnic;
-		void *vnic_priv;
+		const char *cp = nfp_pci_vnic[i];
+		int len = strlen(cp) + 1;
 
 		if (i > 1 && NFP_CPP_MODEL_IS_3200(model))
 			break;
 
-		vnic_priv = kstrdup(nfp_pci_vnic[i], GFP_KERNEL);
-		if (!vnic_priv)
-			continue;
-
 		vnic = nfp_cpp_register_device(priv->cpp, NFP_NET_VNIC_TYPE,
-					       vnic_priv);
+					       cp, len);
 		priv->nfp_net_vnic[i] = vnic;
 	}
 

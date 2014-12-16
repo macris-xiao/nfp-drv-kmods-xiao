@@ -320,26 +320,29 @@ static int nfp_pci_probe(struct pci_dev *pdev,
 
 	if (nfp_mon_err && pdev->device == PCI_DEVICE_NFP3200)
 		np->nfp_mon_err = nfp_cpp_register_device(np->cpp,
-				NFP_MON_ERR_TYPE, NULL);
+				NFP_MON_ERR_TYPE, NULL, 0);
 	if (nfp_dev_cpp)
 		np->nfp_dev_cpp = nfp_cpp_register_device(np->cpp,
-				NFP_DEV_CPP_TYPE, NULL);
+				NFP_DEV_CPP_TYPE, NULL, 0);
 	if (nfp_net_vnic) {
 		uint16_t interface = nfp_cpp_interface(np->cpp);
 		int unit = NFP_CPP_INTERFACE_UNIT_of(interface);
 
 		if (unit < ARRAY_SIZE(nfp_pci_vnic)) {
-			void *vnic_priv;
+			struct platform_device *vnic;
+			const char *cp = nfp_pci_vnic[unit];
+			int len = strlen(cp) + 1;
 
-			vnic_priv = kstrdup(nfp_pci_vnic[unit], GFP_KERNEL);
-			np->nfp_net_vnic = nfp_cpp_register_device(np->cpp,
-						NFP_NET_VNIC_TYPE,
-						vnic_priv);
+			vnic = nfp_cpp_register_device(np->cpp,
+							NFP_NET_VNIC_TYPE,
+							cp, len);
+			np->nfp_net_vnic = vnic;
 		}
 	}
 	if (nfp_net_null)
 		np->nfp_net_null = nfp_cpp_register_device(np->cpp,
-				NFP_NET_NULL_TYPE, NULL);
+							   NFP_NET_NULL_TYPE,
+							   NULL, 0);
 	pci_set_drvdata(pdev, np);
 
 	return 0;
