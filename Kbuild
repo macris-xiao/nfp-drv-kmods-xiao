@@ -117,7 +117,7 @@ endif
 
 # Get the source control revisions.
 ifeq ($(nfp_src_ver),)
-nfp_src_ver  := $(shell hg -R $(nfp_src_dir)/.. id -ni)
+nfp_src_ver  := $(shell (cd $(nfp_src_dir); git rev-parse --short HEAD))
 endif
 
 clean-files := $(obj)/nfe_build_info.h
