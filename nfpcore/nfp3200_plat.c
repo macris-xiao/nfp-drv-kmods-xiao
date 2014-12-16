@@ -1215,12 +1215,17 @@ static int nfp3200_plat_probe(struct platform_device *pdev)
 
 	for (i = 0; i < 4; i++) {
 		struct platform_device *vnic;
+		void *vnic_priv;
 
 		if (i > 1 && NFP_CPP_MODEL_IS_3200(model))
 			break;
 
+		vnic_priv = kstrdup(nfp_pci_vnic[i], GFP_KERNEL);
+		if (!vnic_priv)
+			continue;
+
 		vnic = nfp_cpp_register_device(priv->cpp, NFP_NET_VNIC_TYPE,
-					       (void *)nfp_pci_vnic[i]);
+					       vnic_priv);
 		priv->nfp_net_vnic[i] = vnic;
 	}
 

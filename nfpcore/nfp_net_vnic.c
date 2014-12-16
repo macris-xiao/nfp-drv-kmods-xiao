@@ -720,11 +720,10 @@ static int nfp_net_vnic_remove(struct platform_device *pdev)
 	nfp_net_vnic_attr_remove(vnic);
 	unregister_netdev(vnic->netdev);
 	devm_iounmap(&pdev->dev, vnic->pktbufs);
+	free_netdev(vnic->netdev);
+	platform_set_drvdata(pdev, NULL);
 	nfp_cpp_area_release_free(vnic->area);
 	nfp_device_close(vnic->nfp);
-	free_netdev(vnic->netdev);
-
-	platform_set_drvdata(pdev, NULL);
 
 	return 0;
 }

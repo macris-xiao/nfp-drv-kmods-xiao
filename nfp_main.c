@@ -328,10 +328,14 @@ static int nfp_pci_probe(struct pci_dev *pdev,
 		uint16_t interface = nfp_cpp_interface(np->cpp);
 		int unit = NFP_CPP_INTERFACE_UNIT_of(interface);
 
-		if (unit < ARRAY_SIZE(nfp_pci_vnic))
+		if (unit < ARRAY_SIZE(nfp_pci_vnic)) {
+			void *vnic_priv;
+
+			vnic_priv = kstrdup(nfp_pci_vnic[unit], GFP_KERNEL);
 			np->nfp_net_vnic = nfp_cpp_register_device(np->cpp,
 						NFP_NET_VNIC_TYPE,
-						(void *)nfp_pci_vnic[unit]);
+						vnic_priv);
+		}
 	}
 	if (nfp_net_null)
 		np->nfp_net_null = nfp_cpp_register_device(np->cpp,
@@ -357,8 +361,8 @@ static void nfp_pci_remove(struct pci_dev *pdev)
 {
 	struct nfp_pci *np = pci_get_drvdata(pdev);
 
-	nfp_cpp_unregister_device(np->nfp_net_vnic);
 	nfp_cpp_unregister_device(np->nfp_net_null);
+	nfp_cpp_unregister_device(np->nfp_net_vnic);
 	nfp_cpp_unregister_device(np->nfp_dev_cpp);
 	nfp_cpp_unregister_device(np->nfp_mon_err);
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 8, 0))
