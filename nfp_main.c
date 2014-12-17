@@ -248,13 +248,6 @@ static void nfp_sriov_attr_remove(struct device *dev)
 #endif /* CONFIG_PCI_IOV */
 #endif /* Linux kernel version */
 
-static const char *nfp_pci_vnic[] = {
-	NFP_RESOURCE_VNIC_PCI_0,
-	NFP_RESOURCE_VNIC_PCI_1,
-	NFP_RESOURCE_VNIC_PCI_2,
-	NFP_RESOURCE_VNIC_PCI_3,
-};
-
 static int nfp_pci_probe(struct pci_dev *pdev,
 			 const struct pci_device_id *pci_id)
 {
@@ -320,29 +313,16 @@ static int nfp_pci_probe(struct pci_dev *pdev,
 
 	if (nfp_mon_err && pdev->device == PCI_DEVICE_NFP3200)
 		np->nfp_mon_err = nfp_cpp_register_device(np->cpp,
-				NFP_MON_ERR_TYPE, NULL, 0);
+				NFP_MON_ERR_TYPE);
 	if (nfp_dev_cpp)
 		np->nfp_dev_cpp = nfp_cpp_register_device(np->cpp,
-				NFP_DEV_CPP_TYPE, NULL, 0);
-	if (nfp_net_vnic) {
-		uint16_t interface = nfp_cpp_interface(np->cpp);
-		int unit = NFP_CPP_INTERFACE_UNIT_of(interface);
-
-		if (unit < ARRAY_SIZE(nfp_pci_vnic)) {
-			struct platform_device *vnic;
-			const char *cp = nfp_pci_vnic[unit];
-			int len = strlen(cp) + 1;
-
-			vnic = nfp_cpp_register_device(np->cpp,
-							NFP_NET_VNIC_TYPE,
-							cp, len);
-			np->nfp_net_vnic = vnic;
-		}
-	}
+				NFP_DEV_CPP_TYPE);
+	if (nfp_net_vnic)
+		np->nfp_net_vnic = nfp_cpp_register_device(np->cpp,
+							   NFP_NET_VNIC_TYPE);
 	if (nfp_net_null)
 		np->nfp_net_null = nfp_cpp_register_device(np->cpp,
-							   NFP_NET_NULL_TYPE,
-							   NULL, 0);
+							   NFP_NET_NULL_TYPE);
 	pci_set_drvdata(pdev, np);
 
 	return 0;

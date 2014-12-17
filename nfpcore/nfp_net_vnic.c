@@ -598,16 +598,36 @@ static int nfp_net_vnic_probe(struct platform_device *pdev)
 	unsigned long barsz;
 	struct nfp_cpp_area *area;
 
-	res_name = pdev->dev.platform_data;
-	if (res_name == NULL) {
-		dev_err(&pdev->dev, "Resource name not specified\n");
-		return -EINVAL;
-	}
-
 	nfp = nfp_device_open(pdev->id);
 	if (nfp == NULL) {
 		dev_err(&pdev->dev, "NFP Device %d does not exist.\n",
 			pdev->id);
+		return -ENODEV;
+	}
+
+	/* For now, only PCI 0 to NFP ARM is supported */
+	interface = nfp_cpp_interface(nfp_device_cpp(nfp));
+
+	switch (NFP_CPP_INTERFACE_TYPE_of(interface)) {
+	case NFP_CPP_INTERFACE_TYPE_ARM:
+		res_name = NFP_RESOURCE_VNIC_PCI_0;
+		break;
+	case NFP_CPP_INTERFACE_TYPE_PCI:
+		switch (NFP_CPP_INTERFACE_UNIT_of(interface)) {
+		case 0: res_name = NFP_RESOURCE_VNIC_PCI_0; break;
+		case 1: res_name = NFP_RESOURCE_VNIC_PCI_1; break;
+		case 2: res_name = NFP_RESOURCE_VNIC_PCI_2; break;
+		case 3: res_name = NFP_RESOURCE_VNIC_PCI_3; break;
+		default: res_name = NULL; break;
+		}
+		break;
+	default:
+		res_name = NULL;
+		break;
+	}
+
+	if (res_name == NULL) {
+		nfp_device_close(nfp);
 		return -ENODEV;
 	}
 
@@ -635,8 +655,6 @@ static int nfp_net_vnic_probe(struct platform_device *pdev)
 		err = -EINVAL;
 		goto err_area_acquire;
 	}
-
-	interface = nfp_cpp_interface(nfp_device_cpp(nfp));
 
 	netdev = alloc_netdev(sizeof(*vnic), "nvn%d",
 			      nfp_net_vnic_netdev_setup);

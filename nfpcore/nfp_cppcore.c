@@ -1203,9 +1203,7 @@ static struct lock_class_key nfp_cpp_resource_lock_key;
 #endif
 
 struct platform_device *nfp_cpp_register_device(struct nfp_cpp *cpp,
-						const char *type,
-						const void *data,
-						size_t data_len)
+						const char *type)
 {
 	struct device *dev = nfp_cpp_device(cpp);
 	struct platform_device *pdev;
@@ -1216,16 +1214,6 @@ struct platform_device *nfp_cpp_register_device(struct nfp_cpp *cpp,
 		dev_err(dev, "Can't create '%s.%d' platform device",
 			type, cpp->id);
 		return NULL;
-	}
-
-	if (data && data_len) {
-		err = platform_device_add_data(pdev, data, data_len);
-		if (err < 0) {
-			dev_err(dev, "Can't allocate private data (%p, %d) for  '%s.%d' platform device",
-				data, (int)data_len, type, cpp->id);
-			platform_device_put(pdev);
-			return NULL;
-		}
 	}
 
 	pdev->dev.parent = dev;

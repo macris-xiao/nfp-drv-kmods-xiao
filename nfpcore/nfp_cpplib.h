@@ -41,9 +41,7 @@ int nfp_cppcore_init(void);
 void nfp_cppcore_exit(void);
 
 struct platform_device *nfp_cpp_register_device(struct nfp_cpp *cpp,
-						const char *type,
-						const void *data,
-						size_t data_len);
+						const char *type);
 void nfp_cpp_unregister_device(struct platform_device *pdev);
 
 #endif /* NFP_CPPLIB_H */
