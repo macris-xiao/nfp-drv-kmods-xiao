@@ -610,7 +610,7 @@ static ssize_t show_barcfg(struct device *dev, struct device_attribute *attr,
 			   char *buf)
 {
 	static char *bartype[4] = { "bulk", "CPP", "mixed", "invalid" };
-	struct nfp3200_pcie *nfp = nfp_cpp_priv(dev_get_drvdata(dev));
+	struct nfp3200_pcie *nfp = dev_get_drvdata(dev);
 	struct nfp_bar *bar = nfp->bars;
 	int n, maptype, tgtact, tokactsel, length;
 	ssize_t off = 0;
@@ -654,16 +654,6 @@ static ssize_t show_barcfg(struct device *dev, struct device_attribute *attr,
 }
 
 static DEVICE_ATTR(barcfg, S_IRUGO, show_barcfg, NULL);
-
-static int nfp3200_pciebars_attr_add(struct nfp3200_pcie *nfp)
-{
-	return device_create_file(nfp->dev, &dev_attr_barcfg);
-}
-
-static void nfp3200_pciebars_attr_remove(struct nfp3200_pcie *nfp)
-{
-	device_remove_file(nfp->dev, &dev_attr_barcfg);
-}
 
 static void disable_bars(struct nfp3200_pcie *nfp);
 
@@ -1369,8 +1359,13 @@ static int nfp_cpp_pcie_init(struct nfp_cpp *cpp)
 	if (nfp->pdev->subsystem_device != PCI_DEVICE_NFP3200)
 		nfp->ops.model = 0;
 
+	err = device_create_file(nfp_cpp_device(cpp), &dev_attr_barcfg);
+	if (err < 0)
+		goto err_attr_create;
+
 	return 0;
 
+err_attr_create:
 err_pcie_write_acquire:
 	nfp_cpp_area_free(nfp->a1.internal_write_area);
 err_pcie_write_create:
@@ -1384,12 +1379,12 @@ static void nfp_cpp_pcie_free(struct nfp_cpp *cpp)
 
 	BUG_ON(!nfp);
 
+	device_remove_file(nfp_cpp_device(cpp), &dev_attr_barcfg);
+
 	if (nfp->workaround & NFP_A1_WORKAROUND) {
 		nfp->a1.pciewr = NULL;
 		nfp_cpp_area_release_free(nfp->a1.internal_write_area);
 	}
-
-	nfp3200_pciebars_attr_remove(nfp);
 
 	nfp_em_manager_exit(&nfp->event);
 	disable_bars(nfp);
@@ -1473,10 +1468,6 @@ struct nfp_cpp *nfp_cpp_from_nfp3200_pcie(struct pci_dev *pdev, int event_irq)
 	if (err)
 		goto err_enable_bars;
 
-	err = nfp3200_pciebars_attr_add(nfp);
-	if (err)
-		goto err_bar_attr;
-
 #ifdef CONFIG_NFP_PCI32
 	/*
 	 * PCIe host CPU can not do 64bit PCI transactions.  Set up
@@ -1515,8 +1506,6 @@ err_em_init:
 			  nfp->dma_dev_addr);
 err_dma_addr:
 #endif
-	nfp3200_pciebars_attr_remove(nfp);
-err_bar_attr:
 	disable_bars(nfp);
 err_enable_bars:
 	devm_iounmap(&pdev->dev, nfp->pcietgt);
