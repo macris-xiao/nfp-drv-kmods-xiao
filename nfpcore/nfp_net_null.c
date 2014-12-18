@@ -73,8 +73,6 @@ static void nfp_net_null_eto_get_drvinfo(struct net_device *dev,
 	 */
 	strlcpy(di->bus_info, dev_name(dev->dev.parent), sizeof(di->bus_info));
 
-	memset(di->reserved1, 0, sizeof(di->reserved1));
-	memset(di->reserved2, 0, sizeof(di->reserved2));
 
 	di->n_priv_flags = 0;
 	di->n_stats = sizeof(nm->stats.cache)/sizeof(uint64_t);
@@ -88,8 +86,6 @@ static void nfp_net_null_eto_get_drvinfo(struct net_device *dev,
 
 	/* FIXME: Get firmware version from hwinfo */
 	di->fw_version[0] = 0;
-
-	strlcpy(di->bus_info, dev_name(dev->dev.parent), sizeof(di->bus_info));
 }
 
 static int nfp_net_null_eto_get_settings(struct net_device *dev,
@@ -358,6 +354,7 @@ static int nfp_net_null_probe(struct platform_device *pdev)
 
 	np->nfp = nfp;
 	np->ports = 0;
+	np->parent = &pdev->dev;
 
 	for (phy = nfp_phymod_next(nfp, &tmp);
 	     phy && np->ports < ARRAY_SIZE(np->port);
