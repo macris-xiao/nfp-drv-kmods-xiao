@@ -43,18 +43,9 @@
 
 #define PCI_64BIT_BAR_COUNT             3
 
-/* SHaC/CAP register offsets. */
-#define NFP_SHAC_INTERTHREAD_SIG	0x001c
 extern struct class *nfe_class;
 struct nfp_device;
 struct nfe_rtsym;
-
-/* Maximum number of NFE cards we expect in a system.  */
-#define NFE_MAX_CARDS		16
-/* Maximum number of MSI-X vectors per NFE. */
-#define NFE_MAX_MSIX_COUNT	8
-/* Maximum number of times we retry accessing an ME CSR. */
-#define NFE_MAX_CSR_FAILCOUNT	50
 
 /*
  * NFP hardware vendor/device ids.  Should be added to Linux.
@@ -63,25 +54,6 @@ struct nfe_rtsym;
 #define PCI_DEVICE_NFP3200		0x3200
 #define PCI_DEVICE_NFP3240		0x3240
 #define PCI_DEVICE_NFP6000		0x6000
-
-/*
- * Determine whether the NFP's device is a PCIe card, or whether we
- * are running in the NFP's ARM.  For non-NFP we always return true
- * so that compiler can optimize away unused code.
- */
-#ifdef CONFIG_ARCH_NFP
-#define nfe_is_pcie(nfe) \
-	((nfe)->dev->parent && ((nfe)->dev->parent->bus == &pci_bus_type))
-#else
-#define nfe_is_pcie(nfe) (1)
-#endif
-
-/* Convert an NFE-card structure the struct pci_dev that represents the NFE.
- * This has no meaning for the ARM's local NFP, for that is a platform device,
- * and not a PCI device.
- */
-#define nfe_to_pci(nfe) \
-	to_pci_dev((nfe)->dev->parent)
 
 /*
  * Helper functions for accessing NFP memory directly.
@@ -144,13 +116,6 @@ struct nfp_device_config {
 
 	const char *board_model;
 };
-
-#ifdef CONFIG_NFE_MSIX
-int nfp3200_cpp_irq_to_msix(struct nfp_cpp *cpp, int irq);
-int nfp3200_cpp_msix_to_irq(struct nfp_cpp *cpp, int idx);
-int nfp6000_cpp_irq_to_msix(struct nfp_cpp *cpp, int irq);
-int nfp6000_cpp_msix_to_irq(struct nfp_cpp *cpp, int idx);
-#endif
 
 /*
  * Local variables:
