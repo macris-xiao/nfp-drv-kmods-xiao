@@ -99,19 +99,24 @@ struct nfp_net_vnic {
 	struct nfp_net_vnic_queue __iomem *tx;
 };
 
+static unsigned int nfp_net_vnic_pollinterval = 1;
+module_param(nfp_net_vnic_pollinterval, uint, 0444);
+MODULE_PARM_DESC(nfp_net_vnic_pollinterval, "Polling interval for Rx/Tx queues (in ms)");
+
+static unsigned int nfp_net_vnic_debug = 0;
+module_param(nfp_net_vnic_debug, uint, 0444);
+MODULE_PARM_DESC(nfp_net_vnic_debug, "Enable debug printk messages");
+
 #define nfp_net_vnic_err(sn, fmt, args...) \
 	netdev_err((sn)->netdev, fmt, ## args)
 #define nfp_net_vnic_warn(sn, fmt, args...) \
 	netdev_warn((sn)->netdev, fmt, ## args)
 #define nfp_net_vnic_info(sn, fmt, args...) \
 	netdev_info((sn)->netdev, fmt, ## args)
-#define nfp_net_vnic_dbg(sn, fmt, args...) \
-	netdev_dbg((sn)->netdev, fmt, ## args)
-
-static unsigned int nfp_net_vnic_pollinterval = 1;
-
-module_param(nfp_net_vnic_pollinterval, uint, 0444);
-MODULE_PARM_DESC(nfp_net_vnic_pollinterval, "Polling interval for Rx/Tx queues (in ms)");
+#define nfp_net_vnic_dbg(sn, fmt, args...) do { \
+		if (nfp_net_vnic_debug) \
+			netdev_dbg((sn)->netdev, fmt, ## args); \
+	} while (0)
 
 static void nnq_pkt_read(void *dst, struct nfp_net_vnic_queue __iomem *squeue,
 			 size_t size)
@@ -215,6 +220,7 @@ static int nfp_net_vnic_tx(struct sk_buff *skb, struct net_device *netdev)
 		dev_kfree_skb_any(skb);
 		vnic->stats.tx_errors++;
 		vnic->stats.tx_carrier_errors++;
+		nfp_net_vnic_dbg(vnic, "Tx while down (%d)\n", skb->len);
 		return NETDEV_TX_OK;
 	}
 	if (skb->len > vnic->mtu) {
@@ -271,6 +277,7 @@ static int nfp_net_vnic_rx(struct nfp_net_vnic *vnic)
 
 	pkt_type = readl(&vnic->rx->ctrl.type);
 	if (pkt_size > vnic->mtu || pkt_type != 0) {
+		nfp_net_vnic_dbg(vnic, "Rx packet invalid (len = %d, type = %d)\n", pkt_size, pkt_type);
 		nnq_receive_pkt(vnic->rx);
 		return -EINVAL;
 	}
