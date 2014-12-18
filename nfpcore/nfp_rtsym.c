@@ -276,6 +276,10 @@ void nfp_rtsym_reload(struct nfp_device *nfp)
 	nfp_rtsym_release(nfp);
 }
 
+/**
+ * nfp_rtsym_count - Returns the total number of rtsyms
+ * @nfp:	NFP handle
+ */
 size_t nfp_rtsym_count(struct nfp_device *nfp)
 {
 	size_t count;
@@ -292,6 +296,11 @@ size_t nfp_rtsym_count(struct nfp_device *nfp)
 }
 EXPORT_SYMBOL(nfp_rtsym_count);
 
+/**
+ * nfp_rtsym_entry - Look up a rtsym entry by index
+ * @nfp:	NFP handle
+ * @idx:	Index
+ */
 const struct nfp_rtsym *nfp_rtsym_entry(struct nfp_device *nfp,
 					size_t idx)
 {
@@ -310,6 +319,11 @@ const struct nfp_rtsym *nfp_rtsym_entry(struct nfp_device *nfp,
 }
 EXPORT_SYMBOL(nfp_rtsym_entry);
 
+/**
+ * nfp_rtsym_lookup - Lookup a rtsym by name
+ * @nfp:	NFP handle
+ * @name:	Name of the symbol
+ */
 const struct nfp_rtsym *nfp_rtsym_lookup(struct nfp_device *nfp,
 					 const char *name)
 {

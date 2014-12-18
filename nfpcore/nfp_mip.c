@@ -72,6 +72,11 @@ static struct nfp_miptab *nfp_miptab_get(struct nfp_miptab *miptab)
 	return miptab;
 }
 
+/**
+ * nfp_mip_find_entry - Find an entry in a MIP
+ * @mip:	MIP handle
+ * @entry_type:	MIP entry type
+ */
 const void *nfp_mip_find_entry(const struct nfp_mip *mip, u32 entry_type)
 {
 	int mip_size;
@@ -96,6 +101,10 @@ const void *nfp_mip_find_entry(const struct nfp_mip *mip, u32 entry_type)
 }
 EXPORT_SYMBOL(nfp_mip_find_entry);
 
+/**
+ * nfp_mip_acquire - Acquire a handle to the MIP
+ * @nfp:	NFP device
+ */
 const struct nfp_mip *nfp_mip_acquire(struct nfp_device *nfp)
 {
 	struct nfp_resource *res;
@@ -174,6 +183,10 @@ const struct nfp_mip *nfp_mip_acquire(struct nfp_device *nfp)
 }
 EXPORT_SYMBOL(nfp_mip_acquire);
 
+/**
+ * nfp_mip_release - Release a handle to the MIP
+ * @mip:	MIP handle
+ */
 void nfp_mip_release(const struct nfp_mip *mip)
 {
 	struct nfp_miptab *miptab = container_of(mip, struct nfp_miptab, mip);
