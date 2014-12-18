@@ -289,6 +289,13 @@ static int workaround_resource_table(struct nfp_cpp *cpp,
 
 	err = nfp_cpp_resource_add(cpp, NFP_RESOURCE_NFP_NFFW, ddr,
 		0x1000, 0x1000, NULL);
+	if (err < 0)
+		return err;
+
+	err = nfp_cpp_resource_add(cpp, NFP_RESOURCE_VNIC_PCI_0, ddr,
+		0xe000, 0x1000, NULL);
+	if (err < 0)
+		return err;
 
 	return err;
 }
