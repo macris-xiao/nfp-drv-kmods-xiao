@@ -1,4 +1,4 @@
-/* Copyright (C) 2011 Netronome Systems, Inc. All rights reserved.
+/* Copyright (C) 2010-2014 Netronome Systems, Inc. All rights reserved.
  *
  * This software may be redistributed under either of two provisions:
  *
@@ -16,11 +16,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
- * vim:shiftwidth=8:noexpandtab
- *
- * @file kernel/nfe_pcibars.c
- *
- * Multiplexes the NFE BARs between NFE internal resources and
+ * Multiplexes the NFP BARs between NFP internal resources and
  * implements the PCIe specific interface for generic CPP bus access.
  *
  * The BARs are managed with refcounts and are allocated/acquired
@@ -45,7 +41,7 @@
 
 #include "nfp-bsp/nfp_target.h"
 
-#include "nfe.h"
+#include "nfp_common.h"
 #include "nfp3200_pcie.h"
 #include "nfp_em_manager.h"
 #include "nfp_cpplib.h"
@@ -118,13 +114,16 @@ struct nfp3200_pcie;
 struct nfp_cpp_area_priv;
 
 /**
- * struct nfe_bar - describes BAR configuration and usage
+ * struct nfp_bar - describes BAR configuration and usage
+ * @nfp:	backlink to owner
  * @barcfg:	cached contents of BAR config CSR
  * @offset:	the BAR's base CPP offset
  * @mask:	mask for the BAR aperture (read only)
  * @bitsize:	bitsize of BAR aperture (read only)
+ * @index:	index of the BAR
  * @refcnt:	number of current users
- * @nfe_card:	backlink to owner
+ * @iomem:	mapped IO memory
+ * @resource:	iomem resource window
  */
 struct nfp_bar {
 	struct nfp3200_pcie *nfp;
@@ -1496,7 +1495,7 @@ struct nfp_cpp *nfp_cpp_from_nfp3200_pcie(struct pci_dev *pdev, int event_irq)
 			goto err_em_init;
 	}
 
-	/* Probe for all the common NFP/NFE devices */
+	/* Probe for all the common NFP devices */
 	dev_info(&pdev->dev, "Found a NFP3200 on the PCIe bus.\n");
 	return nfp_cpp_from_operations(&nfp->ops);
 

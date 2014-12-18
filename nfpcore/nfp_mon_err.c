@@ -41,7 +41,7 @@
 #include "nfp3200/nfp_event.h"
 #include "nfp3200/nfp_im.h"
 
-#include "nfe.h"
+#include "nfp_common.h"
 #include "nfp_mon_err.h"
 
 #define NFP_ERR_MAX 128

@@ -32,7 +32,7 @@
 #include "nfp-bsp/nfp_resource.h"
 #include "nfp3200/nfp3200.h"
 
-#include "nfe.h"
+#include "nfp_common.h"
 #include "crc32.h"
 #include "nfp_resource.h"
 

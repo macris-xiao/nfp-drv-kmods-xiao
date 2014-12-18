@@ -39,7 +39,7 @@
 #include "nfp3200/nfp_em.h"
 #include "nfp3200/nfp_im.h"
 
-#include "nfe.h"
+#include "nfp_common.h"
 #include "nfp_cpplib.h"
 
 #include "nfp-bsp/nfp_target.h"

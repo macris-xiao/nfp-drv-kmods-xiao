@@ -13,7 +13,12 @@
  * GNU General Public License for more details.
  */
 
+/* This component is only compiled for the NFP's ARM Linux
+ */
 #include <linux/kernel.h>
+
+#ifdef CONFIG_ARCH_NFP
+
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/irq.h>
@@ -1251,3 +1256,5 @@ void nfp3200_plat_exit(void)
 {
 	platform_driver_unregister(&nfp3200_plat_driver);
 }
+
+#endif /* CONFIG_ARCH_NFP */

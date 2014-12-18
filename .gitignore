@@ -3,6 +3,6 @@ modules.order
 *.o.cmd
 *.ko.cmd
 *.o
-nfe_build_info.h
+nfp_build_info.h
 *.ko
 *.mod.c

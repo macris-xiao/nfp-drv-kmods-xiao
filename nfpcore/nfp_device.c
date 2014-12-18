@@ -37,7 +37,7 @@
 #include "nfp3200/nfp3200.h"
 #include "nfp3200/nfp_xpb.h"
 
-#include "nfe.h"
+#include "nfp_common.h"
 #include "nfp_hwinfo.h"
 #include "nfp_mip.h"
 #include "nfp_rtsym.h"
@@ -51,41 +51,6 @@ struct nfp_device_private {
 	 /* Data is allocated immediately after */
 };
 
-/**
- * nfe_getnum - Helper to turn a string into a number
- * @str:	string
- * @end:	output to next char to parse (or ignore if NULL)
- *
- * Converts string contents into a number.  String can start with '0x'
- * for hex '0' for octal, or anything else for decimal.
- */
-u32 nfe_getnum(const char *str, char **end)
-{
-		u32 value;
-		int err;
-
-		while (*str && isspace(*str))
-			str++;
-
-		if (str[0] == '0' && str[1] == 'x')
-			err = sscanf(str, "0x%x", &value);
-		else if (str[0] == '0')
-			err = sscanf(str, "%o", &value);
-		else
-			err = sscanf(str, "%du", &value);
-
-		if (err != 1)
-			value = 0;
-
-		if (end) {
-			while (*str && !isspace(*str))
-				str++;
-			*end = (char *)str;
-		}
-
-		return value;
-}
-
 struct nfp_cpp *nfp_device_cpp(struct nfp_device *nfp)
 {
 		return nfp->cpp;
@@ -94,31 +59,31 @@ struct nfp_cpp *nfp_device_cpp(struct nfp_device *nfp)
 struct nfp_device *nfp_device_from_cpp(struct nfp_cpp *cpp)
 {
 		int err = -ENODEV;
-		struct nfp_device *nfe;
+		struct nfp_device *nfp;
 
-		nfe = kzalloc(sizeof(*nfe), GFP_KERNEL);
-		if (!nfe) {
+		nfp = kzalloc(sizeof(*nfp), GFP_KERNEL);
+		if (!nfp) {
 			err = -ENOMEM;
-			goto err_nfe_alloc;
+			goto err_nfp_alloc;
 		}
-		nfe->cpp = cpp;
+		nfp->cpp = cpp;
 
-		spin_lock_init(&nfe->private_lock);
-		INIT_LIST_HEAD(&nfe->private_list);
+		spin_lock_init(&nfp->private_lock);
+		INIT_LIST_HEAD(&nfp->private_list);
 
-		err = nfp_hwinfo_init(nfe);
+		err = nfp_hwinfo_init(nfp);
 		if (err) {
 			dev_info(nfp_cpp_device(cpp), "NFP is unconfigured, ignoring this device.\n");
 			goto err_hwinfo;
 		}
 
-		err = nfp_miptab_init(nfe);
+		err = nfp_miptab_init(nfp);
 		if (err) {
 			dev_err(nfp_cpp_device(cpp), "Can't initialize MIP\n");
 			goto err_mip;
 		}
 
-		err = nfp_rtsymtab_init(nfe);
+		err = nfp_rtsymtab_init(nfp);
 		if (err) {
 			dev_err(nfp_cpp_device(cpp), "Can't initialize symtab\n");
 			goto err_rtsymtab;
@@ -127,15 +92,15 @@ struct nfp_device *nfp_device_from_cpp(struct nfp_cpp *cpp)
 		/*  Finished with card initialization. */
 		dev_info(nfp_cpp_device(cpp),
 			 "Netronome Flow Processor (NFP) 10-gigabit device.\n");
-		return nfe;
+		return nfp;
 
 err_rtsymtab:
-		nfp_miptab_cleanup(nfe);
+		nfp_miptab_cleanup(nfp);
 err_mip:
-		nfp_hwinfo_cleanup(nfe);
+		nfp_hwinfo_cleanup(nfp);
 err_hwinfo:
-		kfree(nfe);
-err_nfe_alloc:
+		kfree(nfp);
+err_nfp_alloc:
 		return NULL;
 }
 EXPORT_SYMBOL(nfp_device_from_cpp);

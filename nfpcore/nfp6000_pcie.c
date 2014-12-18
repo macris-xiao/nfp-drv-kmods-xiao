@@ -18,9 +18,7 @@
  *
  * vim:shiftwidth=8:noexpandtab
  *
- * @file kernel/nfp6000_pcie.c
- *
- * Multiplexes the NFE BARs between NFE internal resources and
+ * Multiplexes the NFP BARs between NFP internal resources and
  * implements the PCIe specific interface for generic CPP bus access.
  *
  * The BARs are managed with refcounts and are allocated/acquired
@@ -46,7 +44,7 @@
 #include "nfp6000/nfp6000.h"
 #include "nfp-bsp/nfp_target.h"
 
-#include "nfe.h"
+#include "nfp_common.h"
 #include "nfp6000_pcie.h"
 #include "nfp_em_manager.h"
 #include "nfp_cpplib.h"
@@ -180,13 +178,16 @@ struct nfp6000_pcie;
 struct nfp6000_area_priv;
 
 /**
- * struct nfe_bar - describes BAR configuration and usage
+ * struct nfp_bar - describes BAR configuration and usage
+ * @nfp:	backlink to owner
  * @barcfg:	cached contents of BAR config CSR
  * @offset:	the BAR's base CPP offset
  * @mask:       mask for the BAR aperture (read only)
  * @bitsize:	bitsize of BAR aperture (read only)
+ * @index:	index of the BAR
  * @refcnt:	number of current users
- * @nfe_card:	backlink to owner
+ * @iomem:	mapped IO memory
+ * @resource:	iomem resource window
  */
 struct nfp_bar {
 	struct nfp6000_pcie *nfp;
@@ -1643,7 +1644,7 @@ struct nfp_cpp *nfp_cpp_from_nfp6000_pcie(struct pci_dev *pdev, int irq)
 			goto err_em_init;
 	}
 
-	/* Probe for all the common NFP/NFE devices */
+	/* Probe for all the common NFP devices */
 	dev_info(&pdev->dev, "Found a NFP6000 on the PCIe bus.\n");
 	return nfp_cpp_from_operations(&nfp->ops);
 

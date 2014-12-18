@@ -16,10 +16,6 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
- * vim:shiftwidth=8:noexpandtab
- *
- * @file kernel/nfp_mip.c
- *
  * Code for handling Microcode Information Page (MIP).
  *
  */
@@ -32,7 +28,7 @@
 #include "nfp.h"
 #include "nfp-bsp/nfp_resource.h"
 
-#include "nfe.h"
+#include "nfp_common.h"
 #include "nfp_mip.h"
 #include "nfp_resource.h"
 #include "nfp_device.h"
@@ -82,11 +78,11 @@ const void *nfp_mip_find_entry(const struct nfp_mip *mip, u32 entry_type)
 	struct nfp_mip_entry mipent;
 	u32 offset;
 
-	mip_size = nfe_readl(&mip->mip_size);
-	offset = nfe_readl(&mip->first_entry);
+	mip_size = nfp_readl(&mip->mip_size);
+	offset = nfp_readl(&mip->first_entry);
 
 	while (offset < mip_size) {
-		nfe_read(((void *)mip) + offset, &mipent, sizeof(mipent));
+		nfp_read(((void *)mip) + offset, &mipent, sizeof(mipent));
 
 		if (mipent.type == entry_type)
 			return ((void *)mip) + offset;

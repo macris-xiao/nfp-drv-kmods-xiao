@@ -43,7 +43,7 @@
 #include "nfp3200/nfp_arm.h"
 #include "nfp_ca.h"
 
-#include "nfe.h"
+#include "nfp_common.h"
 #include "nfp_dev_cpp.h"
 
 #define NFP_DEV_CPP_DEBUG	0

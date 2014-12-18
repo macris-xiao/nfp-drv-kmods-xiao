@@ -16,14 +16,10 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
- * vim:shiftwidth=8:noexpandtab
- *
- * @file kernel/nfe.h
- *
- * Common declarations for the NFE drivers.
+ * Common declarations for the NFP drivers.
  */
-#ifndef __KERNEL__NFE_H__
-#define __KERNEL__NFE_H__
+#ifndef __KERNEL__NFP_H__
+#define __KERNEL__NFP_H__
 
 #include <linux/version.h>
 #include <linux/pci.h>
@@ -39,13 +35,11 @@
 
 #include "nfp_cpp_kernel.h"
 
-#include "nfe_compat.h"
+#include "kcompat.h"
 
 #define PCI_64BIT_BAR_COUNT             3
 
-extern struct class *nfe_class;
 struct nfp_device;
-struct nfe_rtsym;
 
 /*
  * NFP hardware vendor/device ids.  Should be added to Linux.
@@ -59,17 +53,17 @@ struct nfe_rtsym;
  * Helper functions for accessing NFP memory directly.
  */
 
-static inline u32 nfe_readl(const void __iomem *src)
+static inline u32 nfp_readl(const void __iomem *src)
 {
 	return readl(src);
 }
 
-static inline void nfe_writel(void __iomem *dst, u32 value)
+static inline void nfp_writel(void __iomem *dst, u32 value)
 {
 	writel(value, dst);
 }
 
-static inline void nfe_read(const void __iomem *src, void *dst, u32 size)
+static inline void nfp_read(const void __iomem *src, void *dst, u32 size)
 {
 	const u32 __iomem *s = src;
 	u32 *d = dst;
@@ -79,7 +73,7 @@ static inline void nfe_read(const void __iomem *src, void *dst, u32 size)
 		d[n] = __raw_readl(s + n);
 }
 
-static inline void nfe_write(const void *src, void __iomem *dst, u32 size)
+static inline void nfp_write(const void *src, void __iomem *dst, u32 size)
 {
 	const u32 *s = src;
 	u32 __iomem *d = dst;
@@ -89,16 +83,16 @@ static inline void nfe_write(const void *src, void __iomem *dst, u32 size)
 		__raw_writel(s[n], d + n);
 }
 
-static inline void nfe_fill(void __iomem *dst, u32 size, u32 value)
+static inline void nfp_fill(void __iomem *dst, u32 size, u32 value)
 {
 	u32 __iomem *d = dst;
 	int n;
 
 	for (n = 0; n < size / sizeof(u32); n++)
-		nfe_writel(d+n, value);
+		nfp_writel(d+n, value);
 }
 
-static inline void nfe_swizzle_words(void *buf, u32 size)
+static inline void nfp_swizzle_words(void *buf, u32 size)
 {
 #ifdef __BIG_ENDIAN
 	u32 *__buf = buf;
@@ -124,4 +118,4 @@ struct nfp_device_config {
  * End:
  */
 
-#endif  /* __KERNEL__NFE_H__ */
+#endif  /* __KERNEL__NFP_H__ */

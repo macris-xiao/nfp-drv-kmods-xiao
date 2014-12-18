@@ -35,7 +35,7 @@
 
 #include "nfp-bsp/nfp_resource.h"
 
-#include "nfe.h"
+#include "nfp_common.h"
 #include "nfp_cpplib.h"
 #include "nfp_resource.h"
 

@@ -19,8 +19,8 @@
 #include <linux/module.h>
 #include <linux/pci.h>
 
-#include "nfpcore/nfe.h"
-#include "nfe_modinfo.h"
+#include "nfpcore/nfp_common.h"
+#include "nfp_modinfo.h"
 
 #include "nfpcore/nfp_cpplib.h"
 

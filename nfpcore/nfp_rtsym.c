@@ -25,7 +25,7 @@
 #include <linux/kref.h>
 #include <linux/slab.h>
 
-#include "nfe.h"
+#include "nfp_common.h"
 #include "nfp_device.h"
 
 #include "nfp3200/nfp3200.h"
@@ -165,10 +165,10 @@ static const struct nfp_rtsymtab *nfp_rtsym_acquire(struct nfp_device *nfp)
 	if (!mip)
 		return NULL;
 
-	symtab_addr = nfe_readl(&mip->symtab_addr);
-	symtab_size = nfe_readl(&mip->symtab_size);
-	strtab_addr = nfe_readl(&mip->strtab_addr);
-	strtab_size = nfe_readl(&mip->strtab_size);
+	symtab_addr = nfp_readl(&mip->symtab_addr);
+	symtab_size = nfp_readl(&mip->symtab_size);
+	strtab_addr = nfp_readl(&mip->strtab_addr);
+	strtab_size = nfp_readl(&mip->strtab_size);
 
 	/* Round up the size to multiples of 64b */
 	symtab_size = (symtab_size + 7) & ~7;
@@ -209,7 +209,7 @@ static const struct nfp_rtsymtab *nfp_rtsym_acquire(struct nfp_device *nfp)
 		goto err_read_strtab;
 	symtab->strtab[strtab_size] = '\0';
 
-	nfe_swizzle_words(nfpsymtab, symtab_size);
+	nfp_swizzle_words(nfpsymtab, symtab_size);
 
 	for (n = 0; n < symtab->symcnt; n++) {
 		symtab->syms[n].type = nfpsymtab[n].type;

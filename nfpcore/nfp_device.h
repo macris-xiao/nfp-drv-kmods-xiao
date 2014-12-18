@@ -39,19 +39,19 @@ struct nfp_device {
 	struct list_head private_list;
 };
 
-#define NFE_SUBSYS ""
-#define nfp_err(nfe, fmt, args...) \
-	dev_err(nfp_cpp_device((nfe)->cpp), NFE_SUBSYS fmt, ## args)
-#define nfp_warn(nfe, fmt, args...) \
-	dev_warn(nfp_cpp_device((nfe)->cpp), NFE_SUBSYS fmt, ## args)
-#define nfp_info(nfe, fmt, args...) \
-	dev_info(nfp_cpp_device((nfe)->cpp), NFE_SUBSYS fmt, ## args)
-#define nfp_dbg(nfe, fmt, args...) \
-	dev_dbg(nfp_cpp_device((nfe)->cpp), NFE_SUBSYS fmt, ## args)
-#define nfp_trace(nfe, fmt, args...) \
-	trace_printk("%s %s: " NFE_SUBSYS fmt, \
-			dev_driver_string((nfe)->dev), \
-			dev_name((nfe)->dev), ## args)
+#define NFP_SUBSYS ""
+#define nfp_err(nfp, fmt, args...) \
+	dev_err(nfp_cpp_device((nfp)->cpp), NFP_SUBSYS fmt, ## args)
+#define nfp_warn(nfp, fmt, args...) \
+	dev_warn(nfp_cpp_device((nfp)->cpp), NFP_SUBSYS fmt, ## args)
+#define nfp_info(nfp, fmt, args...) \
+	dev_info(nfp_cpp_device((nfp)->cpp), NFP_SUBSYS fmt, ## args)
+#define nfp_dbg(nfp, fmt, args...) \
+	dev_dbg(nfp_cpp_device((nfp)->cpp), NFP_SUBSYS fmt, ## args)
+#define nfp_trace(nfp, fmt, args...) \
+	trace_printk("%s %s: " NFP_SUBSYS fmt, \
+			dev_driver_string((nfp)->dev), \
+			dev_name((nfp)->dev), ## args)
 
 #endif /* NFP_DEVICE_H */
 /* vim: set shiftwidth=4 expandtab:  */

@@ -27,7 +27,7 @@
 #include "nfp_nbi_mac_stats.h"
 #include "nfp_nbi_phymod.h"
 
-#include "nfe.h"
+#include "nfp_common.h"
 #include "nfp_net_null.h"
 
 #define TX_TIMEOUT	(2 * HZ)

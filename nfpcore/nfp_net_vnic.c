@@ -34,7 +34,7 @@
 #include <linux/io.h>
 #include <linux/in6.h>
 
-#include "nfe_compat.h"
+#include "nfp_common.h"
 
 #include "nfp_cpp_kernel.h"
 
@@ -49,7 +49,7 @@
 #define PKTBUF_OFFSET		(2) /* ((4 - (sizeof(struct ethhdr))) & 0xf) */
 
 /*
- * The NFE net splits the BAR memory into two equal parts, one in each
+ * The NFP net splits the BAR memory into two equal parts, one in each
  * direction.  The host Rx part corresponds to the ARM's Tx part and
  * vice versa.
  *
@@ -318,7 +318,7 @@ static void nfp_net_vnic_rx_poll(struct nfp_net_vnic *vnic)
 }
 
 /**
- * nfp_net_vnic_schedule - Schedule NFE net timer to trigger again
+ * nfp_net_vnic_schedule - Schedule NFP net timer to trigger again
  * @vnic:	vnic pointer
  */
 static inline void nfp_net_vnic_schedule(struct nfp_net_vnic *vnic)
@@ -544,8 +544,8 @@ mac_out:
 	 * unique MAC address. store the remote address in our state for
 	 * export via sysfs.
 	 * If the fall-back DEFAULT_MAC was used, generate a unique MAC
-	 * address for each interface on the host side by adding the nfeid
-	 * to the MAC. On the ARM side we cannot determine the nfeid and thus
+	 * address for each interface on the host side by adding the NFP id
+	 * to the MAC. On the ARM side we cannot determine the NFP id and thus
 	 * cannot work out the remote MAC address. */
 	if (vnic->hostside) {
 		mac_addr[0] |= 0x4;
@@ -717,7 +717,7 @@ static int nfp_net_vnic_probe(struct platform_device *pdev)
 	if (err)
 		goto err_add_attr;
 
-	nfp_net_vnic_info(vnic, "%s: Netronome NFE Net. MAC Address: %pM\n",
+	nfp_net_vnic_info(vnic, "%s: NFP vNIC MAC Address: %pM\n",
 		     netdev->name, netdev->dev_addr);
 
 	return 0;

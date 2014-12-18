@@ -16,10 +16,10 @@
 #include <linux/kernel.h>
 #include <linux/delay.h>
 
+#include "nfp_common.h"
 #include "nfp_cpp.h"
 #include "nfp_ca.h"
 
-#include "nfe.h"
 #include "crc32.h"
 
 int nfp_ca_cb_cpp(void *priv, enum nfp_ca_action action,

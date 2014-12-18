@@ -16,16 +16,12 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
- * vim:shiftwidth=8:noexpandtab
- *
- * @file kernel/nfe_modinfo.h
- *
  * Common declarations for defining module build information.
  */
-#ifndef __KERNEL__NFE_MODINFO_H__
-#define __KERNEL__NFE_MODINFO_H__
+#ifndef __KERNEL__NFP_MODINFO_H__
+#define __KERNEL__NFP_MODINFO_H__
 
-#include "nfe_build_info.h"	/* dynamically generated filed */
+#include "nfp_build_info.h"	/* dynamically generated filed */
 
 #define MODULE_INFO_NFP() \
 	MODULE_INFO(nfp_src_version, NFP_SRC_VERSION); \
@@ -43,4 +39,4 @@
 	#drvname " build host: " NFP_BUILD_HOST "\n"		\
 	#drvname " build path: " NFP_BUILD_PATH "\n"
 
-#endif	/* __KERNEL__NFE_MODINFO_H__ */
+#endif	/* __KERNEL__NFP_MODINFO_H__ */

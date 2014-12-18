@@ -16,14 +16,10 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
- * vim:shiftwidth=8:noexpandtab
- *
- * @file kernel/nfe_compat.h
- *
  * Common declarations for kernel backwards compatibility.
  */
-#ifndef __KERNEL__NFE_COMPAT_H__
-#define __KERNEL__NFE_COMPAT_H__
+#ifndef __KERNEL__NFP_COMPAT_H__
+#define __KERNEL__NFP_COMPAT_H__
 
 #include <linux/kernel.h>
 #include <linux/version.h>
@@ -83,18 +79,22 @@ static inline unsigned long resource_type(const struct resource *res)
 }
 #endif
 
-#if defined(NFE_COMPAT_NEED_DEVM_IOREMAP)
-static inline void __iomem *devm_ioremap_nocache(
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 21)
+static inline void __iomem *compat_devm_ioremap_nocache(
 		struct device *dev, resource_size_t offset, unsigned long size)
 {
 	return ioremap_nocache(offset, size);
 }
 
-static inline void devm_iounmap(struct device *dev, void __iomem *addr)
+static inline void compat_devm_iounmap(struct device *dev, void __iomem *addr)
 {
 	iounmap(addr);
 }
-#endif /* NFE_COMPAT_NEED_DEVM_IOREMAP  */
+#undef devm_ioremap_nocache
+#undef devm_iounmap
+#define devm_ioremap_nocache(_d, _o, _s) compat_devm_ioremap_nocache(_d, _o, _s)
+#define devm_iounmap(_d, _a) compat_devm_iounmap(_d, _a)
+#endif /* < 2.6.21 */
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3, 0, 0)
 static inline int compat_kstrtoul(const char *str, int base, unsigned long *res)
@@ -250,11 +250,13 @@ static inline int const_seq_open(struct file *file,
 #endif
 #endif
 
-#if LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 32) && !defined(NFE_RHEL6)
-static inline long IS_ERR_OR_NULL(const void *ptr)
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 32)
+static inline long compat_IS_ERR_OR_NULL(const void *ptr)
 {
 	return !ptr || IS_ERR_VALUE((unsigned long)ptr);
 }
+#undef IS_ERR_OR_NULL
+#define IS_ERR_OR_NULL(x) compat_IS_ERR_OR_NULL(x)
 #endif
 
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 29)
@@ -419,7 +421,7 @@ static inline int compat_kstrtol(const char *cp, int base, long *valp)
 #define kstrtol(cp, base, valp) compat_kstrtol(cp, base, valp)
 #endif
 
-#endif	/* __KERNEL__NFE_COMPAT_H__ */
+#endif	/* __KERNEL__NFP_COMPAT_H__ */
 
 /*
  * Local variables:

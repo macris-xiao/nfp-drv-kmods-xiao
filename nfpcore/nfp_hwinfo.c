@@ -16,10 +16,6 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
- * vim:shiftwidth=8:noexpandtab
- *
- * @file kernel/nfp_hwinfo.c
- *
  * Parses the hwinfo table that the ARM firmware builds in the ARM scratch SRAM
  * after chip reset.
  *
@@ -62,13 +58,13 @@
 #include "nfp3200/nfp_xpb.h"
 #include "nfp3200/nfp_pl.h"
 
-#include "nfe.h"
+#include "nfp_common.h"
 #include "nfp_device.h"
 
 #define HWINFO_SIZE_MIN	0x100
 
-#undef NFE_SUBSYS
-#define NFE_SUBSYS "[HWINFO] "
+#undef NFP_SUBSYS
+#define NFP_SUBSYS "[HWINFO] "
 
 static int hwinfo_wait = 15;	/* 15 seconds */
 module_param(hwinfo_wait, int, S_IRUGO);
