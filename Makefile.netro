@@ -2,4 +2,4 @@
 # General settings
 ######################################################################
 
-nfp-kmods-dir      := $(SRCDIR_REL)
+nfp-drv-kmods-dir	:= $(SRCDIR_REL)
