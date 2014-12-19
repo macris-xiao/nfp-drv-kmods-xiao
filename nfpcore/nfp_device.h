@@ -20,20 +20,11 @@
 #include <linux/list.h>
 #include <linux/spinlock.h>
 
-#include "nfp_mip.h"
-#include "nfp_rtsym.h"
-
 struct nfp_device {
 	int cpp_free;
 	struct nfp_cpp *cpp;
 
 	void *hwinfo;
-
-	spinlock_t miptab_lock;	/* Lock protecting the MIP pointer */
-	struct nfp_miptab *miptab;
-
-	spinlock_t rtsymtab_lock; /* Lock protecting the rtsymtab pointer */
-	struct nfp_rtsymtab *rtsymtab;
 
 	spinlock_t private_lock;
 	struct list_head private_list;

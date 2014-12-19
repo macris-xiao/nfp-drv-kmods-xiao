@@ -17,6 +17,8 @@
 #ifndef KERNEL_NFP_RTSYMSTAB_H
 #define KERNEL_NFP_RTSYMSTAB_H
 
+#include "nfp.h"
+
 #define NFP_RTSYM_TYPE_NONE		(0)
 #define NFP_RTSYM_TYPE_OBJECT		(1)
 #define NFP_RTSYM_TYPE_FUNCTION		(2)
@@ -36,11 +38,8 @@ struct nfp_rtsym {
 	int domain;
 };
 
-int nfp_rtsymtab_init(struct nfp_device *nfp);
-void nfp_rtsymtab_cleanup(struct nfp_device *nfp);
-
 void nfp_rtsym_reload(struct nfp_device *nfp);
-size_t nfp_rtsym_count(struct nfp_device *nfp);
+int nfp_rtsym_count(struct nfp_device *dev);
 const struct nfp_rtsym *nfp_rtsym_entry(struct nfp_device *nfp, size_t idx);
 const struct nfp_rtsym *nfp_rtsym_lookup(struct nfp_device *nfp,
 					 const char *name);

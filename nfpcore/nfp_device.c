@@ -39,8 +39,6 @@
 
 #include "nfp_common.h"
 #include "nfp_hwinfo.h"
-#include "nfp_mip.h"
-#include "nfp_rtsym.h"
 
 #include "nfp_device.h"
 
@@ -89,27 +87,11 @@ struct nfp_device *nfp_device_from_cpp(struct nfp_cpp *cpp)
 			goto err_hwinfo;
 		}
 
-		err = nfp_miptab_init(nfp);
-		if (err) {
-			dev_err(nfp_cpp_device(cpp), "Can't initialize MIP\n");
-			goto err_mip;
-		}
-
-		err = nfp_rtsymtab_init(nfp);
-		if (err) {
-			dev_err(nfp_cpp_device(cpp), "Can't initialize symtab\n");
-			goto err_rtsymtab;
-		}
-
 		/*  Finished with card initialization. */
 		dev_info(nfp_cpp_device(cpp),
 			 "Netronome Flow Processor (NFP) 10-gigabit device.\n");
 		return nfp;
 
-err_rtsymtab:
-		nfp_miptab_cleanup(nfp);
-err_mip:
-		nfp_hwinfo_cleanup(nfp);
 err_hwinfo:
 		kfree(nfp);
 err_nfp_alloc:
@@ -134,8 +116,6 @@ void nfp_device_close(struct nfp_device *nfp)
 			kfree(priv);
 		}
 
-		nfp_rtsymtab_cleanup(nfp);
-		nfp_miptab_cleanup(nfp);
 		nfp_hwinfo_cleanup(nfp);
 
 		if (nfp->cpp_free)

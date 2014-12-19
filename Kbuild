@@ -48,26 +48,27 @@ obj-$(CONFIG_MFD_NFP) += nfp.o
 nfp-objs := nfpcore/nfp3200_pcie.o \
 	    nfpcore/nfp3200_plat.o \
 	    nfpcore/nfp6000_pcie.o \
+	    nfpcore/nfp6000_nbi.o \
+	    nfpcore/crc32.o \
+	    nfpcore/i2c.o \
+	    nfpcore/i2c_gpio.o \
 	    nfpcore/nfp_ca.o \
 	    nfpcore/nfp_cppcore.o \
 	    nfpcore/nfp_cpplib.o \
+	    nfpcore/nfp_dev_cpp.o \
 	    nfpcore/nfp_device.o \
 	    nfpcore/nfp_em_manager.o \
-	    nfpcore/nfp_resource.o \
-	    nfpcore/nfp6000_nbi.o \
 	    nfpcore/nfp_gpio.o \
-	    nfpcore/nfp_i2c.o \
-	    nfpcore/i2c.o \
-	    nfpcore/i2c_gpio.o \
-	    nfpcore/nfp_nbi_phymod.o \
-	    nfpcore/crc32.o \
-	    nfpcore/nfp_mip.o \
 	    nfpcore/nfp_hwinfo.o \
-	    nfpcore/nfp_rtsym.o \
-	    nfpcore/nfp_dev_cpp.o \
+	    nfpcore/nfp_i2c.o \
+	    nfpcore/nfp_mip.o \
 	    nfpcore/nfp_mon_err.o \
+	    nfpcore/nfp_nbi_phymod.o \
 	    nfpcore/nfp_net_null.o \
 	    nfpcore/nfp_net_vnic.o \
+	    nfpcore/nfp_nffw.o \
+	    nfpcore/nfp_resource.o \
+	    nfpcore/nfp_rtsym.o \
 	    nfp_main.o
 
 
