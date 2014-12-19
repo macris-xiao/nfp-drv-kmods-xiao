@@ -609,7 +609,7 @@ static ssize_t show_barcfg(struct device *dev, struct device_attribute *attr,
 			   char *buf)
 {
 	static char *bartype[4] = { "bulk", "CPP", "mixed", "invalid" };
-	struct nfp3200_pcie *nfp = dev_get_drvdata(dev);
+	struct nfp3200_pcie *nfp = nfp_cpp_priv(dev_get_drvdata(dev));
 	struct nfp_bar *bar = nfp->bars;
 	int n, maptype, tgtact, tokactsel, length;
 	ssize_t off = 0;
