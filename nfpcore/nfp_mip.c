@@ -66,12 +66,15 @@ static void __mip_update_byteorder(struct nfp_mip *mip)
 		case NFP_MIP_TYPE_QC:
 		{
 			struct nfp_mip_qc *qc = (struct nfp_mip_qc *) ent;
+
 			if (qc->version != NFP_MIP_QC_VERSION)
 				break;
 			qc->type_config = le32_to_cpu(qc->type_config);
-			qc->type_config_size = le32_to_cpu(qc->type_config_size);
+			qc->type_config_size =
+				le32_to_cpu(qc->type_config_size);
 			qc->host_config = le32_to_cpu(qc->host_config);
-			qc->host_config_size = le32_to_cpu(qc->host_config_size);
+			qc->host_config_size =
+				le32_to_cpu(qc->host_config_size);
 			qc->config_signal = le32_to_cpu(qc->config_signal);
 			qc->nfp_queue_size = le32_to_cpu(qc->nfp_queue_size);
 			qc->queue_base = le32_to_cpu(qc->queue_base);
@@ -86,10 +89,13 @@ static void __mip_update_byteorder(struct nfp_mip *mip)
 		case NFP_MIP_TYPE_VPCI:
 		{
 			struct nfp_mip_vpci *vpci = (struct nfp_mip_vpci *) ent;
+
 			if (vpci->version != NFP_MIP_VPCI_VERSION)
 				break;
-			vpci->vpci_epconfig = le32_to_cpu(vpci->vpci_epconfig);
-			vpci->vpci_epconfig_size = le32_to_cpu(vpci->vpci_epconfig_size);
+			vpci->vpci_epconfig =
+				le32_to_cpu(vpci->vpci_epconfig);
+			vpci->vpci_epconfig_size =
+				le32_to_cpu(vpci->vpci_epconfig_size);
 			break;
 		}
 
@@ -109,8 +115,7 @@ static void __nfp_mip_des(void *data)
 {
 	struct nfp_mip_priv *priv = data;
 
-	if (priv->mip)
-		kfree(priv->mip);
+	kfree(priv->mip);
 }
 
 static void *__nfp_mip_con(struct nfp_device *dev)
@@ -131,22 +136,21 @@ struct nfp_mip *nfp_mip(struct nfp_device *dev)
 }
 
 static inline int _nfp6000_cppat_mu_locality_lsb(int mode,
-    int addr40)
+	int addr40)
 {
-    switch (mode)
-    {
-    case 0:
-    case 1:
-    case 2:
-    case 3:
-        return (addr40) ? 38 : 30;
-    default:
-        break;
-    }
-    return -EINVAL;
+	switch (mode) {
+	case 0:
+	case 1:
+	case 2:
+	case 3:
+		return (addr40) ? 38 : 30;
+	default:
+		break;
+	}
+	return -EINVAL;
 }
 
-#define   NFP_IMB_TgtAddressModeCfg_Mode_of(_x)              (((_x) >> 13) & 0x7)
+#define   NFP_IMB_TgtAddressModeCfg_Mode_of(_x)      (((_x) >> 13) & 0x7)
 #define   NFP_IMB_TgtAddressModeCfg_AddrMode                 (1 << 12)
 #define     NFP_IMB_TgtAddressModeCfg_AddrMode_32_bit        (0 << 12)
 #define     NFP_IMB_TgtAddressModeCfg_AddrMode_40_bit        (1 << 12)
@@ -158,7 +162,7 @@ static int nfp_mip_nfp6000_mu_locality_lsb(struct nfp_device *dev)
 	int err;
 
 	if (!cpp)
-	   return -ENODEV;
+		return -ENODEV;
 
 	/* Hardcoded XPB IMB Base, island 0 */
 	xpbaddr = 0x000a0000 + (NFP_CPP_TARGET_MU * 4);
@@ -195,18 +199,22 @@ int __nfp_mip_location(struct nfp_device *dev,
 		if ((nfp_nffw_info_fw_mip(dev, nfp_nffw_info_fwid_first(dev),
 				&mip_cppid, &mip_off) == 0) &&
 			(mip_cppid != 0) &&
-			(NFP_CPP_ID_TARGET_of(mip_cppid) == NFP_CPP_TARGET_MU)) {
+			(NFP_CPP_ID_TARGET_of(mip_cppid) ==
+						NFP_CPP_TARGET_MU)) {
 			if ((mip_off >> 63) & 1) {
 				mip_off &= ~(UINT64_C(1) << 63);
 				mip_off &= ~(UINT64_C(0x3) << mu_lsb);
-				mip_off |= ((uint64_t)2 << mu_lsb); /* Direct Access */
+				/* Direct Access */
+				mip_off |= ((uint64_t)2 << mu_lsb);
 			}
 		}
 		nfp_nffw_info_release(dev);
 	}
 
 	if (mip_cppid == 0) {
-		for (mip_off = 0; mip_off < NFP_MIP_MAX_OFFSET; mip_off += 4096) {
+		for (mip_off = 0;
+		     mip_off < NFP_MIP_MAX_OFFSET;
+		     mip_off += 4096) {
 			uint32_t cpp_id = NFP_CPP_ID(NFP_CPP_TARGET_MU,
 						     NFP_CPP_ACTION_RW, 0);
 			retval = nfp_cpp_read(cpp, cpp_id,
@@ -243,7 +251,7 @@ int _nfp_mip_scan(struct nfp_device *dev, int is_load)
 {
 #if 1
 	/* Since we scan from the host there is not need to ping the kernel */
-	return 0 ;
+	return 0;
 #else
 	char path[PATH_MAX];
 	FILE *mipfile;
@@ -277,12 +285,9 @@ int nfp_mip_probe(struct nfp_device *dev)
 	struct nfp_mip *mip;
 	int retval;
 
-#   undef __nfp_mip_location /* force remote call */
 	retval = __nfp_mip_location(dev, &cpp_id, &addr, &size, &time);
-	if (retval != 0) {
-pr_info("%s: %d\n", __func__, __LINE__);
+	if (retval != 0)
 		return -ENODEV;
-	}
 
 	if (priv->mip && priv->mip->loadtime == time)
 		return 0; /* No change */
@@ -293,19 +298,18 @@ pr_info("%s: %d\n", __func__, __LINE__);
 	 */
 
 	if (priv->mip) {
-		/* Invalidate rtsym first, it may want to still look at the mip */
+		/* Invalidate rtsym first, it may want to
+		 * still look at the mip
+		 */
 		nfp_rtsym_reload(dev);
 		kfree(priv->mip);
 		priv->mip = NULL;
 	}
 
 	mip = kmalloc(size, GFP_KERNEL);
-	if (!mip) {
-pr_info("%s: %d\n", __func__, __LINE__);
+	if (!mip)
 		return -ENOMEM;
-	}
 
-#   undef nfp_dram_read /* force remote call */
 	retval = nfp_cpp_read(nfp_device_cpp(dev), cpp_id, addr, mip, size);
 	if (retval != size) {
 		kfree(mip);
@@ -315,7 +319,6 @@ pr_info("%s: %d\n", __func__, __LINE__);
 	if ((le32_to_cpu(mip->signature) != NFP_MIP_SIGNATURE) ||
 		(le32_to_cpu(mip->mip_version) != NFP_MIP_VERSION)) {
 		kfree(mip);
-pr_info("%s: %d\n", __func__, __LINE__);
 		return -EIO;
 	}
 

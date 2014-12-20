@@ -52,8 +52,10 @@ static inline struct nfp_nffw_info *_nfp_nffw_info(
 	struct nfp_device *dev)
 {
 	struct nfp_nffw_info_priv *priv = _nfp_nffw_priv(dev);
+
 	if (!priv)
 		return NULL;
+
 	return &priv->fwinf;
 }
 
@@ -66,9 +68,8 @@ int nfp_nffw_info_acquire(struct nfp_device *dev)
 #if 0
 	const struct nfp_chipdata_chip *chip = nfp_device_chip(dev);
 
-	if (!chip) {
+	if (!chip)
 		return -EINVAL;
-	}
 #endif
 
 	res = nfp_resource_acquire(dev, NFP_RESOURCE_NFP_NFFW);
@@ -86,7 +87,7 @@ int nfp_nffw_info_acquire(struct nfp_device *dev)
 			&priv->fwinf, sizeof(priv->fwinf));
 		if (err < 0) {
 			nfp_resource_release(res);
-			return -1;
+			return err;
 		}
 
 #if (NFP_HOST_ENDIAN != NFP_ENDIAN_LITTLE)
@@ -95,14 +96,15 @@ int nfp_nffw_info_acquire(struct nfp_device *dev)
 			uint32_t *v;
 			size_t i;
 
-			for (i = 0, v = (uint32_t*)&priv->fwinf; i < sizeof(priv->fwinfo);
-				 i += sizeof(*v), v++) {
+			for (i = 0, v = (uint32_t *)&priv->fwinf;
+			     i < sizeof(priv->fwinfo);
+			     i += sizeof(*v), v++) {
 				*v = NFP_LETOH32(*v);
 			}
 		}
 #endif
 	} else {
-		return -1;
+		return -ENODEV;
 	}
 
 	if (!nffw_res_flg_init_get(&priv->fwinf)) {
@@ -153,8 +155,9 @@ int nfp_nffw_info_release(struct nfp_device *dev)
 			uint32_t *v;
 			size_t i;
 
-			for (i = 0, v = (uint32_t*)&priv->fwinf; i < sizeof(priv->fwinfo);
-				 i += sizeof(*v), v++) {
+			for (i = 0, v = (uint32_t *)&priv->fwinf;
+			     i < sizeof(priv->fwinfo);
+			     i += sizeof(*v), v++) {
 				*v = NFP_HTOLE32(*v);
 			}
 		}
@@ -168,7 +171,7 @@ int nfp_nffw_info_release(struct nfp_device *dev)
 		priv->dev = NULL;
 		priv->res = NULL;
 		if (err < 0)
-			return -1;
+			return err;
 	}
 
 	return 0;
@@ -177,6 +180,7 @@ int nfp_nffw_info_release(struct nfp_device *dev)
 int nfp_nffw_info_fw_loaded(struct nfp_device *dev)
 {
 	struct nfp_nffw_info *fwinf = _nfp_nffw_info(dev);
+
 	if (!fwinf)
 		return 0;
 
@@ -186,9 +190,9 @@ int nfp_nffw_info_fw_loaded(struct nfp_device *dev)
 int nfp_nffw_info_fw_loaded_set(struct nfp_device *dev, int is_loaded)
 {
 	struct nfp_nffw_info *fwinf = _nfp_nffw_info(dev);
-	if (!fwinf) {
+
+	if (!fwinf)
 		return -EINVAL;
-	}
 
 	nffw_res_flg_loaded_set(fwinf, (is_loaded) ? 1 : 0);
 	return 0;
@@ -197,6 +201,7 @@ int nfp_nffw_info_fw_loaded_set(struct nfp_device *dev, int is_loaded)
 int nfp_nffw_info_fw_modular(struct nfp_device *dev)
 {
 	struct nfp_nffw_info *fwinf = _nfp_nffw_info(dev);
+
 	if (!fwinf)
 		return 0;
 
@@ -206,11 +211,12 @@ int nfp_nffw_info_fw_modular(struct nfp_device *dev)
 int nfp_nffw_info_fw_modular_set(struct nfp_device *dev, int is_modular)
 {
 	struct nfp_nffw_info *fwinf = _nfp_nffw_info(dev);
-	if (!fwinf) {
+
+	if (!fwinf)
 		return -EINVAL;
-	}
 
 	nffw_res_flg_modular_set(fwinf, (is_modular) ? 1 : 0);
+
 	return 0;
 }
 
@@ -233,15 +239,14 @@ uint8_t nfp_nffw_info_me_ctxmask(struct nfp_device *dev, int meid)
 }
 
 int nfp_nffw_info_me_ctxmask_set(struct nfp_device *dev,
-								 int meid, uint8_t ctxmask)
+				 int meid, uint8_t ctxmask)
 {
 	size_t idx;
 	struct nffw_meinfo *meinfo;
 	struct nfp_nffw_info *fwinf = _nfp_nffw_info(dev);
 
-	if (!fwinf) {
+	if (!fwinf)
 		return -ENODEV;
-	}
 
 	for (idx = 0, meinfo = &fwinf->meinfo[0];
 		 idx < NFFW_MEINFO_CNT; idx++, meinfo++) {
@@ -279,31 +284,28 @@ int nfp_nffw_info_me_fwid_set(struct nfp_device *dev, int meid,
 	struct nffw_meinfo *meinfo;
 	struct nfp_nffw_info *fwinf = _nfp_nffw_info(dev);
 
-	if (!fwinf) {
+	if (!fwinf)
 		return -ENODEV;
-	}
 
-	if (fwid == NFFW_FWID_ALL) {
+	if (fwid == NFFW_FWID_ALL)
 		return -EINVAL;
-	}
 
 	for (idx = 0, meinfo = &fwinf->meinfo[0];
 		 idx < NFFW_MEINFO_CNT; idx++, meinfo++)
 		if ((int)nffw_meinfo_meid_get(meinfo) == meid)
 			break;
 
-	if (idx == NFFW_MEINFO_CNT) {
+	if (idx == NFFW_MEINFO_CNT)
 		return -ENOENT;
-	}
 
 	if (fwid) {
 		nffw_meinfo_fwid_set(meinfo, fwid);
-	} else { 
+	} else {
 		nffw_meinfo_fwid_set(meinfo, 0);
 		nffw_meinfo_ctxmask_set(meinfo, 0);
 	}
 
-	return 0; 
+	return 0;
 }
 
 uint8_t nfp_nffw_info_fwid_alloc(struct nfp_device *dev)
@@ -333,9 +335,8 @@ int nfp_nffw_info_fwid_free(struct nfp_device *dev, uint8_t fwid)
 	size_t idx;
 	struct nfp_nffw_info *fwinf = _nfp_nffw_info(dev);
 
-	if (!fwinf) {
+	if (!fwinf)
 		return -ENODEV;
-	}
 
 	if ((fwid == 0) || (fwid == NFFW_FWID_ALL)) {
 		for (idx = 0, meinfo = &fwinf->meinfo[0];
@@ -354,9 +355,8 @@ int nfp_nffw_info_fwid_free(struct nfp_device *dev, uint8_t fwid)
 		return 0;
 	}
 
-	if (fwid < NFFW_FWID_BASE) {
+	if (fwid < NFFW_FWID_BASE)
 		return -EINVAL;
-	}
 
 	fwinfo = &fwinf->fwinfo[fwid - NFFW_FWID_BASE];
 	nffw_fwinfo_loaded_set(fwinfo, 0);
@@ -411,24 +411,21 @@ uint8_t nfp_nffw_info_fwid_next(struct nfp_device *dev, uint8_t fwid)
 }
 
 int nfp_nffw_info_fw_mip(struct nfp_device *dev, uint8_t fwid,
-						 uint32_t *cpp_id, uint64_t *off)
+			 uint32_t *cpp_id, uint64_t *off)
 {
 	struct nffw_fwinfo *fwinfo;
 	struct nfp_nffw_info *fwinf = _nfp_nffw_info(dev);
 
-	if (!fwinf) {
+	if (!fwinf)
 		return -ENODEV;
-	}
 
-	if (fwid < NFFW_FWID_BASE) {
+	if (fwid < NFFW_FWID_BASE)
 		return -EINVAL;
-	}
 
 	fwinfo = &fwinf->fwinfo[fwid - NFFW_FWID_BASE];
 
-	if (!nffw_fwinfo_loaded_get(fwinfo)) {
+	if (!nffw_fwinfo_loaded_get(fwinfo))
 		return -ENOENT;
-	}
 
 	if (cpp_id)
 		*cpp_id = nffw_fwinfo_mip_cppid_get(fwinfo);
@@ -447,19 +444,16 @@ int nfp_nffw_info_fw_mip_set(struct nfp_device *dev, uint8_t fwid,
 	struct nffw_fwinfo *fwinfo;
 	struct nfp_nffw_info *fwinf = _nfp_nffw_info(dev);
 
-	if (!fwinf) {
+	if (!fwinf)
 		return -ENODEV;
-	}
 
-	if (fwid < NFFW_FWID_BASE) {
+	if (fwid < NFFW_FWID_BASE)
 		return -EINVAL;
-	}
 
 	fwinfo = &fwinf->fwinfo[fwid - NFFW_FWID_BASE];
 
-	if (!nffw_fwinfo_loaded_get(fwinfo)) {
+	if (!nffw_fwinfo_loaded_get(fwinfo))
 		return -ENOENT;
-	}
 
 	nffw_fwinfo_mip_cppid_set(fwinfo, cpp_id);
 	nffw_fwinfo_mip_offset_set(fwinfo, off);

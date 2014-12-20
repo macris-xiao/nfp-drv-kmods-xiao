@@ -15,61 +15,61 @@
 #define NFP_MIP_VPCI_VERSION    1
 
 enum nfp_mip_entry_type {
-    NFP_MIP_TYPE_NONE = 0,
-    NFP_MIP_TYPE_QC = 1,
-    NFP_MIP_TYPE_VPCI = 2,
+	NFP_MIP_TYPE_NONE = 0,
+	NFP_MIP_TYPE_QC = 1,
+	NFP_MIP_TYPE_VPCI = 2,
 };
 
 struct nfp_mip {
-    uint32_t signature;
-    uint32_t mip_version;
-    uint32_t mip_size;
-    uint32_t first_entry;
+	uint32_t signature;
+	uint32_t mip_version;
+	uint32_t mip_size;
+	uint32_t first_entry;
 
-    uint32_t version;
-    uint32_t buildnum;
-    uint32_t buildtime;
-    uint32_t loadtime;
+	uint32_t version;
+	uint32_t buildnum;
+	uint32_t buildtime;
+	uint32_t loadtime;
 
-    uint32_t symtab_addr;
-    uint32_t symtab_size;
-    uint32_t strtab_addr;
-    uint32_t strtab_size;
+	uint32_t symtab_addr;
+	uint32_t symtab_size;
+	uint32_t strtab_addr;
+	uint32_t strtab_size;
 
-    char name[16];
-    char toolchain[32];
+	char name[16];
+	char toolchain[32];
 };
 
 struct nfp_mip_entry {
-    uint32_t type;
-    uint32_t version;
-    uint32_t offset_next;
+	uint32_t type;
+	uint32_t version;
+	uint32_t offset_next;
 };
 
 struct nfp_mip_qc {
-    uint32_t type;
-    uint32_t version;
-    uint32_t offset_next;
-    uint32_t type_config;
-    uint32_t type_config_size;
-    uint32_t host_config;
-    uint32_t host_config_size;
-    uint32_t config_signal;
-    uint32_t nfp_queue_size;
-    uint32_t queue_base;
-    uint32_t sequence_base;
-    uint32_t sequence_type;
-    uint32_t status_base;
-    uint32_t status_version;
-    uint32_t error_base;
+	uint32_t type;
+	uint32_t version;
+	uint32_t offset_next;
+	uint32_t type_config;
+	uint32_t type_config_size;
+	uint32_t host_config;
+	uint32_t host_config_size;
+	uint32_t config_signal;
+	uint32_t nfp_queue_size;
+	uint32_t queue_base;
+	uint32_t sequence_base;
+	uint32_t sequence_type;
+	uint32_t status_base;
+	uint32_t status_version;
+	uint32_t error_base;
 };
 
 struct nfp_mip_vpci {
-    uint32_t type;
-    uint32_t version;
-    uint32_t offset_next;
-    uint32_t vpci_epconfig;
-    uint32_t vpci_epconfig_size;
+	uint32_t type;
+	uint32_t version;
+	uint32_t offset_next;
+	uint32_t vpci_epconfig;
+	uint32_t vpci_epconfig_size;
 };
 
 struct nfp_device;

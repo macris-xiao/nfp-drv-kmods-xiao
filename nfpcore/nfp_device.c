@@ -54,7 +54,7 @@ struct nfp_device_private {
  * @nfp:	NFP device
  *
  * NOTE: Do not call nfp_cpp_free() on the returned handle,
- * 	as it is owned by the NFP device.
+ *       as it is owned by the NFP device.
  */
 struct nfp_cpp *nfp_device_cpp(struct nfp_device *nfp)
 {
