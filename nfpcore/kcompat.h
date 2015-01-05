@@ -421,6 +421,32 @@ static inline int compat_kstrtol(const char *cp, int base, long *valp)
 #define kstrtol(cp, base, valp) compat_kstrtol(cp, base, valp)
 #endif
 
+/* v3.17.0
+ * do_getttimeofday() moved from linux/time.h to linux/timekeeping.h
+ */
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 17, 0))
+#include <linux/time.h>
+#else
+#include <linux/timekeeping.h>
+#endif
+
+/* v3.17.0
+ * alloc_netdev() takes an additional parameter
+ */
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 17, 0))
+#define NET_NAME_UNKNOWN ""
+static inline struct net_device *compat_alloc_netdev(int sizeof_priv,
+		const char *name, const char *assign_type,
+		void (*setup)(struct net_device *))
+{
+	return alloc_netdev(sizeof_priv, name, setup);
+}
+
+#undef alloc_netdev
+#define alloc_netdev(sz, nm, ty, setup) compat_alloc_netdev(sz, nm, ty, setup)
+#endif
+
+
 #endif	/* __KERNEL__NFP_COMPAT_H__ */
 
 /*

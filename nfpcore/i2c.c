@@ -8,6 +8,7 @@
 
 #include <linux/delay.h>
 
+#include "kcompat.h"
 #include "i2c.h"
 
 static inline void i2c_set_scl(struct i2c_driver *bus, int bit)

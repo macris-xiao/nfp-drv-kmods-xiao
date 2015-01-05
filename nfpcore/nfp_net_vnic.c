@@ -664,6 +664,7 @@ static int nfp_net_vnic_probe(struct platform_device *pdev)
 	}
 
 	netdev = alloc_netdev(sizeof(*vnic), "nvn%d",
+			      NET_NAME_UNKNOWN,
 			      nfp_net_vnic_netdev_setup);
 	if (!netdev) {
 		err = -ENOMEM;
