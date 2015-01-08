@@ -33,6 +33,8 @@
 #include "nfp3200/nfp_im.h"
 #include "nfp3200/nfp_pl.h"
 
+#include "nfp6000/nfp_xpb.h"
+
 #include "nfp-bsp/nfp_resource.h"
 
 #include "nfp_common.h"
@@ -48,6 +50,12 @@
 #define   NFP_MU_PCTL_DTUAWDT_BANK_ADDR_WIDTH_of(_x)    (((_x) >> 3) & 0x3)
 #define   NFP_MU_PCTL_DTUAWDT_COLUMN_ADDR_WIDTH_of(_x)  ((_x) & 0x3)
 
+/* NFP6000 PL */
+#define NFP_PL_DEVICE_ID                         0x00000004
+#define   NFP_PL_DEVICE_ID_PART_NUM_of(_x)       (((_x) >> 16) & 0xffff)
+#define   NFP_PL_DEVICE_ID_SKU_of(_x)            (((_x) >> 8) & 0xff)
+#define   NFP_PL_DEVICE_ID_MAJOR_REV_of(_x)   (((_x) >> 4) & 0xf)
+#define   NFP_PL_DEVICE_ID_MINOR_REV_of(_x)   (((_x) >> 0) & 0xf)
 
 /**
  * nfp_cpp_read - read from CPP target
@@ -209,6 +217,14 @@ int __nfp_cpp_model_autodetect(struct nfp_cpp *cpp, uint32_t *model)
 
 		*model |= (mes/10) << 20;
 		*model |= (mes%10) << 16;
+	    } else if (NFP_CPP_MODEL_IS_6000(*model)) {
+		uint32_t tmp;
+
+		/* The PL's PluDeviceID revision code is authoratative */
+		*model &= ~0xff;
+		nfp_xpb_readl(cpp, NFP_XPB_DEVICE(1, 1, 0) + NFP_PL_DEVICE_ID, &tmp);
+		*model |= (NFP_PL_DEVICE_ID_MAJOR_REV_of(tmp) << 4) |
+			   NFP_PL_DEVICE_ID_MINOR_REV_of(tmp);
 	}
 
 	return 0;
