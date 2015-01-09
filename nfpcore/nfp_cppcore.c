@@ -24,6 +24,7 @@
 #include <linux/seq_file.h>
 #include <linux/device.h>
 #include <linux/platform_device.h>
+#include <linux/ioport.h>
 
 #include "nfp_cpp_kernel.h"
 #include "nfp_cpp_imp.h"
@@ -1312,39 +1313,6 @@ static const struct file_operations iocpp_ops = {
 /* Lockdep markers */
 static struct lock_class_key nfp_cpp_resource_lock_key;
 #endif
-
-struct platform_device *nfp_cpp_register_device(struct nfp_cpp *cpp,
-						const char *type)
-{
-	struct device *dev = nfp_cpp_device(cpp);
-	struct platform_device *pdev;
-	int err;
-
-	pdev = platform_device_alloc(type, cpp->id);
-	if (pdev == NULL) {
-		dev_err(dev, "Can't create '%s.%d' platform device",
-			type, cpp->id);
-		return NULL;
-	}
-
-	pdev->dev.parent = dev;
-
-	err = platform_device_add(pdev);
-	if (err < 0) {
-		dev_err(dev, "Can't register '%s.%d' platform device",
-			type, cpp->id);
-		platform_device_put(pdev);
-		return NULL;
-	}
-
-	return pdev;
-}
-
-void nfp_cpp_unregister_device(struct platform_device *pdev)
-{
-	if (pdev)
-		platform_device_unregister(pdev);
-}
 
 static void nfp_cpp_dev_release(struct device *dev)
 {

@@ -42,6 +42,7 @@
 #include "nfp3200/nfp_im.h"
 
 #include "nfp_common.h"
+#include "nfp_platform.h"
 #include "nfp_mon_err.h"
 
 #define NFP_ERR_MAX 128
@@ -449,36 +450,32 @@ static int nfp_err_release_filters(struct nfp_err_cdev *cdev)
  */
 static int nfp_err_plat_probe(struct platform_device *pdev)
 {
-	struct nfp_cpp *cpp;
 	struct nfp_err_cdev *cdev;
 	struct device *dev;
 	int id, err;
+	struct nfp_cpp *cpp;
+	struct nfp_platform_data *pdata;
 
-	if (pdev->id >= NFP_ERR_MAX) {
-		dev_err(&pdev->dev, "NFP Device %d: Exceeds limit of %d NFP Error Monitors\n",
-			pdev->id, NFP_ERR_MAX);
-		return -ENOSPC;
-	}
+	pdata = nfp_platform_device_data(pdev);
+	BUG_ON(!pdata);
 
-	cpp = nfp_cpp_from_device_id(pdev->id);
-	if (cpp == NULL) {
-		dev_err(&pdev->dev, "NFP Device %d does not exist.\n",
-			pdev->id);
-		return -ENODEV;
-	}
+	cpp = pdata->cpp;
+
+	BUG_ON(!cpp);
 
 	id = nfp_cpp_device_id(cpp);
-	if (id < 0) {
+	if (id >= NFP_ERR_MAX) {
+		dev_err(&pdev->dev, "NFP Device %d: Exceeds limit of %d NFP Error Monitors\n",
+			id, NFP_ERR_MAX);
+		return -ENOSPC;
+	} else if (id < 0) {
 		dev_err(&pdev->dev, "Invalid cpp_id: %d\n", id);
-		nfp_cpp_free(cpp);
 		return -EINVAL;
 	}
 
 	cdev = kmalloc(sizeof(*cdev), GFP_KERNEL);
-	if (!cdev) {
-		nfp_cpp_free(cpp);
+	if (!cdev)
 		return -ENOMEM;
-	}
 
 	cdev->cpp = cpp;
 	cdev_init(&cdev->cdev, &nfp_err_fops);

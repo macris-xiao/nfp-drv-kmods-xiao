@@ -67,6 +67,7 @@ nfp-objs := nfpcore/nfp3200_pcie.o \
 	    nfpcore/nfp_net_null.o \
 	    nfpcore/nfp_net_vnic.o \
 	    nfpcore/nfp_nffw.o \
+	    nfpcore/nfp_platform.o \
 	    nfpcore/nfp_resource.o \
 	    nfpcore/nfp_rtsym.o \
 	    nfp_main.o

@@ -41,6 +41,8 @@
 #include "nfp-bsp/nfp_target.h"
 #include "nfp-bsp/nfp_resource.h"
 
+#include "nfp_platform.h"
+
 #include "nfp_mon_err.h"
 #include "nfp_dev_cpp.h"
 #include "nfp_net_vnic.h"
@@ -66,7 +68,8 @@ struct nfp_plat_bar {
 struct nfp3200_plat {
 	struct device *dev;
 
-	struct platform_device *nfp_dev_cpp, *nfp_mon_err, *nfp_net_vnic;
+	struct platform_device *nfp_dev_cpp, *nfp_mon_err;
+	struct platform_device *nfp_net_vnic[4];
 	struct nfp_cpp *cpp;
 	struct nfp_cpp_operations op;
 	int (*target_pushpull)(uint32_t cpp_id, uint64_t address);
@@ -1163,7 +1166,7 @@ static int nfp3200_plat_probe(struct platform_device *pdev)
 {
 	struct nfp3200_plat *priv;
 	const struct of_device_id *of_id;
-	int err;
+	int i, err, vnic_units;
 	uint32_t model;
 
 	of_id = of_match_device(nfp3200_plat_match, &pdev->dev);
@@ -1203,15 +1206,32 @@ static int nfp3200_plat_probe(struct platform_device *pdev)
 
 	model = nfp_cpp_model(priv->cpp);
 
-	priv->nfp_dev_cpp = nfp_cpp_register_device(priv->cpp,
+	priv->nfp_dev_cpp = nfp_platform_device_register(priv->cpp,
 						    NFP_DEV_CPP_TYPE);
 
-	if (NFP_CPP_MODEL_IS_3200(model))
-		priv->nfp_mon_err = nfp_cpp_register_device(priv->cpp,
+	if (NFP_CPP_MODEL_IS_3200(model)) {
+		priv->nfp_mon_err = nfp_platform_device_register(priv->cpp,
 							    NFP_MON_ERR_TYPE);
+		vnic_units = 1;
+	} else if (NFP_CPP_MODEL_IS_6000(model)) {
+		vnic_units = 4;
+	} else {
+		vnic_units = 0;
+	}
 
-	priv->nfp_net_vnic = nfp_cpp_register_device(priv->cpp,
-						     NFP_NET_VNIC_TYPE);
+	for (i = 0; i < ARRAY_SIZE(priv->nfp_net_vnic); i++) {
+		struct platform_device *pdev;
+
+		if (i >= vnic_units) {
+			priv->nfp_net_vnic[i] = NULL;
+			continue;
+		}
+
+		pdev = nfp_platform_device_register_unit(priv->cpp,
+							NFP_NET_VNIC_TYPE,
+							i, NFP_NET_VNIC_UNITS);
+		priv->nfp_net_vnic[i] = pdev;
+	}
 
 	return 0;
 }
@@ -1219,11 +1239,13 @@ static int nfp3200_plat_probe(struct platform_device *pdev)
 static int nfp3200_plat_remove(struct platform_device *pdev)
 {
 	struct nfp3200_plat *priv = platform_get_drvdata(pdev);
+	int i;
 
-	nfp_cpp_unregister_device(priv->nfp_net_vnic);
+	for (i = 0; i < ARRAY_SIZE(priv->nfp_net_vnic); i++)
+		nfp_platform_device_unregister(priv->nfp_net_vnic[i]);
 
-	nfp_cpp_unregister_device(priv->nfp_mon_err);
-	nfp_cpp_unregister_device(priv->nfp_dev_cpp);
+	nfp_platform_device_unregister(priv->nfp_mon_err);
+	nfp_platform_device_unregister(priv->nfp_dev_cpp);
 	nfp_cpp_free(priv->cpp);
 
 	iounmap(priv->expl_io);

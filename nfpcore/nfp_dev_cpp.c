@@ -44,6 +44,7 @@
 #include "nfp_ca.h"
 
 #include "nfp_common.h"
+#include "nfp_platform.h"
 #include "nfp_dev_cpp.h"
 
 #define NFP_DEV_CPP_DEBUG	0
@@ -1131,20 +1132,17 @@ static int nfp_dev_cpp_probe(struct platform_device *pdev)
 	int err = -EINVAL;
 	struct nfp_dev_cpp *cdev;
 	struct nfp_cpp *cpp;
+	struct nfp_platform_data *pdata;
 	int id;
 
-	cpp = nfp_cpp_from_device_id(pdev->id);
-	if (cpp == NULL) {
-		dev_err(&pdev->dev, "NFP Device %d does not exist.\n",
-			pdev->id);
-		return -ENODEV;
-	}
+	pdata = nfp_platform_device_data(pdev);
+	BUG_ON(!pdata);
+
+	cpp = pdata->cpp;
+
+	BUG_ON(!cpp);
 
 	id = nfp_cpp_device_id(cpp);
-	if (id != pdev->id) {
-		nfp_cpp_free(cpp);
-		return -EINVAL;
-	}
 
 	cdev = kzalloc(sizeof(*cdev), GFP_KERNEL);
 	if (cdev == NULL) {

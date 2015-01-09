@@ -28,6 +28,8 @@
 #include "nfpcore/nfp3200_pcie.h"
 #include "nfpcore/nfp6000_pcie.h"
 
+#include "nfpcore/nfp_platform.h"
+
 #include "nfpcore/nfp_mon_err.h"
 #include "nfpcore/nfp_dev_cpp.h"
 #include "nfpcore/nfp_net_null.h"
@@ -252,7 +254,7 @@ static int nfp_pci_probe(struct pci_dev *pdev,
 			 const struct pci_device_id *pci_id)
 {
 	struct nfp_pci *np;
-	int err;
+	int pcie_unit, err;
 
 	err = pci_enable_device(pdev);
 	if (err < 0)
@@ -311,17 +313,24 @@ static int nfp_pci_probe(struct pci_dev *pdev,
 		goto err_nfp_cpp;
 	}
 
+	pcie_unit = NFP_CPP_INTERFACE_UNIT_of(nfp_cpp_interface(np->cpp));
+
 	if (nfp_mon_err && pdev->device == PCI_DEVICE_NFP3200)
-		np->nfp_mon_err = nfp_cpp_register_device(np->cpp,
+		np->nfp_mon_err = nfp_platform_device_register(np->cpp,
 				NFP_MON_ERR_TYPE);
+
 	if (nfp_dev_cpp)
-		np->nfp_dev_cpp = nfp_cpp_register_device(np->cpp,
+		np->nfp_dev_cpp = nfp_platform_device_register(np->cpp,
 				NFP_DEV_CPP_TYPE);
+
 	if (nfp_net_vnic)
-		np->nfp_net_vnic = nfp_cpp_register_device(np->cpp,
-							   NFP_NET_VNIC_TYPE);
+		np->nfp_net_vnic = nfp_platform_device_register_unit(np->cpp,
+							   NFP_NET_VNIC_TYPE,
+							   pcie_unit,
+							   NFP_NET_VNIC_UNITS);
+
 	if (nfp_net_null)
-		np->nfp_net_null = nfp_cpp_register_device(np->cpp,
+		np->nfp_net_null = nfp_platform_device_register(np->cpp,
 							   NFP_NET_NULL_TYPE);
 	pci_set_drvdata(pdev, np);
 
@@ -344,10 +353,10 @@ static void nfp_pci_remove(struct pci_dev *pdev)
 {
 	struct nfp_pci *np = pci_get_drvdata(pdev);
 
-	nfp_cpp_unregister_device(np->nfp_net_null);
-	nfp_cpp_unregister_device(np->nfp_net_vnic);
-	nfp_cpp_unregister_device(np->nfp_dev_cpp);
-	nfp_cpp_unregister_device(np->nfp_mon_err);
+	nfp_platform_device_unregister(np->nfp_net_null);
+	nfp_platform_device_unregister(np->nfp_net_vnic);
+	nfp_platform_device_unregister(np->nfp_dev_cpp);
+	nfp_platform_device_unregister(np->nfp_mon_err);
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 8, 0))
 #ifdef CONFIG_PCI_IOV
 	if (pdev->device == PCI_DEVICE_NFP6000)

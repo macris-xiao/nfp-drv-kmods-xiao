@@ -28,6 +28,7 @@
 #include "nfp_nbi_phymod.h"
 
 #include "nfp_common.h"
+#include "nfp_platform.h"
 #include "nfp_net_null.h"
 
 #define TX_TIMEOUT	(2 * HZ)
@@ -331,15 +332,20 @@ static int nfp_net_null_probe(struct platform_device *pdev)
 	struct nfp_net_null *np;
 	void *tmp = NULL;
 	struct nfp_phymod *phy;
+	struct nfp_cpp *cpp;
+	struct nfp_platform_data *pdata;
 
-	nfp = nfp_device_open(pdev->id);
-	if (nfp == NULL) {
-		dev_err(&pdev->dev, "NFP Device %d does not exist.\n",
-			pdev->id);
+	pdata = nfp_platform_device_data(pdev);
+	BUG_ON(!pdata);
+
+	cpp = pdata->cpp;
+
+	BUG_ON(!cpp);
+	nfp = nfp_device_from_cpp(cpp);
+	if (!nfp)
 		return -ENODEV;
-	}
 
-	model = nfp_cpp_model(nfp_device_cpp(nfp));
+	model = nfp_cpp_model(cpp);
 	if (!NFP_CPP_MODEL_IS_6000(model)) {
 		/* TODO: Add NFP3200 support */
 		nfp_device_close(nfp);

@@ -43,6 +43,7 @@
 
 #include "nfp_hwinfo.h"
 #include "nfp_resource.h"
+#include "nfp_platform.h"
 #include "nfp_net_vnic.h"
 
 #define IPHDR_ALIGN_OFFSET	((16 - (sizeof(struct ethhdr))) & 0xf)
@@ -496,7 +497,7 @@ static void nfp_net_vnic_attr_remove(struct nfp_net_vnic *vnic)
  * to the ARM from the host via the network link.
  */
 #define DEFAULT_MAC "\x02\x15\x4D\x42\x00\x00"
-static void nfp_net_vnic_assign_addr(struct net_device *netdev)
+static void nfp_net_vnic_assign_addr(struct net_device *netdev, int vnic_unit)
 {
 	struct nfp_net_vnic *vnic = netdev_priv(netdev);
 	char *netm_mac = "ethm.mac";
@@ -537,6 +538,7 @@ static void nfp_net_vnic_assign_addr(struct net_device *netdev)
 mac_out:
 	/* Set the "Locally Administered Address" bit */
 	mac_addr[0] |= 0x2;
+	mac_addr[5] += vnic_unit;
 
 	ether_addr_copy(vnic->remote_mac, mac_addr);
 
@@ -604,33 +606,27 @@ static int nfp_net_vnic_probe(struct platform_device *pdev)
 	uint32_t cpp_id;
 	unsigned long barsz;
 	struct nfp_cpp_area *area;
+	int vnic_unit;
+	struct nfp_cpp *cpp;
+	struct nfp_platform_data *pdata;
 
-	nfp = nfp_device_open(pdev->id);
-	if (nfp == NULL) {
-		dev_err(&pdev->dev, "NFP Device %d does not exist.\n",
-			pdev->id);
+	pdata = nfp_platform_device_data(pdev);
+	BUG_ON(!pdata);
+
+	cpp = pdata->cpp;
+	vnic_unit = pdata->unit;
+
+	BUG_ON(!cpp);
+	nfp = nfp_device_from_cpp(cpp);
+	if (!nfp)
 		return -ENODEV;
-	}
 
-	/* For now, only PCI 0 to NFP ARM is supported */
-	interface = nfp_cpp_interface(nfp_device_cpp(nfp));
-
-	switch (NFP_CPP_INTERFACE_TYPE_of(interface)) {
-	case NFP_CPP_INTERFACE_TYPE_ARM:
-		res_name = NFP_RESOURCE_VNIC_PCI_0;
-		break;
-	case NFP_CPP_INTERFACE_TYPE_PCI:
-		switch (NFP_CPP_INTERFACE_UNIT_of(interface)) {
-		case 0: res_name = NFP_RESOURCE_VNIC_PCI_0; break;
-		case 1: res_name = NFP_RESOURCE_VNIC_PCI_1; break;
-		case 2: res_name = NFP_RESOURCE_VNIC_PCI_2; break;
-		case 3: res_name = NFP_RESOURCE_VNIC_PCI_3; break;
-		default: res_name = NULL; break;
-		}
-		break;
-	default:
-		res_name = NULL;
-		break;
+	switch (vnic_unit) {
+	case 0: res_name = NFP_RESOURCE_VNIC_PCI_0; break;
+	case 1: res_name = NFP_RESOURCE_VNIC_PCI_1; break;
+	case 2: res_name = NFP_RESOURCE_VNIC_PCI_2; break;
+	case 3: res_name = NFP_RESOURCE_VNIC_PCI_3; break;
+	default: res_name = NULL; break;
 	}
 
 	if (res_name == NULL) {
@@ -651,7 +647,7 @@ static int nfp_net_vnic_probe(struct platform_device *pdev)
 	barsz    = nfp_resource_size(res);
 	nfp_resource_release(res);
 
-	area = nfp_cpp_area_alloc_acquire(nfp_device_cpp(nfp),
+	area = nfp_cpp_area_alloc_acquire(cpp,
 					  cpp_id, cpp_addr, barsz);
 	if (area == NULL) {
 		dev_err(&pdev->dev, "Can't acquire %lu byte area at %d:%d:%d:0x%llx\n",
@@ -671,6 +667,8 @@ static int nfp_net_vnic_probe(struct platform_device *pdev)
 		goto err_alloc_netdev;
 	}
 
+	interface = nfp_cpp_interface(cpp);
+
 	/* Setup vnic structure */
 	vnic = netdev_priv(netdev);
 	memset(vnic, 0, sizeof(*vnic));
@@ -683,7 +681,7 @@ static int nfp_net_vnic_probe(struct platform_device *pdev)
 				!= NFP_CPP_INTERFACE_TYPE_ARM;
 
 	/* Work out our MAC address */
-	nfp_net_vnic_assign_addr(netdev);
+	nfp_net_vnic_assign_addr(netdev, vnic_unit);
 
 	SET_NETDEV_DEV(netdev, &pdev->dev);
 	platform_set_drvdata(pdev, vnic);
