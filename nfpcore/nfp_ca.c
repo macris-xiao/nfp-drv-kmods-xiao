@@ -28,23 +28,39 @@ int nfp_ca_cb_cpp(void *priv, enum nfp_ca_action action,
 	struct nfp_cpp *cpp = priv;
 	uint32_t tmp32;
 	uint64_t tmp64;
+	static unsigned int cnt;
+	int timeout = 10;
+	int poll_action = 0;
+	int bit_len = 0;
 	int err;
-	int timeout = 5;
 
 	switch (action) {
+	case NFP_CA_ACTION_POLL32:
+	case NFP_CA_ACTION_POLL64:
+		timeout = 100; /* Allow 2 seconds for a poll before failing. */
+		poll_action = 1;
+		/* Fall through */
+
 	case NFP_CA_ACTION_READ32:
 	case NFP_CA_ACTION_READ64:
 		do {
-			if (action == NFP_CA_ACTION_READ32) {
-				err = nfp_cpp_readl(cpp, cpp_id, cpp_addr,
-						    &tmp32);
+			if ((action == NFP_CA_ACTION_READ32) ||
+			    (action == NFP_CA_ACTION_POLL32))
+				bit_len = 32;
+			else
+				bit_len = 64;
+
+			if (bit_len == 32) {
+				err = nfp_cpp_readl(cpp, cpp_id,
+						    cpp_addr, &tmp32);
 				tmp64 = tmp32;
 			} else {
-				err = nfp_cpp_readq(cpp, cpp_id, cpp_addr,
-						    &tmp64);
+				err = nfp_cpp_readq(cpp, cpp_id,
+						    cpp_addr, &tmp64);
 			}
 			if (err < 0)
 				break;
+
 			if (val != tmp64) {
 				msleep(20);
 				timeout--;
@@ -53,15 +69,28 @@ int nfp_ca_cb_cpp(void *priv, enum nfp_ca_action action,
 			}
 		} while (timeout > 0);
 		if (timeout == 0) {
-			dev_warn(nfp_cpp_device(cpp), "MISMATCH: R%d 0x%08x 0x%010llx 0x%0*llx != 0x%0*llx\n",
-				 (action == NFP_CA_ACTION_READ32) ? 32 : 64,
-				 cpp_id, (unsigned long long)cpp_addr,
-				 (action == NFP_CA_ACTION_READ32) ? 8 : 16,
+			dev_warn(nfp_cpp_device(cpp),
+				 "%sMISMATCH[%u]: %c%d 0x%08x 0x%010llx 0x%0*llx != 0x%0*llx\n",
+				 (poll_action) ? "FATAL " : "", cnt,
+				 (poll_action) ? 'P' : 'R',
+				 bit_len, cpp_id, (unsigned long long)cpp_addr,
+				 (bit_len == 32) ? 8 : 16,
 				 (unsigned long long)val,
-				 (action == NFP_CA_ACTION_READ32) ? 8 : 16,
+				 (bit_len == 32) ? 8 : 16,
 				 (unsigned long long)tmp64);
-			err = 0;
+
+			if (poll_action)
+				err = -ETIMEDOUT;
+			else
+				err = 0;
 		}
+		break;
+
+	case NFP_CA_ACTION_READ_IGNV32:
+		err = nfp_cpp_readl(cpp, cpp_id, cpp_addr, &tmp32);
+		break;
+	case NFP_CA_ACTION_READ_IGNV64:
+		err = nfp_cpp_readq(cpp, cpp_id, cpp_addr, &tmp64);
 		break;
 	case NFP_CA_ACTION_WRITE32:
 		err = nfp_cpp_writel(cpp, cpp_id, cpp_addr, val);
@@ -74,6 +103,7 @@ int nfp_ca_cb_cpp(void *priv, enum nfp_ca_action action,
 		break;
 	}
 
+	cnt++;
 	return err;
 }
 
@@ -146,6 +176,32 @@ int nfp_ca_replay(const void *buff, size_t bytes,
 			err = cb(cb_priv, NFP_CA_ACTION_READ64,
 				 cpp_id, cpp_addr, tmp64);
 			break;
+		case NFP_CA_POLL_4:
+			tmp32 = ca32_to_cpu(vp);
+			err = cb(cb_priv, NFP_CA_ACTION_POLL32,
+				 cpp_id, cpp_addr, tmp32);
+			break;
+		case NFP_CA_POLL_8:
+			tmp64 = ca64_to_cpu(vp);
+			err = cb(cb_priv, NFP_CA_ACTION_POLL64,
+				 cpp_id, cpp_addr, tmp64);
+			break;
+		case NFP_CA_INC_READ_IGNV_4:
+			cpp_addr += 4;
+			/* FALLTHROUGH */
+		case NFP_CA_READ_IGNV_4:
+			tmp32 = ca32_to_cpu(vp);
+			err = cb(cb_priv, NFP_CA_ACTION_READ_IGNV32,
+				 cpp_id, cpp_addr, tmp32);
+			break;
+		case NFP_CA_INC_READ_IGNV_8:
+			cpp_addr += 8;
+			/* FALLTHROUGH */
+		case NFP_CA_READ_IGNV_8:
+			tmp64 = ca64_to_cpu(vp);
+			err = cb(cb_priv, NFP_CA_ACTION_READ_IGNV64,
+				 cpp_id, cpp_addr, tmp64);
+			break;
 		case NFP_CA_INC_WRITE_4:
 		case NFP_CA_INC_ZERO_4:
 			cpp_addr += 4;
@@ -198,3 +254,9 @@ int nfp_ca_replay(const void *buff, size_t bytes,
 }
 
 /* vim: set shiftwidth=8 noexpandtab:  */
+/*
+ * Local variables:
+ * c-file-style: "Linux"
+ * indent-tabs-mode: t
+ * End:
+ */
