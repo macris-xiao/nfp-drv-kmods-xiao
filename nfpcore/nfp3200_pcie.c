@@ -664,6 +664,7 @@ static void disable_bars(struct nfp3200_pcie *nfp);
 static int enable_bars(struct nfp3200_pcie *nfp)
 {
 	struct nfp_bar *bar = nfp->bars;
+	uint32_t barcfg;
 	int n, retval = 0;
 
 	BUG_ON(!nfp->dev);
@@ -724,12 +725,13 @@ static int enable_bars(struct nfp3200_pcie *nfp)
 	 * BAR which is supposed to map the PCIe block so that we can
 	 * reconfigure the BARs.
 	 */
-	if (NFP_PCIE_BARCFG_P2C_MAPTYPE_of(nfp->bars[1].barcfg) !=
+	barcfg = nfp->bars[NFP_PCIETGT_BAR_INDEX].barcfg;
+	if (NFP_PCIE_BARCFG_P2C_MAPTYPE_of(barcfg) !=
 		NFP_PCIE_BARCFG_P2C_MAPTYPE_CPP ||
-		NFP_PCIE_BARCFG_P2C_TOKACTSEL_of(nfp->bars[1].barcfg) != 0 ||
-		NFP_PCIE_BARCFG_P2C_BASE_of(nfp->bars[1].barcfg) != 0) {
-		dev_err(nfp->dev, "Invalid BAR1 configuration 0x%x\n",
-			nfp->bars[1].barcfg);
+		NFP_PCIE_BARCFG_P2C_TOKACTSEL_of(barcfg) != 0 ||
+		NFP_PCIE_BARCFG_P2C_BASE_of(barcfg) != 0) {
+		dev_err(nfp->dev, "Invalid BAR%d configuration 0x%x\n",
+		        NFP_PCIETGT_BAR_INDEX, barcfg);
 		retval = -EIO;
 		goto error;
 	}
@@ -790,6 +792,15 @@ static int nfp_cpp_pcie_area_init(
 	u32 action = NFP_CPP_ID_ACTION_of(dest);
 	u32 token = NFP_CPP_ID_TOKEN_of(dest);
 	int pp;
+
+	/* Alias PCI target action 2/3 into CPP target 0 */
+	if (target == NFP_CPP_TARGET_PCIE &&
+	    token == 0 &&
+	    (action == 2 || action == 3) &&
+	    ((address + size) <= (NFP_PCIE_P2C_CPPMAP_SIZE << 2))) {
+		target = 0;
+		action = NFP_CPP_ACTION_RW;
+	}
 
 	/* Special 'Target 0' case */
 	if (target == 0 &&
@@ -1520,4 +1531,5 @@ err_nfpmem_alloc:
  * c-file-style: "Linux"
  * indent-tabs-mode: t
  * End:
+ * vim: set shiftwidth=8 noexpandtab:
  */
