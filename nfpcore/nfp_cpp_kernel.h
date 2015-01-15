@@ -25,6 +25,8 @@
 
 #include <linux/list.h>
 
+#include "kcompat.h"
+
 #include "nfp_cpp.h"
 #include "nfp_explicit.h"
 

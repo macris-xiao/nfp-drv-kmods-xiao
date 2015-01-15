@@ -11,8 +11,15 @@
 ## A kernel Kconfig file may define these variables one day.
 CONFIG_MFD_NFP ?= m
 
+## Set to n to disable all EXPORT_SYMBOL() macros
+CONFIG_MFD_NFP_EXPORT ?= y
+
 # un-comment for debug symbols
 # override EXTRA_CFLAGS += -g3
+
+ifeq ($(CONFIG_MFD_NFP_EXPORT),y)
+override EXTRA_CFLAGS += -DCONFIG_MFD_NFP_EXPORT=1
+endif
 
 ifneq ($(makecmd),clean)
 ifneq ($(CONFIG_PCI),y)

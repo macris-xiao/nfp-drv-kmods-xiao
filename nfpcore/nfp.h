@@ -8,6 +8,8 @@
 #ifndef __NFP_H__
 #define __NFP_H__
 
+#include "nfp_cpp_kernel.h"
+
 /** Opaque NFP device handle. */
 struct nfp_device;
 struct nfp_cpp;
