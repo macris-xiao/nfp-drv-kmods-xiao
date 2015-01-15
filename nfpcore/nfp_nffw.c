@@ -14,12 +14,6 @@
 #include "nfp_device.h"
 #include "nfp_cpp.h"
 
-#define NFP_HOST_ENDIAN		0x3412
-#define NFP_ENDIAN_LITTLE	0x3412
-#define NFP_ENDIAN_BIG		0x1234
-#define UINT64_C(x)	((uint64_t)(x))
-#define NFP_HTOLE32(x)	cpu_to_le32(x)
-
 struct nfp_nffw_info_priv {
 	struct nfp_device *dev;
 	struct nfp_resource *res;
@@ -65,12 +59,6 @@ int nfp_nffw_info_acquire(struct nfp_device *dev)
 	struct nfp_cpp *cpp = nfp_device_cpp(dev);
 	struct nfp_nffw_info_priv *priv = _nfp_nffw_priv(dev);
 	int err;
-#if 0
-	const struct nfp_chipdata_chip *chip = nfp_device_chip(dev);
-
-	if (!chip)
-		return -EINVAL;
-#endif
 
 	res = nfp_resource_acquire(dev, NFP_RESOURCE_NFP_NFFW);
 	if (res) {
@@ -90,7 +78,7 @@ int nfp_nffw_info_acquire(struct nfp_device *dev)
 			return err;
 		}
 
-#if (NFP_HOST_ENDIAN != NFP_ENDIAN_LITTLE)
+#ifndef __LITTLE_ENDIAN
 		/* Endian swap */
 		{
 			uint32_t *v;
@@ -99,30 +87,17 @@ int nfp_nffw_info_acquire(struct nfp_device *dev)
 			for (i = 0, v = (uint32_t *)&priv->fwinf;
 			     i < sizeof(priv->fwinfo);
 			     i += sizeof(*v), v++) {
-				*v = NFP_LETOH32(*v);
+				*v = le32_to_cpu(*v);
 			}
 		}
 #endif
+
+		if (!nffw_res_flg_init_get(&priv->fwinf)) {
+			nfp_resource_release(res);
+			return -EINVAL;
+		}
 	} else {
 		return -ENODEV;
-	}
-
-	if (!nffw_res_flg_init_get(&priv->fwinf)) {
-		/* First use since reset. */
-#if 0
-		int meid;
-		size_t mecnt = 0;
-#endif
-		memset(&priv->fwinf, 0, sizeof(priv->fwinf));
-#if 0
-		for (meid = nfp_chipdata_meid_first(chip);
-			 (meid != -1) && (mecnt < NFFW_MEINFO_CNT);
-			 meid = nfp_chipdata_meid_next(chip, meid), mecnt++) {
-			priv->fwinf.meinfo[mecnt].ctxmask__fwid__meid = 0;
-			nffw_meinfo_meid_set(&priv->fwinf.meinfo[mecnt], meid);
-		}
-#endif
-		nffw_res_flg_init_set(&priv->fwinf, 1);
 	}
 
 	priv->res = res;
@@ -149,7 +124,7 @@ int nfp_nffw_info_release(struct nfp_device *dev)
 		uint32_t cpp_id = nfp_resource_cpp_id(res);
 		uint64_t addr = nfp_resource_address(res);
 
-#if (NFP_HOST_ENDIAN != NFP_ENDIAN_LITTLE)
+#ifndef __LITTLE_ENDIAN
 		/* Endian swap the buffer we are writing out in-place */
 		{
 			uint32_t *v;
@@ -158,7 +133,7 @@ int nfp_nffw_info_release(struct nfp_device *dev)
 			for (i = 0, v = (uint32_t *)&priv->fwinf;
 			     i < sizeof(priv->fwinfo);
 			     i += sizeof(*v), v++) {
-				*v = NFP_HTOLE32(*v);
+				*v = cpu_to_le32(*v);
 			}
 		}
 #endif
@@ -433,7 +408,7 @@ int nfp_nffw_info_fw_mip(struct nfp_device *dev, uint8_t fwid,
 		*off = nffw_fwinfo_mip_offset_get(fwinfo);
 
 	if (nffw_fwinfo_mip_mu_da_get(fwinfo))
-		*off |= (UINT64_C(1) << 63);
+		*off |= (1ULL << 63);
 
 	return 0;
 }

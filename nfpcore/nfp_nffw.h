@@ -58,6 +58,7 @@ static inline uint32_t nffw_meinfo_ctxmask_get(
 {
 	return (mi->ctxmask__fwid__meid >> 24) & 0xFF;
 }
+
 static inline void nffw_meinfo_ctxmask_set(
 	struct nffw_meinfo *mi, uint32_t v)
 {
