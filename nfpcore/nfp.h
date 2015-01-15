@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2011,2014  Netronome Systems, Inc.  All rights reserved.
+ * Copyright (C) 2010-2011,2014-2015  Netronome Systems, Inc.  All rights reserved.
  *
  * @file          nfp.h
  * @brief         Interface for NFP device access and query functions.

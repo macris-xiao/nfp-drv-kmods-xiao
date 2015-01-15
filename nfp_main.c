@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014, Netronome, Inc.
+ * Copyright (C) 2014-2015, Netronome, Inc.
  * All right reserved.
  * Author: Jason McMullan <jason.mcmullan@netronome.com>
  *
@@ -389,7 +389,7 @@ static int __init nfp_main_init(void)
 	int err;
 
 	pr_info(
-	       "%s: NFP PCIe Driver, Copyright (C) 2014 Netronome Systems\n",
+	       "%s: NFP PCIe Driver, Copyright (C) 2014-2015 Netronome Systems\n",
 	       nfp_driver_name);
 	pr_info(NFP_BUILD_DESCRIPTION(nfp));
 

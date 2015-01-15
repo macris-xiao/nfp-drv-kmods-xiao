@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2014,  Netronome Systems, Inc.  All rights reserved.
+ * Copyright (C) 2011-2015,  Netronome Systems, Inc.  All rights reserved.
  *
  * @file		  nfp_syms.c
  * @brief		 Interface for accessing run-time symbol table

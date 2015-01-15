@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013-2014 Netronome Systems, Inc.  All rights reserved.
+ * Copyright (C) 2013-2015 Netronome Systems, Inc.  All rights reserved.
  * Author: Tony Egan <tony.egan@netronome.com>
  *
  * @file nfp_nbi_mac_stats.h

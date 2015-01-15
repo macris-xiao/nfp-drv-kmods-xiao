@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2014,  Netronome Systems, Inc.  All rights reserved.
+ * Copyright (C) 2010-2015,  Netronome Systems, Inc.  All rights reserved.
  *
  * @file		  nfp_mip.c
  * @brief		 Interface for Microcode Information Page (MIP)

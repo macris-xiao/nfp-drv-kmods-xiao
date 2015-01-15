@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014, Netronome, Inc.
+ * Copyright (C) 2014-2015, Netronome, Inc.
  * All right reserved.
  * Author: Jason McMullan <jason.mcmullan@netronome.com>
  *
@@ -419,7 +419,7 @@ int __init nfp_net_null_init(void)
 	if (err)
 		return err;
 
-	pr_info("NFP Null Network Driver, Copyright (C) 2014 Netronome Systems\n");
+	pr_info("NFP Null Network Driver, Copyright (C) 2014-2015 Netronome Systems\n");
 
 	return 0;
 }
