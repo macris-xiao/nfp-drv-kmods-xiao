@@ -22,10 +22,111 @@
 
 #include "crc32.h"
 
-int nfp_ca_cb_cpp(void *priv, enum nfp_ca_action action,
-		  uint32_t cpp_id, uint64_t cpp_addr, uint64_t val)
+/* up to 32 IDs, and up to 7 words of control information */
+#define NFP_CA_(id)         ((id)<<3)
+#define NFP_CA(id, type)    (NFP_CA_(id) | (sizeof(type)/sizeof(uint32_t)))
+#define NFP_CA_LEN(ca)      ((ca) & 0x7)
+#define NFP_CA_SZ(ca)       (1 + NFP_CA_LEN(ca)*4)
+
+struct nfp_ca_start {
+	uint32_t magic;
+	uint32_t bytes;
+};
+
+#define NFP_CA_START_MAGIC  0x0066424e  /* "NBf\000" */
+
+#define NFP_CA_START        NFP_CA(0, struct nfp_ca_start)
+#define NFP_CA_END          NFP_CA(0, uint32_t) /* u32 is CRC32 */
+
+#define NFP_CA_CPP_ID       NFP_CA(1, uint32_t)
+#define NFP_CA_CPP_ADDR     NFP_CA(2, uint64_t)
+#define NFP_CA_READ_4       NFP_CA(3, uint32_t)
+#define NFP_CA_READ_8       NFP_CA(4, uint64_t)
+#define NFP_CA_WRITE_4      NFP_CA(5, uint32_t)
+#define NFP_CA_WRITE_8      NFP_CA(6, uint64_t)
+#define NFP_CA_INC_READ_4   NFP_CA(7, uint32_t)
+#define NFP_CA_INC_READ_8   NFP_CA(8, uint64_t)
+#define NFP_CA_INC_WRITE_4  NFP_CA(9, uint32_t)
+#define NFP_CA_INC_WRITE_8  NFP_CA(10, uint64_t)
+#define NFP_CA_ZERO_4       NFP_CA_(11)
+#define NFP_CA_ZERO_8       NFP_CA_(12)
+#define NFP_CA_INC_ZERO_4   NFP_CA_(13)
+#define NFP_CA_INC_ZERO_8   NFP_CA_(14)
+#define NFP_CA_READ_IGNV_4  NFP_CA(15, uint32_t) /* Ignore read value */
+#define NFP_CA_READ_IGNV_8  NFP_CA(16, uint64_t)
+#define NFP_CA_INC_READ_IGNV_4  NFP_CA(17, uint32_t)
+#define NFP_CA_INC_READ_IGNV_8  NFP_CA(18, uint64_t)
+#define NFP_CA_POLL_4           NFP_CA(19, uint32_t)
+#define NFP_CA_POLL_8           NFP_CA(20, uint64_t)
+
+static inline void cpu_to_ca32(uint8_t *byte, uint32_t val)
 {
-	struct nfp_cpp *cpp = priv;
+	int i;
+
+	for (i = 0; i < 4; i++)
+		byte[i] = (val >> (8 * i)) & 0xff;
+}
+
+static inline void cpu_to_ca64(uint8_t *byte, uint64_t val)
+{
+	int i;
+
+	for (i = 0; i < 8; i++)
+		byte[i] = (val >> (8 * i)) & 0xff;
+}
+
+static inline uint32_t ca32_to_cpu(const uint8_t *byte)
+{
+	int i;
+	uint32_t val = 0;
+
+	for (i = 0; i < 4; i++)
+		val |= ((uint32_t)byte[i]) << (8 * i);
+
+	return val;
+}
+
+static inline uint64_t ca64_to_cpu(const uint8_t *byte)
+{
+	int i;
+	uint64_t val = 0;
+
+	for (i = 0; i < 8; i++)
+		val |= ((uint64_t)byte[i]) << (8 * i);
+
+	return val;
+}
+
+enum nfp_ca_action {
+	NFP_CA_ACTION_NONE          = 0,
+	NFP_CA_ACTION_READ32        = 1,
+	NFP_CA_ACTION_READ64        = 2,
+	NFP_CA_ACTION_WRITE32       = 3,
+	NFP_CA_ACTION_WRITE64       = 4,
+	NFP_CA_ACTION_READ_IGNV32   = 5, /* Read and ignore value */
+	NFP_CA_ACTION_READ_IGNV64   = 6,
+	NFP_CA_ACTION_POLL32        = 7,
+	NFP_CA_ACTION_POLL64        = 8
+};
+
+typedef int (*nfp_ca_callback)(struct nfp_cpp *cpp, enum nfp_ca_action action,
+	uint32_t cpp_id, uint64_t cpp_addr, uint64_t val);
+
+/**
+ * nfp_ca_null - Null callback used for CRC calculation
+ */
+static int nfp_ca_null(struct nfp_cpp *cpp, enum nfp_ca_action action,
+		       uint32_t cpp_id, uint64_t cpp_addr, uint64_t val)
+{
+	return 0;
+}
+
+/**
+ * nfp_ca_cpp - Replay CPP transactions
+ */
+static int nfp_ca_cpp(struct nfp_cpp *cpp, enum nfp_ca_action action,
+		      uint32_t cpp_id, uint64_t cpp_addr, uint64_t val)
+{
 	uint32_t tmp32;
 	uint64_t tmp64;
 	static unsigned int cnt;
@@ -107,16 +208,15 @@ int nfp_ca_cb_cpp(void *priv, enum nfp_ca_action action,
 	return err;
 }
 
-static int cb_check(void *priv, enum nfp_ca_action action,
-		    uint32_t cpp_id, uint64_t cpp_addr, uint64_t val)
-{
-	return 0;
-}
-
-#define NFP_CA_SZ(ca) (1 + NFP_CA_LEN(ca)*4)
-
-int nfp_ca_replay(const void *buff, size_t bytes,
-		  nfp_ca_callback cb, void *cb_priv)
+/**
+ * nfp_ca_parse - Parse a CPP Action replay file
+ * @cpp:   CPP handle
+ * @buff:  Buffer with trace data
+ * @bytes: Length of buffer
+ * @cb:    A callback function to be called on each item in the trace.
+ */
+static int nfp_ca_parse(struct nfp_cpp *cpp, const void *buff, size_t bytes,
+			nfp_ca_callback cb)
 {
 	const uint8_t *byte = buff;
 	uint32_t cpp_id = 0;
@@ -132,12 +232,6 @@ int nfp_ca_replay(const void *buff, size_t bytes,
 	ca = byte[0];
 	if (ca != NFP_CA_START || ca32_to_cpu(&byte[1]) != NFP_CA_START_MAGIC)
 		return -EINVAL;
-
-	if (cb != cb_check) {
-		err = nfp_ca_replay(byte, bytes, cb_check, NULL);
-		if (err < 0)
-			return err;
-	}
 
 	for (loc = NFP_CA_SZ(NFP_CA_START); loc < bytes;
 			loc += NFP_CA_SZ(byte[loc])) {
@@ -165,7 +259,7 @@ int nfp_ca_replay(const void *buff, size_t bytes,
 			/* FALLTHROUGH */
 		case NFP_CA_READ_4:
 			tmp32 = ca32_to_cpu(vp);
-			err = cb(cb_priv, NFP_CA_ACTION_READ32,
+			err = cb(cpp, NFP_CA_ACTION_READ32,
 				 cpp_id, cpp_addr, tmp32);
 			break;
 		case NFP_CA_INC_READ_8:
@@ -173,17 +267,17 @@ int nfp_ca_replay(const void *buff, size_t bytes,
 			/* FALLTHROUGH */
 		case NFP_CA_READ_8:
 			tmp64 = ca64_to_cpu(vp);
-			err = cb(cb_priv, NFP_CA_ACTION_READ64,
+			err = cb(cpp, NFP_CA_ACTION_READ64,
 				 cpp_id, cpp_addr, tmp64);
 			break;
 		case NFP_CA_POLL_4:
 			tmp32 = ca32_to_cpu(vp);
-			err = cb(cb_priv, NFP_CA_ACTION_POLL32,
+			err = cb(cpp, NFP_CA_ACTION_POLL32,
 				 cpp_id, cpp_addr, tmp32);
 			break;
 		case NFP_CA_POLL_8:
 			tmp64 = ca64_to_cpu(vp);
-			err = cb(cb_priv, NFP_CA_ACTION_POLL64,
+			err = cb(cpp, NFP_CA_ACTION_POLL64,
 				 cpp_id, cpp_addr, tmp64);
 			break;
 		case NFP_CA_INC_READ_IGNV_4:
@@ -191,7 +285,7 @@ int nfp_ca_replay(const void *buff, size_t bytes,
 			/* FALLTHROUGH */
 		case NFP_CA_READ_IGNV_4:
 			tmp32 = ca32_to_cpu(vp);
-			err = cb(cb_priv, NFP_CA_ACTION_READ_IGNV32,
+			err = cb(cpp, NFP_CA_ACTION_READ_IGNV32,
 				 cpp_id, cpp_addr, tmp32);
 			break;
 		case NFP_CA_INC_READ_IGNV_8:
@@ -199,7 +293,7 @@ int nfp_ca_replay(const void *buff, size_t bytes,
 			/* FALLTHROUGH */
 		case NFP_CA_READ_IGNV_8:
 			tmp64 = ca64_to_cpu(vp);
-			err = cb(cb_priv, NFP_CA_ACTION_READ_IGNV64,
+			err = cb(cpp, NFP_CA_ACTION_READ_IGNV64,
 				 cpp_id, cpp_addr, tmp64);
 			break;
 		case NFP_CA_INC_WRITE_4:
@@ -212,7 +306,7 @@ int nfp_ca_replay(const void *buff, size_t bytes,
 				tmp32 = 0;
 			else
 				tmp32 = ca32_to_cpu(vp);
-			err = cb(cb_priv, NFP_CA_ACTION_WRITE32,
+			err = cb(cpp, NFP_CA_ACTION_WRITE32,
 				 cpp_id, cpp_addr, tmp32);
 			break;
 		case NFP_CA_INC_WRITE_8:
@@ -225,7 +319,7 @@ int nfp_ca_replay(const void *buff, size_t bytes,
 				tmp64 = 0;
 			else
 				tmp64 = ca64_to_cpu(vp);
-			err = cb(cb_priv, NFP_CA_ACTION_WRITE64,
+			err = cb(cpp, NFP_CA_ACTION_WRITE64,
 				 cpp_id, cpp_addr, tmp64);
 			break;
 		default:
@@ -237,7 +331,7 @@ int nfp_ca_replay(const void *buff, size_t bytes,
 	}
 
 	if (err >= 0 && ca == NFP_CA_END && loc == bytes) {
-		if (cb == cb_check) {
+		if (cb == nfp_ca_null) {
 			uint32_t crc;
 
 			loc -= NFP_CA_SZ(NFP_CA_END);
@@ -251,6 +345,27 @@ int nfp_ca_replay(const void *buff, size_t bytes,
 	}
 
 	return err;
+}
+
+/**
+ * nfp_ca_replay - Replay a CPP Action trance
+ * @cpp:       CPP handle
+ * @ca_buffer: Buffer with trace
+ * @ca_size:   Size of Buffer
+ *
+ * The function performs two passes of the buffer.  The first is
+ * calculate and verify the CRC at the end of the buffer, and the
+ * second replays the transactions itself.
+ */
+int nfp_ca_replay(struct nfp_cpp *cpp, const void *ca_buffer, size_t ca_size)
+{
+	int err;
+
+	err = nfp_ca_parse(cpp, ca_buffer, ca_size, &nfp_ca_null);
+	if (err < 0)
+		return err;
+
+	return nfp_ca_parse(cpp, ca_buffer, ca_size, &nfp_ca_cpp);
 }
 
 /* vim: set shiftwidth=8 noexpandtab:  */

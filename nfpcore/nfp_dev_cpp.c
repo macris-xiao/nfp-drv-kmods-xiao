@@ -805,8 +805,7 @@ static int nfp_dev_cpp_ioctl(struct inode *inode, struct file *filp,
 		err = request_firmware(&fw, cdev->firmware, cdev->dev);
 		if (err < 0)
 			break;
-		err = nfp_ca_replay(fw->data, fw->size,
-				    nfp_ca_cb_cpp, cdev->cpp);
+		err = nfp_ca_replay(cdev->cpp, fw->data, fw->size);
 		release_firmware(fw);
 		break;
 	case NFP_IOCTL_FIRMWARE_LAST:
@@ -1117,7 +1116,7 @@ static ssize_t store_firmware(struct device *dev, struct device_attribute *attr,
 	err = request_firmware(&fw, cdev->firmware, cdev->dev);
 	if (err < 0)
 		return err;
-	err = nfp_ca_replay(fw->data, fw->size, nfp_ca_cb_cpp, cdev->cpp);
+	err = nfp_ca_replay(cdev->cpp, fw->data, fw->size);
 	release_firmware(fw);
 
 	return (err < 0) ? err : count;
