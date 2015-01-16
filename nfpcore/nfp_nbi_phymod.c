@@ -847,6 +847,7 @@ struct nfp_phymod *nfp_phymod_next(struct nfp_device *nfp, void **ptr)
 	*ptr = next;
 	return next;
 }
+EXPORT_SYMBOL(nfp_phymod_next);
 
 /**
  * Get the index for a phymode
@@ -863,6 +864,7 @@ int nfp_phymod_get_index(struct nfp_phymod *phymod, int *index)
 
 	return 0;
 }
+EXPORT_SYMBOL(nfp_phymod_get_index);
 
 /**
  * Get the string (UTF8) label for a phymode
@@ -879,6 +881,7 @@ int nfp_phymod_get_label(struct nfp_phymod *phymod, const char **label)
 
 	return 0;
 }
+EXPORT_SYMBOL(nfp_phymod_get_label);
 
 /**
  * Get the MAC address of the port
@@ -895,6 +898,7 @@ int nfp_phymod_get_mac(struct nfp_phymod *phymod, const uint8_t **mac)
 
 	return 0;
 }
+EXPORT_SYMBOL(nfp_phymod_get_mac);
 
 /**
  * Get the NBI ID for a phymode
@@ -911,6 +915,7 @@ int nfp_phymod_get_nbi(struct nfp_phymod *phymod, int *nbi)
 
 	return 0;
 }
+EXPORT_SYMBOL(nfp_phymod_get_nbi);
 
 /**
  * Get the base port and/or size
@@ -931,6 +936,7 @@ int nfp_phymod_get_port(struct nfp_phymod *phymod, int *base, int *size)
 
 	return 0;
 }
+EXPORT_SYMBOL(nfp_phymod_get_port);
 
 /**
  * Get the type ID for the port
@@ -952,6 +958,7 @@ int nfp_phymod_get_type(struct nfp_phymod *phymod, int *type)
 
 	return 0;
 }
+EXPORT_SYMBOL(nfp_phymod_get_type);
 
 /**
  * Report status for a PHY module.
@@ -1013,6 +1020,7 @@ int nfp_phymod_read_status(struct nfp_phymod *phy, uint32_t *txstatus,
 
 	return 0;
 }
+EXPORT_SYMBOL(nfp_phymod_read_status);
 
 /**
  * Report Loss Of Signal status for a PHY module.
@@ -1045,6 +1053,7 @@ int nfp_phymod_read_status_los(struct nfp_phymod *phymod, uint32_t *txstatus,
 
 	return -EINVAL;
 }
+EXPORT_SYMBOL(nfp_phymod_read_status_los);
 
 /**
  * Report Fault status for a PHY module.
@@ -1075,6 +1084,7 @@ int nfp_phymod_read_status_fault(struct nfp_phymod *phymod, uint32_t *txstatus,
 
 	return -EINVAL;
 }
+EXPORT_SYMBOL(nfp_phymod_read_status_fault);
 
 /**
  * Report Optical Power status for a PHY module.
@@ -1111,6 +1121,7 @@ int nfp_phymod_read_status_optpower(struct nfp_phymod *phymod,
 
 	return -EINVAL;
 }
+EXPORT_SYMBOL(nfp_phymod_read_status_optpower);
 
 /**
  * Report Optical Bias status for a PHY module.
@@ -1139,6 +1150,7 @@ int nfp_phymod_read_status_optbias(struct nfp_phymod *phymod,
 
 	return -EINVAL;
 }
+EXPORT_SYMBOL(nfp_phymod_read_status_optbias);
 
 /**
  * Report High/Low Voltage status for a PHY module.
@@ -1183,6 +1195,7 @@ int nfp_phymod_read_status_voltage(struct nfp_phymod *phymod,
 
 	return -EINVAL;
 }
+EXPORT_SYMBOL(nfp_phymod_read_status_voltage);
 
 /**
  * Report High/Low Temperature status for a PHY module.
@@ -1221,6 +1234,7 @@ int nfp_phymod_read_status_temp(struct nfp_phymod *phymod, uint32_t *txstatus,
 
 	return -EINVAL;
 }
+EXPORT_SYMBOL(nfp_phymod_read_status_temp);
 
 /**
  * Read Lane Disable state for a PHY module.
@@ -1262,6 +1276,7 @@ int nfp_phymod_read_lanedisable(struct nfp_phymod *phymod, uint32_t *txstate,
 
 	return -EINVAL;
 }
+EXPORT_SYMBOL(nfp_phymod_read_lanedisable);
 
 /**
  * Write Lane Disable state for a PHY module.
@@ -1302,6 +1317,7 @@ int nfp_phymod_write_lanedisable(struct nfp_phymod *phymod, uint32_t txstate,
 
 	return -EINVAL;
 }
+EXPORT_SYMBOL(nfp_phymod_write_lanedisable);
 
 /**
  * Read a PHY module address (8-bit).
@@ -1324,6 +1340,7 @@ int nfp_phymod_read8(struct nfp_phymod *phymod, uint32_t addr,
 
 	return -EINVAL;
 }
+EXPORT_SYMBOL(nfp_phymod_read8);
 
 /**
  * Write a PHY module address (8-bit).
@@ -1346,3 +1363,4 @@ int nfp_phymod_write8(struct nfp_phymod *phymod, uint32_t addr,
 
 	return -EINVAL;
 }
+EXPORT_SYMBOL(nfp_phymod_write8);
