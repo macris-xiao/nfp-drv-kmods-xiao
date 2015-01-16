@@ -20,8 +20,8 @@
 
 struct gpio {
 	int pins;
-	int (*readl)(struct nfp_cpp *cpp, int csr_offset, uint32_t *val);
-	int (*writel)(struct nfp_cpp *cpp, int csr_offset, uint32_t val);
+	int (*read)(struct nfp_cpp *cpp, int csr_offset, uint32_t *val);
+	int (*write)(struct nfp_cpp *cpp, int csr_offset, uint32_t val);
 };
 
 static int nfp3200_csr_readl(struct nfp_cpp *cpp, int csr_offset, uint32_t *val)
@@ -59,16 +59,16 @@ static void *gpio_new(struct nfp_device *nfp)
 
 	if (NFP_CPP_MODEL_IS_3200(model)) {
 		gpio->pins = 12;
-		gpio->readl = nfp3200_csr_readl;
-		gpio->writel = nfp3200_csr_writel;
+		gpio->read = nfp3200_csr_readl;
+		gpio->write = nfp3200_csr_writel;
 	} else if (NFP_CPP_MODEL_IS_6000(model)) {
 		gpio->pins = 32;
-		gpio->readl = nfp6000_csr_readl;
-		gpio->writel = nfp6000_csr_writel;
+		gpio->read = nfp6000_csr_readl;
+		gpio->write = nfp6000_csr_writel;
 	} else {
 		gpio->pins = 0;
-		gpio->readl = NULL;
-		gpio->writel = NULL;
+		gpio->read = NULL;
+		gpio->write = NULL;
 	}
 
 	return gpio;
@@ -116,9 +116,9 @@ int nfp_gpio_direction(struct nfp_device *dev, int gpio_pin, int is_output)
 	mask = (1 << gpio_pin);
 
 	if (is_output)
-		err = gpio->writel(cpp, NFP_GPIO_PDSR, mask);
+		err = gpio->write(cpp, NFP_GPIO_PDSR, mask);
 	else
-		err = gpio->writel(cpp, NFP_GPIO_PDCR, mask);
+		err = gpio->write(cpp, NFP_GPIO_PDCR, mask);
 
 	return err < 0 ? err : 0;
 }
@@ -142,7 +142,7 @@ int nfp_gpio_get_direction(struct nfp_device *dev, int gpio_pin, int *is_output)
 	if (gpio_pin < 0 || gpio_pin >= gpio->pins)
 		return -EINVAL;
 
-	err = gpio->readl(cpp, NFP_GPIO_PDPR, &val);
+	err = gpio->read(cpp, NFP_GPIO_PDPR, &val);
 
 	if (err >= 0)
 		*is_output = (val >> gpio_pin) & 1;
@@ -167,7 +167,7 @@ int nfp_gpio_get(struct nfp_device *dev, int gpio_pin)
 	if (gpio_pin < 0 || gpio_pin >= gpio->pins)
 		return -EINVAL;
 
-	err = gpio->readl(cpp, NFP_GPIO_PLR, &value);
+	err = gpio->read(cpp, NFP_GPIO_PLR, &value);
 	if (err < 0)
 		return err;
 
@@ -197,9 +197,9 @@ int nfp_gpio_set(struct nfp_device *dev, int gpio_pin, int value)
 	mask = (1 << gpio_pin);
 
 	if (value == 0)
-		err = gpio->writel(cpp, NFP_GPIO_POCR, mask);
+		err = gpio->write(cpp, NFP_GPIO_POCR, mask);
 	else
-		err = gpio->writel(cpp, NFP_GPIO_POSR, mask);
+		err = gpio->write(cpp, NFP_GPIO_POSR, mask);
 
 	return err < 0 ? err : 0;
 }
