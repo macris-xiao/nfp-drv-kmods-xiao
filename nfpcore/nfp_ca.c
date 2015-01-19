@@ -59,22 +59,6 @@ struct nfp_ca_start {
 #define NFP_CA_POLL_4           NFP_CA(19, uint32_t)
 #define NFP_CA_POLL_8           NFP_CA(20, uint64_t)
 
-static inline void cpu_to_ca32(uint8_t *byte, uint32_t val)
-{
-	int i;
-
-	for (i = 0; i < 4; i++)
-		byte[i] = (val >> (8 * i)) & 0xff;
-}
-
-static inline void cpu_to_ca64(uint8_t *byte, uint64_t val)
-{
-	int i;
-
-	for (i = 0; i < 8; i++)
-		byte[i] = (val >> (8 * i)) & 0xff;
-}
-
 static inline uint32_t ca32_to_cpu(const uint8_t *byte)
 {
 	int i;
@@ -348,7 +332,7 @@ static int nfp_ca_parse(struct nfp_cpp *cpp, const void *buff, size_t bytes,
 }
 
 /**
- * nfp_ca_replay - Replay a CPP Action trance
+ * nfp_ca_replay - Replay a CPP Action trace
  * @cpp:       CPP handle
  * @ca_buffer: Buffer with trace
  * @ca_size:   Size of Buffer
