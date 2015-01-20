@@ -66,7 +66,7 @@
 #undef NFP_SUBSYS
 #define NFP_SUBSYS "[HWINFO] "
 
-static int hwinfo_wait = 15;	/* 15 seconds */
+static int hwinfo_wait = 20;	/* 20 seconds (NFP6000 boot is slow) */
 module_param(hwinfo_wait, int, S_IRUGO);
 MODULE_PARM_DESC(hwinfo_wait, "-1 for no timeout, or N seconds to wait for board.state match");
 
