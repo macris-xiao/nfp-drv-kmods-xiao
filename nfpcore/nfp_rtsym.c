@@ -169,7 +169,7 @@ int __nfp_rtsymtab_probe(struct nfp_device *dev, struct nfp_rtsym_priv *priv)
 			}
 		}
 	} else if (NFP_CPP_MODEL_IS_6000(model)) {
-		uint64_t emu_24 = 0x2000000000ULL;	/* Island 24 EMU */
+		uint64_t emu_24 = 0x8100000000ULL;	/* Island 24 EMU */
 		/*FIXME by using nfp_resource*/
 		err = nfp_cpp_read(cpp, dram, emu_24 | priv->mip->symtab_addr,
 				   rtsymtab, priv->mip->symtab_size);
