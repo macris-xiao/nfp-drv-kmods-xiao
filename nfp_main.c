@@ -293,11 +293,8 @@ static int nfp_pci_probe(struct pci_dev *pdev,
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 8, 0)) && defined(CONFIG_PCI_IOV)
 		if (!IS_ERR_OR_NULL(np->cpp)) {
 			err = nfp_sriov_attr_add(&pdev->dev);
-			if (err < 0) {
-				nfp_cpp_free(np->cpp);
-				kfree(np);
-				return err;
-			}
+			if (err < 0)
+				goto err_nfp_cpp;
 		}
 #endif
 		break;
@@ -352,6 +349,8 @@ err_dma_mask:
 static void nfp_pci_remove(struct pci_dev *pdev)
 {
 	struct nfp_pci *np = pci_get_drvdata(pdev);
+
+	nfp6000_pcie_sriov_disable(pdev);
 
 	nfp_platform_device_unregister(np->nfp_net_null);
 	nfp_platform_device_unregister(np->nfp_net_vnic);
