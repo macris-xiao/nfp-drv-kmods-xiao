@@ -45,8 +45,14 @@
 
 #include "nfp_mon_err.h"
 #include "nfp_dev_cpp.h"
+#include "nfp_net_null.h"
 #include "nfp_net_vnic.h"
 #include "nfp_cpplib.h"
+
+extern bool nfp_mon_err;
+extern bool nfp_dev_cpp;
+extern bool nfp_net_null;
+extern bool nfp_net_vnic;
 
 #define NFP_EXPL_START		(0xde000000)
 #define NFP_ARM_EM_START	(0xd6000000 + NFP_ARM_EM)
@@ -68,7 +74,9 @@ struct nfp_plat_bar {
 struct nfp3200_plat {
 	struct device *dev;
 
-	struct platform_device *nfp_dev_cpp, *nfp_mon_err;
+	struct platform_device *nfp_dev_cpp;
+	struct platform_device *nfp_net_null;
+	struct platform_device *nfp_mon_err;
 	struct platform_device *nfp_net_vnic[4];
 	struct nfp_cpp *cpp;
 	struct nfp_cpp_operations op;
@@ -1175,8 +1183,6 @@ static int nfp3200_plat_probe(struct platform_device *pdev)
 		return -EFAULT;
 	}
 
-	dev_info(&pdev->dev, "nfp3200_plat");
-
 	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
 
 	priv->target_pushpull = of_id->data;
@@ -1185,6 +1191,7 @@ static int nfp3200_plat_probe(struct platform_device *pdev)
 
 	err = nfp3200_plat_of(priv);
 	if (err < 0) {
+		dev_err(&pdev->dev, "Can't initialize device\n");
 		kfree(priv);
 		return err;
 	}
@@ -1206,15 +1213,22 @@ static int nfp3200_plat_probe(struct platform_device *pdev)
 
 	model = nfp_cpp_model(priv->cpp);
 
-	priv->nfp_dev_cpp = nfp_platform_device_register(priv->cpp,
-						    NFP_DEV_CPP_TYPE);
+	if (nfp_dev_cpp)
+		priv->nfp_dev_cpp = nfp_platform_device_register(priv->cpp,
+							    NFP_DEV_CPP_TYPE);
 
-	if (NFP_CPP_MODEL_IS_3200(model)) {
+	if (nfp_mon_err && NFP_CPP_MODEL_IS_3200(model))
 		priv->nfp_mon_err = nfp_platform_device_register(priv->cpp,
 							    NFP_MON_ERR_TYPE);
-		vnic_units = 1;
-	} else if (NFP_CPP_MODEL_IS_6000(model)) {
-		vnic_units = 4;
+
+	if (nfp_net_vnic) {
+		if (NFP_CPP_MODEL_IS_3200(model)) {
+			vnic_units = 1;
+		} else if (NFP_CPP_MODEL_IS_6000(model)) {
+			vnic_units = 4;
+		} else {
+			vnic_units = 0;
+		}
 	} else {
 		vnic_units = 0;
 	}
@@ -1222,16 +1236,18 @@ static int nfp3200_plat_probe(struct platform_device *pdev)
 	for (i = 0; i < ARRAY_SIZE(priv->nfp_net_vnic); i++) {
 		struct platform_device *pdev;
 
-		if (i >= vnic_units) {
-			priv->nfp_net_vnic[i] = NULL;
-			continue;
-		}
+		if (i >= vnic_units)
+			break;
 
 		pdev = nfp_platform_device_register_unit(priv->cpp,
 							NFP_NET_VNIC_TYPE,
 							i, NFP_NET_VNIC_UNITS);
 		priv->nfp_net_vnic[i] = pdev;
 	}
+
+	if (nfp_net_null)
+		priv->nfp_net_null = nfp_platform_device_register(priv->cpp,
+							    NFP_NET_NULL_TYPE);
 
 	return 0;
 }
@@ -1240,6 +1256,8 @@ static int nfp3200_plat_remove(struct platform_device *pdev)
 {
 	struct nfp3200_plat *priv = platform_get_drvdata(pdev);
 	int i;
+
+	nfp_platform_device_unregister(priv->nfp_net_null);
 
 	for (i = 0; i < ARRAY_SIZE(priv->nfp_net_vnic); i++)
 		nfp_platform_device_unregister(priv->nfp_net_vnic[i]);

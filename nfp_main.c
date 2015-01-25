@@ -37,16 +37,16 @@
 
 #include "nfpcore/nfp-bsp/nfp_resource.h"
 
-static bool nfp_mon_err;
+bool nfp_mon_err;
 module_param(nfp_mon_err, bool, 0444);
 MODULE_PARM_DESC(nfp_mon_err, "ECC Monitor (default = disbled)");
-static bool nfp_dev_cpp = 1;
+bool nfp_dev_cpp = 1;
 module_param(nfp_dev_cpp, bool, 0444);
 MODULE_PARM_DESC(nfp_dev_cpp, "NFP CPP /dev interface (default = enabled)");
-static bool nfp_net_null;
+bool nfp_net_null;
 module_param(nfp_net_null, bool, 0444);
 MODULE_PARM_DESC(nfp_net_null, "Null net devices (default = disabled)");
-static bool nfp_net_vnic = 1;
+bool nfp_net_vnic = 1;
 module_param(nfp_net_vnic, bool, 0444);
 MODULE_PARM_DESC(nfp_net_vnic, "vNIC net devices (default = enabled)");
 
