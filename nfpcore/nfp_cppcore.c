@@ -1359,6 +1359,7 @@ struct nfp_cpp *nfp_cpp_from_operations(const struct nfp_cpp_operations *ops)
 	cpp->dev.release = nfp_cpp_dev_release;
 	err = device_register(&cpp->dev);
 	if (err < 0) {
+		put_device(&cpp->dev);
 		kfree(cpp);
 		return ERR_PTR(err);
 	}

@@ -496,6 +496,7 @@ static int nfp_err_plat_probe(struct platform_device *pdev)
 #endif
 			    "nfp-err-%d", id);
 	if (IS_ERR(dev)) {
+		put_device(dev);
 		dev_err(&pdev->dev, "Failed to create nfp_err device\n");
 		err = PTR_ERR(dev);
 		goto err_device_create;
