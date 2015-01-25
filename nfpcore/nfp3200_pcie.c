@@ -793,15 +793,6 @@ static int nfp_cpp_pcie_area_init(
 	u32 token = NFP_CPP_ID_TOKEN_of(dest);
 	int pp;
 
-	/* Alias PCI target action 2/3 into CPP target 0 */
-	if (target == NFP_CPP_TARGET_PCIE &&
-	    token == 0 &&
-	    (action == 2 || action == 3) &&
-	    ((address + size) <= (NFP_PCIE_P2C_CPPMAP_SIZE << 2))) {
-		target = 0;
-		action = NFP_CPP_ACTION_RW;
-	}
-
 	/* Special 'Target 0' case */
 	if (target == 0 &&
 	    (action == NFP_CPP_ACTION_RW || action == 0 || action == 1) &&
@@ -822,6 +813,23 @@ static int nfp_cpp_pcie_area_init(
 
 	priv->width.read = PUSH_WIDTH(pp);
 	priv->width.write = PULL_WIDTH(pp);
+
+	/* Special exception for the first 1M of DDR on
+	 * A0/A1 hardware. This is 'known safe' for that
+	 * specific use case, and prevents the locking of
+	 * all three BARs by the default NFP driver.
+	 */
+	if (nfp->workaround & NFP_A_WORKAROUND) {
+		if (target == NFP_CPP_TARGET_MU &&
+		    (action == NFP_CPP_ACTION_RW || action == 0 || action == 1) &&
+		    ((address + size) <= (NFP_PCIE_P2C_CPPMAP_SIZE << 2))) {
+			if (action == NFP_CPP_ACTION_RW || action == 0)
+				priv->width.read = 4;
+			if (action == NFP_CPP_ACTION_RW || action == 1)
+				priv->width.write = 4;
+		}
+	}
+
 	if (priv->width.read > 0 &&
 	    priv->width.write > 0 &&
 	    priv->width.read != priv->width.write) {
