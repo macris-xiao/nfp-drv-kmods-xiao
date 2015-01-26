@@ -67,6 +67,9 @@ struct nfp_cpp {
 	wait_queue_head_t waitq;
 
 	struct platform_device *feature[32];
+
+	/* NFP6000 CPP Mapping Table */
+	uint32_t imb_cat_table[16];
 };
 
 struct nfp_cpp_area {
@@ -346,9 +349,18 @@ struct nfp_cpp_area *nfp_cpp_area_alloc_with_name(
 	unsigned long long address, unsigned long size)
 {
 	struct nfp_cpp_area *area;
-	int name_len;
+	uint64_t tmp64 = (uint64_t)address;
+	int err, name_len;
 
 	BUG_ON(cpp == NULL);
+
+	/* Remap from cpp_island to cpp_target */
+	err = nfp_target_cpp(dest, tmp64, &dest, &tmp64, cpp->imb_cat_table);
+	if (err < 0)
+		return NULL;
+
+	address = (unsigned long long)tmp64;
+
 	if (name == NULL)
 		name = "(reserved)";
 
@@ -1390,6 +1402,25 @@ struct nfp_cpp *nfp_cpp_from_operations(const struct nfp_cpp_operations *ops)
 			device_unregister(&cpp->dev);
 			kfree(cpp);
 			return ERR_PTR(err);
+		}
+	}
+
+	if (NFP_CPP_MODEL_IS_6000(cpp->model)) {
+		uint32_t xpbaddr;
+		size_t tgt;
+		for (tgt = 0;
+		     tgt < ARRAY_SIZE(cpp->imb_cat_table);
+		     tgt++) {
+			/* Hardcoded XPB IMB Base, island 0 */
+			xpbaddr = 0x000a0000 + (tgt * 4);
+			err = nfp_xpb_readl(cpp, xpbaddr,
+					    &cpp->imb_cat_table[tgt]);
+			if (err < 0) {
+				dev_err(ops->parent, "Can't read CPP mapping from device\n");
+				device_unregister(&cpp->dev);
+				kfree(cpp);
+				return ERR_PTR(err);
+			}
 		}
 	}
 

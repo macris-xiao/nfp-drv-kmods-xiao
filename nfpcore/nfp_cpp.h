@@ -96,7 +96,7 @@ static inline uint8_t NFP_CPP_ID_ACTION_of(uint32_t id)
  */
 static inline uint8_t NFP_CPP_ID_ISLAND_of(uint32_t id)
 {
-	return 0;
+	return (id >> 0) & 0xff;
 }
 
 /*

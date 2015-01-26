@@ -128,26 +128,16 @@ static void *__nfp_mip_con(struct nfp_device *dev)
 struct nfp_mip *nfp_mip(struct nfp_device *dev)
 {
 	struct nfp_mip_priv *priv = nfp_device_private(dev, __nfp_mip_con);
+        int err;
 
 	if (priv->mip)
 		return priv->mip;
-	nfp_mip_probe(dev);
-	return priv->mip;
-}
 
-static inline int _nfp6000_cppat_mu_locality_lsb(int mode,
-	int addr40)
-{
-	switch (mode) {
-	case 0:
-	case 1:
-	case 2:
-	case 3:
-		return (addr40) ? 38 : 30;
-	default:
-		break;
-	}
-	return -EINVAL;
+	err = nfp_mip_probe(dev);
+	if (err < 0)
+		return NULL;
+
+	return priv->mip;
 }
 
 #define   NFP_IMB_TgtAddressModeCfg_Mode_of(_x)      (((_x) >> 13) & 0x7)
@@ -188,7 +178,6 @@ int __nfp_mip_location(struct nfp_device *dev,
 
 	/* First see if we can get it from the nfp.nffw resource */
 	if (nfp_nffw_info_acquire(dev) == 0) {
-
 		int mu_lsb = -1;
 
 		if (NFP_CPP_MODEL_IS_6000(nfp_cpp_model(nfp_device_cpp(dev))))
@@ -202,10 +191,10 @@ int __nfp_mip_location(struct nfp_device *dev,
 			(NFP_CPP_ID_TARGET_of(mip_cppid) ==
 						NFP_CPP_TARGET_MU)) {
 			if ((mip_off >> 63) & 1) {
-				mip_off &= ~(UINT64_C(1) << 63);
-				mip_off &= ~(UINT64_C(0x3) << mu_lsb);
+				mip_off &= ~((uint64_t)1) << 63;
+				mip_off &= ~((uint64_t)0x3) << mu_lsb;
 				/* Direct Access */
-				mip_off |= ((uint64_t)2 << mu_lsb);
+				mip_off |= ((uint64_t)2) << mu_lsb;
 			}
 		}
 		nfp_nffw_info_release(dev);
@@ -323,7 +312,8 @@ int nfp_mip_probe(struct nfp_device *dev)
 	retval = nfp_cpp_read(nfp_device_cpp(dev), cpp_id, addr, mip, size);
 	if (retval != size) {
 		kfree(mip);
-		return -retval;
+
+		return (retval < 0) ? retval : -EIO;
 	}
 
 	if ((le32_to_cpu(mip->signature) != NFP_MIP_SIGNATURE) ||
@@ -335,6 +325,7 @@ int nfp_mip_probe(struct nfp_device *dev)
 	__mip_update_byteorder(mip);
 
 	priv->mip = mip;
+
 	return 1;
 }
 

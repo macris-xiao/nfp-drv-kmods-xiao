@@ -169,14 +169,12 @@ int __nfp_rtsymtab_probe(struct nfp_device *dev, struct nfp_rtsym_priv *priv)
 			}
 		}
 	} else if (NFP_CPP_MODEL_IS_6000(model)) {
-		uint64_t emu_24 = 0x8100000000ULL;	/* Island 24 EMU */
-		/*FIXME by using nfp_resource*/
-		err = nfp_cpp_read(cpp, dram, emu_24 | priv->mip->symtab_addr,
+		err = nfp_cpp_read(cpp, dram | 24, priv->mip->symtab_addr,
 				   rtsymtab, priv->mip->symtab_size);
 		if (err != priv->mip->symtab_size)
 			goto err_read_symtab;
 
-		err = nfp_cpp_read(cpp, dram, emu_24 | priv->mip->strtab_addr,
+		err = nfp_cpp_read(cpp, dram | 24, priv->mip->strtab_addr,
 				   priv->rtstrtab, priv->mip->strtab_size);
 		if (err != priv->mip->strtab_size)
 			goto err_read_strtab;
