@@ -211,6 +211,16 @@ int __nfp_mip_location(struct nfp_device *dev,
 		nfp_nffw_info_release(dev);
 	}
 
+	/* Verify that the discovered area actually has a MIP signature */
+	if (mip_cppid) {
+		retval = nfp_cpp_read(cpp, mip_cppid,
+				      mip_off,
+				      &mip, sizeof(mip));
+		if (retval < sizeof(mip) ||
+		    le32_to_cpu(mip.signature) != NFP_MIP_SIGNATURE )
+			mip_cppid = 0;
+	}
+
 	if (mip_cppid == 0) {
 		for (mip_off = 0;
 		     mip_off < NFP_MIP_MAX_OFFSET;
