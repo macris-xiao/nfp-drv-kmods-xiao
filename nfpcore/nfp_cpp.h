@@ -59,6 +59,9 @@ struct nfp_cpp;
 	((((target) & 0x7f) << 24) | (((token)  & 0xff) << 16) | \
 	 (((action) & 0xff) <<  8))
 
+#define NFP_CPP_ISLAND_ID(target, action, token, island) \
+	((((target) & 0x7f) << 24) | (((token)  & 0xff) << 16) | \
+	 (((action) & 0xff) <<  8) | (((island) & 0xff) << 0))
 
 /**
  * Return the NFP CPP target of a NFP CPP ID

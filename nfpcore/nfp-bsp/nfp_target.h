@@ -425,6 +425,8 @@ static inline int nfp6000_target_pushpull(uint32_t cpp_id, uint64_t address)
 		return nfp6000_cap_xpb(cpp_id);
 	case NFP_CPP_TARGET_CLS:
 		return nfp6000_cls(cpp_id);
+        case 0:
+		return target_rw(cpp_id, P32, 4, 4);
 	default:
 		return -EINVAL;
 	}
