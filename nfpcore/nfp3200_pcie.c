@@ -814,15 +814,15 @@ static int nfp_cpp_pcie_area_init(
 	priv->width.read = PUSH_WIDTH(pp);
 	priv->width.write = PULL_WIDTH(pp);
 
-	/* Special exception for the first 1M of DDR on
+	/* Special exception for the 2nd 4K page of DDR on
 	 * A0/A1 hardware. This is 'known safe' for that
-	 * specific use case, and prevents the locking of
-	 * all three BARs by the default NFP driver.
+	 * specific use case (nfp_net_vnic), and prevents
+	 * the locking of all three BARs by the default NFP driver.
 	 */
 	if (nfp->workaround & NFP_A_WORKAROUND) {
 		if (target == NFP_CPP_TARGET_MU &&
 		    (action == NFP_CPP_ACTION_RW || action == 0 || action == 1) &&
-		    ((address + size) <= (NFP_PCIE_P2C_CPPMAP_SIZE << 2))) {
+		    (address >= SZ_4K && (address + size) <= (SZ_4K + SZ_4K))) {
 			if (action == NFP_CPP_ACTION_RW || action == 0)
 				priv->width.read = 4;
 			if (action == NFP_CPP_ACTION_RW || action == 1)
