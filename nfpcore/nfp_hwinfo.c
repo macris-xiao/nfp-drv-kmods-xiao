@@ -142,16 +142,17 @@ static int hwinfo_db_validate(struct nfp_device *nfp, void *db, u32 len)
 	return 0;
 }
 
-static int hwinfo_fetch(struct nfp_device *nfp, void **hwdb, size_t *hwdb_size)
+static int hwinfo_fetch_nowait(struct nfp_device *nfp, void **hwdb, size_t *hwdb_size)
 {
 	struct nfp_cpp_area *area;
 	int r = 0;
-	int timeout = hwinfo_wait;
 	uint32_t cpp_id;
 	uint64_t cpp_addr;
 	size_t   cpp_size;
-	void *tmpdb;
 	struct nfp_resource *res;
+	uint32_t ver;
+	uint8_t header[16];
+	void *tmpdb;
 
 	res = nfp_resource_acquire(nfp, NFP_RESOURCE_NFP_HWINFO);
 	if (res) {
@@ -164,12 +165,23 @@ static int hwinfo_fetch(struct nfp_device *nfp, void **hwdb, size_t *hwdb_size)
 		if (cpp_size < HWINFO_SIZE_MIN)
 			return -ENOENT;
 	} else {
+		uint32_t model = nfp_cpp_model(nfp->cpp);
+
 		/* Try getting the HWInfo table from the 'classic' location
 		 */
-		cpp_id = NFP_CPP_ID(NFP_CPP_TARGET_ARM_SCRATCH,
-				    NFP_CPP_ACTION_RW, 0);
-		cpp_addr = 0;
-		cpp_size = 2 * 1024;
+		if (NFP_CPP_MODEL_IS_3200(model)) {
+			cpp_id = NFP_CPP_ID(NFP_CPP_TARGET_ARM_SCRATCH,
+					    NFP_CPP_ACTION_RW, 0);
+			cpp_addr = 0;
+			cpp_size = 2 * 1024;
+		} else if (NFP_CPP_MODEL_IS_6000(model)) {
+			cpp_id = NFP_CPP_ISLAND_ID(NFP_CPP_TARGET_MU,
+						   NFP_CPP_ACTION_RW, 0, 1);
+			cpp_addr = 0x30000;
+			cpp_size = 0x0e000;
+		} else {
+			return -ENODEV;
+		}
 	}
 
 	/* Fetch the hardware table from the ARM's SRAM (scratch).  It
@@ -179,37 +191,65 @@ static int hwinfo_fetch(struct nfp_device *nfp, void **hwdb, size_t *hwdb_size)
 					    cpp_addr, cpp_size);
 	if (!area)
 		return -EIO;
-	if (nfp_cpp_area_acquire(area) < 0) {
-		nfp_cpp_area_free(area);
-		return -EIO;
+
+	r = nfp_cpp_area_acquire(area);
+	if (r < 0)
+		goto exit_area_free;
+
+	r = nfp_cpp_area_read(area, 0, header, sizeof(header));
+	if (r < 0) {
+		nfp_err(nfp, "Can't read version: %d\n", r);
+		goto exit_area_release;
+	}
+
+	ver = NFP_HWINFO_VERSION_in(header);
+
+	if (NFP_HWINFO_VERSION_UPDATING(ver)) {
+		r = -EBUSY;
+		goto exit_area_release;
+	}
+
+	if (ver != NFP_HWINFO_VERSION_2 && ver != NFP_HWINFO_VERSION_1) {
+		nfp_err(nfp, "Unknown HWInfo version: 0x%08x\n", ver);
+		r = -EINVAL;
+		goto exit_area_release;
 	}
 
 	tmpdb = kmalloc(cpp_size, GFP_KERNEL);
 	if (tmpdb == NULL) {
-		nfp_cpp_area_release_free(area);
-		return -ENOMEM;
+		r = -ENOMEM;
+		goto exit_area_release;
 	}
 
 	memset(tmpdb, 0xff, cpp_size);
 
-	/* Wait for the hwinfo table to become available
-	 */
+	r = nfp_cpp_area_read(area, 0, tmpdb, cpp_size);
+	if (r >= 0 && r != cpp_size) {
+		kfree(tmpdb);
+		r = (r < 0) ? r : -EIO;
+		goto exit_area_release;
+	}
+
+	*hwdb = tmpdb;
+	*hwdb_size = cpp_size;
+
+exit_area_release:
+	nfp_cpp_area_release(area);
+
+exit_area_free:
+	nfp_cpp_area_free(area);
+
+	return r;
+}
+
+static int hwinfo_fetch(struct nfp_device *nfp, void **hwdb, size_t *hwdb_size)
+{
+	int timeout;
+	int r = -ENODEV;
+
 	for (timeout = (hwinfo_wait * 10); timeout >= 0; timeout--) {
-		uint32_t ver;
-		uint8_t header[16];
-
-		r = nfp_cpp_area_read(area, 0, header, sizeof(header));
-		if (r < 0) {
-			nfp_err(nfp, "Can't read version: %d\n", r);
-			break;
-		}
-
-		ver = NFP_HWINFO_VERSION_in(header);
-
-		if (NFP_HWINFO_VERSION_UPDATING(ver))
-			continue;
-
-		if (ver == NFP_HWINFO_VERSION_2 || ver == NFP_HWINFO_VERSION_1)
+		r = hwinfo_fetch_nowait(nfp, hwdb, hwdb_size);
+		if (r >= 0)
 			break;
 
 		msleep(100);	/* Sleep for 1/10 second. */
@@ -223,24 +263,9 @@ static int hwinfo_fetch(struct nfp_device *nfp, void **hwdb, size_t *hwdb_size)
 		r = -EIO;
 	}
 
-	if (r >= 0) {
-		r = nfp_cpp_area_read(area, 0, tmpdb, cpp_size);
-		if (r >= 0 && r != cpp_size)
-			r = -EIO;
-
-		if (r >= 0) {
-			*hwdb = tmpdb;
-			*hwdb_size = cpp_size;
-		}
-	}
-
-	if (r < 0)
-		kfree(tmpdb);
-
-	nfp_cpp_area_release_free(area);
-
 	return r;
 }
+
 
 const char *nfp_hwinfo_lookup(struct nfp_device *nfp, const char *lookup)
 {
