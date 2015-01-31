@@ -7,26 +7,7 @@ nfp-drv-kmods-dir	:= $(SRCDIR_REL)
 # Packaging
 # TODO: Add git id to prefix and tarball
 ######################################################################
-pkg_nfp-drv-kmods-src_TOPDIR := $(nfp-drv-kmods-dir)
-pkg_nfp-drv-kmods-src_PREFIX := nfp-drv-kmods-src
-$(eval $(call pkg_template,nfp-drv-kmods-src,,,))
 
-nfp-drv-kmods-src_files := README.txt Kbuild
-nfp-drv-kmods-src_files += \
-	$(subst $(nfp-drv-kmods-absdir-top)/,,$(wildcard $(addprefix $(nfp-drv-kmods-absdir-top)/,*.c)))
-nfp-drv-kmods-src_files += \
-	$(subst $(nfp-drv-kmods-absdir-top)/,,$(wildcard $(addprefix $(nfp-drv-kmods-absdir-top)/,*.h)))
-nfp-drv-kmods-src_files += \
-	$(subst $(nfp-drv-kmods-absdir-top)/,,$(wildcard $(addprefix $(nfp-drv-kmods-absdir-top)/nfpcore/,*.c)))
-nfp-drv-kmods-src_files += \
-	$(subst $(nfp-drv-kmods-absdir-top)/,,$(wildcard $(addprefix $(nfp-drv-kmods-absdir-top)/nfpcore/,*.h)))
-nfp-drv-kmods-src_files += \
-	$(subst $(nfp-drv-kmods-absdir-top)/,,$(wildcard $(addprefix $(nfp-drv-kmods-absdir-top)/nfpcore/nfp3200/,*.h)))
-nfp-drv-kmods-src_files += \
-	$(subst $(nfp-drv-kmods-absdir-top)/,,$(wildcard $(addprefix $(nfp-drv-kmods-absdir-top)/nfpcore/nfp6000/,*.h)))
-nfp-drv-kmods-src_files += \
-	$(subst $(nfp-drv-kmods-absdir-top)/,,$(wildcard $(addprefix $(nfp-drv-kmods-absdir-top)/nfpcore/nfp-bsp/,*.h)))
-
-$(foreach F,$(nfp-drv-kmods-src_files),\
-	$(eval $(call pkg_add_file,nfp-drv-kmods-src,,,$(nfp-drv-kmods-absdir-top)/$F,$(pkg_nfp-drv-kmods-src_PREFIX)/$F,0644)))
-
+srcpkg_nfp-drv-kmods_ROOTDIR := $(nfp-drv-kmods-absdir-top)
+srcpkg_nfp-drv-kmods_NOAUTOCONF := yes
+$(eval $(call srcpkg_template,nfp-drv-kmods,,))
