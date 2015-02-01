@@ -1,24 +1,24 @@
 ######################################################################
 # General settings
 ######################################################################
-nfp-drv-kmods-dir	:= $(SRCDIR_REL)
-
+nfp-drv-kmods-dir    := $(SRCDIR_REL)
 nfp-drv-kmods_reldir := $(SRCDIR_REL)
 nfp-drv-kmods_absdir := $(SRCDIR_ABS)
 
+nfp-drv-kmods_rev    := $(shell cd $(nfp-drv-kmods_absdir) && \
+			 git rev-parse --short HEAD)
+
 ######################################################################
 # Packaging
-# TODO: Add git id to prefix and tarball
 ######################################################################
 
 # add a .revision file to the srcpkg containing the git ID
 nfp-drv-kmods_revfile := $(nfp-drv-kmods_reldir)/.revision
 $(nfp-drv-kmods_revfile): FORCE
 	$(Q) $(call mkdir,$(@D))
-	$(Q) cd $(nfp-drv-kmods_absdir) && \
-		git rev-parse --short HEAD > $(CURDIR)/$(nfp-drv-kmods_revfile)
+	$(Q) echo $(nfp-drv-kmods_rev) > $(CURDIR)/$(nfp-drv-kmods_revfile)
 $(eval $(call srcpkg_add_file,nfp-drv-kmods,,.revision,$(nfp-drv-kmods_revfile)))
 
 srcpkg_nfp-drv-kmods_ROOTDIR := $(nfp-drv-kmods_absdir)
 srcpkg_nfp-drv-kmods_NOAUTOCONF := yes
-$(eval $(call srcpkg_template,nfp-drv-kmods,,))
+$(eval $(call srcpkg_template,nfp-drv-kmods,,-$(nfp-drv-kmods_rev)))
