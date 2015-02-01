@@ -23,8 +23,12 @@ The Makefile searches a number of standard location for the configured
 kernel sources. To override the location set 'KSRC'
 $ make KSRC=<location of kernel source> 
 
-To run Coccinelle/coccicheck use the 'coccicheck' target
-$ make coccicheck
+
+Additional targets:
+- coccicheck: Runs Coccinelle/coccicheck
+  requires coccinelle to be installed, e.g., sudo apt-get install coccinelle
+- sparse: Runs sparse, a tool for static code analysis 
+  requires the sparse tool to be installed, e.g., sudo apt-get install sparse
 
 
 nfp.ko parameters

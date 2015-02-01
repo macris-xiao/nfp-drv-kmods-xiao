@@ -43,6 +43,9 @@ noisy: clean
 coccicheck: clean
 	$(MAKE) ccflags-y:="$(CFLAGS_EXTRA)" -C $(KSRC) M=`pwd` coccicheck MODE=report
 
+sparse: clean
+	 $(MAKE) ccflags-y+="$(CFLAGS_EXTRA)" -C $(KSRC) M=`pwd` C=2 CF="-D__CHECK_ENDIAN__ -Wbitwise -Wcontext" modules
+
 clean:
 # Pass makecmd to disable some config checks
 	$(MAKE) -C $(KSRC) M=`pwd` makecmd=clean clean
