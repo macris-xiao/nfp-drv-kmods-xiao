@@ -1,8 +1,15 @@
+######################################################
+# Work out driver version if not build from repository
+ifeq (,$(wildcard .git))
+  NFPVER := $(shell cat .revision)
+else
+  NFPVER := 
+endif
+
 #####################################
 # Work out where the kernel source is
-
 ifeq (,$(KVER))
-KVER=$(shell uname -r)
+  KVER=$(shell uname -r)
 endif
 
 KERNEL_SEARCH_PATH := \
@@ -28,30 +35,31 @@ ifeq (,$(KSRC))
   $(error Could not find kernel source)
 endif
 
-
 EXTRA_CFLAGS += $(CFLAGS_EXTRA)
-
 
 ###########################################################################
 # Build rules
+
+COMMON_ARGS := nfp_src_ver:=$(NFPVER) ccflags-y:="$(CFLAGS_EXTRA)" -C $(KSRC) M=`pwd`
+
 build: clean
-	$(MAKE) ccflags-y:="$(CFLAGS_EXTRA)" -C $(KSRC) M=`pwd` modules
+	$(MAKE) $(COMMON_ARGS) modules
 
 noisy: clean
-	$(MAKE) ccflags-y:="$(CFLAGS_EXTRA)" -C $(KSRC) M=`pwd` V=1 modules
+	$(MAKE) $(COMMON_ARGS) V=1 modules
 
 coccicheck: clean
-	$(MAKE) ccflags-y:="$(CFLAGS_EXTRA)" -C $(KSRC) M=`pwd` coccicheck MODE=report
+	$(MAKE) $(COMMON_ARGS) coccicheck MODE=report
 
 sparse: clean
-	 $(MAKE) ccflags-y+="$(CFLAGS_EXTRA)" -C $(KSRC) M=`pwd` C=2 CF="-D__CHECK_ENDIAN__ -Wbitwise -Wcontext" modules
+	 $(MAKE) $(COMMON_ARGS) C=2 CF="-D__CHECK_ENDIAN__ -Wbitwise -Wcontext" modules
 
 clean:
 # Pass makecmd to disable some config checks
 	$(MAKE) -C $(KSRC) M=`pwd` makecmd=clean clean
 
 install: build
-	$(MAKE) -C $(KSRC) M=`pwd` modules_install
+	$(MAKE) $(COMMON_ARGS) modules_install
 
 
 
