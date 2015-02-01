@@ -6,3 +6,4 @@ modules.order
 nfp_build_info.h
 *.ko
 *.mod.c
+.tmp_versions/

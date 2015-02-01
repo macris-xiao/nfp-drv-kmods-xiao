@@ -1,15 +1,31 @@
 NFP Kernel Drivers
 ------------------
 
-Building
---------
+Building and installing
+-----------------------
 
-$ make -C /lib/modules/`uname -r`/build M=`pwd` modules
+Building and installing for the currently running kernel:
+$ make
+$ sudo make install
 
-Installation
-------------
 
-$ sudo make -C /lib/modules/`uname -r`/build M=`pwd` modules_install
+To clean up use the 'clean' target
+$ make clean
+
+For a more verbose build use the 'noisy' target
+$ make noisy
+
+To override the kernel version to build for set 'KVER':
+$ make KVER=<version> 
+$ sudo make KVER=<version> install
+
+The Makefile searches a number of standard location for the configured
+kernel sources. To override the location set 'KSRC'
+$ make KSRC=<location of kernel source> 
+
+To run Coccinelle/coccicheck use the 'coccicheck' target
+$ make coccicheck
+
 
 nfp.ko parameters
 -----------------
