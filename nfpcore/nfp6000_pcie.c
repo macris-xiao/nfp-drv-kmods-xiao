@@ -218,7 +218,6 @@ struct nfp6000_pcie {
 	/* Reserved BAR access */
 	struct {
 		void __iomem *general;
-		void __iomem *lxpb;
 		void __iomem *expl[4];
 	} iomem;
 
@@ -866,14 +865,6 @@ static int enable_bars(struct nfp6000_pcie *nfp)
 {
 	struct nfp_bar *bar = nfp->bars;
 	int i;
-	const uint32_t barcfg_pcie_xpb =
-		NFP_PCIE_BAR_PCIE2CPP_MapType(
-			NFP_PCIE_BAR_PCIE2CPP_MapType_BULK) |
-		NFP_PCIE_BAR_PCIE2CPP_LengthSelect_32BIT |
-		NFP_PCIE_BAR_PCIE2CPP_Target_BaseAddress(
-				NFP_CPP_TARGET_ISLAND_XPB) |
-		NFP_PCIE_BAR_PCIE2CPP_Token_BaseAddress(0) |
-		NFP_PCIE_BAR_PCIE2CPP_BaseAddress(0);
 	const uint32_t barcfg_general =
 		NFP_PCIE_BAR_PCIE2CPP_MapType(
 		NFP_PCIE_BAR_PCIE2CPP_MapType_GENERAL) |
@@ -926,19 +917,6 @@ static int enable_bars(struct nfp6000_pcie *nfp)
 		nfp->expl.data = bar->iomem + NFP_PCIE_SRAM + 0x1000;
 	}
 	nfp->iomem.general = bar->iomem;
-
-	/* Configure, and lock, BAR0.1 for PCIe Local XPB use */
-	bar = &nfp->bars[1];
-	bar->iomem = devm_ioremap_nocache(&nfp->pdev->dev,
-			nfp_bar_resource_start(bar),
-			nfp_bar_resource_len(bar));
-	if (bar->iomem) {
-		dev_info(nfp->dev, "BAR0.1 RESERVED: PCIe XPB CSRs\n");
-		atomic_inc(&bar->refcnt);
-
-		nfp6000_bar_write(nfp, bar, barcfg_pcie_xpb);
-	}
-	nfp->iomem.lxpb = bar->iomem;
 
 	/* Use BAR0.4..BAR0.7 for EXPL IO */
 	for (i = 0; i < 4; i++) {
