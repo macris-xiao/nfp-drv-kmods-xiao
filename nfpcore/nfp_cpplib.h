@@ -35,6 +35,14 @@ static inline int __nfp_cpp_id_is_prefetchable(uint32_t cpp_id)
 		 NFP_CPP_ID_ACTION_of(cpp_id) == 0));
 }
 
+int __nfp_cpp_explicit_read(struct nfp_cpp *cpp, uint32_t cpp_id,
+			    uint64_t addr, void *buff, size_t len,
+			    int width_read);
+
+int __nfp_cpp_explicit_write(struct nfp_cpp *cpp, uint32_t cpp_id,
+			     uint64_t addr, const void *buff, size_t len,
+			    int width_write);
+
 /* nfp_cppcore.c */
 
 int nfp_cppcore_init(void);

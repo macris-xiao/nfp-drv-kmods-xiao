@@ -1210,15 +1210,23 @@ static int nfp6000_area_read(struct nfp_cpp_area *area, void *kernel_vaddr,
 	uint32_t *wrptr32 = kernel_vaddr;
 	uint64_t __maybe_unused *wrptr64 = kernel_vaddr;
 	int is_64;
-	int n;
-
-	if (!priv->width.read)
-		return -EINVAL;
-
-	is_64 = (priv->width.read == TARGET_WIDTH_64) ? 1 : 0;
+	int n, width;
 
 	if ((offset + length) > priv->size)
 		return -EFAULT;
+
+	width = priv->width.read;
+
+	if (width <= 0)
+		return -EINVAL;
+
+	/* Unaligned? Translate to an explicit access */
+	if ((priv->offset + offset) & (width-1))
+		return __nfp_cpp_explicit_read(nfp_cpp_area_cpp(area),
+				NFP_CPP_ID(priv->target, priv->action, priv->token),
+				priv->offset + offset, kernel_vaddr, length, width);
+
+	is_64 = (width == TARGET_WIDTH_64) ? 1 : 0;
 
 	if (is_64) {
 		if (((offset % sizeof(uint64_t)) != 0) ||
@@ -1256,13 +1264,21 @@ static int nfp6000_area_write(struct nfp_cpp_area *area,
 	uint32_t __iomem *wrptr32 = priv->iomem + offset;
 	uint64_t __iomem __maybe_unused *wrptr64 = priv->iomem + offset;
 	int is_64;
-	int n;
+	int n, width;
 
 	if ((offset + length) > priv->size)
 		return -EFAULT;
 
-	if (!priv->width.write)
+	width = priv->width.write;
+
+	if (width <= 0)
 		return -EINVAL;
+
+	/* Unaligned? Translate to an explicit access */
+	if ((priv->offset + offset) & (width-1))
+		return __nfp_cpp_explicit_write(nfp_cpp_area_cpp(area),
+				NFP_CPP_ID(priv->target, priv->action, priv->token),
+				priv->offset + offset, kernel_vaddr, length, width);
 
 	is_64 = (priv->width.write == TARGET_WIDTH_64) ? 1 : 0;
 

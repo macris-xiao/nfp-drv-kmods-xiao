@@ -665,3 +665,140 @@ int nfp_cpp_mutex_trylock(struct nfp_cpp_mutex *mutex)
 
 	return MUTEX_IS_LOCKED(tmp) ? -EBUSY : -EINVAL;
 }
+
+static inline uint8_t __nfp_bytemask_of(int width, uint64_t addr)
+{
+	uint8_t byte_mask;
+
+	if (width == 8)
+		byte_mask = 0xff;
+	else if (width == 4)
+		byte_mask = 0x0f << (addr & 4);
+	else if (width == 2)
+		byte_mask = 0x03 << (addr & 6);
+	else if (width == 1)
+		byte_mask = 0x01 << (addr & 7);
+	else
+		byte_mask = 0;
+
+	return byte_mask;
+}
+
+
+int __nfp_cpp_explicit_read(struct nfp_cpp *cpp, uint32_t cpp_id,
+			    uint64_t addr, void *buff, size_t len,
+			    int width_read)
+{
+	struct nfp_cpp_explicit *expl;
+	int cnt, incr = 16 * width_read;
+	char *tmp = buff;
+	int err;
+	uint8_t byte_mask;
+
+	expl = nfp_cpp_explicit_acquire(cpp);
+
+	if (!expl)
+		return -EBUSY;
+
+	if (incr > 128)
+		incr = 128;
+
+	if (len & (width_read-1))
+		return -EINVAL;
+
+	/* Translate a NFP_CPP_ACTION_RW to action 0
+	 */
+	if (NFP_CPP_ID_ACTION_of(cpp_id) == NFP_CPP_ACTION_RW)
+		cpp_id = NFP_CPP_ID(NFP_CPP_ID_TARGET_of(cpp_id), 0,
+							NFP_CPP_ID_TOKEN_of(cpp_id));
+
+	if (incr > len)
+		incr = len;
+
+	byte_mask = __nfp_bytemask_of(width_read, addr);
+
+	nfp_cpp_explicit_set_target(expl, cpp_id, (incr / width_read)-1, byte_mask);
+	nfp_cpp_explicit_set_posted(expl, 1, 0, NFP_SIGNAL_PUSH, 0, NFP_SIGNAL_NONE);
+
+	for (cnt = 0; cnt < len; cnt += incr, addr += incr, tmp += incr) {
+		if ((cnt + incr) > len) {
+			incr = (len - cnt);
+			nfp_cpp_explicit_set_target(expl, cpp_id,
+						    (incr / width_read)-1, 0xff);
+		}
+		err = nfp_cpp_explicit_do(expl, addr);
+		if (err < 0) {
+			nfp_cpp_explicit_release(expl);
+			return err;
+		}
+		err = nfp_cpp_explicit_get(expl, tmp, incr);
+		if (err < 0) {
+			nfp_cpp_explicit_release(expl);
+			return err;
+		}
+	}
+
+	nfp_cpp_explicit_release(expl);
+
+	return len;
+}
+
+int __nfp_cpp_explicit_write(struct nfp_cpp *cpp, uint32_t cpp_id,
+			     uint64_t addr, const void *buff, size_t len,
+			     int width_write)
+{
+	struct nfp_cpp_explicit *expl;
+	int cnt, incr = 16 * width_write;
+	const char *tmp = buff;
+	int err;
+	uint8_t byte_mask;
+
+	expl = nfp_cpp_explicit_acquire(cpp);
+
+	if (!expl)
+		return -EBUSY;
+
+	if (incr > 128)
+		incr = 128;
+
+	if (len & (width_write-1))
+		return -EINVAL;
+
+	/* Translate a NFP_CPP_ACTION_RW to action 1
+	 */
+	if (NFP_CPP_ID_ACTION_of(cpp_id) == NFP_CPP_ACTION_RW)
+		cpp_id = NFP_CPP_ID(NFP_CPP_ID_TARGET_of(cpp_id), 1,
+				    NFP_CPP_ID_TOKEN_of(cpp_id));
+
+	if (incr > len)
+		incr = len;
+
+	byte_mask = __nfp_bytemask_of(width_write, addr);
+
+	nfp_cpp_explicit_set_target(expl, cpp_id, (incr / width_write)-1, byte_mask);
+	nfp_cpp_explicit_set_posted(expl, 1, 0, NFP_SIGNAL_PULL, 0, NFP_SIGNAL_NONE);
+
+	for (cnt = 0; cnt < len; cnt += incr, addr += incr, tmp += incr) {
+		if ((cnt + incr) > len) {
+			incr = (len - cnt);
+			nfp_cpp_explicit_set_target(expl, cpp_id,
+					(incr / width_write)-1, 0xff);
+		}
+		err = nfp_cpp_explicit_put(expl, tmp, incr);
+		if (err < 0) {
+			nfp_cpp_explicit_release(expl);
+			return err;
+		}
+		err = nfp_cpp_explicit_do(expl, addr);
+		if (err < 0) {
+			nfp_cpp_explicit_release(expl);
+			return err;
+		}
+	}
+
+	nfp_cpp_explicit_release(expl);
+
+	return len;
+}
+
+/* vim: set shiftwidth=8 noexpandtab: */
