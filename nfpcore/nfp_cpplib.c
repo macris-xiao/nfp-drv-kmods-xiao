@@ -73,10 +73,6 @@ int nfp_cpp_read(struct nfp_cpp *cpp, uint32_t destination,
 	struct nfp_cpp_area *area;
 	int err;
 
-	if ((address % sizeof(uint32_t)) != 0 ||
-	    (length % sizeof(uint32_t)) != 0)
-		return -EINVAL;
-
 	area = nfp_cpp_area_alloc(cpp, destination, address, length);
 	if (!area)
 		return -ENOMEM;
@@ -107,10 +103,6 @@ int nfp_cpp_write(struct nfp_cpp *cpp, uint32_t destination,
 {
 	struct nfp_cpp_area *area;
 	int err;
-
-	if ((address % sizeof(uint32_t)) != 0 ||
-	    (length % sizeof(uint32_t)) != 0)
-		return -EINVAL;
 
 	area = nfp_cpp_area_alloc(cpp, destination, address, length);
 	if (!area)

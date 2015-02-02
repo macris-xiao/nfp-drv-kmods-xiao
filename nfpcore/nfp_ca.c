@@ -122,7 +122,7 @@ static int nfp_ca_cpp(struct nfp_cpp *cpp, enum nfp_ca_action action,
 	switch (action) {
 	case NFP_CA_ACTION_POLL32:
 	case NFP_CA_ACTION_POLL64:
-		timeout = 100; /* Allow 2 seconds for a poll before failing. */
+		timeout = 200; /* Allow 2 seconds for a poll before failing. */
 		poll_action = 1;
 		/* Fall through */
 
@@ -147,7 +147,7 @@ static int nfp_ca_cpp(struct nfp_cpp *cpp, enum nfp_ca_action action,
 				break;
 
 			if (val != tmp64) {
-				msleep(20);
+				msleep(10);
 				timeout--;
 			} else {
 				break;

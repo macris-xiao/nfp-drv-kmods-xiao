@@ -793,6 +793,14 @@ static int nfp_cpp_pcie_area_init(
 	u32 token = NFP_CPP_ID_TOKEN_of(dest);
 	int pp;
 
+	/* This was in nfp_cpp_read/write previously, but the NFP-6xxx CPP Area
+	 * API can handle unaligned access so we move the 4-byte alignment
+	 * check into the CPP Area implementation that requires it.
+	 */
+	if ((address % sizeof(uint32_t)) != 0 ||
+		(size % sizeof(uint32_t)) != 0)
+			return -EINVAL;
+
 	/* Special 'Target 0' case */
 	if (target == 0 &&
 	    (action == NFP_CPP_ACTION_RW || action == 0 || action == 1) &&
