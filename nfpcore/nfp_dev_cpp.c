@@ -609,6 +609,7 @@ static int do_cpp_event_acquire(struct nfp_dev_cpp_channel *chan,
 	if (event == NULL)
 		return -ENOMEM;
 
+	event->signal = event_req->signal;
 	event->cpp_event = nfp_cpp_event_alloc(chan->cdev->cpp,
 			event_req->match, event_req->mask, event_req->type);
 	if (IS_ERR(event->cpp_event)) {
