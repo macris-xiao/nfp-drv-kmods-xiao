@@ -5,22 +5,16 @@
  */
 
 #include <linux/kernel.h>
-#include <linux/errno.h>
-#include <linux/slab.h>
-#include <linux/string.h>
 
-#include "nfp_common.h"
-
-#include "nfp_device.h"
+#include "nfp.h"
 #include "nfp_resource.h"
 #include "nfp_hwinfo.h"
 #include "nfp_gpio.h"
 #include "nfp_i2c.h"
 #include "nfp_nbi_phymod.h"
 
-#include "nfp-bsp/nfp_resource.h"
-
 struct nfp_phymod;
+struct nfp_phymod_eth;
 
 struct sff_ops {
 	int type;
@@ -48,23 +42,39 @@ struct sff_ops {
 	int (*set_lane_dis)(struct nfp_phymod *phy, uint32_t tx, uint32_t rx);
 };
 
+struct nfp_key {
+	struct nfp_device *nfp;
+	char key[16];
+};
+
 struct nfp_phymod_priv {
+	struct nfp_device *nfp;
 	int selected;
 	int phymods;
 	struct nfp_phymod {
-		struct nfp_device *nfp;
+		struct nfp_phymod_priv *priv;
 		int index;
 		char key[16];
 		char *label;
 		int nbi;
 		int type;
-		uint8_t mac[6];
 		int port, lanes;
 		struct {
 			const struct sff_ops *op;
 			void *priv;
 		} sff;
 	} phymod[48];
+	int eths;
+	struct nfp_phymod_eth {
+		struct nfp_phymod_priv *priv;
+		int index;
+		char key[16];
+		char *label;
+		uint8_t mac[6];
+		int lane;
+		int lanes;
+		struct nfp_phymod *phymod;
+        } eth[48];
 };
 
 static void _phymod_private_free(void *_priv)
@@ -74,10 +84,15 @@ static void _phymod_private_free(void *_priv)
 
 	for (n = 0; n < priv->phymods; n++) {
 		struct nfp_phymod *phy = &priv->phymod[n];
-
 		if (phy->sff.op && phy->sff.op->close)
 			phy->sff.op->close(phy);
-		kfree(phy->label);
+		if (phy->label)
+			kfree(phy->label);
+	}
+	for (n = 0; n < priv->eths; n++) {
+		struct nfp_phymod_eth *eth = &priv->eth[n];
+		if (eth->label)
+			kfree(eth->label);
 	}
 }
 
@@ -85,6 +100,7 @@ static const struct {
 	const char *name;
 	int type;
 } typemap[] = {
+	{ "SFP", NFP_PHYMOD_TYPE_SFP },
 	{ "SFP+", NFP_PHYMOD_TYPE_SFPP },
 	{ "QSFP", NFP_PHYMOD_TYPE_QSFP },
 	{ "CXP", NFP_PHYMOD_TYPE_CXP },
@@ -93,45 +109,55 @@ static const struct {
 static const char *_phymod_get_attr(struct nfp_phymod *phy, const char *attr)
 {
 	char buff[32];
-
 	snprintf(buff, sizeof(buff), "%s.%s", phy->key, attr);
 	buff[sizeof(buff)-1] = 0;
 
-	return nfp_hwinfo_lookup(phy->nfp, buff);
+	return nfp_hwinfo_lookup(phy->priv->nfp, buff);
 }
 
 static int _phymod_get_attr_int(struct nfp_phymod *phy,
 				const char *attr, int *val)
 {
-	int err;
-	long tmp;
 	const char *ptr;
 
 	ptr = _phymod_get_attr(phy, attr);
 	if (!ptr)
-		return -1;
+		return -EINVAL;
 
-	err = kstrtol(ptr, 0, &tmp);
-	if (err < 0)
-		return err;
-
-	*val = tmp;
-	return 0;
+	return kstrtoint(ptr, 0, val);
 }
 
-static int _phymod_get_attr_mac(struct nfp_phymod *phy,
-				const char *attr, uint8_t *mac)
+static const char *_eth_get_attr(struct nfp_phymod_eth *eth, const char *attr)
+{
+	char buff[32];
+	snprintf(buff, sizeof(buff), "%s.%s", eth->key, attr);
+	buff[sizeof(buff)-1] = 0;
+
+	return nfp_hwinfo_lookup(eth->priv->nfp, buff);
+}
+
+static int _eth_get_attr_int(struct nfp_phymod_eth *eth, const char *attr, int *val)
 {
 	const char *ptr;
 
-	ptr = _phymod_get_attr(phy, attr);
+	ptr = _eth_get_attr(eth, attr);
+	if (!ptr)
+		return -EINVAL;
+
+	return kstrtoint(ptr, 0, val);
+}
+
+static int _eth_get_attr_mac(struct nfp_phymod_eth *eth, const char *attr, uint8_t *mac)
+{
+	const char *ptr;
+
+	ptr = _eth_get_attr(eth, attr);
 	if (ptr) {
 		int err;
 
 		err = sscanf(ptr, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
-			     &mac[0], &mac[1], &mac[2],
-			     &mac[3], &mac[4], &mac[5]);
-
+				&mac[0], &mac[1], &mac[2],
+				&mac[3], &mac[4], &mac[5]);
 		if (err != 6)
 			return -EINVAL;
 	} else {
@@ -180,16 +206,12 @@ struct bus_i2c {
 static int bus_i2c_open(struct sff_bus *bus, const char *storage)
 {
 	struct bus_i2c *priv;
-	char *cp;
 	int i2c_bus, i2c_addr, i2c_offset;
+	int rc;
 
 	/* ee1:4:0x50:0 */
-	cp = strchr(storage, ':');
-	if (!cp)
-		return -EINVAL;
-
-	cp++;
-	if (sscanf(cp, "%i:%i:%i", &i2c_bus, &i2c_addr, &i2c_offset) != 3)
+	rc = sscanf(storage, "ee1:%i:%i:%i", &i2c_bus, &i2c_addr, &i2c_offset);
+	if (rc != 3)
 		return -EINVAL;
 
 	(void)i2c_offset; /* Ignored */
@@ -223,7 +245,7 @@ static int bus_i2c_select(struct sff_bus *bus, int is_selected)
 			priv->i2c = nfp_i2c_alloc(bus->nfp,
 						  priv->scl, priv->sda);
 			if (priv->i2c == NULL)
-				return -1;
+				return -EINVAL;
 			/* Set to default rate */
 			nfp_i2c_set_speed(priv->i2c, 0);
 		}
@@ -276,7 +298,7 @@ static int _phymod_get_attr_bus(struct nfp_phymod *phy, const char *attr,
 	const char *cp;
 	int i;
 
-	bus->nfp = phy->nfp;
+	bus->nfp = phy->priv->nfp;
 
 	cp = _phymod_get_attr(phy, attr);
 	if (!cp)
@@ -319,6 +341,7 @@ struct sff_8436 {
 
 static int sff_8436_open(struct nfp_phymod *phy)
 {
+	struct nfp_phymod_priv *priv = phy->priv;
 	struct sff_8436 *sff;
 	int err;
 
@@ -349,23 +372,23 @@ static int sff_8436_open(struct nfp_phymod *phy)
 	if (err < 0)
 		goto exit;
 
-	err = nfp_gpio_direction(phy->nfp, sff->in.irq, 0);
+	err = nfp_gpio_direction(priv->nfp, sff->in.irq, 0);
 	if (err < 0)
 		goto exit;
 
-	err = nfp_gpio_direction(phy->nfp, sff->in.present, 0);
+	err = nfp_gpio_direction(priv->nfp, sff->in.present, 0);
 	if (err < 0)
 		goto exit;
 
-	err = nfp_gpio_direction(phy->nfp, sff->out.modsel, 1);
+	err = nfp_gpio_direction(priv->nfp, sff->out.modsel, 1);
 	if (err < 0)
 		goto exit;
 
-	err = nfp_gpio_direction(phy->nfp, sff->out.reset, 1);
+	err = nfp_gpio_direction(priv->nfp, sff->out.reset, 1);
 	if (err < 0)
 		goto exit;
 
-	err = nfp_gpio_direction(phy->nfp, sff->out.lp_mode, 1);
+	err = nfp_gpio_direction(priv->nfp, sff->out.lp_mode, 1);
 	if (err < 0)
 		goto exit;
 
@@ -396,10 +419,11 @@ static void sff_8436_close(struct nfp_phymod *phy)
 
 static int sff_8436_poll_irq(struct nfp_phymod *phy)
 {
+	struct nfp_phymod_priv *priv = phy->priv;
 	struct sff_8436 *sff = phy->sff.priv;
 	int err;
-
-	err = nfp_gpio_get(phy->nfp, sff->in.irq);
+	
+	err = nfp_gpio_get(priv->nfp, sff->in.irq);
 	if (err < 0)
 		return err;
 
@@ -408,10 +432,11 @@ static int sff_8436_poll_irq(struct nfp_phymod *phy)
 
 static int sff_8436_poll_present(struct nfp_phymod *phy)
 {
+	struct nfp_phymod_priv *priv = phy->priv;
 	struct sff_8436 *sff = phy->sff.priv;
 	int err;
 
-	err = nfp_gpio_get(phy->nfp, sff->in.present);
+	err = nfp_gpio_get(priv->nfp, sff->in.present);
 	if (err < 0)
 		return err;
 
@@ -420,6 +445,7 @@ static int sff_8436_poll_present(struct nfp_phymod *phy)
 
 static int sff_8436_select(struct nfp_phymod *phy, int is_selected)
 {
+	struct nfp_phymod_priv *priv = phy->priv;
 	struct sff_8436 *sff = phy->sff.priv;
 	int err;
 
@@ -429,7 +455,7 @@ static int sff_8436_select(struct nfp_phymod *phy, int is_selected)
 			return err;
 	}
 
-	err = nfp_gpio_set(phy->nfp, sff->out.modsel, is_selected ? 0 : 1);
+	err = nfp_gpio_set(priv->nfp, sff->out.modsel, is_selected ? 0 : 1);
 	if (err < 0)
 		return err;
 
@@ -440,16 +466,16 @@ static int sff_8436_select(struct nfp_phymod *phy, int is_selected)
 
 static int sff_8436_reset(struct nfp_phymod *phy, int in_reset)
 {
+	struct nfp_phymod_priv *priv = phy->priv;
 	struct sff_8436 *sff = phy->sff.priv;
-
-	return nfp_gpio_set(phy->nfp, sff->out.reset, in_reset ? 1 : 0);
+	return nfp_gpio_set(priv->nfp, sff->out.reset, in_reset ? 1 : 0);
 }
 
 static int sff_8436_power(struct nfp_phymod *phy, int is_full_power)
 {
+	struct nfp_phymod_priv *priv = phy->priv;
 	struct sff_8436 *sff = phy->sff.priv;
-
-	return nfp_gpio_set(phy->nfp, sff->out.lp_mode, is_full_power ? 0 : 1);
+	return nfp_gpio_set(priv->nfp, sff->out.lp_mode, is_full_power ? 0 : 1);
 }
 
 static int sff_8436_read8(struct nfp_phymod *phy, uint32_t reg, uint8_t *val)
@@ -729,6 +755,7 @@ static void *_phymod_private(struct nfp_device *nfp)
 	if (!priv)
 		return NULL;
 
+	priv->nfp = nfp;
 	priv->selected = -1;
 	priv->phymods = 0;
 	for (n = 0; n < ARRAY_SIZE(priv->phymod); n++) {
@@ -736,10 +763,10 @@ static void *_phymod_private(struct nfp_device *nfp)
 		int i, err, sff_type;
 		const char *cp;
 
+		phy->priv = priv;
 		phy->index = n;
-		phy->nfp = nfp;
 
-		snprintf(phy->key, sizeof(phy->key), "eth%d", n);
+		snprintf(phy->key, sizeof(phy->key), "phy%d", n);
 		phy->key[sizeof(phy->key)-1] = 0;
 
 		err = _phymod_get_attr_int(phy, "nbi", &phy->nbi);
@@ -765,8 +792,6 @@ static void *_phymod_private(struct nfp_device *nfp)
 		else
 			phy->label = kstrdup(phy->key, GFP_KERNEL);
 
-		_phymod_get_attr_mac(phy, "mac", &phy->mac[0]);
-
 		err = _phymod_get_attr_int(phy, "sff", &sff_type);
 		if (err >= 0) {
 			for (i = 0; i < ARRAY_SIZE(sff_op_table); i++) {
@@ -778,9 +803,52 @@ static void *_phymod_private(struct nfp_device *nfp)
 			}
 			if (err < 0)
 				continue;
+			if (i == ARRAY_SIZE(sff_op_table))
+				continue;
 		}
 
 		priv->phymods++;
+	}
+
+	for (n = 0; n < ARRAY_SIZE(priv->eth); n++) {
+		struct nfp_phymod_eth *eth = &priv->eth[priv->eths];
+		int i, err;
+		const char *cp;
+
+		eth->priv = priv;
+		eth->index = n;
+
+		snprintf(eth->key, sizeof(eth->key), "eth%d", n);
+		eth->key[sizeof(eth->key)-1] = 0;
+
+		err = _eth_get_attr_int(eth, "phy", &i);
+		if (err < 0)
+			continue;
+
+		if (i < 0 || i >= priv->phymods)
+			continue;
+
+		eth->phymod = &priv->phymod[i];
+
+		err = _eth_get_attr_mac(eth, "mac", &eth->mac[0]);
+		if (err < 0)
+			continue;
+
+		err = _eth_get_attr_int(eth, "lane", &eth->lane);
+		if (err < 0)
+			continue;
+
+		err = _eth_get_attr_int(eth, "lanes", &eth->lanes);
+		if (err < 0)
+			continue;
+
+		cp = _eth_get_attr(eth, "label");
+		if (cp)
+			eth->label = kstrdup(cp, GFP_KERNEL);
+		else
+			eth->label = kstrdup(eth->key, GFP_KERNEL);
+
+		priv->eths++;
 	}
 
 	return priv;
@@ -790,10 +858,8 @@ static int _phymod_select(struct nfp_phymod *phy)
 {
 	struct nfp_phymod_priv *priv;
 	int i, err = 0;
-
-	priv = nfp_device_private(phy->nfp, _phymod_private);
-	if (!priv)
-		return -ENOMEM;
+	
+	priv = phy->priv;
 
 	if (priv->selected == phy->index)
 		return 0;
@@ -854,7 +920,7 @@ EXPORT_SYMBOL(nfp_phymod_next);
  * @ingroup nfp6000-only
  *
  * @param phymod
- * @param index	Pointer to a int for the index
+ * @param index 	Pointer to a int for the index
  * @return 0 on success, -1 and errno on error
  */
 int nfp_phymod_get_index(struct nfp_phymod *phymod, int *index)
@@ -883,22 +949,6 @@ int nfp_phymod_get_label(struct nfp_phymod *phymod, const char **label)
 }
 EXPORT_SYMBOL(nfp_phymod_get_label);
 
-/**
- * Get the MAC address of the port
- * @ingroup nfp6000-only
- *
- * @param phymod
- * @param mac		Pointer to a const uint8_t * for the 6-byte MAC
- * @return 0 on success, -1 and errno on error
- */
-int nfp_phymod_get_mac(struct nfp_phymod *phymod, const uint8_t **mac)
-{
-	if (mac)
-		*mac = &phymod->mac[0];
-
-	return 0;
-}
-EXPORT_SYMBOL(nfp_phymod_get_mac);
 
 /**
  * Get the NBI ID for a phymode
@@ -1071,7 +1121,7 @@ EXPORT_SYMBOL(nfp_phymod_read_status_los);
  * @param[out] txstatus Transmit Fault status for the module
  * @param[out] rxstatus Receive Fault status for the module
  *
- * @return 0 on success. Set errno and return -1 on error.
+ * @return 0 on success, < 0 on error.
  *
  */
 int nfp_phymod_read_status_fault(struct nfp_phymod *phymod, uint32_t *txstatus,
@@ -1107,7 +1157,7 @@ EXPORT_SYMBOL(nfp_phymod_read_status_fault);
  * @param[out] txstatus Transmit Optical Power status for the module
  * @param[out] rxstatus Receive Optical Power status for the module
  *
- * @return 0 on success. Set errno and return -1 on error.
+ * @return 0 on success, < 0 on error.
  *
  */
 int nfp_phymod_read_status_optpower(struct nfp_phymod *phymod,
@@ -1137,7 +1187,7 @@ EXPORT_SYMBOL(nfp_phymod_read_status_optpower);
  * @param phymod PHY module
  * @param[out] txstatus Transmit Optical Bias status for the module
  *
- * @return 0 on success. Set errno and return -1 on error.
+ * @return 0 on success, < 0 on error.
  *
  */
 int nfp_phymod_read_status_optbias(struct nfp_phymod *phymod,
@@ -1181,7 +1231,7 @@ EXPORT_SYMBOL(nfp_phymod_read_status_optbias);
  * @param[out] txstatus Transmit High/Low Voltage status for the module
  * @param[out] rxstatus Receive High/Low Voltage status for the module
  *
- * @return 0 on success. Set errno and return -1 on error.
+ * @return 0 on success, < 0 on error.
  *
  */
 int nfp_phymod_read_status_voltage(struct nfp_phymod *phymod,
@@ -1221,7 +1271,7 @@ EXPORT_SYMBOL(nfp_phymod_read_status_voltage);
  * @param[out] txstatus Transmit High/Low Temperature status for the module
  * @param[out] rxstatus Receive High/Low Temperature status for the module
  *
- * @return 0 on success. Set errno and return -1 on error.
+ * @return 0 on success, < 0 on error.
  *
  */
 int nfp_phymod_read_status_temp(struct nfp_phymod *phymod, uint32_t *txstatus,
@@ -1263,7 +1313,7 @@ EXPORT_SYMBOL(nfp_phymod_read_status_temp);
  * @param[out] txstatus Lane Disable status for the module
  * @param[out] rxstatus Lane Disable status for the module
  *
- * @return 0 on success. Set errno and return -1 on error.
+ * @return 0 on success, < 0 on error.
  *
  */
 int nfp_phymod_read_lanedisable(struct nfp_phymod *phymod, uint32_t *txstate,
@@ -1304,7 +1354,7 @@ EXPORT_SYMBOL(nfp_phymod_read_lanedisable);
  * @param[in] txstates Lane Disable states for the module
  * @param[in] rxstates Lane Disable states for the module
  *
- * @return 0 on success. Set errno and return -1 on error.
+ * @return 0 on success, < 0 on error.
  *
  */
 int nfp_phymod_write_lanedisable(struct nfp_phymod *phymod, uint32_t txstate,
@@ -1327,7 +1377,7 @@ EXPORT_SYMBOL(nfp_phymod_write_lanedisable);
  * @param[in] addr address
  * @param[out] data return value
  *
- * @return 0 on success. Set errno and return -1 on error.
+ * @return 0 on success, < 0 on error.
  *
  */
 int nfp_phymod_read8(struct nfp_phymod *phymod, uint32_t addr,
@@ -1350,7 +1400,7 @@ EXPORT_SYMBOL(nfp_phymod_read8);
  * @param[in] addr address
  * @param[in] data value
  *
- * @return 0 on success. Set errno and return -1 on error.
+ * @return 0 on success, < 0 on error.
  *
  */
 int nfp_phymod_write8(struct nfp_phymod *phymod, uint32_t addr,
@@ -1363,4 +1413,180 @@ int nfp_phymod_write8(struct nfp_phymod *phymod, uint32_t addr,
 
 	return -EINVAL;
 }
+
+/**
+ * PHY Module Ethernet port enumeration
+ * @ingroup nfp6000-only
+ *
+ * This function allows enumeration of the Ethernet ports
+ * attached to a PHY module
+ *
+ * @param phy   PHY module
+ * @param ptr   Abstract pointer, must be NULL to get the first port
+ * @return  On succes: phymod
+ * @return  On error: NULL
+ */
+struct nfp_phymod_eth *nfp_phymod_eth_next(struct nfp_device *nfp, struct nfp_phymod *phy, void **ptr)
+{
+	struct nfp_phymod_priv *priv;
+	int i;
+
+	if (phy) {
+		if (phy->priv->nfp != nfp)
+			return NULL;
+
+		priv = phy->priv;
+	} else {
+		if (!nfp)
+			return NULL;
+
+		priv = nfp_device_private(nfp, _phymod_private);
+	}
+
+	if (!ptr)
+		return NULL;
+
+	if (!*ptr) {
+		for (i = 0; i < priv->eths; i++) {
+			if (!phy || priv->eth[i].phymod == phy) {
+				*ptr = &priv->eth[i];
+				return &priv->eth[i];
+			}
+		}
+		return NULL;
+	}
+
+	i = (struct nfp_phymod_eth *)(*ptr) - &priv->eth[0];
+	if (i < 0)
+		return NULL;
+
+	for (i++; i < priv->eths; i++) {
+		if (!phy || priv->eth[i].phymod == phy) {
+			*ptr = &priv->eth[i];
+			return &priv->eth[i];
+		}
+	}
+
+	return NULL;
+}
+
+/**
+ * Get the index for a phymod's eth interface
+ * @ingroup nfp6000-only
+ *
+ * @param eth		PHY module ethernet interface
+ * @param index 	Pointer to a int for the index (unique for all eths)
+ * @return 0 on success, -1 and errno on error
+ */
+int nfp_phymod_eth_get_index(struct nfp_phymod_eth *eth, int *index)
+{
+	if (index)
+		*index = eth->index;
+
+	return 0;
+}
+
+/**
+ * Get the MAC address of and ethernet port
+ * @ingroup nfp6000-only
+ *
+ * @param eth		PHY module ethernet interface
+ * @param mac		Pointer to a const uint8_t * for the 6-byte MAC
+ * @return 0 on success, -1 and errno on error
+ */
+int nfp_phymod_eth_get_mac(struct nfp_phymod_eth *eth, const uint8_t **mac)
+{
+	if (mac)
+		*mac = &eth->mac[0];
+
+	return 0;
+}
+
+/**
+ * Get the string (UTF8) label for a phymod's Ethernet interface
+ * @ingroup nfp6000-only
+ *
+ * @param eth		PHY module ethernet interface
+ * @param label		Pointer to a const char * for the label
+ * @return 0 on success, -1 and errno on error
+ */
+int nfp_phymod_eth_get_label(struct nfp_phymod_eth *eth, const char **label)
+{
+	if (label)
+		*label = eth->label;
+
+	return 0;
+}
+
+/**
+ * Get the NBI ID for a phymod's Ethernet interface
+ * @ingroup nfp6000-only
+ *
+ * @param eth		PHY module ethernet interface
+ * @param nbi		Pointer to a int for the NBI
+ * @return 0 on success, -1 and errno on error
+ */
+int nfp_phymod_eth_get_nbi(struct nfp_phymod_eth *eth, int *nbi)
+{
+	if (nbi)
+		*nbi = eth->phymod->nbi;
+
+	return 0;
+}
+
+/**
+ * Get the base port and/or lanes
+ * @ingroup nfp6000-only
+ *
+ * @param eth		PHY module ethernet interface
+ * @param base		Pointer to a int for base port (0..23)
+ * @param lanes		Pointer to a int for number of phy lanes
+ * @return 0 on success, -1 and errno on error
+ */
+int nfp_phymod_eth_get_port(struct nfp_phymod_eth *eth, int *base, int *lanes)
+{
+	if (base)
+		*base = eth->phymod->port + eth->lane;
+
+	if (lanes)
+		*lanes = eth->lanes;
+
+	return 0;
+}
+
+/**
+ * Get the speed of the Ethernet port (in megabits/sec)
+ * @ingroup nfp6000-only
+ *
+ * @param eth		PHY module ethernet interface
+ * @param speed		Pointer to a int for speed (in megabits/sec)
+ * @return 0 on success, -1 and errno on error
+ */
+int nfp_phymod_eth_get_speed(struct nfp_phymod_eth *eth, int *speed)
+{
+	int per_lane;
+
+	if (!speed)
+		return 0;
+
+	/* FIXME: Currently assumes SFP = 1G, SFP+ = 10G, QSFP = 40G, etc */
+	switch (eth->phymod->type) {
+	case NFP_PHYMOD_TYPE_SFP:
+		per_lane = 1000;
+		break;
+	case NFP_PHYMOD_TYPE_SFPP:
+	case NFP_PHYMOD_TYPE_QSFP:
+	case NFP_PHYMOD_TYPE_CXP:
+		per_lane = 10000;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	*speed = per_lane * eth->lanes;
+	return 0;
+}
+
+
+/* vim: set shiftwidth=8 noexpandtab: */
 EXPORT_SYMBOL(nfp_phymod_write8);

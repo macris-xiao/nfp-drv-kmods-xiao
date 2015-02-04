@@ -37,19 +37,24 @@
 #define NFP_PHYMOD_TYPE_NONE 0x00
 
 /**
- * SFP(+)  module
+ * SFP  module
  */
-#define NFP_PHYMOD_TYPE_SFPP 0x01
+#define NFP_PHYMOD_TYPE_SFP  1
+
+/**
+ * SFP+  module
+ */
+#define NFP_PHYMOD_TYPE_SFPP 10
 
 /**
  * QSFP  module
  */
-#define NFP_PHYMOD_TYPE_QSFP 0x04
+#define NFP_PHYMOD_TYPE_QSFP 40
 
 /**
  * CXP  module
  */
-#define NFP_PHYMOD_TYPE_CXP 0x0a
+#define NFP_PHYMOD_TYPE_CXP  100
 
 /**
  * PHY module summary status
@@ -81,6 +86,9 @@
  */
 #define NFP_PHYMOD_SUMSTAT_HILOTEMP 0x00000020
 
+struct nfp_phymod;
+struct nfp_phymod_eth;
+
 /**
  * PHY Module enumeration
  * @ingroup nfp6000-only
@@ -96,7 +104,7 @@
 struct nfp_phymod *nfp_phymod_next(struct nfp_device *nfp, void **ptr);
 
 /**
- * Get the index for a phymode
+ * Get the index for a phymod
  * @ingroup nfp6000-only
  *
  * @param phymod
@@ -106,7 +114,7 @@ struct nfp_phymod *nfp_phymod_next(struct nfp_device *nfp, void **ptr);
 int nfp_phymod_get_index(struct nfp_phymod *phymod, int *index);
 
 /**
- * Get the string (UTF8) label for a phymode
+ * Get the string (UTF8) label for a phymod
  * @ingroup nfp6000-only
  *
  * @param phymod
@@ -116,17 +124,7 @@ int nfp_phymod_get_index(struct nfp_phymod *phymod, int *index);
 int nfp_phymod_get_label(struct nfp_phymod *phymod, const char **label);
 
 /**
- * Get the MAC address of the port
- * @ingroup nfp6000-only
- *
- * @param phymod
- * @param mac		Pointer to a const uint8_t * for the 6-byte MAC
- * @return 0 on success, -1 and errno on error
- */
-int nfp_phymod_get_mac(struct nfp_phymod *phymod, const uint8_t **mac);
-
-/**
- * Get the NBI ID for a phymode
+ * Get the NBI ID for a phymod
  * @ingroup nfp6000-only
  *
  * @param phymod
@@ -271,6 +269,7 @@ int nfp_phymod_read_status_optpower(struct nfp_phymod *phymod,
  *
  * @param phymod PHY module
  * @param[out] txstatus Transmit Optical Bias status for the module
+ * @param[out] rxstatus Receive Optical Bias status for the module
  *
  * @return 0 on success. Set errno and return -1 on error.
  *
@@ -401,8 +400,8 @@ int nfp_phymod_read_lanedisable(struct nfp_phymod *phymod, uint32_t *txstatus,
  *
  *
  * @param phymod PHY module
- * @param[in] txstates Lane Disable states for the module
- * @param[in] rxstates Lane Disable states for the module
+ * @param[in] txstate Lane Disable states for the module
+ * @param[in] rxstate Lane Disable states for the module
  *
  * @return 0 on success. Set errno and return -1 on error.
  *
@@ -435,5 +434,81 @@ int nfp_phymod_read8(struct nfp_phymod *phymod, uint32_t addr, uint8_t *data);
  *
  */
 int nfp_phymod_write8(struct nfp_phymod *phymod, uint32_t addr, uint8_t data);
+
+/**
+ * PHY Module Ethernet port enumeration
+ * @ingroup nfp6000-only
+ *
+ * This function allows enumeration of the Ethernet ports
+ * attached to a PHY module
+ *
+ * @param nfp   NFP Device
+ * @param phy   PHY module, or NULL for all ethernet ports
+ * @param ptr   Abstract pointer, must be NULL to get the first port
+ * @return  On succes: phymod
+ * @return  On error: NULL
+ */
+struct nfp_phymod_eth *nfp_phymod_eth_next(struct nfp_device *dev, struct nfp_phymod *phy, void **ptr);
+
+/**
+ * Get the index for a phymod's eth interface
+ * @ingroup nfp6000-only
+ *
+ * @param eth		PHY module ethernet interface
+ * @param index 	Pointer to a int for the index (unique for all eths)
+ * @return 0 on success, -1 and errno on error
+ */
+int nfp_phymod_eth_get_index(struct nfp_phymod_eth *eth, int *index);
+
+/**
+ * Get the MAC address of and ethernet port
+ * @ingroup nfp6000-only
+ *
+ * @param eth		PHY module ethernet interface
+ * @param mac		Pointer to a const uint8_t * for the 6-byte MAC
+ * @return 0 on success, -1 and errno on error
+ */
+int nfp_phymod_eth_get_mac(struct nfp_phymod_eth *eth, const uint8_t **mac);
+
+/**
+ * Get the string (UTF8) label for a phymod's Ethernet interface
+ * @ingroup nfp6000-only
+ *
+ * @param eth		PHY module ethernet interface
+ * @param label		Pointer to a const char * for the label
+ * @return 0 on success, -1 and errno on error
+ */
+int nfp_phymod_eth_get_label(struct nfp_phymod_eth *eth, const char **label);
+
+/**
+ * Get the NBI ID for a phymod's Ethernet interface
+ * @ingroup nfp6000-only
+ *
+ * @param eth		PHY module ethernet interface
+ * @param nbi		Pointer to a int for the NBI
+ * @return 0 on success, -1 and errno on error
+ */
+int nfp_phymod_eth_get_nbi(struct nfp_phymod_eth *eth, int *nbi);
+
+/**
+ * Get the base port and/or lanes
+ * @ingroup nfp6000-only
+ *
+ * @param eth		PHY module ethernet interface
+ * @param base		Pointer to a int for base port (0..23)
+ * @param lanes		Pointer to a int for number of phy lanes
+ * @return 0 on success, -1 and errno on error
+ */
+int nfp_phymod_eth_get_port(struct nfp_phymod_eth *eth, int *base, int *lanes);
+
+/**
+ * Get the speed of the Ethernet port (in megabits/sec)
+ * @ingroup nfp6000-only
+ *
+ * @param eth		PHY module ethernet interface
+ * @param speed		Pointer to a int for speed (in megabits/sec)
+ * @return 0 on success, -1 and errno on error
+ */
+int nfp_phymod_eth_get_speed(struct nfp_phymod_eth *eth, int *speed);
 
 #endif

@@ -128,7 +128,7 @@ static int nfp_net_null_update_stats(struct net_device *dev)
 		 * For now, let's just print a debug message,
 		 * and use the stale cache.
 		 */
-		netdev_dbg(dev, "Can't access mac%d.%d stats\n",
+		netdev_dbg(dev, "Can't access nbi%d.%d stats\n",
 			   nm->mac, nm->port);
 	}
 
@@ -198,42 +198,25 @@ static void nfp_net_null_eto_get_ethtool_stats(struct net_device *dev,
 	memcpy(data, &nm->stats.cache, sizeof(nm->stats.cache));
 }
 
-/* NOTE: cp must be len+1 in size!
- */
-static void _phymod_string(struct nfp_phymod *phy, int reg, char *cp, int len)
-{
-	int i, err;
-
-	for (i = 0; i < len; i++) {
-		err = nfp_phymod_read8(phy, reg + i, &cp[i]);
-		if (err < 0)
-			break;
-	}
-
-	cp[i] = 0;
-
-	/* Remove trailing spaces */
-	for (i--; i > 0 && cp[i] == ' '; cp[i--] = 0);
-}
 /* Allocate one netdev
  */
 static int nfp_net_null_create(struct nfp_net_null *np,
-			       int np_port, struct nfp_phymod *phy)
+			       int np_port, struct nfp_phymod_eth *eth)
 {
 	struct nfp_net_null_dev *nd;
 	struct net_device *dev;
 	int err;
-	int mac, port, type;
+	int mac, port, speed;
 
-	err = nfp_phymod_get_type(phy, &type);
+	err = nfp_phymod_eth_get_speed(eth, &speed);
 	if (err < 0)
 		return err;
 
-	err = nfp_phymod_get_nbi(phy, &mac);
+	err = nfp_phymod_eth_get_nbi(eth, &mac);
 	if (err < 0)
 		return err;
 
-	err = nfp_phymod_get_port(phy, &port, NULL);
+	err = nfp_phymod_eth_get_port(eth, &port, NULL);
 	if (err < 0)
 		return err;
 
@@ -283,25 +266,9 @@ static int nfp_net_null_create(struct nfp_net_null *np,
 		return err;
 	}
 
-	if (type == NFP_PHYMOD_TYPE_NONE) {
-		netdev_info(dev, "mac%d.%d (No PHY)\n", mac, port);
-	} else if (type == NFP_PHYMOD_TYPE_SFPP) {
-		netdev_info(dev, "mac%d.%d SFP+\n", mac, port);
-	} else if (type == NFP_PHYMOD_TYPE_QSFP) {
-		char vendor[17], part[17], rev[3];
-
-		_phymod_string(phy, 148, vendor, 16);
-		_phymod_string(phy, 168, part, 16);
-		_phymod_string(phy, 184, rev, 2);
-
-		netdev_info(dev, "mac%d.%d QSFP %s %s.%s\n", mac, port,
-				vendor, part, rev);
-	} else if (type == NFP_PHYMOD_TYPE_CXP) {
-		netdev_info(dev, "mac%d.%d CXP\n", mac, port);
-	} else {
-		netdev_info(dev, "mac%d.%d (Unknown PHY %d)\n",
-			    mac, port, type);
-	}
+	netdev_info(dev, "nbi%d.%d %d%c\n", mac, port,
+		(speed < 1000) ? speed : (speed / 1000),
+		(speed < 1000) ? 'M' : 'G');
 
 	np->port[np_port] = dev;
 
@@ -331,7 +298,7 @@ static int nfp_net_null_probe(struct platform_device *pdev)
 	uint32_t model;
 	struct nfp_net_null *np;
 	void *tmp = NULL;
-	struct nfp_phymod *phy;
+	struct nfp_phymod_eth *eth;
 	struct nfp_cpp *cpp;
 	struct nfp_platform_data *pdata;
 
@@ -362,12 +329,12 @@ static int nfp_net_null_probe(struct platform_device *pdev)
 	np->ports = 0;
 	np->parent = &pdev->dev;
 
-	for (phy = nfp_phymod_next(nfp, &tmp);
-	     phy && np->ports < ARRAY_SIZE(np->port);
-	     phy = nfp_phymod_next(nfp, &tmp)) {
+	for (eth = nfp_phymod_eth_next(nfp, NULL, &tmp);
+	     eth && np->ports < ARRAY_SIZE(np->port);
+	     eth = nfp_phymod_eth_next(nfp, NULL, &tmp)) {
 		int err;
 
-		err = nfp_net_null_create(np, np->ports, phy);
+		err = nfp_net_null_create(np, np->ports, eth);
 		if (err < 0)
 			continue;
 
