@@ -1413,6 +1413,7 @@ int nfp_phymod_write8(struct nfp_phymod *phymod, uint32_t addr,
 
 	return -EINVAL;
 }
+EXPORT_SYMBOL(nfp_phymod_write8);
 
 /**
  * PHY Module Ethernet port enumeration
@@ -1469,6 +1470,7 @@ struct nfp_phymod_eth *nfp_phymod_eth_next(struct nfp_device *nfp, struct nfp_ph
 
 	return NULL;
 }
+EXPORT_SYMBOL(nfp_phymod_eth_next);
 
 /**
  * Get the index for a phymod's eth interface
@@ -1485,6 +1487,7 @@ int nfp_phymod_eth_get_index(struct nfp_phymod_eth *eth, int *index)
 
 	return 0;
 }
+EXPORT_SYMBOL(nfp_phymod_eth_get_index);
 
 /**
  * Get the MAC address of and ethernet port
@@ -1501,6 +1504,7 @@ int nfp_phymod_eth_get_mac(struct nfp_phymod_eth *eth, const uint8_t **mac)
 
 	return 0;
 }
+EXPORT_SYMBOL(nfp_phymod_eth_get_mac);
 
 /**
  * Get the string (UTF8) label for a phymod's Ethernet interface
@@ -1517,6 +1521,7 @@ int nfp_phymod_eth_get_label(struct nfp_phymod_eth *eth, const char **label)
 
 	return 0;
 }
+EXPORT_SYMBOL(nfp_phymod_eth_get_label);
 
 /**
  * Get the NBI ID for a phymod's Ethernet interface
@@ -1533,6 +1538,7 @@ int nfp_phymod_eth_get_nbi(struct nfp_phymod_eth *eth, int *nbi)
 
 	return 0;
 }
+EXPORT_SYMBOL(nfp_phymod_eth_get_nbi);
 
 /**
  * Get the base port and/or lanes
@@ -1553,6 +1559,7 @@ int nfp_phymod_eth_get_port(struct nfp_phymod_eth *eth, int *base, int *lanes)
 
 	return 0;
 }
+EXPORT_SYMBOL(nfp_phymod_eth_get_port);
 
 /**
  * Get the speed of the Ethernet port (in megabits/sec)
@@ -1586,7 +1593,7 @@ int nfp_phymod_eth_get_speed(struct nfp_phymod_eth *eth, int *speed)
 	*speed = per_lane * eth->lanes;
 	return 0;
 }
+EXPORT_SYMBOL(nfp_phymod_eth_get_speed);
 
 
 /* vim: set shiftwidth=8 noexpandtab: */
-EXPORT_SYMBOL(nfp_phymod_write8);
