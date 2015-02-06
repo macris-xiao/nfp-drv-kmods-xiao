@@ -7,11 +7,13 @@
 #include <linux/kernel.h>
 
 #include "nfp.h"
+#include "nfp_common.h"
 #include "nfp_resource.h"
 #include "nfp_hwinfo.h"
 #include "nfp_gpio.h"
 #include "nfp_i2c.h"
 #include "nfp_nbi_phymod.h"
+
 
 struct nfp_phymod;
 struct nfp_phymod_eth;
