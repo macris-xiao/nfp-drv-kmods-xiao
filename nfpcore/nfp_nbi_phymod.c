@@ -12,6 +12,7 @@
 #include "nfp_hwinfo.h"
 #include "nfp_gpio.h"
 #include "nfp_i2c.h"
+#include "nfp_spi.h"
 #include "nfp_nbi_phymod.h"
 
 
@@ -43,6 +44,21 @@ struct sff_ops {
 	int (*get_lane_dis)(struct nfp_phymod *phy, uint32_t *tx, uint32_t *rx);
 	int (*set_lane_dis)(struct nfp_phymod *phy, uint32_t tx, uint32_t rx);
 };
+
+typedef struct {
+	enum { PIN_NONE, PIN_GPIO, PIN_CPLD } type;
+	union {
+		struct {
+			int pin;
+		} gpio;
+		struct {
+			int bit;
+			int bus;
+			int cs;
+			uint16_t addr;
+		} cpld;
+	};
+} pin_t;
 
 struct nfp_key {
 	struct nfp_device *nfp;
@@ -76,7 +92,12 @@ struct nfp_phymod_priv {
 		int lane;
 		int lanes;
 		struct nfp_phymod *phymod;
-        } eth[48];
+		struct {
+			char *label;
+			pin_t force;
+			pin_t active;
+		} fail_to_wire;
+	} eth[48];
 };
 
 static void _phymod_private_free(void *_priv)
@@ -117,16 +138,57 @@ static const char *_phymod_get_attr(struct nfp_phymod *phy, const char *attr)
 	return nfp_hwinfo_lookup(phy->priv->nfp, buff);
 }
 
-static int _phymod_get_attr_int(struct nfp_phymod *phy,
-				const char *attr, int *val)
+static int _phymod_get_attr_int(struct nfp_phymod *phy, const char *attr, int *val)
 {
 	const char *ptr;
 
 	ptr = _phymod_get_attr(phy, attr);
 	if (!ptr)
-		return -EINVAL;
+		return -ENOMEM;
+	if (IS_ERR(ptr))
+		return PTR_ERR(ptr);
 
 	return kstrtoint(ptr, 0, val);
+}
+
+static int _get_attr_pin(const char *ptr, pin_t *val)
+{
+	int rc, bus, cs, addr, pin;
+
+	val->type = PIN_NONE;
+
+	rc = sscanf(ptr, "gpio:%i", &pin);
+	if (rc == 1) {
+		val->type = PIN_GPIO;
+		val->gpio.pin = pin;
+		return 0;
+	}
+
+	rc = sscanf(ptr, "cpld:%i:%i:%i.%i",
+			&bus, &cs, &addr, &pin);
+	if (rc == 4) {
+		val->type = PIN_CPLD;
+		val->cpld.bus = bus;
+		val->cpld.cs = cs;
+		val->cpld.addr = addr & 0xffff;
+		val->cpld.bit = pin;
+		return 0;
+	}
+
+	return -EINVAL;
+}
+
+static int _phymod_get_attr_pin(struct nfp_phymod *phy, const char *attr, pin_t *val)
+{
+	const char *ptr;
+
+	ptr = _phymod_get_attr(phy, attr);
+	if (!ptr)
+		return -ENOMEM;
+	if (IS_ERR(ptr))
+		return PTR_ERR(ptr);
+
+	return _get_attr_pin(ptr, val);
 }
 
 static const char *_eth_get_attr(struct nfp_phymod_eth *eth, const char *attr)
@@ -144,7 +206,9 @@ static int _eth_get_attr_int(struct nfp_phymod_eth *eth, const char *attr, int *
 
 	ptr = _eth_get_attr(eth, attr);
 	if (!ptr)
-		return -EINVAL;
+		return -ENOMEM;
+	if (IS_ERR(ptr))
+		return PTR_ERR(ptr);
 
 	return kstrtoint(ptr, 0, val);
 }
@@ -168,6 +232,20 @@ static int _eth_get_attr_mac(struct nfp_phymod_eth *eth, const char *attr, uint8
 
 	return 0;
 }
+
+static int _eth_get_attr_pin(struct nfp_phymod_eth *eth, const char *attr, pin_t *val)
+{
+	const char *ptr;
+
+	ptr = _eth_get_attr(eth, attr);
+	if (!ptr)
+		return -ENOMEM;
+	if (IS_ERR(ptr))
+		return PTR_ERR(ptr);
+
+	return _get_attr_pin(ptr, val);
+}
+
 
 static int _phymod_lookup_type(const char *cp)
 {
@@ -201,6 +279,7 @@ struct sff_bus {
 /* I2C direct-sttach */
 struct bus_i2c {
 	struct nfp_i2c *i2c;
+	int cs;
 	int scl, sda;
 	uint8_t addr;
 };
@@ -208,15 +287,41 @@ struct bus_i2c {
 static int bus_i2c_open(struct sff_bus *bus, const char *storage)
 {
 	struct bus_i2c *priv;
-	int i2c_bus, i2c_addr, i2c_offset;
+	int i2c_bus, i2c_cs = -1, i2c_addr, i2c_offset;
 	int rc;
 
-	/* ee1:4:0x50:0 */
-	rc = sscanf(storage, "ee1:%i:%i:%i", &i2c_bus, &i2c_addr, &i2c_offset);
-	if (rc != 3)
-		return -EINVAL;
+	do {
+		/* ee1:4:0x50:0 */
+		rc = sscanf(storage, "ee1:%i:%i:%i",
+				&i2c_bus, &i2c_addr, &i2c_offset);
+		if (rc == 3)
+			break;
 
-	(void)i2c_offset; /* Ignored */
+		/* ee1:4:0x50 */
+		i2c_offset = 0;
+		rc = sscanf(storage, "ee1:%i:%i",
+				&i2c_bus, &i2c_addr);
+		if (rc == 2)
+			break;
+
+		/* ee1:1.3:0x50:0 */
+		rc = sscanf(storage, "ee1:%i.%i:%i:%i",
+				&i2c_bus, &i2c_cs, &i2c_addr, &i2c_offset);
+		if (rc == 4)
+			break;
+
+		/* ee1:1.3:0x50 */
+		i2c_offset = 0;
+		rc = sscanf(storage, "ee1:%i.%i:%i",
+				&i2c_bus, &i2c_cs, &i2c_addr);
+		if (rc == 3)
+			break;
+
+		return -EINVAL;
+	} while (0);
+
+	if (i2c_offset != 0)
+		return -EINVAL;
 
 	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
 	if (!priv)
@@ -225,6 +330,7 @@ static int bus_i2c_open(struct sff_bus *bus, const char *storage)
 	priv->scl = i2c_bus * 2;
 	priv->sda = i2c_bus * 2 + 1;
 	priv->addr = i2c_addr;
+	priv->cs = i2c_cs;
 	bus->priv = priv;
 
 	return 0;
@@ -250,6 +356,16 @@ static int bus_i2c_select(struct sff_bus *bus, int is_selected)
 				return -EINVAL;
 			/* Set to default rate */
 			nfp_i2c_set_speed(priv->i2c, 0);
+			/* If cs >= 0, select the CS */
+			if (priv->cs >= 0) {
+				uint32_t csmask = 1 << priv->cs;
+				int i;
+
+				for (i = 0; i < 3; i++) {
+					uint8_t cmd = (csmask >> (4*i)) & 0xf;
+					nfp_i2c_write(priv->i2c, 0x71 + i, cmd, 1, NULL, 0);
+				}
+			}
 		}
 	} else {
 		if (priv->i2c)
@@ -328,423 +444,124 @@ static int _phymod_get_attr_bus(struct nfp_phymod *phy, const char *attr,
 	return -ENOENT;
 }
 
-/* SFF-8436 operations */
-struct sff_8436 {
-	int selected;
-	int page;
-	struct {
-		int irq, present;
-	} in;
-	struct {
-		int modsel, reset, lp_mode;
-	} out;
-	struct sff_bus bus;
-};
-
-static int sff_8436_open(struct nfp_phymod *phy)
+static int cpld_write(struct nfp_spi *spi, int cs, uint8_t addr, uint32_t val)
 {
-	struct nfp_phymod_priv *priv = phy->priv;
-	struct sff_8436 *sff;
-	int err;
+	uint8_t data[5] = {};
+	int i;
 
-	sff = kzalloc(sizeof(*sff), GFP_KERNEL);
-	if (!sff)
-		return -ENOMEM;
+	for (i = 0; i < 4; i++) {
+		data[i] = (val >> (24 - 8*i)) & 0xff;
+	}
 
-	sff->selected = 0;
-	sff->page = -1;
+	return nfp_spi_write(spi, cs, 1, &addr, 5, data);
+}
 
-	err = _phymod_get_attr_int(phy, "gpio.irq", &sff->in.irq);
+static int cpld_read(struct nfp_spi *spi, int cs, uint8_t addr, uint32_t *val)
+{
+	uint8_t data[5];
+	int i, err;
+	uint32_t res = 0;
+
+	addr |= 0x80;
+	err = nfp_spi_read(spi, cs, 1, &addr, 5, data);
 	if (err < 0)
-		goto exit;
+		return err;
+	
+	for (i = 0; i < 4; i++) {
+		res |= (data[i] << (24 - 8*i));
+	}
 
-	err = _phymod_get_attr_int(phy, "gpio.present", &sff->in.present);
-	if (err < 0)
-		goto exit;
-
-	err = _phymod_get_attr_int(phy, "gpio.modsel", &sff->out.modsel);
-	if (err < 0)
-		goto exit;
-
-	err = _phymod_get_attr_int(phy, "gpio.reset", &sff->out.reset);
-	if (err < 0)
-		goto exit;
-
-	err = _phymod_get_attr_int(phy, "gpio.lp_mode", &sff->out.lp_mode);
-	if (err < 0)
-		goto exit;
-
-	err = nfp_gpio_direction(priv->nfp, sff->in.irq, 0);
-	if (err < 0)
-		goto exit;
-
-	err = nfp_gpio_direction(priv->nfp, sff->in.present, 0);
-	if (err < 0)
-		goto exit;
-
-	err = nfp_gpio_direction(priv->nfp, sff->out.modsel, 1);
-	if (err < 0)
-		goto exit;
-
-	err = nfp_gpio_direction(priv->nfp, sff->out.reset, 1);
-	if (err < 0)
-		goto exit;
-
-	err = nfp_gpio_direction(priv->nfp, sff->out.lp_mode, 1);
-	if (err < 0)
-		goto exit;
-
-	err = _phymod_get_attr_bus(phy, "SFF-8436", &sff->bus);
-	if (err < 0)
-		goto exit;
-
-	phy->sff.priv = sff;
+	*val = res;
 
 	return 0;
+}
 
-exit:
-	kfree(sff);
+static int pin_direction(struct nfp_device *nfp, pin_t *pin, int dir)
+{
+	int err;
+
+	if (pin->type == PIN_GPIO)
+		err = nfp_gpio_direction(nfp, pin->gpio.pin, dir);
+	else
+		err = 0;
+
 	return err;
 }
 
-static void sff_8436_close(struct nfp_phymod *phy)
+static int pin_set(struct nfp_device *nfp, pin_t *pin, int out)
 {
-	struct sff_8436 *sff = phy->sff.priv;
-
-	phy->sff.op->select(phy, 0);
-
-	if (sff->bus.op && sff->bus.op->close)
-		sff->bus.op->close(&sff->bus);
-
-	kfree(sff);
-}
-
-static int sff_8436_poll_irq(struct nfp_phymod *phy)
-{
-	struct nfp_phymod_priv *priv = phy->priv;
-	struct sff_8436 *sff = phy->sff.priv;
-	int err;
-	
-	err = nfp_gpio_get(priv->nfp, sff->in.irq);
-	if (err < 0)
-		return err;
-
-	return err ? 0 : 1;
-}
-
-static int sff_8436_poll_present(struct nfp_phymod *phy)
-{
-	struct nfp_phymod_priv *priv = phy->priv;
-	struct sff_8436 *sff = phy->sff.priv;
 	int err;
 
-	err = nfp_gpio_get(priv->nfp, sff->in.present);
-	if (err < 0)
-		return err;
+	if (pin->type == PIN_GPIO) {
+		err = nfp_gpio_set(nfp, pin->gpio.pin, out);
+	} else if (pin->type == PIN_CPLD) {
+		uint32_t tmp;
+		struct nfp_spi *spi;
 
-	return err ? 0 : 1;
-}
+		spi = nfp_spi_acquire(nfp, pin->cpld.bus, 0);
+		if (!spi)
+			return -ENOMEM;
+		if (IS_ERR(spi))
+			return PTR_ERR(spi);
+		nfp_spi_mode_set(spi, 1);
 
-static int sff_8436_select(struct nfp_phymod *phy, int is_selected)
-{
-	struct nfp_phymod_priv *priv = phy->priv;
-	struct sff_8436 *sff = phy->sff.priv;
-	int err;
+		err = cpld_read(spi, pin->cpld.cs, pin->cpld.addr, &tmp);
+		if (err >= 0) {
+			if (out)
+				tmp |=  (1 << pin->cpld.bit);
+			else
+				tmp &= ~(1 << pin->cpld.bit);
+			err = cpld_write(spi, pin->cpld.cs, pin->cpld.addr, tmp);
+		}
 
-	if (sff->bus.op && sff->bus.op->select) {
-		err = sff->bus.op->select(&sff->bus, is_selected);
-		if (err < 0)
-			return err;
+		nfp_spi_release(spi);
+	} else {
+		err = -EINVAL;
 	}
 
-	err = nfp_gpio_set(priv->nfp, sff->out.modsel, is_selected ? 0 : 1);
-	if (err < 0)
-		return err;
-
-	sff->selected = is_selected;
-
-	return 0;
+	return err;
 }
 
-static int sff_8436_reset(struct nfp_phymod *phy, int in_reset)
+static int pin_get(struct nfp_device *nfp, pin_t *pin)
 {
-	struct nfp_phymod_priv *priv = phy->priv;
-	struct sff_8436 *sff = phy->sff.priv;
-	return nfp_gpio_set(priv->nfp, sff->out.reset, in_reset ? 1 : 0);
-}
+	int err;
 
-static int sff_8436_power(struct nfp_phymod *phy, int is_full_power)
-{
-	struct nfp_phymod_priv *priv = phy->priv;
-	struct sff_8436 *sff = phy->sff.priv;
-	return nfp_gpio_set(priv->nfp, sff->out.lp_mode, is_full_power ? 0 : 1);
-}
+	if (pin->type == PIN_GPIO) {
+		err = nfp_gpio_get(nfp, pin->gpio.pin);
+	} else if (pin->type == PIN_CPLD) {
+		uint32_t tmp;
+		struct nfp_spi *spi;
 
-static int sff_8436_read8(struct nfp_phymod *phy, uint32_t reg, uint8_t *val)
-{
-	struct sff_8436 *sff = phy->sff.priv;
-	int page = (reg >> 8);
+		spi = nfp_spi_acquire(nfp, pin->cpld.bus, 0);
+		if (!spi)
+			return -ENOMEM;
+		if (IS_ERR(spi))
+			return PTR_ERR(spi);
+		nfp_spi_mode_set(spi, 1);
 
-	if (!sff->selected
-	    || !sff->bus.op
-	    || !sff->bus.op->read8
-	    || !sff->bus.op->write8)
-		return -EINVAL;
+		err = cpld_read(spi, pin->cpld.cs, pin->cpld.addr, &tmp);
+		if (err >= 0) {
+			err = (tmp >> pin->cpld.bit) & 1;
+		}
 
-	reg &= 0xff;
-
-	if (page != sff->page) {
-		sff->bus.op->write8(&sff->bus, reg, page);
-		sff->page = page;
+		nfp_spi_release(spi);
+	} else {
+		err = -EINVAL;
 	}
 
-	return sff->bus.op->read8(&sff->bus, reg, val);
+	return err;
 }
 
-static int sff_8436_write8(struct nfp_phymod *phy, uint32_t reg, uint8_t val)
-{
-	struct sff_8436 *sff = phy->sff.priv;
-	int page = (reg >> 8);
+#define NFP_NBI_PHYMOD_C
 
-	if (!sff->selected
-	    || !sff->bus.op
-	    || !sff->bus.op->write8)
-		return -EINVAL;
-
-	reg &= 0xff;
-
-	if (page != sff->page) {
-		sff->bus.op->write8(&sff->bus, reg, page);
-		sff->page = page;
-	}
-
-	return sff->bus.op->write8(&sff->bus, reg, val);
-}
-
-#define SFF_8436_ID		0
-#define SFF_8436_STATUS		2
-#define SFF_8436_LOS		3
-#define SFF_8436_FAULT_TX	4
-#define SFF_8436_TEMP		6
-#define SFF_8436_VCC		7
-#define SFF_8436_POWER_RX_12	9
-#define SFF_8436_POWER_RX_34	10
-#define SFF_8436_BIAS_TX_12	11
-#define SFF_8436_BIAS_TX_34	12
-#define SFF_8436_DISABLE_TX	86
-
-static int sff_8436_status_los(struct nfp_phymod *phy,
-			       uint32_t *tx_status, uint32_t *rx_status)
-{
-	uint8_t tmp;
-	int err;
-	uint32_t rxs = 0, txs = 0;
-
-	err = nfp_phymod_read8(phy, SFF_8436_LOS, &tmp);
-	if (err < 0)
-		return err;
-
-	/* Check RX LOS status bits */
-	if (tmp & 0x0f)
-		rxs |= tmp & 0xf;
-	/* Check TX LOS status bits */
-	if (tmp & 0xf0)
-		txs |= (tmp >> 4) & 0xf;
-
-	if (tx_status)
-		*tx_status = txs;
-
-	if (rx_status)
-		*rx_status = rxs;
-
-	return 0;
-}
-
-static int sff_8436_status_fault(struct nfp_phymod *phy,
-			       uint32_t *tx_status, uint32_t *rx_status)
-{
-	uint8_t tmp;
-	int err;
-	uint32_t rxs = 0, txs = 0;
-
-	err = nfp_phymod_read8(phy, SFF_8436_FAULT_TX, &tmp);
-	if (err < 0)
-		return err;
-
-	if (tmp & 0xf)
-		txs |= tmp & 0xf;
-
-	if (tx_status)
-		*tx_status = txs;
-
-	if (rx_status)
-		*rx_status = rxs;
-
-	return 0;
-}
-
-static int sff_8436_status_power(struct nfp_phymod *phy,
-			       uint32_t *tx_status, uint32_t *rx_status)
-{
-	uint8_t tmp;
-	int err;
-	uint32_t rxs = 0, txs = 0;
-
-	err = nfp_phymod_read8(phy, SFF_8436_POWER_RX_12, &tmp);
-	if (err < 0)
-		return err;
-
-	if (tmp)
-		rxs |= tmp;
-
-	err = nfp_phymod_read8(phy, SFF_8436_POWER_RX_34, &tmp);
-	if (err < 0)
-		return err;
-
-	if (tmp)
-		rxs |= (uint32_t)tmp << 8;
-
-
-	if (tx_status)
-		*tx_status = txs;
-
-	if (rx_status)
-		*rx_status = rxs;
-
-	return 0;
-}
-static int sff_8436_status_bias(struct nfp_phymod *phy,
-			       uint32_t *tx_status, uint32_t *rx_status)
-{
-	uint8_t tmp;
-	int err;
-	uint32_t rxs = 0, txs = 0;
-
-	err = nfp_phymod_read8(phy, SFF_8436_BIAS_TX_12, &tmp);
-	if (err < 0)
-		return err;
-
-	if (tmp)
-		txs |= tmp;
-
-	err = nfp_phymod_read8(phy, SFF_8436_BIAS_TX_34, &tmp);
-	if (err < 0)
-		return err;
-
-	if (tmp)
-		txs |= (uint32_t)tmp << 8;
-
-	if (tx_status)
-		*tx_status = txs;
-
-	if (rx_status)
-		*rx_status = rxs;
-
-	return 0;
-}
-static int sff_8436_status_volt(struct nfp_phymod *phy,
-			       uint32_t *tx_status, uint32_t *rx_status)
-{
-	uint8_t tmp;
-	int err;
-	uint32_t rxs = 0, txs = 0;
-
-	err = nfp_phymod_read8(phy, SFF_8436_VCC, &tmp);
-	if (err < 0)
-		return err;
-
-	if (tmp & 0xf0) {
-		txs |= (tmp >> 4) & 0xf;
-		rxs |= (tmp >> 4) & 0xf;
-	}
-
-	if (tx_status)
-		*tx_status = txs;
-
-	if (rx_status)
-		*rx_status = rxs;
-
-	return 0;
-}
-static int sff_8436_status_temp(struct nfp_phymod *phy,
-			       uint32_t *tx_status, uint32_t *rx_status)
-{
-	uint8_t tmp;
-	int err;
-	uint32_t rxs = 0, txs = 0;
-
-	err = nfp_phymod_read8(phy, SFF_8436_TEMP, &tmp);
-	if (err < 0)
-		return err;
-
-	if (tmp & 0xf0) {
-		txs |= (tmp >> 4) & 0xf;
-		rxs |= (tmp >> 4) & 0xf;
-	}
-
-	if (tx_status)
-		*tx_status = txs;
-
-	if (rx_status)
-		*rx_status = rxs;
-
-	return 0;
-}
-
-static int sff_8436_get_lane_dis(struct nfp_phymod *phy,
-			       uint32_t *tx_status, uint32_t *rx_status)
-{
-	uint8_t tmp;
-	int err;
-	uint32_t rxs = 0, txs = 0;
-
-	err = nfp_phymod_read8(phy, SFF_8436_DISABLE_TX, &tmp);
-	if (err < 0)
-		return err;
-
-	txs = (tmp & 0x0f);
-
-	if (tx_status)
-		*tx_status = txs;
-
-	if (rx_status)
-		*rx_status = rxs;
-
-	return 0;
-}
-
-static int sff_8436_set_lane_dis(struct nfp_phymod *phy,
-				 uint32_t tx_status, uint32_t rx_status)
-{
-	return nfp_phymod_write8(phy, SFF_8436_DISABLE_TX, tx_status & 0xf);
-}
-
-static const struct sff_ops sff_8436_ops = {
-	.type = 8436,
-	.open = sff_8436_open,
-	.close = sff_8436_close,
-	.poll_present = sff_8436_poll_present,
-	.poll_irq = sff_8436_poll_irq,
-	.select = sff_8436_select,
-	.reset = sff_8436_reset,
-	.power = sff_8436_power,
-
-	.read8 = sff_8436_read8,
-	.write8 = sff_8436_write8,
-
-	.status_los = sff_8436_status_los,
-	.status_fault = sff_8436_status_fault,
-	.status_power = sff_8436_status_power,
-	.status_bias = sff_8436_status_bias,
-	.status_volt = sff_8436_status_volt,
-	.status_temp = sff_8436_status_temp,
-
-	.get_lane_dis = sff_8436_get_lane_dis,
-	.set_lane_dis = sff_8436_set_lane_dis,
-};
+#include "sff_8431.c"
+#include "sff_8436.c"
+#include "sff_8647.c"
 
 static const struct sff_ops *sff_op_table[]  = {
+	&sff_8431_ops,
 	&sff_8436_ops,
+	&sff_8647_ops,
 };
 
 static void *_phymod_private(struct nfp_device *nfp)
@@ -814,7 +631,7 @@ static void *_phymod_private(struct nfp_device *nfp)
 
 	for (n = 0; n < ARRAY_SIZE(priv->eth); n++) {
 		struct nfp_phymod_eth *eth = &priv->eth[priv->eths];
-		int i, err;
+		int i, phy, err;
 		const char *cp;
 
 		eth->priv = priv;
@@ -823,14 +640,22 @@ static void *_phymod_private(struct nfp_device *nfp)
 		snprintf(eth->key, sizeof(eth->key), "eth%d", n);
 		eth->key[sizeof(eth->key)-1] = 0;
 
-		err = _eth_get_attr_int(eth, "phy", &i);
+		err = _eth_get_attr_int(eth, "phy", &phy);
 		if (err < 0)
 			continue;
 
-		if (i < 0 || i >= priv->phymods)
+		if (phy < 0 || phy >= ARRAY_SIZE(priv->phymod))
 			continue;
 
-		eth->phymod = &priv->phymod[i];
+		for (i = 0; i < priv->phymods; i++) {
+			if (priv->phymod[i].index == phy) {
+				eth->phymod = &priv->phymod[i];
+				break;
+			}
+		}
+
+		if (i == priv->phymods)
+			continue;
 
 		err = _eth_get_attr_mac(eth, "mac", &eth->mac[0]);
 		if (err < 0)
@@ -849,6 +674,16 @@ static void *_phymod_private(struct nfp_device *nfp)
 			eth->label = kstrdup(cp, GFP_KERNEL);
 		else
 			eth->label = kstrdup(eth->key, GFP_KERNEL);
+		cp = _eth_get_attr(eth, "fail-to-wire.label");
+		if (cp) {
+			eth->fail_to_wire.label = kstrdup(cp, GFP_KERNEL);
+			/* (optional) fail-to-wire force */
+			_eth_get_attr_pin(eth, "fail-to-wire.pin.force",
+						&eth->fail_to_wire.force);
+			/* (optional) fail-to-wire status */
+			_eth_get_attr_pin(eth, "fail-to-wire.pin.active",
+						&eth->fail_to_wire.active);
+		}
 
 		priv->eths++;
 	}
@@ -1034,7 +869,7 @@ EXPORT_SYMBOL(nfp_phymod_get_type);
  * @param[out] txstatus Transmit status summary for the module
  * @param[out] rxstatus Receive status summary for the module
  *
- * @return 0 on success. Set errno and return -1 on error.
+ * @return 0 on success. Return -errno on error.
  *
  */
 int nfp_phymod_read_status(struct nfp_phymod *phy, uint32_t *txstatus,
@@ -1092,7 +927,7 @@ EXPORT_SYMBOL(nfp_phymod_read_status);
  * @param[out] txstatus Transmit LOS status for the module
  * @param[out] rxstatus Receive LOS status for the module
  *
- * @return 0 on success. Set errno and return -1 on error.
+ * @return 0 on success. Return -errno on failure.
  *
  */
 int nfp_phymod_read_status_los(struct nfp_phymod *phymod, uint32_t *txstatus,
@@ -1597,5 +1432,44 @@ int nfp_phymod_eth_get_speed(struct nfp_phymod_eth *eth, int *speed)
 }
 EXPORT_SYMBOL(nfp_phymod_eth_get_speed);
 
+/**
+ * Retrieve the fail-to-wire TX partner for an ethernet port
+ * This is the label of the port that, when the port is in fail-to-wire
+ * mode, all inbound packets are redirected to via external switching
+ * hardware.
+ *
+ * Note that this is a system-wide label, and may not be in the ethernet
+ * port set for this PHY, NBI, or even NFP.
+ * 
+ * @param eth           PHY module ethernet interface
+ * @param eth_label     Pointer to a const char * to receive the label,
+ *                      or NULL if there is no fail-to-wire partner.
+ * @param active        Pointer to a int, which will hold 0 or 1 to indicate
+ *                      whether the fail-to-wire mode is active, or -1
+ *                      if no status indicator is present.
+ * @return 0 on success, -1 and errno on error
+ */
+int nfp_phymod_eth_get_fail_to_wire(struct nfp_phymod_eth *eth, const char **eth_label, int *active)
+{
+	if (eth_label)
+		*eth_label = eth->fail_to_wire.label;
+
+	if (active)
+		*active = pin_get(eth->priv->nfp, &eth->fail_to_wire.active);
+
+	return 0;
+}
+
+/**
+ * Force fail-to-wire mode, if available.
+ *
+ * @param eth           PHY module ethernet interface
+ * @param force         0 for automatic fail to wire, 1 to force
+ * @return 0 on success, -1 and errno on error
+ */
+int nfp_phymod_eth_set_fail_to_wire(struct nfp_phymod_eth *eth, int force)
+{
+	return pin_set(eth->priv->nfp, &eth->fail_to_wire.force, force);
+}
 
 /* vim: set shiftwidth=8 noexpandtab: */

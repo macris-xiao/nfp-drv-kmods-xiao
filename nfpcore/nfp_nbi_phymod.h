@@ -511,4 +511,31 @@ int nfp_phymod_eth_get_port(struct nfp_phymod_eth *eth, int *base, int *lanes);
  */
 int nfp_phymod_eth_get_speed(struct nfp_phymod_eth *eth, int *speed);
 
+/**
+ * Retrieve the fail-to-wire TX partner for an ethernet port
+ * This is the label of the port that, when the port is in fail-to-wire
+ * mode, all inbound packets are redirected to via external switching
+ * hardware.
+ *
+ * Note that this is a system-wide label, and may not be in the ethernet
+ * port set for this PHY, NBI, or even NFP.
+ * 
+ * @param eth           PHY module ethernet interface
+ * @param eth_label     Pointer to a const char * to receive the label,
+ *                      or NULL if there is no fail-to-wire partner.
+ * @param active        Pointer to a int, which will hold 0 or 1 to indicate
+ *                      whether the fail-to-wire mode is active.
+ * @return 0 on success, -1 and errno on error
+ */
+int nfp_phymod_eth_get_fail_to_wire(struct nfp_phymod_eth *eth, const char **eth_label, int *active);
+
+/**
+ * Force fail-to-wire mode, if available.
+ *
+ * @param eth           PHY module ethernet interface
+ * @param force         0 for automatic fail to wire, 1 to force
+ * @return 0 on success, -1 and errno on error
+ */
+int nfp_phymod_eth_set_fail_to_wire(struct nfp_phymod_eth *eth, int force);
+
 #endif
