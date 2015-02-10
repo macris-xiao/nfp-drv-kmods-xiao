@@ -87,9 +87,6 @@ struct nfp_device *nfp_device_from_cpp(struct nfp_cpp *cpp)
 			goto err_hwinfo;
 		}
 
-		/*  Finished with card initialization. */
-		dev_info(nfp_cpp_device(cpp),
-			 "Netronome Flow Processor (NFP) 10-gigabit device.\n");
 		return nfp;
 
 err_hwinfo:
