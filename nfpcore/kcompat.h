@@ -115,6 +115,7 @@ static inline int compat_kstrtoul(const char *str, int base, unsigned long *res)
 #define kstrtoul(str, base, res) compat_kstrtoul(str, base, res)
 #endif /* < KERNEL_VERSION(3, 0, 0) */
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 0, 0)
 #include <linux/netdevice.h>
 #define compat_netdev_printk(dev, level, fmt, args...) \
 	({ printk("%s%s: " fmt, level, dev->name , ##args); })
@@ -134,6 +135,7 @@ static inline int compat_kstrtoul(const char *str, int base, unsigned long *res)
 #define netdev_err(dev, format, args...) \
 	compat_netdev_printk(dev, KERN_ERR , format , ##args)
 #endif
+#endif /* < KERNEL_VERSION(3, 0, 0) */
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0)
 static inline int _pci_enable_msi_range(struct pci_dev *dev,
