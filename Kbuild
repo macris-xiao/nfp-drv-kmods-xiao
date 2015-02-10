@@ -70,6 +70,7 @@ nfp-objs := nfpcore/nfp3200_pcie.o \
 	    nfpcore/nfp_mip.o \
 	    nfpcore/nfp_mon_err.o \
 	    nfpcore/nfp_nbi.o \
+	    nfpcore/nfp_nbi_mac_eth.o \
 	    nfpcore/nfp_nbi_phymod.o \
 	    nfpcore/nfp_net_null.o \
 	    nfpcore/nfp_net_vnic.o \

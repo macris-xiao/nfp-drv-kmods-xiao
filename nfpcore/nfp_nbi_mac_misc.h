@@ -90,8 +90,14 @@ enum serdesbrate {
 #define NFP_NBI_MAC_PORT_HWM_MAX       2047
 #define NFP_NBI_MAC_PORT_HWM_DELTA_MAX   31
 
-/* Temporary for stats access */
-#define CPP_BASE (0x10000000000000)
+#define NFP_NBI_MAC_ENET_OFF		0
+#define NFP_NBI_MAC_ILK			1
+#define NFP_NBI_MAC_ENET_10M		2
+#define NFP_NBI_MAC_ENET_100M		3
+#define NFP_NBI_MAC_ENET_1G		4
+#define NFP_NBI_MAC_ENET_10G		5
+#define NFP_NBI_MAC_ENET_40G		6
+#define NFP_NBI_MAC_ENET_100G		7
 
 /* Mac device */
 struct nfp_nbi_macdev {
