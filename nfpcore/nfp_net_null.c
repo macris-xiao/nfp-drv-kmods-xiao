@@ -30,6 +30,7 @@
 #include "nfp_common.h"
 #include "nfp_platform.h"
 #include "nfp_net_null.h"
+#include "nfp_nbi_mac_eth.h"
 
 #define TX_TIMEOUT	(2 * HZ)
 
@@ -48,6 +49,8 @@ struct nfp_net_null_dev {
 	struct net_device_ops netdev_ops;
 	int mac;
 	int port;
+	int no_stats;
+	struct nfp_phymod_eth *eth;
 	struct nfp_nbi_dev *nbi;
 	struct nfp6000_mac_dev_stats {
 		uint32_t cpp_id;
@@ -92,13 +95,19 @@ static void nfp_net_null_eto_get_drvinfo(struct net_device *dev,
 static int nfp_net_null_eto_get_settings(struct net_device *dev,
 					 struct ethtool_cmd *cmd)
 {
+	struct nfp_net_null_dev *nm = netdev_priv(dev);
+	int speed;
+
 	/* FIXME: Read the actual port config from the MAC */
-	cmd->supported =   (SUPPORTED_10000baseT_Full | SUPPORTED_FIBRE);
-	cmd->advertising = (ADVERTISED_10000baseT_Full | ADVERTISED_FIBRE);
-	ethtool_cmd_speed_set(cmd, SPEED_10000);
+	speed = SPEED_UNKNOWN;
+	nfp_phymod_eth_get_speed(nm->eth, &speed);
+	ethtool_cmd_speed_set(cmd, speed);
+
+	cmd->supported = SUPPORTED_Backplane;
+	cmd->advertising = ADVERTISED_Backplane;
 	cmd->duplex = DUPLEX_FULL;
 	cmd->port = PORT_FIBRE;
-	cmd->transceiver = XCVR_INTERNAL;
+	cmd->transceiver = XCVR_EXTERNAL;
 	cmd->autoneg = AUTONEG_DISABLE;
 
 	cmd->mdio_support = 0;
@@ -125,12 +134,14 @@ static int nfp_net_null_update_stats(struct net_device *dev)
 	err = nfp_nbi_mac_stats_read_port(nm->nbi, nm->port, ps);
 	if (err < 0) {
 		/* Return an error, or report the stale cache?
-		 * For now, let's just print a debug message,
-		 * and use the stale cache.
+		 * For now, let's just use the stale cache.
 		 */
-		netdev_dbg(dev, "Can't access nbi%d.%d stats\n",
-			   nm->mac, nm->port);
+		if (!nm->no_stats)
+			netdev_dbg(dev, "Can't access nbi%d.%d stats\n",
+				   nm->mac, nm->port);
 	}
+
+	nm->no_stats = (err < 0) ? 1 : 0;
 
 	return err;
 }
@@ -198,6 +209,22 @@ static void nfp_net_null_eto_get_ethtool_stats(struct net_device *dev,
 	memcpy(data, &nm->stats.cache, sizeof(nm->stats.cache));
 }
 
+static u32 nfp_net_null_eto_get_link(struct net_device *dev)
+{
+	int err;
+	struct nfp_net_null_dev *nm = netdev_priv(dev);
+	uint32_t state = 0;
+	int port = nm->port;
+
+	err = nfp_nbi_mac_eth_read_linkstate(nm->nbi, port / 12, port % 12, &state);
+	if (err < 1)
+		netif_carrier_off(dev);
+	else
+		netif_carrier_on(dev);
+
+	return netif_carrier_ok(dev) ? 1 : 0;
+}
+
 /* Allocate one netdev
  */
 static int nfp_net_null_create(struct nfp_net_null *np,
@@ -226,6 +253,7 @@ static int nfp_net_null_create(struct nfp_net_null *np,
 
 	nd = netdev_priv(dev);
 
+	nd->eth = eth;
 	nd->nbi = nfp_nbi_open(np->nfp, mac);
 	if (!nd->nbi) {
 		free_netdev(dev);
@@ -245,19 +273,16 @@ static int nfp_net_null_create(struct nfp_net_null *np,
 
 	dev->netdev_ops = &nd->netdev_ops;
 
-	/* Use the nfp6000_mac_ethtool_ops as a baseline,
-	 * and override as needed
-	 */
 	nd->ethtool_ops.get_drvinfo = nfp_net_null_eto_get_drvinfo;
 	nd->ethtool_ops.get_settings = nfp_net_null_eto_get_settings;
 	nd->ethtool_ops.get_ethtool_stats = nfp_net_null_eto_get_ethtool_stats;
+	nd->ethtool_ops.get_link = nfp_net_null_eto_get_link;
+	nd->ethtool_ops.get_ts_info = ethtool_op_get_ts_info;
 
 	dev->ethtool_ops = &nd->ethtool_ops;
 
 	SET_NETDEV_DEV(dev, np->parent);
 	dev->watchdog_timeo = TX_TIMEOUT;
-
-	netif_carrier_off(dev);
 
 	err = register_netdev(dev);
 	if (err < 0) {
