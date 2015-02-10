@@ -386,7 +386,7 @@ int __init nfp_net_null_init(void)
 	if (err)
 		return err;
 
-	pr_info("NFP Null Network Driver, Copyright (C) 2014-2015 Netronome Systems\n");
+	pr_info("%s: NFP Null Network Driver, Copyright (C) 2014-2015 Netronome Systems\n", NFP_NET_NULL_TYPE);
 
 	return 0;
 }

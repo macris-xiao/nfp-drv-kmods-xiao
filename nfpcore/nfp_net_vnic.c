@@ -716,8 +716,8 @@ static int nfp_net_vnic_probe(struct platform_device *pdev)
 	if (err)
 		goto err_add_attr;
 
-	nfp_net_vnic_info(vnic, "%s: NFP vNIC MAC Address: %pM\n",
-		     netdev->name, netdev->dev_addr);
+	nfp_net_vnic_info(vnic, "NFP vNIC MAC Address: %pM\n",
+		     netdev->dev_addr);
 
 	return 0;
 
