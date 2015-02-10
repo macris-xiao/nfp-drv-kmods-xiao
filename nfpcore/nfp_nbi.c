@@ -22,6 +22,8 @@
 #include "nfp_nbi_mac_stats.h"
 #include "nfp_resource.h"
 
+#include "nfp6000/nfp_xpb.h"
+
 struct nfp_nbi_dev {
 	struct nfp_device *nfp;
 	struct nfp_cpp *cpp;
@@ -29,10 +31,10 @@ struct nfp_nbi_dev {
 		uint32_t cpp_id;
 		uint64_t cpp_addr;
 	} stats;
-	int mac;
+	int nbi;
 };
 
-struct nfp_nbi_dev *nfp_nbi_open(struct nfp_device *nfp, int mac)
+struct nfp_nbi_dev *nfp_nbi_open(struct nfp_device *nfp, int nbi_id)
 {
 	struct nfp_nbi_dev *nbi;
 	struct nfp_resource *res;
@@ -43,7 +45,7 @@ struct nfp_nbi_dev *nfp_nbi_open(struct nfp_device *nfp, int mac)
 
 	nbi->nfp = nfp;
 	nbi->cpp = nfp_device_cpp(nfp);
-	nbi->mac = mac;
+	nbi->nbi = nbi_id;
 
 	res = nfp_resource_acquire(nfp, NFP_RESOURCE_MAC_STATISTICS);
 	if (!res) {
@@ -74,9 +76,26 @@ int nfp_nbi_mac_stats_read_port(struct nfp_nbi_dev *nbi, int port,
 		return -EINVAL;
 
 	return nfp_cpp_read(nbi->cpp, nbi->stats.cpp_id, nbi->stats.cpp_addr +
-			offsetof(struct nfp_nbi_mac_allstats,
-				 mac[nbi->mac].portstats[port]),
-			stats, sizeof(*stats));
+			    offsetof(struct nfp_nbi_mac_allstats,
+				     mac[nbi->nbi].portstats[port]),
+			    stats, sizeof(*stats));
+}
+
+int nfp_nbi_mac_regr(struct nfp_nbi_dev *nbi, uint32_t base, uint32_t reg,
+		     uint32_t * data)
+{
+	uint32_t r = NFP_XPB_ISLAND(nbi->nbi + 8) + base + reg;
+
+	return nfp_xpb_readl(nbi->cpp, r, data);
+
+}
+
+int nfp_nbi_mac_regw(struct nfp_nbi_dev *nbi, uint32_t base, uint32_t reg,
+		     uint32_t mask, uint32_t data)
+{
+	uint32_t r = NFP_XPB_ISLAND(nbi->nbi + 8) + base + reg;
+
+	return nfp_xpb_writelm(nbi->cpp, r, mask, data);
 }
 
 /* vim: set shiftwidth=8 noexpandtab:  */

@@ -55,7 +55,6 @@ obj-$(CONFIG_MFD_NFP) += nfp.o
 nfp-objs := nfpcore/nfp3200_pcie.o \
 	    nfpcore/nfp3200_plat.o \
 	    nfpcore/nfp6000_pcie.o \
-	    nfpcore/nfp6000_nbi.o \
 	    nfpcore/crc32.o \
 	    nfpcore/i2c.o \
 	    nfpcore/i2c_gpio.o \
@@ -70,6 +69,7 @@ nfp-objs := nfpcore/nfp3200_pcie.o \
 	    nfpcore/nfp_i2c.o \
 	    nfpcore/nfp_mip.o \
 	    nfpcore/nfp_mon_err.o \
+	    nfpcore/nfp_nbi.o \
 	    nfpcore/nfp_nbi_phymod.o \
 	    nfpcore/nfp_net_null.o \
 	    nfpcore/nfp_net_vnic.o \
