@@ -58,6 +58,34 @@
 #define   NFP_PL_DEVICE_ID_MINOR_REV_of(_x)   (((_x) >> 0) & 0xf)
 
 /**
+ * Modify bits of a 32-bit value from the XPB bus
+ *
+ * @param cpp           NFP CPP device handle
+ * @param xpb_tgt       XPB target and address
+ * @param mask          mask of bits to alter
+ * @param value         value to modify
+ *
+ * KERNEL: This operation is safe to call in interrupt or softirq context.
+ *
+ * @return 0 on success, or -1 on failure (and set errno accordingly).
+ */
+int nfp_xpb_writelm(struct nfp_cpp *cpp, uint32_t xpb_tgt,
+		    uint32_t mask, uint32_t value)
+{
+	int err;
+	uint32_t tmp;
+
+	err = nfp_xpb_readl(cpp, xpb_tgt, &tmp);
+	if (err < 0)
+		return err;
+
+	tmp &= ~mask;
+	tmp |= (mask & value);
+	return nfp_xpb_writel(cpp, xpb_tgt, tmp);
+}
+EXPORT_SYMBOL(nfp_xpb_writelm);
+
+/**
  * nfp_cpp_read - read from CPP target
  * @cpp:		CPP handle
  * @destination:	CPP id
