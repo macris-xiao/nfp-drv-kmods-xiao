@@ -277,7 +277,9 @@ static int nfp_net_null_create(struct nfp_net_null *np,
 	nd->ethtool_ops.get_settings = nfp_net_null_eto_get_settings;
 	nd->ethtool_ops.get_ethtool_stats = nfp_net_null_eto_get_ethtool_stats;
 	nd->ethtool_ops.get_link = nfp_net_null_eto_get_link;
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 5, 0))
 	nd->ethtool_ops.get_ts_info = ethtool_op_get_ts_info;
+#endif
 
 	dev->ethtool_ops = &nd->ethtool_ops;
 

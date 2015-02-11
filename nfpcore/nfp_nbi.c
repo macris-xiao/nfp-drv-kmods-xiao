@@ -17,6 +17,7 @@
 #include <linux/kernel.h>
 #include <linux/netdevice.h>
 #include <linux/ethtool.h>
+#include <linux/module.h>
 
 #include "nfp_nbi.h"
 #include "nfp_nbi_mac_stats.h"
