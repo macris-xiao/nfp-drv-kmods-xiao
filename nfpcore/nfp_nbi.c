@@ -59,11 +59,13 @@ struct nfp_nbi_dev *nfp_nbi_open(struct nfp_device *nfp, int nbi_id)
 
 	return nbi;
 }
+EXPORT_SYMBOL(nfp_nbi_open);
 
 void nfp_nbi_close(struct nfp_nbi_dev *nbi)
 {
 	kfree(nbi);
 }
+EXPORT_SYMBOL(nfp_nbi_close);
 
 int nfp_nbi_mac_stats_read_port(struct nfp_nbi_dev *nbi, int port,
 				struct nfp_nbi_mac_portstats *stats)

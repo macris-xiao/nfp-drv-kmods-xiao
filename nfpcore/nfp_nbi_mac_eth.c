@@ -83,6 +83,7 @@ int nfp_nbi_mac_eth_ifdown(struct nfp_nbi_dev *nbi, int core, int port)
 
 	return nfp_nbi_mac_regw(nbi, NFP_NBI_MACX_CSR, r, m, d);
 }
+EXPORT_SYMBOL(nfp_nbi_mac_eth_ifdown);
 
 int nfp_nbi_mac_eth_ifup(struct nfp_nbi_dev *nbi, int core, int port)
 {
@@ -140,6 +141,7 @@ int nfp_nbi_mac_eth_ifup(struct nfp_nbi_dev *nbi, int core, int port)
 
 	return nfp_nbi_mac_regw(nbi, NFP_NBI_MACX_CSR, r, m, d);
 }
+EXPORT_SYMBOL(nfp_nbi_mac_eth_ifup);
 
 int nfp_nbi_mac_eth_write_egress_dsa(struct nfp_nbi_dev *nbi, int core,
 				     int port, int octets)
@@ -1627,6 +1629,7 @@ int nfp_nbi_mac_eth_read_linkstate(struct nfp_nbi_dev *nbi, int core, int port,
 
 	return (status) ? 0 : 1;
 }
+EXPORT_SYMBOL(nfp_nbi_mac_eth_read_linkstate);
 
 /*   void lanemode(struct nfp_nbi_dev *nbi, int eth, int port); */
 
@@ -1745,6 +1748,7 @@ int nfp_nbi_mac_eth_read_mode(struct nfp_nbi_dev *nbi, int core, int port)
 
 	return -EINVAL;
 }
+EXPORT_SYMBOL(nfp_nbi_mac_eth_read_mode);
 
 /*
   void read_serdes_clock(struct nfp_nbi_dev *nbi, int serdes);
@@ -2950,6 +2954,7 @@ int nfp_nbi_mac_eth_write_mac_addr(struct nfp_nbi_dev *nbi, int core,
 
 	return nfp_nbi_mac_regw(nbi, NFP_NBI_MACX_ETH(core), r, m, d);
 }
+EXPORT_SYMBOL(nfp_nbi_mac_eth_write_mac_addr);
 
 int nfp_nbi_mac_eth_read_mac_addr(struct nfp_nbi_dev *nbi, int core,
 				  int port, uint64_t * hwaddr)
@@ -2986,6 +2991,7 @@ int nfp_nbi_mac_eth_read_mac_addr(struct nfp_nbi_dev *nbi, int core,
 	*hwaddr = (*hwaddr << 32) | d;
 	return 0;
 }
+EXPORT_SYMBOL(nfp_nbi_mac_eth_read_mac_addr);
 
 int nfp_nbi_mac_write_timestamp(struct nfp_nbi_dev *nbi, uint64_t ts_sec,
 				uint64_t ts_nsec)
