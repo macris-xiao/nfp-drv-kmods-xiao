@@ -197,22 +197,109 @@ static int nfp_net_null_eto_set_priv_flags(struct net_device *dev, u32 flags)
 
 	return 0;
 }
+static int phy_parse_qsfp(struct nfp_phymod *phy, struct ethtool_cmd *cmd)
+{
+	uint32_t supported = 0, advertise = 0, port = PORT_OTHER;
+	uint8_t tmp = 0;
+	int i, err;
+
+	err = nfp_phymod_read8(phy, 131, &tmp);
+	if (err < 0)
+		return err;
+
+	if (tmp == 0) {
+		cmd->supported = SUPPORTED_Backplane;
+		cmd->advertising = ADVERTISED_Backplane;
+		cmd->port = PORT_OTHER;
+		return 0;
+	}
+
+	for (i = 0; i < 8; i++) {
+		if (!(tmp & (1 << i)))
+			continue;
+
+		switch (i) {
+		case 0:
+			supported |= SUPPORTED_Backplane |
+				     SUPPORTED_40000baseKR4_Full;
+			advertise |= ADVERTISED_Backplane | 
+				     ADVERTISED_40000baseKR4_Full;
+			port = PORT_OTHER;
+			break;
+		case 1:
+			supported |= SUPPORTED_40000baseLR4_Full;
+			advertise |= ADVERTISED_40000baseLR4_Full;
+			port = PORT_FIBRE;
+			break;
+		case 2:
+			supported |= SUPPORTED_40000baseSR4_Full;
+			advertise |= ADVERTISED_40000baseSR4_Full;
+			port = PORT_FIBRE;
+			break;
+		case 3:
+			supported |= SUPPORTED_40000baseCR4_Full;
+			advertise |= ADVERTISED_40000baseCR4_Full;
+			port = PORT_FIBRE;
+			break;
+		case 4:
+		case 5:
+		case 6:
+			supported |= SUPPORTED_10000baseR_FEC;
+			advertise |= ADVERTISED_10000baseR_FEC;
+			port = PORT_FIBRE;
+			break;
+		case 7:
+			supported |= SUPPORTED_Backplane;
+			advertise |= ADVERTISED_Backplane;
+			port = PORT_OTHER;
+			break;
+		}
+	}
+
+	cmd->supported = supported;
+	cmd->advertising = advertise;
+	cmd->port = port;
+
+	return 0;
+}
 
 static int nfp_net_null_eto_get_settings(struct net_device *dev,
 					 struct ethtool_cmd *cmd)
 {
 	struct nfp_net_null_dev *nm = netdev_priv(dev);
-	int speed;
+	int err, speed, phy_type;
+	struct nfp_phymod *phy;
 
-	/* FIXME: Read the actual port config from the MAC */
 	speed = SPEED_UNKNOWN;
-	nfp_phymod_eth_get_speed(nm->eth, &speed);
+	err = nfp_phymod_eth_get_speed(nm->eth, &speed);
+	if (err < 0)
+		return err;
+
 	ethtool_cmd_speed_set(cmd, speed);
 
-	cmd->supported = SUPPORTED_Backplane;
-	cmd->advertising = ADVERTISED_Backplane;
+	err = nfp_phymod_eth_get_phymod(nm->eth, &phy, NULL);
+	if (err < 0)
+		return err;
+
+	err = nfp_phymod_get_type(phy, &phy_type);
+	if (err < 0)
+		return err;
+
+	/* FIXME: CXP/SFP Read the actual port config from the MAC */
+	switch (phy_type) {
+	case NFP_PHYMOD_TYPE_QSFP:
+		err = phy_parse_qsfp(phy, cmd);
+		if (err < 0)
+			return err;
+		break;
+	default:
+		cmd->supported = SUPPORTED_Backplane;
+		cmd->advertising = ADVERTISED_Backplane;
+		cmd->port = PORT_OTHER;
+		break;
+	}
+
 	cmd->duplex = DUPLEX_FULL;
-	cmd->port = PORT_OTHER;
 	cmd->transceiver = XCVR_EXTERNAL;
 	cmd->autoneg = AUTONEG_DISABLE;
 
