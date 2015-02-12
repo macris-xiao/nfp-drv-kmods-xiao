@@ -130,9 +130,6 @@ static int nfp6000_spi_run_clock(struct nfp_spi *spi, uint32_t control)
 
         if (!(tmp & NFP_SPI_SPIPORTCFG_BUSY))
             return 0;
-
-        if (msleep_interruptible(1) != 1)
-            return -EINTR;
     }
 
     return -ETIMEDOUT;
