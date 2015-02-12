@@ -44,12 +44,16 @@ struct nfp_net_null {
 	struct net_device *port[48];
 };
 
+#define ETO_PRIV_FLAG_TX_LINK	(1 << 0)
+#define ETO_PRIV_FLAG_RX_LINK	(1 << 1)
+
 struct nfp_net_null_dev {
 	struct ethtool_ops ethtool_ops;
 	struct net_device_ops netdev_ops;
 	int mac;
 	int port;
 	int no_stats;
+	u32 priv_flags;
 	struct nfp_phymod_eth *eth;
 	struct nfp_nbi_dev *nbi;
 	struct nfp6000_mac_dev_stats {
@@ -92,6 +96,108 @@ static void nfp_net_null_eto_get_drvinfo(struct net_device *dev,
 	di->fw_version[0] = 0;
 }
 
+static const char const *string_priv_flags[] = {
+	"tx_link",	/* ETO_PRIV_FLAG_TX_LINK */
+	"rx_link",	/* ETO_PRIV_FLAG_RX_LINK */
+};
+
+static void nfp_net_null_eto_get_strings(struct net_device *dev,
+					u32 stringset,
+					u8 *buf)
+{
+	int i, count;
+	const char **set;
+
+	switch (stringset) {
+	case ETH_SS_PRIV_FLAGS:
+		set = string_priv_flags;
+		count = ARRAY_SIZE(string_priv_flags);
+		break;
+	default:
+		count = 0;
+		break;
+	}
+
+	for (i = 0; i < count; i++, buf += ETH_GSTRING_LEN) {
+		strncpy(buf, set[i], ETH_GSTRING_LEN);
+	}
+}
+
+static int nfp_net_null_eto_get_sset_count(struct net_device *dev,
+					   int stringset)
+{
+	int count;
+
+	switch (stringset) {
+	case ETH_SS_PRIV_FLAGS:
+		count = ARRAY_SIZE(string_priv_flags);
+		break;
+	default:
+		return -EOPNOTSUPP;
+	}
+
+	return count;
+}
+
+static void update_priv_flags(struct nfp_net_null_dev *nm)
+{
+	int err;
+	u32 txstatus, rxstatus;
+	u32 flags = 0;
+
+	err = nfp_phymod_eth_read_disable(nm->eth, &txstatus, &rxstatus);
+	if (err < 0)
+		return;
+
+	if (!txstatus)
+		flags |= ETO_PRIV_FLAG_TX_LINK;
+	if (!rxstatus)
+		flags |= ETO_PRIV_FLAG_RX_LINK;
+
+	nm->priv_flags = flags;
+}
+
+static u32 nfp_net_null_eto_get_priv_flags(struct net_device *dev)
+{
+	struct nfp_net_null_dev *nm = netdev_priv(dev);
+
+	update_priv_flags(nm);
+
+	return nm->priv_flags;
+}
+
+static int nfp_net_null_eto_set_priv_flags(struct net_device *dev, u32 flags)
+{
+	struct nfp_net_null_dev *nm = netdev_priv(dev);
+	int err, update;
+	u32 txstate, rxstate;
+
+	update_priv_flags(nm);
+
+	/* TX and RX PHY link control */
+	txstate = (nm->priv_flags & ETO_PRIV_FLAG_TX_LINK) ? 0 : 1;
+	rxstate = (nm->priv_flags & ETO_PRIV_FLAG_RX_LINK) ? 0 : 1;
+
+	update = 0;
+	if ((flags ^ nm->priv_flags) & ETO_PRIV_FLAG_TX_LINK) {
+		txstate = (flags & ETO_PRIV_FLAG_TX_LINK) ? 0 : 1;
+		update = 1;
+	}
+
+	if ((flags ^ nm->priv_flags) & ETO_PRIV_FLAG_RX_LINK) {
+		txstate = (flags & ETO_PRIV_FLAG_RX_LINK) ? 0 : 1;
+		update = 1;
+	}
+
+	if (update) {
+		err = nfp_phymod_eth_write_disable(nm->eth, txstate, rxstate);
+		if (err < 0)
+			return err;
+	}
+
+	return 0;
+}
+
 static int nfp_net_null_eto_get_settings(struct net_device *dev,
 					 struct ethtool_cmd *cmd)
 {
@@ -106,7 +212,7 @@ static int nfp_net_null_eto_get_settings(struct net_device *dev,
 	cmd->supported = SUPPORTED_Backplane;
 	cmd->advertising = ADVERTISED_Backplane;
 	cmd->duplex = DUPLEX_FULL;
-	cmd->port = PORT_FIBRE;
+	cmd->port = PORT_OTHER;
 	cmd->transceiver = XCVR_EXTERNAL;
 	cmd->autoneg = AUTONEG_DISABLE;
 
@@ -277,6 +383,10 @@ static int nfp_net_null_create(struct nfp_net_null *np,
 	nd->ethtool_ops.get_settings = nfp_net_null_eto_get_settings;
 	nd->ethtool_ops.get_ethtool_stats = nfp_net_null_eto_get_ethtool_stats;
 	nd->ethtool_ops.get_link = nfp_net_null_eto_get_link;
+	nd->ethtool_ops.get_strings = nfp_net_null_eto_get_strings;
+	nd->ethtool_ops.get_sset_count = nfp_net_null_eto_get_sset_count;
+	nd->ethtool_ops.get_priv_flags = nfp_net_null_eto_get_priv_flags;
+	nd->ethtool_ops.set_priv_flags = nfp_net_null_eto_set_priv_flags;
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 5, 0))
 	nd->ethtool_ops.get_ts_info = ethtool_op_get_ts_info;
 #endif
