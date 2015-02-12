@@ -141,10 +141,24 @@ static inline int compat_kstrtoul(const char *str, int base, unsigned long *res)
 static inline int _pci_enable_msi_range(struct pci_dev *dev,
 					int minvec, int maxvec)
 {
-	if (minvec > 0)
-		return -EINVAL;
+	int nvec = maxvec;
+	int rc;
 
-	return pci_enable_msi_block(dev, maxvec + 1);
+	if (maxvec < minvec)
+		return -ERANGE;
+
+	do {
+		rc = pci_enable_msi_block(dev, nvec);
+		if (rc < 0) {
+			return rc;
+		} else if (rc > 0) {
+			if (rc < minvec)
+				return -ENOSPC;
+			nvec = rc;
+		}
+	} while (rc);
+
+	return nvec;
 }
 #define pci_enable_msi_range(dev, minv, maxv) \
 	_pci_enable_msi_range(dev, minv, maxv)
