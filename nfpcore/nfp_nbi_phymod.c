@@ -1327,7 +1327,27 @@ int nfp_phymod_eth_get_index(struct nfp_phymod_eth *eth, int *index)
 EXPORT_SYMBOL(nfp_phymod_eth_get_index);
 
 /**
- * Get the MAC address of and ethernet port
+ * Get the phymod and base lane for a phymod's eth interface
+ * @ingroup nfp6000-only
+ *
+ * @param eth		PHY module ethernet interface
+ * @param phy		Pointer to a phymod, set to the parent PHY of this eth
+ * @param index 	Pointer to a int for the PHY lane for this eth
+ * @return 0 on success, -1 and errno on error
+ */
+int nfp_phymod_eth_get_phymod(struct nfp_phymod_eth *eth, struct nfp_phymod **phy, int *lane)
+{
+	if (phy)
+		*phy = eth->phymod;
+
+	if (lane)
+		*lane = eth->lane;
+
+	return 0;
+}
+
+/**
+ * Get the MAC address of an ethernet port
  * @ingroup nfp6000-only
  *
  * @param eth		PHY module ethernet interface
