@@ -352,8 +352,8 @@ int nfp_phymod_read_status_temp(struct nfp_phymod *phymod, uint32_t *txstatus,
  * the most significant byte.  The other bytes contain the status of
  * Lane Disable for each lane in the module.
  *
- * The SFP(+) supports a hardware TX_DISABLE (bit-0) and a software
- * TX_DISABLE (bit-1).  These are returned in txstatus.
+ * The SFP(+) only supports TX_DISABLE.
+ * These is returned in bit 0 of txstatus.
  *
  * The QSFP supports independent Transmit and Receive software
  * disables for each lane.  The Transmit Lane Disable states are
@@ -361,10 +361,10 @@ int nfp_phymod_read_status_temp(struct nfp_phymod *phymod, uint32_t *txstatus,
  * returned in rxstatus bits 0-3.
  *
  * The CXP supports independent Transmit and Receive software disables
- * for each lane and two software disable modes: an Output Disable and
- * a Lane (Channel) Disable.  The Transmit Lane Disable states are
- * returned in txstatus bits 0-23, the Receive Lane Disable states are
- * returned in rxstatus bits 0-23.
+ * for each lane.
+ * 
+ * The Transmit Lane Disable states are returned in txstatus bits 0-9
+ * The Receive Lane Disable states are returned in txstatus bits 0-9
  *
  *
  * @param phymod PHY module
@@ -384,19 +384,19 @@ int nfp_phymod_read_lanedisable(struct nfp_phymod *phymod, uint32_t *txstatus,
  * Enable/Disable lanes in a PHY module as specified by the txstates
  * (transmit) and rxstates (receive) parameters.
  *
- * The SFP(+) supports a hardware TX_DISABLE (bit-0) and a software
- * TX_DISABLE (bit-1).  These are specified in txstates.
+ * The SFP(+) only supports TX_DISABLE.
+ * This is specified in bit 0 of txstatus.
  *
  * The QSFP supports independent Transmit and Receive software
  * disables for each lane.  The Transmit Lane Disable states are
- * specified in txstates bits 0-3, the Receive Lane Disable states are
- * specified in rxstates bits 0-3.
+ * specified in txstatus bits 0-3, the Receive Lane Disable statesare 
+ * specified in rxstatus bits 0-3.
  *
  * The CXP supports independent Transmit and Receive software disables
- * for each lane and two software disable modes: an Output Disable and
- * a Lane (Channel) Disable.  The Transmit Lane Disable states are
- * specified in txstates bits 0-23, the Receive Lane Disable states are
- * specified in rxstates bits 0-23.
+ * for each lane.
+ * 
+ * The Transmit Lane Disable states are specified in txstatus bits 0-9
+ * The Receive Lane Disable states are specified in txstatus bits 0-9
  *
  *
  * @param phymod PHY module
@@ -537,5 +537,35 @@ int nfp_phymod_eth_get_fail_to_wire(struct nfp_phymod_eth *eth, const char **eth
  * @return 0 on success, -1 and errno on error
  */
 int nfp_phymod_eth_set_fail_to_wire(struct nfp_phymod_eth *eth, int force);
+
+/**
+ * Read PHY Disable state for an eth port
+ * @ingroup nfp6000-only
+ *
+ * @param phymod PHY module
+ * @param[out] txstatus Disable status for the ethernet port
+ * @param[out] rxstatus Disable status for the ethernet port
+ *
+ * @return 0 on success. Set errno and return -1 on error.
+ *
+ * For both rxstatus and txstatus, 0 = active, 1 = disabled
+ */
+int nfp_phymod_eth_read_disable(struct nfp_phymod_eth *eth, uint32_t *txstatus,
+				uint32_t *rxstatus);
+
+/**
+ * Write PHY Disable state for an eth port
+ * @ingroup nfp6000-only
+ *
+ * @param phymod PHY module
+ * @param[in] txstate Disable states for the module
+ * @param[in] rxstate Disable states for the module
+ *
+ * @return 0 on success. Set errno and return -1 on error.
+ *
+ * For both rxstatus and txstatus, 0 = active, 1 = disabled
+ */
+int nfp_phymod_eth_write_disable(struct nfp_phymod_eth *eth, uint32_t txstate,
+				 uint32_t rxstate);
 
 #endif

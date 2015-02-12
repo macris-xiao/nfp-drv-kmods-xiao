@@ -1472,4 +1472,81 @@ int nfp_phymod_eth_set_fail_to_wire(struct nfp_phymod_eth *eth, int force)
 	return pin_set(eth->priv->nfp, &eth->fail_to_wire.force, force);
 }
 
+/**
+ * Read PHY Disable state for an eth port
+ * @ingroup nfp6000-only
+ *
+ * @param phymod PHY module
+ * @param[out] txstatus Disable status for the ethernet port
+ * @param[out] rxstatus Disable status for the ethernet port
+ *
+ * @return 0 on success. Set errno and return -1 on error.
+ *
+ * For both rxstatus and txstatus, 0 = active, 1 = disabled
+ */
+int nfp_phymod_eth_read_disable(struct nfp_phymod_eth *eth, uint32_t *txstatus,
+				uint32_t *rxstatus)
+{
+	int err;
+	u32 tx, rx;
+
+	err = nfp_phymod_read_lanedisable(eth->phymod, &tx, &rx);
+	if (err < 0)
+		return err;
+
+	tx >>= eth->lane;
+	tx &= (1 << eth->lanes) - 1;
+	rx >>= eth->lane;
+	rx &= (1 << eth->lanes) - 1;
+
+	if (txstatus)
+		*txstatus = tx ? 1 : 0;
+	if (rxstatus)
+		*rxstatus = rx ? 1 : 0;
+
+	return 0;
+}
+EXPORT_SYMBOL(nfp_phymod_eth_read_disable);
+
+/**
+ * Write PHY Disable state for an eth port
+ * @ingroup nfp6000-only
+ *
+ * @param phymod PHY module
+ * @param[in] txstate Disable states for the ethernet port
+ * @param[in] rxstate Disable states for the ethernet port
+ *
+ * @return 0 on success. Set errno and return -1 on error.
+ *
+ * For both rxstatus and txstatus, 0 = active, 1 = disabled
+ */
+int nfp_phymod_eth_write_disable(struct nfp_phymod_eth *eth, uint32_t txstate,
+				 uint32_t rxstate)
+{
+	int err;
+	u32 tx, rx;
+	u32 mask = ((1 << eth->lanes) - 1) << eth->lane;
+
+	err = nfp_phymod_read_lanedisable(eth->phymod, &tx, &rx);
+	if (err < 0)
+		return err;
+
+	if (txstate)
+		tx |= mask;
+	else
+		tx &= ~mask;
+
+	if (rxstate)
+		rx |= mask;
+	else
+		rx &= ~mask;
+
+	err = nfp_phymod_write_lanedisable(eth->phymod, tx, rx);
+	if (err < 0)
+		return err;
+
+	return 0;
+}
+EXPORT_SYMBOL(nfp_phymod_eth_write_disable);
+
 /* vim: set shiftwidth=8 noexpandtab: */
