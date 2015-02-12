@@ -299,6 +299,10 @@ static int nfp_net_null_eto_get_settings(struct net_device *dev,
 		break;
 	}
 
+	/* We also support PFC, but there is no ethtool bit for that yet */
+	cmd->supported   |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
+	cmd->advertising |= ADVERTISED_Pause | SUPPORTED_Asym_Pause;
+
 	cmd->duplex = DUPLEX_FULL;
 	cmd->transceiver = XCVR_EXTERNAL;
 	cmd->autoneg = AUTONEG_DISABLE;
