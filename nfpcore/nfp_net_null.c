@@ -44,8 +44,9 @@ struct nfp_net_null {
 	struct net_device *port[48];
 };
 
-#define ETO_PRIV_FLAG_TX_LINK	(1 << 0)
-#define ETO_PRIV_FLAG_RX_LINK	(1 << 1)
+#define ETO_PRIV_FLAG_TX_LINK		(1 << 0)
+#define ETO_PRIV_FLAG_RX_LINK		(1 << 1)
+#define ETO_PRIV_FLAG_FAIL_TO_WIRE	(1 << 2)
 
 struct nfp_net_null_dev {
 	struct ethtool_ops ethtool_ops;
@@ -99,6 +100,7 @@ static void nfp_net_null_eto_get_drvinfo(struct net_device *dev,
 static const char const *string_priv_flags[] = {
 	"tx_link",	/* ETO_PRIV_FLAG_TX_LINK */
 	"rx_link",	/* ETO_PRIV_FLAG_RX_LINK */
+	"fail_to_wire",	/* ETO_PRIV_FLAG_FAIL_TO_WIRE */
 };
 
 static void nfp_net_null_eto_get_strings(struct net_device *dev,
@@ -144,15 +146,21 @@ static void update_priv_flags(struct nfp_net_null_dev *nm)
 	int err;
 	u32 txstatus, rxstatus;
 	u32 flags = 0;
+	int active;
 
 	err = nfp_phymod_eth_read_disable(nm->eth, &txstatus, &rxstatus);
-	if (err < 0)
-		return;
+	if (err >= 0) {
+		if (!txstatus)
+			flags |= ETO_PRIV_FLAG_TX_LINK;
+		if (!rxstatus)
+			flags |= ETO_PRIV_FLAG_RX_LINK;
+	}
 
-	if (!txstatus)
-		flags |= ETO_PRIV_FLAG_TX_LINK;
-	if (!rxstatus)
-		flags |= ETO_PRIV_FLAG_RX_LINK;
+	err = nfp_phymod_eth_get_fail_to_wire(nm->eth, NULL, &active);
+	if (err >= 0) {
+		if (active)
+			flags |= ETO_PRIV_FLAG_FAIL_TO_WIRE;
+	}
 
 	nm->priv_flags = flags;
 }
@@ -191,6 +199,13 @@ static int nfp_net_null_eto_set_priv_flags(struct net_device *dev, u32 flags)
 
 	if (update) {
 		err = nfp_phymod_eth_write_disable(nm->eth, txstate, rxstate);
+		if (err < 0)
+			return err;
+	}
+
+	if ((flags ^ nm->priv_flags) & ETO_PRIV_FLAG_FAIL_TO_WIRE) {
+		int active = (flags & ETO_PRIV_FLAG_FAIL_TO_WIRE) ? 1 : 0;
+		err = nfp_phymod_eth_set_fail_to_wire(nm->eth, active);
 		if (err < 0)
 			return err;
 	}
