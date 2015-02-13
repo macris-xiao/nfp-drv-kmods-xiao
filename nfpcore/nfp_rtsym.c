@@ -91,6 +91,7 @@ int __nfp_rtsymtab_probe(struct nfp_device *dev, struct nfp_rtsym_priv *priv)
 	uint32_t model = nfp_cpp_model(cpp);
 	const uint32_t dram = NFP_CPP_ID(NFP_CPP_TARGET_MU,
 					 NFP_CPP_ACTION_RW, 0);
+	uint32_t strtab_size, symtab_size;
 
 	if (!priv->mip) {
 		priv->mip = nfp_mip(dev);
@@ -102,19 +103,23 @@ int __nfp_rtsymtab_probe(struct nfp_device *dev, struct nfp_rtsym_priv *priv)
 		(priv->mip->symtab_size % sizeof(*rtsymtab)) != 0)
 		return -ENXIO;
 
-	rtsymtab = kmalloc(priv->mip->symtab_size, GFP_KERNEL);
+	/* Align to 64 bits */
+	symtab_size = (priv->mip->symtab_size + 7) & ~7;
+	strtab_size = (priv->mip->strtab_size + 7) & ~7;
+
+	rtsymtab = kmalloc(symtab_size, GFP_KERNEL);
 	if (!rtsymtab)
 		return -ENOMEM;
 
-	priv->numrtsyms = priv->mip->symtab_size / sizeof(*rtsymtab);
-	priv->rtsymtab = kmalloc(priv->numrtsyms * sizeof(struct nfp_rtsym) + 7,
+	priv->numrtsyms = symtab_size / sizeof(*rtsymtab);
+	priv->rtsymtab = kmalloc(priv->numrtsyms * sizeof(struct nfp_rtsym),
 				 GFP_KERNEL);
 	if (!priv->rtsymtab) {
 		err = -ENOMEM;
 		goto err_symtab;
 	}
 
-	priv->rtstrtab = kmalloc(priv->mip->strtab_size + 7, GFP_KERNEL);
+	priv->rtstrtab = kmalloc(strtab_size, GFP_KERNEL);
 	if (!priv->rtstrtab) {
 		err = -ENOMEM;
 		goto err_strtab;
@@ -123,16 +128,16 @@ int __nfp_rtsymtab_probe(struct nfp_device *dev, struct nfp_rtsym_priv *priv)
 	if (NFP_CPP_MODEL_IS_3200(model)) {
 		err = nfp_cpp_read(cpp, dram, priv->mip->symtab_addr,
 				   rtsymtab,
-				   (priv->mip->symtab_size + 7) & ~7);
-		if (err < priv->mip->symtab_size)
+				   symtab_size);
+		if (err < symtab_size)
 			goto err_read_symtab;
 
 		err = nfp_cpp_read(cpp, dram, priv->mip->strtab_addr,
 				   priv->rtstrtab,
-				   (priv->mip->strtab_size + 7) & ~7);
-		if (err < priv->mip->strtab_size)
+				   strtab_size);
+		if (err < strtab_size)
 			goto err_read_strtab;
-		priv->rtstrtab[priv->mip->strtab_size] = '\0';
+		priv->rtstrtab[strtab_size] = '\0';
 
 		for (wptr = (uint32_t *) rtsymtab, n = 0;
 		     n < priv->numrtsyms; n++)
@@ -141,7 +146,7 @@ int __nfp_rtsymtab_probe(struct nfp_device *dev, struct nfp_rtsym_priv *priv)
 		for (n = 0; n < priv->numrtsyms; n++) {
 			priv->rtsymtab[n].type = rtsymtab[n].type;
 			priv->rtsymtab[n].name = priv->rtstrtab +
-				(rtsymtab[n].name % priv->mip->strtab_size);
+				(rtsymtab[n].name % strtab_size);
 			priv->rtsymtab[n].addr = (((uint64_t)
 						  rtsymtab[n].addr_hi) << 32) +
 				rtsymtab[n].addr_lo;
@@ -170,15 +175,15 @@ int __nfp_rtsymtab_probe(struct nfp_device *dev, struct nfp_rtsym_priv *priv)
 		}
 	} else if (NFP_CPP_MODEL_IS_6000(model)) {
 		err = nfp_cpp_read(cpp, dram | 24, priv->mip->symtab_addr,
-				   rtsymtab, priv->mip->symtab_size);
-		if (err != priv->mip->symtab_size)
+				   rtsymtab, symtab_size);
+		if (err != symtab_size)
 			goto err_read_symtab;
 
 		err = nfp_cpp_read(cpp, dram | 24, priv->mip->strtab_addr,
-				   priv->rtstrtab, priv->mip->strtab_size);
-		if (err != priv->mip->strtab_size)
+				   priv->rtstrtab, strtab_size);
+		if (err != strtab_size)
 			goto err_read_strtab;
-		priv->rtstrtab[priv->mip->strtab_size] = '\0';
+		priv->rtstrtab[strtab_size] = '\0';
 
 		for (wptr = (uint32_t *) rtsymtab, n = 0;
 		     n < priv->numrtsyms; n++)
@@ -187,7 +192,7 @@ int __nfp_rtsymtab_probe(struct nfp_device *dev, struct nfp_rtsym_priv *priv)
 		for (n = 0; n < priv->numrtsyms; n++) {
 			priv->rtsymtab[n].type = rtsymtab[n].type;
 			priv->rtsymtab[n].name = priv->rtstrtab +
-				(rtsymtab[n].name % priv->mip->strtab_size);
+				(rtsymtab[n].name % strtab_size);
 			priv->rtsymtab[n].addr = (((uint64_t)
 						rtsymtab[n].addr_hi) << 32) +
 				rtsymtab[n].addr_lo;
