@@ -175,12 +175,13 @@ int __nfp_mip_location(struct nfp_device *dev,
 	uint64_t mip_off = 0;
 	struct nfp_cpp *cpp = nfp_device_cpp(dev);
 	struct nfp_mip mip;
+	uint32_t model = nfp_cpp_model(nfp_device_cpp(dev));
 
 	/* First see if we can get it from the nfp.nffw resource */
 	if (nfp_nffw_info_acquire(dev) == 0) {
 		int mu_lsb = -1;
 
-		if (NFP_CPP_MODEL_IS_6000(nfp_cpp_model(nfp_device_cpp(dev))))
+		if (NFP_CPP_MODEL_IS_6000(model)) 
 			mu_lsb = nfp_mip_nfp6000_mu_locality_lsb(dev);
 		else
 			mu_lsb = 38; /* Assume 40-bit addressing */
@@ -216,6 +217,8 @@ int __nfp_mip_location(struct nfp_device *dev,
 		     mip_off += 4096) {
 			uint32_t cpp_id = NFP_CPP_ID(NFP_CPP_TARGET_MU,
 						     NFP_CPP_ACTION_RW, 0);
+			if (NFP_CPP_MODEL_IS_6000(model))
+				cpp_id |= 24;
 			retval = nfp_cpp_read(cpp, cpp_id,
 					      mip_off,
 					      &mip, sizeof(mip));
