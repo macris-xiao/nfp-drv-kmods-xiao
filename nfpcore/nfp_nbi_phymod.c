@@ -1474,8 +1474,12 @@ int nfp_phymod_eth_get_fail_to_wire(struct nfp_phymod_eth *eth, const char **eth
 	if (eth_label)
 		*eth_label = eth->fail_to_wire.label;
 
-	if (active)
-		*active = pin_get(eth->priv->nfp, &eth->fail_to_wire.active);
+	if (active) {
+		int err = pin_get(eth->priv->nfp, &eth->fail_to_wire.active);
+		if (err < 0)
+			return err;
+		*active = err;
+	}
 
 	return 0;
 }
