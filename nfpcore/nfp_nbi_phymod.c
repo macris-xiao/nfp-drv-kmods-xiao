@@ -1345,6 +1345,7 @@ int nfp_phymod_eth_get_phymod(struct nfp_phymod_eth *eth, struct nfp_phymod **ph
 
 	return 0;
 }
+EXPORT_SYMBOL(nfp_phymod_eth_get_phymod);
 
 /**
  * Get the MAC address of an ethernet port
@@ -1483,6 +1484,7 @@ int nfp_phymod_eth_get_fail_to_wire(struct nfp_phymod_eth *eth, const char **eth
 
 	return 0;
 }
+EXPORT_SYMBOL(nfp_phymod_eth_get_fail_to_wire);
 
 /**
  * Force fail-to-wire mode, if available.
@@ -1495,6 +1497,7 @@ int nfp_phymod_eth_set_fail_to_wire(struct nfp_phymod_eth *eth, int force)
 {
 	return pin_set(eth->priv->nfp, &eth->fail_to_wire.force, force);
 }
+EXPORT_SYMBOL(nfp_phymod_eth_set_fail_to_wire);
 
 /**
  * Read PHY Disable state for an eth port
