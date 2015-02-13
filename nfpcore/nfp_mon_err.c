@@ -1,4 +1,4 @@
-/* Copyright (C) 2011 Netronome Systems, Inc. All rights reserved.
+/* Copyright (C) 2011,2015 Netronome Systems, Inc. All rights reserved.
  *
  * This software may be redistributed under either of two provisions:
  *
@@ -586,7 +586,7 @@ int __init nfp_mon_err_init(void)
 	if (err)
 		goto err_plat;
 
-	pr_info("%s: NFP Error Monitor Driver, Copyright (C) 2011 Netronome Systems\n", NFP_MON_ERR_TYPE);
+	pr_info("%s: NFP Error Monitor Driver, Copyright (C) 2011,2015 Netronome Systems\n", NFP_MON_ERR_TYPE);
 
 	return 0;
 
