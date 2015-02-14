@@ -433,20 +433,14 @@ void nfp_spi_release(struct nfp_spi *spi)
  */
 int nfp_spi_speed_set(struct nfp_spi *spi, int hz)
 {
-    uint64_t t;
-
     if (hz < 0)
         hz = DEF_SPI_HZ;
 
     if (hz < MIN_SPI_HZ || hz > MAX_SPI_HZ)
         return -EINVAL;
 
-    t = hz;
-    t -= MIN_SPI_HZ;
-    t *= 0xff;
-    t /= (MAX_SPI_HZ - MIN_SPI_HZ);
-    t = 0xff - t;
-    spi->clkdiv = (int)t;
+    /* clkdiv = PCLK_HZ / 2 / hz - 1 */ 
+    spi->clkdiv = PCLK_MHZ / 2 / hz - 1;
 
     return 0;
 }
@@ -458,13 +452,8 @@ int nfp_spi_speed_set(struct nfp_spi *spi, int hz)
  */
 int nfp_spi_speed_get(struct nfp_spi *spi, int *hz)
 {
-    uint64_t t = spi->clkdiv;
-
-    t = 0xff - t;
-    t *= (MAX_SPI_HZ - MIN_SPI_HZ);
-    t /= 0xff;
-    t += MIN_SPI_HZ;
-    *hz = (int)t;
+    if (hz)
+        *hz = PCLK_MHZ / 2 / (spi->clkdiv + 1);
 
     return 0;
 }
