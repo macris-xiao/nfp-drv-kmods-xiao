@@ -237,13 +237,16 @@ int __nfp_cpp_model_autodetect(struct nfp_cpp *cpp, uint32_t *model)
 
 		*model |= (mes/10) << 20;
 		*model |= (mes%10) << 16;
-	    } else if (NFP_CPP_MODEL_IS_6000(*model)) {
+	} else if (NFP_CPP_MODEL_IS_6000(*model)) {
 		uint32_t tmp;
+		int err;
 
 		/* The PL's PluDeviceID revision code is authoratative */
 		*model &= ~0xff;
-		nfp_xpb_readl(cpp, NFP_XPB_DEVICE(1, 1, 0) + NFP_PL_DEVICE_ID, &tmp);
-		*model |= (NFP_PL_DEVICE_ID_MAJOR_REV_of(tmp) << 4) |
+		err = nfp_xpb_readl(cpp, NFP_XPB_DEVICE(1, 1, 16) + NFP_PL_DEVICE_ID, &tmp);
+		if (err < 0)
+			return err;
+		*model |= ((NFP_PL_DEVICE_ID_MAJOR_REV_of(tmp) - 1) << 4) |
 			   NFP_PL_DEVICE_ID_MINOR_REV_of(tmp);
 	}
 
