@@ -825,6 +825,9 @@ EXPORT_SYMBOL(nfp_cpp_writeq);
 static uint32_t nfp_xpb_to_cpp(struct nfp_cpp *cpp, uint32_t *xpb_addr)
 {
 	uint32_t xpb;
+	int island;
+	int is_arm = NFP_CPP_INTERFACE_TYPE_of(nfp_cpp_interface(cpp)) 
+		       == NFP_CPP_INTERFACE_TYPE_ARM;
 
 	if (NFP_CPP_MODEL_IS_3200(cpp->model)) {
 		xpb = NFP_CPP_ID(13, NFP_CPP_ACTION_RW, 0);
@@ -834,8 +837,26 @@ static uint32_t nfp_xpb_to_cpp(struct nfp_cpp *cpp, uint32_t *xpb_addr)
 		/* Ensure that non-local XPB accesses go
 		 * out through the global XPBM bus.
 		 */
-		if ((*xpb_addr) & 0x3f000000)
-			(*xpb_addr) |= (1 << 30);
+		island = ((*xpb_addr) >> 24) & 0x3f;
+		if (island) {
+			if (island == 1) {
+				/* Accesses to the ARM Island overlay
+				 * uses Island 0 / Global Bit
+				 */
+				(*xpb_addr) &= ~0x7f000000;
+				if (*xpb_addr < 0xa0000) {
+					*xpb_addr |= (1 << 30);
+				} else {
+					/* And only non-ARM interfaces use 
+					 * the island id = 1
+					 */
+					if (!is_arm)
+						*xpb_addr |= (1 << 24);
+				}
+			} else {
+				(*xpb_addr) |= (1 << 30);
+			}
+		}
 	} else {
 		return 0;
 	}
