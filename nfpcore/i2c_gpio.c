@@ -13,7 +13,7 @@ static void i2c_gpio_set_scl(void *priv, int bit)
 {
 	struct i2c_gpio_priv *i2c = priv;
 
-	if (bit < 0) { /* Tristate */
+	if (bit < 0) {		/* Tristate */
 		nfp_gpio_direction(i2c->dev, i2c->gpio_scl, 0);
 	} else {
 		nfp_gpio_set(i2c->dev, i2c->gpio_scl, bit);
@@ -48,7 +48,7 @@ static void i2c_gpio_set_sda(void *priv, int bit)
 {
 	struct i2c_gpio_priv *i2c = priv;
 
-	if (bit < 0) { /* Tristate */
+	if (bit < 0) {		/* Tristate */
 		nfp_gpio_direction(i2c->dev, i2c->gpio_sda, 0);
 	} else {
 		nfp_gpio_set(i2c->dev, i2c->gpio_sda, bit);
@@ -82,4 +82,5 @@ int i2c_gpio_init(struct i2c_driver *drv, struct i2c_gpio_priv *priv)
 
 	return err;
 }
+
 /* vim: set shiftwidth=8 noexpandtab: */
