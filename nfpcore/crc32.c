@@ -105,7 +105,7 @@ uint32_t crc32_posix_end(uint32_t crc32, size_t total_len)
 	while (total_len != 0) {
 		uint8_t c = total_len & 0xff;
 
-		crc32 =  crc32_posix_add(crc32, &c, 1);
+		crc32 = crc32_posix_add(crc32, &c, 1);
 		total_len >>= 8;
 	}
 	return ~crc32;
@@ -122,7 +122,7 @@ uint32_t crc32_gb(uint32_t crc32, const void *buff, size_t len)
 	int i, j;
 	const uint8_t *s = buff;
 
-	for (i = 0;  i < len;  i++) {
+	for (i = 0; i < len; i++) {
 		uint8_t c, v;
 		uint32_t te, tc;
 
