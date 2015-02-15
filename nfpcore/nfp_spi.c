@@ -26,71 +26,76 @@ struct nfp_spi {
 #define NFP_SPI_TIMEOUT_MS         100
 
 /* NFP6000 SPI CONTROLLER defines */
-#define NFP_SPI_SPIPORTMC(x)    (0x10+(((x)&3)<<2))
-#define   NFP_SPI_SPIPORTMC_DATADRIVEDISABLE                 (1 << 31)
-#define   NFP_SPI_SPIPORTMC_CLOCKIDLE                        (1 << 29)
-#define   NFP_SPI_SPIPORTMC_SELECT(_x)                       (((_x) & 0xf) << 24)
-#define   NFP_SPI_SPIPORTMC_DATAWIDTH(_x)                    (((_x) & 0x3) << 20)
-#define   NFP_SPI_SPIPORTMC_DATAINTRAIL                      (1 << 19)
-#define   NFP_SPI_SPIPORTMC_DATAINLEAD                       (1 << 18)
-#define   NFP_SPI_SPIPORTMC_DATAOUTTRAIL                     (1 << 17)
-#define   NFP_SPI_SPIPORTMC_DATAOUTLEAD                      (1 << 16)
-#define   NFP_SPI_SPIPORTMC_CLOCKDISABLE                     (1 << 15)
-#define   NFP_SPI_SPIPORTMC_CLOCKEDGECOUNT(_x)               (((_x) & 0x7f) << 8)
-#define NFP_SPI_SPIPORTCFG(x)   (0x00+(((x)&3)<<2))
-#define   NFP_SPI_SPIPORTCFG_MODE                            (1 << 31)
-#define     NFP_SPI_SPIPORTCFG_MODE_AUTOMATIC                (0 << 31)
-#define     NFP_SPI_SPIPORTCFG_MODE_MANUAL                   (1 << 31)
-#define NFP_SPI_SPIPORTMDO(x)   (0x20+(((x)&3)<<2))
-#define NFP_SPI_SPIPORTMDI(x)   (0x30+(((x)&3)<<2))
+#define NFP_SPI_PORTMC(x)    (0x10+(((x)&3)<<2))
+#define   NFP_SPI_PORTMC_DATADRIVEDISABLE                 (1 << 31)
+#define   NFP_SPI_PORTMC_CLOCKIDLE                        (1 << 29)
+#define   NFP_SPI_PORTMC_SELECT(_x)                       (((_x) & 0xf) << 24)
+#define   NFP_SPI_PORTMC_DATAWIDTH(_x)                    (((_x) & 0x3) << 20)
+#define   NFP_SPI_PORTMC_DATAINTRAIL                      (1 << 19)
+#define   NFP_SPI_PORTMC_DATAINLEAD                       (1 << 18)
+#define   NFP_SPI_PORTMC_DATAOUTTRAIL                     (1 << 17)
+#define   NFP_SPI_PORTMC_DATAOUTLEAD                      (1 << 16)
+#define   NFP_SPI_PORTMC_CLOCKDISABLE                     (1 << 15)
+#define   NFP_SPI_PORTMC_CLOCKEDGECOUNT(_x)               (((_x) & 0x7f) << 8)
+#define NFP_SPI_PORTCFG(x)   (0x00+(((x)&3)<<2))
+#define   NFP_SPI_PORTCFG_MODE                            (1 << 31)
+#define     NFP_SPI_PORTCFG_MODE_AUTOMATIC                (0 << 31)
+#define     NFP_SPI_PORTCFG_MODE_MANUAL                   (1 << 31)
+#define NFP_SPI_PORTMDO(x)   (0x20+(((x)&3)<<2))
+#define NFP_SPI_PORTMDI(x)   (0x30+(((x)&3)<<2))
 #define NFP_SPI_SPIIOCONFIG                                  0x00000100
 #define NFP_SPI_SPIIOIDLESTATUS                              0x00000104
-#define NFP_SPI_SPIWRITEENABLETARGET                         0x0000010c
-#define   NFP_SPI_SPIWRITEENABLETARGET_WRITEENABLEAVAILABLE  (1 << 4)
-#define   NFP_SPI_SPIWRITEENABLETARGET_WRITEENABLETARGET(_x) (((_x) & 0xf) << 0)
-#define   NFP_SPI_SPIPORTCFG_BUSY                            (1 << 30)
+#define NFP_SPI_WE                         0x0000010c
+#define   NFP_SPI_WE_AVAILABLE  (1 << 4)
+#define   NFP_SPI_WE_WRITEENABLETARGET(_x) (((_x) & 0xf) << 0)
+#define   NFP_SPI_PORTCFG_BUSY                            (1 << 30)
 
 #define VALID_CS(cs)            ((cs >= 0) && (cs <= 3))
-#define CS_OFF                  NFP_SPI_SPIPORTMC_SELECT(0xf)
-#define CS_BITS(cs)             ((VALID_CS(cs)) ?                           \
-                                NFP_SPI_SPIPORTMC_SELECT((0xf & ~(1 << cs)))\
-                                : CS_OFF)
-#define SPIMODEBITS(s)          \
-                ((s->mode & (1 << 1) ? NFP_SPI_SPIPORTMC_CLOCKIDLE : 0) |    \
-                 (s->mode & (1 << 0)                                         \
-                 ?NFP_SPI_SPIPORTMC_DATAINTRAIL|NFP_SPI_SPIPORTMC_DATAOUTLEAD\
-                 :NFP_SPI_SPIPORTMC_DATAINLEAD|NFP_SPI_SPIPORTMC_DATAOUTTRAIL))
+#define CS_OFF                  NFP_SPI_PORTMC_SELECT(0xf)
+#define CS_BITS(cs)                                       \
+		((VALID_CS(cs)) ?                         \
+		NFP_SPI_PORTMC_SELECT((0xf & ~(1 << cs))) \
+		: CS_OFF)
+
+#define SPIMODEBITS(s)                                                \
+	((s->mode & (1 << 1) ? NFP_SPI_PORTMC_CLOCKIDLE : 0) |        \
+	 (s->mode & (1 << 0)                                          \
+	  ? (NFP_SPI_PORTMC_DATAINTRAIL | NFP_SPI_PORTMC_DATAOUTLEAD) \
+	  : (NFP_SPI_PORTMC_DATAINLEAD | NFP_SPI_PORTMC_DATAOUTTRAIL)))
 
 #define CPHA(mode)  (mode & 1)
-#define NFP6_SPI_DEFAULT_CTRL(edges, spi)    \
-                                (SPIMODEBITS(spi) \
-                                | NFP_SPI_SPIPORTMC_DATAWIDTH(spi->width) \
-                                | spi->clkdiv \
-                                | NFP_SPI_SPIPORTMC_CLOCKEDGECOUNT(edges))
-#define SET_EDGE_COUNT(ctrl, cnt) do {                                      \
-                            ctrl &= ~0x7f00;                                \
-                            ctrl |= NFP_SPI_SPIPORTMC_CLOCKEDGECOUNT(cnt);  \
-                            } while (0)
+
+#define NFP6_SPI_DEFAULT_CTRL(edges, spi)          \
+	(SPIMODEBITS(spi)                          \
+	 | NFP_SPI_PORTMC_DATAWIDTH(spi->width)    \
+	 | (spi)->clkdiv                           \
+	 | NFP_SPI_PORTMC_CLOCKEDGECOUNT(edges))
+
+#define SET_EDGE_COUNT(ctrl, cnt) \
+	do {                                                    \
+		ctrl &= ~0x7f00;                                \
+		ctrl |= NFP_SPI_PORTMC_CLOCKEDGECOUNT(cnt);     \
+	} while (0)
 
 #define SPI_DEFAULT_MODE        ((1 << 1)|(1 << 0))	/* SPI_MODE3 */
 #define SPIXDAT23_OFFS          8
 #define SPI_MAX_BITS_PER_CTRL_WRITE 32
 
-/*
-    SPI source clock is PCLK(1GHz), the clock divider bits are the count of
-        PCLKs per SPI half-cycle, 8bits of divider give a range 1-256 per half cycle
-     or 2-512 per cycle, giving a clock range of 500MHz down to ~2MHz
-
-    pclk_freq(1000MHz) / (2 * (1 + pclk_half_cycle_count_bits)) = spi_freq
-*/
+/* SPI source clock is PCLK(1GHz), the clock divider bits are
+ * the count of PCLKs per SPI half-cycle, 8bits of divider give
+ * a range 1-256 per half cycle or 2-512 per cycle, giving a
+ * clock range of 500MHz down to ~2MHz
+ *
+ * pclk_freq(1000MHz) / (2 * (1 + pclk_half_cycle_count_bits)) = spi_freq
+ */
 #define MHZ(x)                  ((x) * 1000 * 1000)
-#define PCLK_MHZ                MHZ(1000)
-#define MIN_SPI_HZ              ((PCLK_MHZ/512))	/*   ~2MHz */
-#define MAX_SPI_HZ              ((PCLK_MHZ/  2))	/* ~500MHz */
+#define PCLK_HZ                MHZ(1000)
+#define MIN_SPI_HZ              ((PCLK_HZ / 512))	/*   ~2MHz */
+#define MAX_SPI_HZ              ((PCLK_HZ /   2))	/* ~500MHz */
 #define DEF_SPI_HZ              MHZ(5)
 
 static int nfp6000_spi_csr_readl(struct nfp_spi *spi, uint32_t csr,
-				 uint32_t * val)
+				 uint32_t *val)
 {
 	return nfp_cpp_area_readl(spi->csr, csr, val);
 }
@@ -116,7 +121,7 @@ static int nfp6000_spi_run_clock(struct nfp_spi *spi, uint32_t control)
 		.tv_nsec = (NFP_SPI_TIMEOUT_MS % 1000) * 1000000,
 	};
 
-	err = nfp6000_spi_csr_writel(spi, NFP_SPI_SPIPORTMC(spi->bus), control);
+	err = nfp6000_spi_csr_writel(spi, NFP_SPI_PORTMC(spi->bus), control);
 	if (err < 0)
 		return err;
 
@@ -126,12 +131,12 @@ static int nfp6000_spi_run_clock(struct nfp_spi *spi, uint32_t control)
 	for (ts = CURRENT_TIME;
 	     timespec_compare(&ts, &timeout) < 0; ts = CURRENT_TIME) {
 		err =
-		    nfp6000_spi_csr_readl(spi, NFP_SPI_SPIPORTCFG(spi->bus),
+		    nfp6000_spi_csr_readl(spi, NFP_SPI_PORTCFG(spi->bus),
 					  &tmp);
 		if (err < 0)
 			return err;
 
-		if (!(tmp & NFP_SPI_SPIPORTCFG_BUSY))
+		if (!(tmp & NFP_SPI_PORTCFG_BUSY))
 			return 0;
 	}
 
@@ -148,22 +153,27 @@ static int nfp_spi_set_pin_association(struct nfp_spi *spi, int port, int pin)
 		return err;
 	val &= ~(0x3 << (2 * ((pin & 3) - 1)));
 	val |= (port & 3) << (2 * ((pin & 3) - 1));
+
 	return nfp6000_spi_csr_writel(spi, NFP_SPI_SPIIOCONFIG, val);
 }
 
 static int do_first_bit_cpha0_hack(struct nfp_spi *spi, uint32_t ctrl,
 				   uint32_t mdo)
 {
-	uint32_t control = ctrl | NFP_SPI_SPIPORTMC_CLOCKDISABLE;
+	uint32_t control = ctrl | NFP_SPI_PORTMC_CLOCKDISABLE;
+
 	SET_EDGE_COUNT(control, 1);
+
 	return nfp6000_spi_run_clock(spi, control);
 }
 
 static int nfp6000_spi_cs_control(struct nfp_spi *spi, int cs, uint32_t enable)
 {
 	uint32_t ctrl = NFP6_SPI_DEFAULT_CTRL(4, spi) |
-	    NFP_SPI_SPIPORTMC_CLOCKDISABLE;
+	    NFP_SPI_PORTMC_CLOCKDISABLE;
+
 	ctrl |= (enable) ? CS_BITS(cs) : CS_OFF;
+
 	return nfp6000_spi_run_clock(spi, ctrl);
 }
 
@@ -172,11 +182,11 @@ static int nfp6000_spi_set_manual_mode(struct nfp_spi *spi)
 	uint32_t tmp;
 	int err;
 
-	err = nfp6000_spi_csr_readl(spi, NFP_SPI_SPIPORTCFG(spi->bus), &tmp);
+	err = nfp6000_spi_csr_readl(spi, NFP_SPI_PORTCFG(spi->bus), &tmp);
 	if (err < 0)
 		return err;
-	tmp |= NFP_SPI_SPIPORTCFG_MODE_MANUAL;
-	return nfp6000_spi_csr_writel(spi, NFP_SPI_SPIPORTCFG(spi->bus), tmp);
+	tmp |= NFP_SPI_PORTCFG_MODE_MANUAL;
+	return nfp6000_spi_csr_writel(spi, NFP_SPI_PORTCFG(spi->bus), tmp);
 }
 
 #define SPI0_CLKIDLE_OFFS   0
@@ -213,11 +223,13 @@ int nfp6000_spi_transact(struct nfp_spi *spi, int cs, int cs_action,
 
 	ctrl = SPIMODEBITS(spi);
 	ctrl |=
-	    NFP_SPI_SPIPORTMC_DATAWIDTH(spi->width) | spi->clkdiv | CS_BITS(cs);
+	    NFP_SPI_PORTMC_DATAWIDTH(spi->width) | spi->clkdiv | CS_BITS(cs);
 
 	if (mdio_data_drive_disable && tx == NULL) {
-		/* used only for MDIO compatibility/implementation via this routine */
-		ctrl |= NFP_SPI_SPIPORTMC_DATADRIVEDISABLE;
+		/* used only for MDIO compatibility/implementation
+		 * via this routine
+		 */
+		ctrl |= NFP_SPI_PORTMC_DATADRIVEDISABLE;
 	}
 
 	if (VALID_CS(cs) && (cs_action & CS_SELECT)) {
@@ -256,7 +268,7 @@ int nfp6000_spi_transact(struct nfp_spi *spi, int cs, int cs_action,
 			tmp = 0xffffffff;
 		}
 		err =
-		    nfp6000_spi_csr_writel(spi, NFP_SPI_SPIPORTMDO(spi->bus),
+		    nfp6000_spi_csr_writel(spi, NFP_SPI_PORTMDO(spi->bus),
 					   tmp);
 		if (err < 0)
 			return err;
@@ -273,7 +285,7 @@ int nfp6000_spi_transact(struct nfp_spi *spi, int cs, int cs_action,
 		if (rxbits) {
 			err =
 			    nfp6000_spi_csr_readl(spi,
-						  NFP_SPI_SPIPORTMDI(spi->bus),
+						  NFP_SPI_PORTMDI(spi->bus),
 						  &tmp);
 			if (err < 0)
 				return err;
@@ -381,9 +393,9 @@ struct nfp_spi *nfp_spi_acquire(struct nfp_device *nfp, int bus, int width)
 
 	/* Is it locked? */
 	for (; timeout > 0; timeout -= 100) {
-		nfp6000_spi_csr_writel(spi, NFP_SPI_SPIWRITEENABLETARGET,
+		nfp6000_spi_csr_writel(spi, NFP_SPI_WE,
 				       spi->key);
-		nfp6000_spi_csr_readl(spi, NFP_SPI_SPIWRITEENABLETARGET, &val);
+		nfp6000_spi_csr_readl(spi, NFP_SPI_WE, &val);
 		if (val == spi->key)
 			break;
 		if (msleep_interruptible(100) != 100) {
@@ -400,8 +412,9 @@ struct nfp_spi *nfp_spi_acquire(struct nfp_device *nfp, int bus, int width)
 		return ERR_PTR(-EBUSY);
 	}
 
-	/* DAT1(SPI MISO) is disabled(configured as SPI port 0 DAT2/3) by default
-	   for SPI ports 2 and 3 */
+	/* DAT1(SPI MISO) is disabled(configured as SPI port 0 DAT2/3)
+	 * by default for SPI ports 2 and 3
+	 */
 	if (bus > 1) {
 		err = nfp6000_spi_csr_readl(spi, NFP_SPI_SPIIOCONFIG, &val);
 		if (err < 0) {
@@ -436,8 +449,8 @@ struct nfp_spi *nfp_spi_acquire(struct nfp_device *nfp, int bus, int width)
  */
 void nfp_spi_release(struct nfp_spi *spi)
 {
-	nfp6000_spi_csr_writel(spi, NFP_SPI_SPIWRITEENABLETARGET,
-			       NFP_SPI_SPIWRITEENABLETARGET_WRITEENABLEAVAILABLE);
+	nfp6000_spi_csr_writel(spi, NFP_SPI_WE,
+			       NFP_SPI_WE_AVAILABLE);
 	nfp_cpp_area_release_free(spi->csr);
 	kfree(spi);
 }
@@ -456,7 +469,7 @@ int nfp_spi_speed_set(struct nfp_spi *spi, int hz)
 		return -EINVAL;
 
 	/* clkdiv = PCLK_HZ / 2 / hz - 1 */
-	spi->clkdiv = PCLK_MHZ / 2 / hz - 1;
+	spi->clkdiv = PCLK_HZ / 2 / hz - 1;
 
 	return 0;
 }
@@ -469,7 +482,7 @@ int nfp_spi_speed_set(struct nfp_spi *spi, int hz)
 int nfp_spi_speed_get(struct nfp_spi *spi, int *hz)
 {
 	if (hz)
-		*hz = PCLK_MHZ / 2 / (spi->clkdiv + 1);
+		*hz = PCLK_HZ / 2 / (spi->clkdiv + 1);
 
 	return 0;
 }
@@ -505,4 +518,4 @@ int nfp_spi_mode_get(struct nfp_spi *spi, int *mode)
 	return 0;
 }
 
-/* vim: set shiftwidth=4 expandtab:  */
+/* vim: set shiftwidth=8 noexpandtab:  */
