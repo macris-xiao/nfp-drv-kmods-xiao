@@ -32,9 +32,8 @@
 #ifndef CONFIG_MFD_NFP_EXPORT
 #include <linux/export.h>
 #undef EXPORT_SYMBOL
-#define EXPORT_SYMBOL(x)        /**/
+#define EXPORT_SYMBOL(x) /**/
 #endif
-
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 6, 0))
 #include <linux/sizes.h>
 #else
@@ -86,16 +85,18 @@ static inline unsigned long resource_type(const struct resource *res)
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 21)
-static inline void __iomem *compat_devm_ioremap_nocache(
-		struct device *dev, resource_size_t offset, unsigned long size)
+static inline void __iomem *compat_devm_ioremap_nocache(struct device *dev,
+							resource_size_t offset,
+							unsigned long size)
 {
 	return ioremap_nocache(offset, size);
 }
 
-static inline void compat_devm_iounmap(struct device *dev, void __iomem *addr)
+static inline void compat_devm_iounmap(struct device *dev, void __iomem * addr)
 {
 	iounmap(addr);
 }
+
 #undef devm_ioremap_nocache
 #undef devm_iounmap
 #define devm_ioremap_nocache(_d, _o, _s) compat_devm_ioremap_nocache(_d, _o, _s)
@@ -112,6 +113,7 @@ static inline int compat_kstrtoul(const char *str, int base, unsigned long *res)
 
 	return (cp == NULL || *cp != 0 || (cp - str) == 0) ? -EINVAL : 0;
 }
+
 #define kstrtoul(str, base, res) compat_kstrtoul(str, base, res)
 #endif /* < KERNEL_VERSION(3, 0, 0) */
 
@@ -160,6 +162,7 @@ static inline int _pci_enable_msi_range(struct pci_dev *dev,
 
 	return nvec;
 }
+
 #define pci_enable_msi_range(dev, minv, maxv) \
 	_pci_enable_msi_range(dev, minv, maxv)
 #endif
@@ -222,9 +225,10 @@ static inline const char *dev_name(const struct device *dev)
 #ifdef _NEED_PROC_CREATE
 #include <linux/proc_fs.h>
 
-static inline struct proc_dir_entry *proc_create(
-	const char *name, mode_t mode,
-	struct proc_dir_entry *parent, const struct file_operations *proc_fops)
+static inline struct proc_dir_entry *proc_create(const char *name, mode_t mode,
+						 struct proc_dir_entry *parent,
+						 const struct file_operations
+						 *proc_fops)
 {
 	struct proc_dir_entry *pde;
 
@@ -277,6 +281,7 @@ static inline long compat_IS_ERR_OR_NULL(const void *ptr)
 {
 	return !ptr || IS_ERR_VALUE((unsigned long)ptr);
 }
+
 #undef IS_ERR_OR_NULL
 #define IS_ERR_OR_NULL(x) compat_IS_ERR_OR_NULL(x)
 #endif
@@ -292,7 +297,7 @@ static inline int pci_enable_msi_block(struct pci_dev *dev, unsigned int nvec)
 #endif
 
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 28) && defined(CONFIG_X86_32)
-static inline __u64 readq(const void __iomem *addr)
+static inline __u64 readq(const void __iomem * addr)
 {
 	const u32 __iomem *p = addr;
 	u32 low, high;
@@ -300,13 +305,13 @@ static inline __u64 readq(const void __iomem *addr)
 	low = readl(p);
 	high = readl(p + 1);
 
-	return low + ((u64)high << 32);
+	return low + ((u64) high << 32);
 }
 
-static inline void writeq(__u64 val, void __iomem *addr)
+static inline void writeq(__u64 val, void __iomem * addr)
 {
 	writel(val, addr);
-	writel(val >> 32, addr+4);
+	writel(val >> 32, addr + 4);
 }
 #endif
 
@@ -327,7 +332,6 @@ static inline void writeq(__u64 val, void __iomem *addr)
 #define VM_RESERVED (VM_DONTEXPAND | VM_DONTDUMP)
 #endif
 
-
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 4, 0))
 #ifndef SIZE_MAX
 #define SIZE_MAX        (~(size_t)0)
@@ -338,6 +342,7 @@ static inline void *_kmalloc_array(size_t n, size_t size, gfp_t flags)
 		return NULL;
 	return __kmalloc(n * size, flags);
 }
+
 #define kmalloc_array(n, size, flags) _kmalloc_array(n, size, flags)
 #endif
 
@@ -462,13 +467,13 @@ static inline int pci_vfs_assigned(struct pci_dev *pdev)
 #endif
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0))
-static inline void ether_addr_copy(u8 *dst, const u8 *src)
+static inline void ether_addr_copy(u8 * dst, const u8 * src)
 {
 #if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS)
-	*(u32 *)dst = *(const u32 *)src;
-	*(u16 *)(dst + 4) = *(const u16 *)(src + 4);
+	*(u32 *) dst = *(const u32 *)src;
+	*(u16 *) (dst + 4) = *(const u16 *)(src + 4);
 #else
-	u16 *a = (u16 *)dst;
+	u16 *a = (u16 *) dst;
 	const u16 *b = (const u16 *)src;
 
 	a[0] = b[0];
@@ -498,6 +503,7 @@ static inline int compat_kstrtol(const char *cp, int base, long *valp)
 
 	return 0;
 }
+
 #define kstrtol(cp, base, valp) compat_kstrtol(cp, base, valp)
 #endif
 
@@ -526,8 +532,7 @@ static inline struct net_device *compat_alloc_netdev(int sizeof_priv,
 #define alloc_netdev(sz, nm, ty, setup) compat_alloc_netdev(sz, nm, ty, setup)
 #endif
 
-
-#endif	/* __KERNEL__NFP_COMPAT_H__ */
+#endif /* __KERNEL__NFP_COMPAT_H__ */
 
 /*
  * Local variables:
