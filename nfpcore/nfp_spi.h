@@ -80,9 +80,9 @@ int nfp_spi_mode_get(struct nfp_spi *spi, int *mode);
 #define CS_SELECT       (1 << 0)
 #define CS_DESELECT     (1 << 1)
 int nfp6000_spi_transact(struct nfp_spi *spi, int cs, int cs_action,
-                            const void *tx, uint32_t tx_bit_cnt,
-                                  void *rx, uint32_t rx_bit_cnt,
-                            int mdio_data_drive_disable);
+			 const void *tx, uint32_t tx_bit_cnt,
+			 void *rx, uint32_t rx_bit_cnt,
+			 int mdio_data_drive_disable);
 
 /**
  * Perform a trivial SPI read
@@ -96,8 +96,8 @@ int nfp6000_spi_transact(struct nfp_spi *spi, int cs, int cs_action,
  * @param       res     SPI response
  */
 int nfp_spi_read(struct nfp_spi *spi, int cs,
-                    unsigned int cmd_len, const void *cmd,
-                    unsigned int res_len, void *res);
+		 unsigned int cmd_len, const void *cmd,
+		 unsigned int res_len, void *res);
 
 /**
  * Perform a trivial SPI write
@@ -111,9 +111,8 @@ int nfp_spi_read(struct nfp_spi *spi, int cs,
  * @param       dat     SPI write data
  */
 int nfp_spi_write(struct nfp_spi *spi, int cs,
-                    unsigned int cmd_len, const void *cmd,
-                    unsigned int dat_len, const void *dat);
-
+		  unsigned int cmd_len, const void *cmd,
+		  unsigned int dat_len, const void *dat);
 
 #endif /* NFP_SPI_H */
 /* vim: set shiftwidth=4 expandtab:  */
