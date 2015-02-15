@@ -188,8 +188,8 @@ static int ms_timeout(struct timeval *tv_epoc, long timeout_ms)
 	return (timeout_ms < ms);
 }
 
-int i2c_cmd(struct i2c_driver *bus, uint8_t chip, const uint8_t *w_buff,
-		size_t w_len, uint8_t *r_buff, size_t r_len)
+int i2c_cmd(struct i2c_driver *bus, uint8_t chip, const uint8_t * w_buff,
+	    size_t w_len, uint8_t * r_buff, size_t r_len)
 {
 	int i, err;
 	struct timeval tv;
@@ -249,7 +249,7 @@ done:
 }
 
 int i2c_write(struct i2c_driver *bus, uint8_t chip, unsigned int addr,
-	      size_t alen, const uint8_t *buff, size_t buff_len)
+	      size_t alen, const uint8_t * buff, size_t buff_len)
 {
 	int i, err;
 	struct timeval tv;
@@ -296,7 +296,7 @@ int i2c_write(struct i2c_driver *bus, uint8_t chip, unsigned int addr,
 }
 
 int i2c_read(struct i2c_driver *bus, uint8_t chip, unsigned int addr,
-	     size_t alen, uint8_t *buff, size_t buff_len)
+	     size_t alen, uint8_t * buff, size_t buff_len)
 {
 	int i, err;
 	struct timeval tv;
@@ -346,4 +346,5 @@ retry:
 
 	return 0;
 }
+
 /* vim: set shiftwidth=8 noexpandtab: */
