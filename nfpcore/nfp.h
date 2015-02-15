@@ -15,7 +15,6 @@ struct nfp_device;
 struct nfp_cpp;
 struct nfp_chipdata_chip;
 
-
 /** Maximum device number for an NFP device. */
 #define NFP_MAX_DEVICE_NUM              63
 
@@ -98,7 +97,7 @@ const struct nfp_chipdata_chip *nfp_device_chip(struct nfp_device *dev);
  * @param constructor   Constructor for the private area
  */
 void *nfp_device_private(struct nfp_device *dev,
-			 void *(*constructor)(struct nfp_device *dev));
+			 void *(*constructor) (struct nfp_device * dev));
 
 /**
  * Allocate your private area - must be called in the constructor
@@ -109,7 +108,7 @@ void *nfp_device_private(struct nfp_device *dev,
  * @param destructor    Destructor function to call on device close, or NULL
  */
 void *nfp_device_private_alloc(struct nfp_device *dev, size_t private_size,
-			       void (*destructor)(void *private_data));
+			       void (*destructor) (void *private_data));
 
 /**
  * Perform an advisory trylock on the NFP device
