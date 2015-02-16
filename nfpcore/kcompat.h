@@ -30,10 +30,18 @@
 #include <linux/etherdevice.h>
 
 #ifndef CONFIG_MFD_NFP_EXPORT
-#include <linux/export.h>
+#include <linux/module.h>
 #undef EXPORT_SYMBOL
 #define EXPORT_SYMBOL(x) /**/
 #endif
+
+/* This is required when building common objects for
+ * multiple modules
+ */
+#ifndef KBUILD_MODNAME
+#define KBUILD_MODNAME	"nfpcore"
+#endif
+
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 6, 0))
 #include <linux/sizes.h>
 #else
