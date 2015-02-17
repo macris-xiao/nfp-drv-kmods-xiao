@@ -827,8 +827,8 @@ static inline int bar_cmp(const void *aptr, const void *bptr)
  * board.  We assume that the BAR with the PCIe config block is
  * already mapped.
  *
- * BAR0.0: Reserved for General Mapping (and PCIe Scratch)
- * BAR0.1: Reserved for XPB access to PCIe CSRs
+ * BAR0.0: Reserved for General Mapping (for MSI-X access to PCIe SRAM)
+ * BAR0.1: Reserved for XPB access (for MSI-X access to PCIe PBA)
  * BAR0.2: --
  * BAR0.3: --
  * BAR0.4: Reserved for Explicit 0.0-0.3 access
@@ -843,10 +843,15 @@ static int enable_bars(struct nfp6000_pcie *nfp)
 {
 	struct nfp_bar *bar = nfp->bars;
 	int i;
-	const uint32_t barcfg_general =
+	const uint32_t barcfg_msix_general =
 		NFP_PCIE_BAR_PCIE2CPP_MapType(
 		NFP_PCIE_BAR_PCIE2CPP_MapType_GENERAL) |
 		NFP_PCIE_BAR_PCIE2CPP_LengthSelect_32BIT;
+	const uint32_t barcfg_msix_xpb =
+		NFP_PCIE_BAR_PCIE2CPP_MapType(
+			NFP_PCIE_BAR_PCIE2CPP_MapType_BULK) |
+			NFP_PCIE_BAR_PCIE2CPP_LengthSelect_32BIT |
+			NFP_PCIE_BAR_PCIE2CPP_Target_BaseAddress(NFP_CPP_TARGET_ISLAND_XPB);
 	const uint32_t barcfg_explicit[4] = {
 		NFP_PCIE_BAR_PCIE2CPP_MapType(
 			NFP_PCIE_BAR_PCIE2CPP_MapType_EXPLICIT0),
@@ -881,20 +886,27 @@ static int enable_bars(struct nfp6000_pcie *nfp)
 				& 3) + 4) << 4;
 	nfp->expl.signal_ref = 0x10;
 
-	/* Configure, and lock, BAR0.0 for General Target use */
+	/* Configure, and lock, BAR0.0 for General Target use (MSI-X SRAM) */
 	bar = &nfp->bars[0];
 	bar->iomem = devm_ioremap_nocache(&nfp->pdev->dev,
 			nfp_bar_resource_start(bar),
 			nfp_bar_resource_len(bar));
 	if (bar->iomem) {
-		dev_info(nfp->dev, "BAR0.0 RESERVED: General Mapping\n");
+		dev_info(nfp->dev, "BAR0.0 RESERVED: General Mapping/MSI-X SRAM\n");
 		atomic_inc(&bar->refcnt);
 
-		nfp6000_bar_write(nfp, bar, barcfg_general);
+		nfp6000_bar_write(nfp, bar, barcfg_msix_general);
 
 		nfp->expl.data = bar->iomem + NFP_PCIE_SRAM + 0x1000;
 	}
 	nfp->iomem.general = bar->iomem;
+
+	/* Configure, and lock, BAR0.1 for PCIe XPB (MSI-X PBA) */
+	bar = &nfp->bars[1];
+	dev_info(nfp->dev, "BAR0.1 RESERVED: PCIe XPB/MSI-X PBA\n");
+	atomic_inc(&bar->refcnt);
+
+	nfp6000_bar_write(nfp, bar, barcfg_msix_xpb);
 
 	/* Use BAR0.4..BAR0.7 for EXPL IO */
 	for (i = 0; i < 4; i++) {
