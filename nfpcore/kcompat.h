@@ -475,7 +475,7 @@ static inline int pci_vfs_assigned(struct pci_dev *pdev)
 #endif
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0))
-static inline void ether_addr_copy(u8 * dst, const u8 * src)
+static inline void compat_ether_addr_copy(u8 * dst, const u8 * src)
 {
 #if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS)
 	*(u32 *) dst = *(const u32 *)src;
@@ -489,6 +489,7 @@ static inline void ether_addr_copy(u8 * dst, const u8 * src)
 	a[2] = b[2];
 #endif
 }
+#define eth_addr_copy(dst, src) comapt_ether_addr_copy(dst, src)
 #endif
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 10, 0))
