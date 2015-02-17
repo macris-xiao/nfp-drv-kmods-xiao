@@ -489,7 +489,7 @@ static inline void compat_ether_addr_copy(u8 * dst, const u8 * src)
 	a[2] = b[2];
 #endif
 }
-#define eth_addr_copy(dst, src) comapt_ether_addr_copy(dst, src)
+#define ether_addr_copy(dst, src) comapt_ether_addr_copy(dst, src)
 #endif
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 10, 0))
