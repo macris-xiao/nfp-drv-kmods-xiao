@@ -261,6 +261,7 @@ int nfp_rtsym_count(struct nfp_device *dev)
 
 	return priv->numrtsyms;
 }
+EXPORT_SYMBOL(nfp_rtsym_count);
 
 const struct nfp_rtsym *nfp_rtsym_get(struct nfp_device *dev, int idx)
 {
@@ -279,6 +280,7 @@ const struct nfp_rtsym *nfp_rtsym_get(struct nfp_device *dev, int idx)
 
 	return &priv->rtsymtab[idx];
 }
+EXPORT_SYMBOL(nfp_rtsym_get);
 
 const struct nfp_rtsym *nfp_rtsym_lookup(struct nfp_device *dev,
 					 const char *name)
@@ -300,6 +302,7 @@ const struct nfp_rtsym *nfp_rtsym_lookup(struct nfp_device *dev,
 
 	return NULL;
 }
+EXPORT_SYMBOL(nfp_rtsym_lookup);
 
 void nfp_rtsym_reload(struct nfp_device *dev)
 {
@@ -309,3 +312,6 @@ void nfp_rtsym_reload(struct nfp_device *dev)
 	kfree(priv->rtstrtab);
 	priv->numrtsyms = 0;
 }
+EXPORT_SYMBOL(nfp_rtsym_reload);
+
+/* vim: set shiftwidth=8 noexpandtab: */
