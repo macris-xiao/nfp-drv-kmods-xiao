@@ -10,7 +10,6 @@
 ## Define our own config variables.
 ## A kernel Kconfig file may define these variables one day.
 CONFIG_MFD_NFP ?= m
-CONFIG_NET_NFP ?= m
 CONFIG_NET_NFPVF ?= m
 
 # un-comment for debug symbols
@@ -74,27 +73,23 @@ NFPCORE_OBJS := \
 	    nfpcore/nfp_rtsym.o \
 	    nfpcore/nfp_spi.o
 
+NFP_NET_OBJS := \
+		nfp_net/nfp_net_common.o \
+		nfp_net/nfp_net_ethtool.o \
+		nfp_net/nfp_net_main.o
+
 obj-$(CONFIG_MFD_NFP) += nfp.o
 
 nfp-objs := \
 		$(NFPCORE_OBJS) \
-		nfp_main.o
-
-obj-$(CONFIG_NET_NFP) += nfp_net.o
-
-NFP_NET_OBJS := \
-		nfp_net/nfp_net_common.o \
-		nfp_net/nfp_net_ethtool.o
-
-nfp_net-objs := \
-		$(NFPCORE_OBJS) \
 		$(NFP_NET_OBJS) \
-		nfp_net/nfp_net_main.o
+		nfp_main.o
 
 obj-$(CONFIG_NET_NFPVF) += nfp_netvf.o
 
 nfp_netvf-objs := \
-		$(NFP_NET_OBJS) \
+		nfp_net/nfp_net_common.o \
+		nfp_net/nfp_net_ethtool.o \
 		nfp_net/nfp_netvf_main.o
 
 

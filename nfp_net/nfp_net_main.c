@@ -51,11 +51,7 @@
 #include "nfp_net_compat.h"
 #include "nfp_net_ctrl.h"
 #include "nfp_net.h"
-
-static bool nfp_dev_cpp = 1;
-module_param(nfp_dev_cpp, bool, 0444);
-MODULE_PARM_DESC(nfp_dev_cpp,
-		 "Enable NFP CPP user-space access (default = True)");
+#include "nfp_net_nic.h"
 
 /* Default FW names */
 static char *nfp3200_net_fw = "netronome/nfp3200_net.cat";
@@ -71,34 +67,8 @@ static bool fw_stop_on_fail;
 module_param(fw_stop_on_fail, bool, 0444);
 MODULE_PARM_DESC(fw_stop_on_fail, "Stop if FW load fails (default = False)");
 
-static bool nfp_fallback = 1;
-module_param(nfp_fallback, bool, 0444);
-MODULE_PARM_DESC(nfp_fallback,
-		 "Fallback to nfp.ko behaviour if no suitable FW is present (default = True)");
-
 const char nfp_net_driver_name[] = "nfp_net";
 const char nfp_net_driver_version[] = "0.1";
-
-static const struct pci_device_id nfp_net_pci_device_ids[] = {
-	{ PCI_VENDOR_ID_NETRONOME, PCI_DEVICE_NFP6000,
-	  PCI_VENDOR_ID_NETRONOME, PCI_ANY_ID /* PCI_DEVICE_NFP6000 */,
-	  PCI_ANY_ID, 0,
-	},
-	{ PCI_VENDOR_ID_NETRONOME, PCI_DEVICE_NFP3200,
-	  PCI_VENDOR_ID_NETRONOME, PCI_DEVICE_NFP3200,
-	  PCI_ANY_ID, 0,
-	},
-	{ PCI_VENDOR_ID_NETRONOME, PCI_DEVICE_NFP3200,
-	  PCI_VENDOR_ID_NETRONOME, PCI_DEVICE_NFP3240,
-	  PCI_ANY_ID, 0,
-	},
-	{ 0, } /* Required last entry. */
-};
-MODULE_DEVICE_TABLE(pci, nfp_net_pci_device_ids);
-
-MODULE_AUTHOR("Netronome Systems <support@netronome.com>");
-MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("NFP network device driver");
 
 /*
  * Firmware loading functions
@@ -107,8 +77,10 @@ MODULE_DESCRIPTION("NFP network device driver");
 /**
  * nfp_net_fw_select - Select a FW image for a given device
  */
-static const char *nfp_net_fw_select(struct pci_dev *pdev)
+static const char *nfp_net_fw_select(struct nfp_cpp *cpp)
 {
+	uint32_t model = nfp_cpp_model(cpp);
+
 	/* TODO: For now we simply use the default values defined
 	 * above.  However, in the future we should provide module
 	 * parameters allowing a user to change the default.  This
@@ -117,7 +89,7 @@ static const char *nfp_net_fw_select(struct pci_dev *pdev)
 	 * in which case, nn->fw_name should be set to Null
 	 */
 
-	if (pdev->device == PCI_DEVICE_NFP3200)
+	if (NFP_CPP_MODEL_IS_3200(model))
 		return nfp3200_net_fw;
 	else
 		return nfp6000_net_fw;
@@ -137,7 +109,7 @@ static int nfp_net_fw_load(struct pci_dev *pdev,
 	if (fw_noload)
 		return 0;
 
-	fw_name = nfp_net_fw_select(pdev);
+	fw_name = nfp_net_fw_select(cpp);
 
 	if (!fw_name)
 		return 0;
@@ -162,30 +134,6 @@ err_replay:
 	dev_err(&pdev->dev, "FW loading failed with %d.%s",
 		err, fw_stop_on_fail ? "" : " Continuing...");
 	return fw_stop_on_fail ? err : 0;
-}
-
-/**
- * nfp_net_fallback_alloc - allocate a structure if netdev init is not possible
- *
- * If the main probe function fails to load the FW or if the FW is not
- * appropriate then there is the option for the driver to fall back to
- * standard nfp.ko functionality, ie, just being a shell driver which
- * provides user space access to the NFP.  This behaviour is
- * controlled by the @nfp_fallback module option.
- *
- * The cleanup is done in @nfp_net_pci_remove().
- */
-static struct nfp_net *nfp_net_fallback_alloc(struct pci_dev *pdev)
-{
-	struct nfp_net *nn;
-
-	nn = kzalloc(sizeof(*nn), GFP_KERNEL);
-	if (!nn)
-		return ERR_PTR(-ENOMEM);
-
-	nn->nfp_fallback = 1;
-	nn->pdev = pdev;
-	return nn;
 }
 
 /*
@@ -252,6 +200,8 @@ static void nfp_net_get_mac_addr(struct nfp_net *nn, struct nfp_device *nfp_dev)
 	u8 mac_addr[ETH_ALEN];
 
 	mac_str = nfp_hwinfo_lookup(nfp_dev, "eth0.mac");
+	if (!mac_str)
+		mac_str = nfp_hwinfo_lookup(nfp_dev, "eth.mac");
 	if (mac_str) {
 		if (sscanf(mac_str, "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
 			   &mac_addr[0], &mac_addr[1], &mac_addr[2],
@@ -269,12 +219,19 @@ static void nfp_net_get_mac_addr(struct nfp_net *nn, struct nfp_device *nfp_dev)
 	ether_addr_copy(nn->netdev->dev_addr, mac_addr);
 }
 
-static void __iomem *nfp_net_msix_map(struct pci_dev *pdev, unsigned nr_entries)
+static int nfp_net_msix_map(struct nfp_net *nn, unsigned nr_entries)
 {
 	resource_size_t phys_addr;
 	u32 table_offset;
 	u8 msix_cap;
 	u8 bir;
+	struct pci_dev *pdev = nn->pdev;
+
+	nn_dbg(nn, "pdev->msi_enabled: %d\n", pdev->msi_enabled);
+	nn_dbg(nn, "pdev->msix_enabled: %d\n", pdev->msix_enabled);
+
+	if (!pdev->msix_enabled)
+		return 0;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0)
 	msix_cap = pdev->msix_cap;
@@ -288,7 +245,10 @@ static void __iomem *nfp_net_msix_map(struct pci_dev *pdev, unsigned nr_entries)
 	table_offset &= PCI_MSIX_TABLE_OFFSET;
 	phys_addr = pci_resource_start(pdev, bir) + table_offset;
 
-	return ioremap_nocache(phys_addr, nr_entries * PCI_MSIX_ENTRY_SIZE);
+	nn->msix_table =
+		ioremap_nocache(phys_addr, nr_entries * PCI_MSIX_ENTRY_SIZE);
+
+	return (!nn->msix_table) ? -ENOMEM : 0;
 }
 
 static void nfp_net_msix_unmap(void __iomem *addr)
@@ -297,176 +257,17 @@ static void nfp_net_msix_unmap(void __iomem *addr)
 }
 
 /*
- * SR-IOV support
+ * Platform device functions
  */
-static int nfp_pcie_sriov_enable(struct pci_dev *pdev, int num_vfs)
+static int nfp_net_nic_probe(struct platform_device *plat)
 {
-#ifdef CONFIG_PCI_IOV
-	struct nfp_net *nn = pci_get_drvdata(pdev);
-	int err = 0;
-
-	if (num_vfs > 64) {
-		err = -EPERM;
-		goto err_out;
-	}
-
-	nn->num_vfs = num_vfs;
-
-	err = pci_enable_sriov(pdev, num_vfs);
-	if (err) {
-		dev_warn(&pdev->dev, "Failed to enable PCI sriov: %d\n", err);
-		goto err_out;
-	}
-
-	dev_dbg(&pdev->dev, "Created %d VFs.\n", nn->num_vfs);
-
-	return num_vfs;
-
-err_out:
-	return err;
-#endif
-	return 0;
-}
-
-static int nfp_pcie_sriov_disable(struct pci_dev *pdev)
-{
-#ifdef CONFIG_PCI_IOV
-	struct nfp_net *nn = pci_get_drvdata(pdev);
-
-	/* If the VFs are assigned we cannot shut down SR-IOV without
-	 * causing issues, so just leave the hardware available but
-	 * disabled
-	 */
-	if (pci_vfs_assigned(pdev)) {
-		dev_warn(&pdev->dev, "Disabling while VFs assigned - VFs will not be deallocated\n");
-		return -EPERM;
-	}
-
-	nn->num_vfs = 0;
-
-	pci_disable_sriov(pdev);
-	dev_dbg(&pdev->dev, "Removed VFs.\n");
-#endif
-	return 0;
-}
-
-static int nfp_pcie_sriov_configure(struct pci_dev *pdev, int num_vfs)
-{
-	if (num_vfs == 0)
-		return nfp_pcie_sriov_disable(pdev);
-	else
-		return nfp_pcie_sriov_enable(pdev, num_vfs);
-}
-
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 8, 0))
-#ifdef CONFIG_PCI_IOV
-/* Kernel version 3.8 introduced a standard, sysfs based interface for
- * managing VFs.  Here we implement that interface for older kernels. */
-static ssize_t show_sriov_totalvfs(struct device *dev,
-				   struct device_attribute *attr,
-				   char *buf)
-{
-	struct pci_dev *pdev = to_pci_dev(dev);
-
-	return sprintf(buf, "%u\n", pci_sriov_get_totalvfs(pdev));
-}
-
-static ssize_t show_sriov_numvfs(struct device *dev,
-				 struct device_attribute *attr,
-				 char *buf)
-{
-	struct pci_dev *pdev = to_pci_dev(dev);
-	struct nfp_net *nn = pci_get_drvdata(pdev);
-
-	return sprintf(buf, "%u\n", nn->num_vfs);
-}
-
-/*
- * num_vfs > 0; number of VFs to enable
- * num_vfs = 0; disable all VFs
- *
- * Note: SRIOV spec doesn't allow partial VF
- *       disable, so it's all or none.
- */
-static ssize_t store_sriov_numvfs(struct device *dev,
-				  struct device_attribute *attr,
-				  const char *buf, size_t count)
-{
-	struct pci_dev *pdev = to_pci_dev(dev);
-	struct nfp_net *nn = pci_get_drvdata(pdev);
-	int ret;
-	unsigned long num_vfs;
-
-	ret = kstrtoul(buf, 0, &num_vfs);
-	if (ret < 0)
-		return ret;
-
-	if (num_vfs > pci_sriov_get_totalvfs(pdev))
-		return -ERANGE;
-
-	if (num_vfs == nn->num_vfs)
-		return count;           /* no change */
-
-	if (num_vfs == 0) {
-		/* disable VFs */
-		ret = nfp_pcie_sriov_configure(pdev, 0);
-		if (ret < 0)
-			return ret;
-		return count;
-	}
-
-	/* enable VFs */
-	if (nn->num_vfs) {
-		dev_warn(&pdev->dev, "%d VFs already enabled. Disable before enabling %d VFs\n",
-			 nn->num_vfs, (int)num_vfs);
-		return -EBUSY;
-	}
-
-	ret = nfp_pcie_sriov_configure(pdev, num_vfs);
-	if (ret < 0)
-		return ret;
-
-	if (ret != num_vfs)
-		dev_warn(&pdev->dev, "%d VFs requested; only %d enabled\n",
-			 (int)num_vfs, ret);
-
-	return count;
-}
-
-static DEVICE_ATTR(sriov_totalvfs, S_IRUGO, show_sriov_totalvfs, NULL);
-static DEVICE_ATTR(sriov_numvfs, S_IRUGO|S_IWUSR|S_IWGRP,
-		   show_sriov_numvfs, store_sriov_numvfs);
-
-static int nfp_sriov_attr_add(struct device *dev)
-{
-	int err = 0;
-
-	err = device_create_file(dev, &dev_attr_sriov_totalvfs);
-	if (err)
-		return err;
-
-	return device_create_file(dev, &dev_attr_sriov_numvfs);
-}
-
-static void nfp_sriov_attr_remove(struct device *dev)
-{
-	device_remove_file(dev, &dev_attr_sriov_totalvfs);
-	device_remove_file(dev, &dev_attr_sriov_numvfs);
-}
-#endif /* CONFIG_PCI_IOV */
-#endif /* Linux kernel version */
-
-/*
- * PCI device functions
- */
-static int nfp_net_pci_probe(struct pci_dev *pdev,
-			     const struct pci_device_id *pci_id)
-{
+	struct nfp_platform_data *pdata;
 	struct nfp_net *nn;
-	int is_nfp3200;
 	struct nfp_cpp *cpp;
 	struct platform_device *dev_cpp = NULL;
 	struct nfp_device *nfp_dev;
+	struct device *dev;
+	struct pci_dev *pdev;
 
 	uint16_t interface;
 	int pcie_pf;
@@ -482,64 +283,29 @@ static int nfp_net_pci_probe(struct pci_dev *pdev,
 
 	int err;
 
-	err = pci_enable_device(pdev);
-	if (err < 0)
-		return err;
+	pdata = nfp_platform_device_data(plat);
+	BUG_ON(!pdata);
 
-	pci_set_master(pdev);
+	cpp = pdata->cpp;
 
-	err = pci_set_dma_mask(pdev, DMA_BIT_MASK(40));
-	if (err < 0) {
-		dev_err(&pdev->dev, "Unable to set PCI device mask.\n");
-		goto err_dma_mask;
-	}
+	interface = nfp_cpp_interface(cpp);
 
-	err = pci_request_regions(pdev, nfp_net_driver_name);
-	if (err < 0) {
-		dev_err(&pdev->dev, "Unable to reserve pci resources.\n");
-		goto err_request_regions;
-	}
+	/* We only support the PCI interface, as this relies
+	 * upon the PCI.IN/PCI.OUT microcode interface.
+	 */
+	if (NFP_CPP_INTERFACE_TYPE_of(interface) != NFP_CPP_INTERFACE_TYPE_PCI)
+		return -EINVAL;
 
-	switch (pdev->device) {
-	case PCI_DEVICE_NFP3200:
-		cpp = nfp_cpp_from_nfp3200_pcie(pdev, -1);
-		is_nfp3200 = 1;
-		break;
-	case PCI_DEVICE_NFP6000:
-		cpp = nfp_cpp_from_nfp6000_pcie(pdev, -1);
-		is_nfp3200 = 0;
-		break;
-	default:
-		err = -ENODEV;
-		goto err_nfp_cpp;
-	}
+	dev = nfp_cpp_device(cpp);
+	if (!dev || !dev_is_pci(dev))
+		return -EINVAL;
 
-	if (IS_ERR_OR_NULL(cpp)) {
-		err = PTR_ERR(cpp);
-		if (err >= 0)
-			err = -ENOMEM;
-		goto err_nfp_cpp;
-	}
-
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 8, 0)) && defined(CONFIG_PCI_IOV)
-	if (!is_nfp3200) {
-		err = nfp_sriov_attr_add(&pdev->dev);
-		if (err < 0)
-			goto err_sriov;
-	}
-#endif
+	pdev = to_pci_dev(dev);
 
 	err = nfp_net_fw_load(pdev, cpp);
 	if (err) {
 		dev_err(&pdev->dev, "Failed to load FW\n");
 		goto err_fw_load;
-	}
-
-	if (nfp_dev_cpp) {
-		dev_cpp = nfp_platform_device_register(cpp, NFP_DEV_CPP_TYPE);
-		if (!dev_cpp)
-			dev_err(&pdev->dev,
-				"Failed to enable user space access. Ignored");
 	}
 
 	nfp_dev = nfp_device_from_cpp(cpp);
@@ -548,7 +314,6 @@ static int nfp_net_pci_probe(struct pci_dev *pdev,
 		goto err_open_dev;
 	}
 
-	interface = nfp_cpp_interface(cpp);
 	pcie_pf = NFP_CPP_INTERFACE_UNIT_of(interface);
 
 	snprintf(pf_symbol, sizeof(pf_symbol), "_pf%d_net_bar0", pcie_pf);
@@ -557,25 +322,8 @@ static int nfp_net_pci_probe(struct pci_dev *pdev,
 	if (!ctrl_sym) {
 		dev_err(&pdev->dev,
 			"Failed to find PF BAR0 symbol %s\n", pf_symbol);
-		if (!nfp_fallback) {
-			err = -ENOENT;
-			goto err_ctrl_lookup;
-		} else {
-			nn = nfp_net_fallback_alloc(pdev);
-			if (IS_ERR(nn)) {
-				err = PTR_ERR(nn);
-				goto err_nfp_fallback;
-			}
-
-			nn->nfp_dev_cpp = dev_cpp;
-			nn->cpp = cpp;
-
-			pci_set_drvdata(pdev, nn);
-			nfp_device_close(nfp_dev);
-			dev_info(&pdev->dev,
-				 "Netronome NFP Fallback driver\n");
-			return 0;
-		}
+		err = -ENOENT;
+		goto err_ctrl_lookup;
 	}
 
 	ctrl_bar = nfp_net_map_area(cpp, "net.ctrl",
@@ -606,7 +354,7 @@ static int nfp_net_pci_probe(struct pci_dev *pdev,
 	nn->ctrl_area = ctrl_area;
 	nn->ctrl_bar = ctrl_bar;
 	nn->is_vf = 0;
-	nn->is_nfp3200 = is_nfp3200;
+	nn->is_nfp3200 = NFP_CPP_MODEL_IS_3200(nfp_cpp_model(cpp));
 
 #ifdef NFP_NET_HRTIMER_6000
 	if (!nn->is_nfp3200)
@@ -644,14 +392,9 @@ static int nfp_net_pci_probe(struct pci_dev *pdev,
 	if (!err)
 		goto err_vec;
 
-	nn_dbg(nn, "pdev->msi_enabled: %d\n", pdev->msi_enabled);
-	nn_dbg(nn, "pdev->msix_enabled: %d\n", pdev->msix_enabled);
-
-	if (pdev->msix_enabled) {
-		nn->msix_table = nfp_net_msix_map(pdev, 255);
-		if (!nn->msix_table)
-			goto err_map_msix_table;
-	}
+	err = nfp_net_msix_map(nn, 255);
+	if (err < 0)
+		goto err_map_msix_table;
 
 	/* Get MAC address */
 	nfp_net_get_mac_addr(nn, nfp_dev);
@@ -663,7 +406,7 @@ static int nfp_net_pci_probe(struct pci_dev *pdev,
 	if (err)
 		goto err_netdev_init;
 
-	pci_set_drvdata(pdev, nn);
+	platform_set_drvdata(plat, nn);
 
 	nfp_device_close(nfp_dev);
 
@@ -684,123 +427,66 @@ err_map_tx:
 err_nn_init:
 	nfp_cpp_area_release_free(ctrl_area);
 err_map_ctrl:
-err_nfp_fallback:
 err_ctrl_lookup:
 	nfp_device_close(nfp_dev);
 err_open_dev:
-	if (dev_cpp)
-		nfp_platform_device_unregister(dev_cpp);
 err_fw_load:
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 8, 0)) && defined(CONFIG_PCI_IOV)
-	if (!is_nfp3200)
-		nfp_sriov_attr_remove(&pdev->dev);
-err_sriov:
-#endif
-	nfp_cpp_free(cpp);
-err_nfp_cpp:
-	pci_release_regions(pdev);
-err_request_regions:
-err_dma_mask:
-	pci_disable_device(pdev);
 	return err;
 }
 
-static void nfp_net_pci_remove(struct pci_dev *pdev)
+static int nfp_net_nic_remove(struct platform_device *plat)
 {
-	struct nfp_net *nn = pci_get_drvdata(pdev);
+	struct nfp_net *nn = platform_get_drvdata(plat);
 
 	if (!nn)
-		return;
+		return 0;
 
-#ifdef CONFIG_PCI_IOV
-	/* TODO Need to better handle the case where the PF netdev
-	 * gets disabled but the VFs are still around, because they
-	 * are assigned. */
-	if (!nn->is_nfp3200)
-		(void)nfp_pcie_sriov_disable(pdev);
+	nfp_net_netdev_clean(nn->netdev);
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 8, 0))
-	if (!nn->is_nfp3200)
-		nfp_sriov_attr_remove(&pdev->dev);
-#endif
+	if (nn->msix_table)
+		nfp_net_msix_unmap(nn->msix_table);
+	nfp_net_irqs_disable(nn);
 
-#endif
+	nfp_cpp_area_release_free(nn->rx_area);
+	nfp_cpp_area_release_free(nn->tx_area);
+	nfp_cpp_area_release_free(nn->ctrl_area);
 
-	if (!nn->nfp_fallback) {
-		nfp_net_netdev_clean(nn->netdev);
+	nfp_net_netdev_free(nn);
 
-		if (nn->msix_table)
-			nfp_net_msix_unmap(nn->msix_table);
-		nfp_net_irqs_disable(nn);
+	platform_set_drvdata(plat, NULL);
 
-		nfp_cpp_area_release_free(nn->rx_area);
-		nfp_cpp_area_release_free(nn->tx_area);
-		nfp_cpp_area_release_free(nn->ctrl_area);
-	}
-
-	if (nn->nfp_dev_cpp)
-		nfp_platform_device_unregister(nn->nfp_dev_cpp);
-
-	nfp_cpp_free(nn->cpp);
-
-	if (!nn->nfp_fallback)
-		nfp_net_netdev_free(nn);
-	else
-		kfree(nn);
-
-	pci_set_drvdata(pdev, NULL);
-	pci_release_regions(pdev);
-	pci_disable_device(pdev);
+	return 0;
 }
 
-static struct pci_driver nfp_net_pci_driver = {
-	.name        = nfp_net_driver_name,
-	.id_table    = nfp_net_pci_device_ids,
-	.probe       = nfp_net_pci_probe,
-	.remove      = nfp_net_pci_remove,
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0))
-	.sriov_configure = nfp_pcie_sriov_configure,
-#endif
+static struct platform_driver nfp_net_nic_driver = {
+	.probe = nfp_net_nic_probe,
+	.remove = nfp_net_nic_remove,
+	.driver = {
+		.name = NFP_NET_NIC_TYPE,
+	},
 };
 
-static int __init nfp_net_init(void)
+/*
+ *		Driver Initialization
+ */
+
+int __init nfp_net_nic_init(void)
 {
 	int err;
 
-	pr_info("%s: NFP Network driver, Copyright (C) 2014-2015 Netronome Systems\n",
-		nfp_net_driver_name);
+	err = platform_driver_register(&nfp_net_nic_driver);
+	if (err)
+		return err;
 
-	err = nfp_cppcore_init();
-	if (err < 0)
-		goto fail_cppcore_init;
+	pr_info("%s: NFP NIC Network Driver, Copyright (C) 2014-2015 Netronome Systems\n", NFP_NET_NIC_TYPE);
 
-	err = nfp_dev_cpp_init();
-	if (err < 0)
-		goto fail_dev_cpp_init;
-
-	err = pci_register_driver(&nfp_net_pci_driver);
-	if (err < 0)
-		goto fail_pci_init;
-
-	return err;
-
-fail_pci_init:
-	nfp_dev_cpp_exit();
-fail_dev_cpp_init:
-	nfp_cppcore_exit();
-fail_cppcore_init:
-	return err;
+	return 0;
 }
 
-static void __exit nfp_net_exit(void)
+void nfp_net_nic_exit(void)
 {
-	pci_unregister_driver(&nfp_net_pci_driver);
-	nfp_dev_cpp_exit();
-	nfp_cppcore_exit();
+	platform_driver_unregister(&nfp_net_nic_driver);
 }
-
-module_init(nfp_net_init);
-module_exit(nfp_net_exit);
 
 /*
  * Local variables:
@@ -808,3 +494,4 @@ module_exit(nfp_net_exit);
  * indent-tabs-mode: t
  * End:
  */
+/* vim: set shiftwidth=8 noexpandtab:  */

@@ -34,6 +34,7 @@
 #include "nfpcore/nfp_dev_cpp.h"
 #include "nfpcore/nfp_net_null.h"
 #include "nfpcore/nfp_net_vnic.h"
+#include "nfp_net/nfp_net_nic.h"
 
 #include "nfpcore/nfp-bsp/nfp_resource.h"
 
@@ -49,6 +50,9 @@ MODULE_PARM_DESC(nfp_net_null, "Null net devices (default = disabled)");
 bool nfp_net_vnic = 1;
 module_param(nfp_net_vnic, bool, 0444);
 MODULE_PARM_DESC(nfp_net_vnic, "vNIC net devices (default = enabled)");
+bool nfp_net_nic;
+module_param(nfp_net_nic, bool, 0444);
+MODULE_PARM_DESC(nfp_net_nic, "NIC net devices (default = disabled)");
 bool nfp_mon_event = 1;
 module_param(nfp_mon_event, bool, 0444);
 MODULE_PARM_DESC(nfp_mon_event, "Event monitor support (default = enabled)");
@@ -61,6 +65,7 @@ struct nfp_pci {
 	struct platform_device *nfp_dev_cpp;
 	struct platform_device *nfp_net_null;
 	struct platform_device *nfp_net_vnic;
+	struct platform_device *nfp_net_nic;
 
 #ifdef CONFIG_PCI_IOV
 	/* SR-IOV handling */
@@ -253,12 +258,41 @@ static void nfp_sriov_attr_remove(struct device *dev)
 #endif /* CONFIG_PCI_IOV */
 #endif /* Linux kernel version */
 
+static void register_pf(struct nfp_pci *np)
+{
+	int pcie_unit;
+	uint32_t model = nfp_cpp_model(np->cpp);
+
+	pcie_unit = NFP_CPP_INTERFACE_UNIT_of(nfp_cpp_interface(np->cpp));
+
+	if (nfp_mon_err && NFP_CPP_MODEL_IS_3200(model))
+		np->nfp_mon_err = nfp_platform_device_register(np->cpp,
+				NFP_MON_ERR_TYPE);
+
+	if (nfp_dev_cpp)
+		np->nfp_dev_cpp = nfp_platform_device_register(np->cpp,
+				NFP_DEV_CPP_TYPE);
+
+	if (nfp_net_vnic)
+		np->nfp_net_vnic = nfp_platform_device_register_unit(np->cpp,
+							   NFP_NET_VNIC_TYPE,
+							   pcie_unit,
+							   NFP_NET_VNIC_UNITS);
+
+	if (nfp_net_null)
+		np->nfp_net_null = nfp_platform_device_register(np->cpp,
+							   NFP_NET_NULL_TYPE);
+
+	if (nfp_net_nic)
+		np->nfp_net_nic = nfp_platform_device_register(np->cpp,
+							   NFP_NET_NIC_TYPE);
+}
+
 static int nfp_pci_probe(struct pci_dev *pdev,
 			 const struct pci_device_id *pci_id)
 {
 	struct nfp_pci *np;
-	int pcie_unit, err;
-	int irq;
+	int err, irq;
 
 	err = pci_enable_device(pdev);
 	if (err < 0)
@@ -321,25 +355,8 @@ static int nfp_pci_probe(struct pci_dev *pdev,
 		goto err_nfp_cpp;
 	}
 
-	pcie_unit = NFP_CPP_INTERFACE_UNIT_of(nfp_cpp_interface(np->cpp));
+	register_pf(np);
 
-	if (nfp_mon_err && pdev->device == PCI_DEVICE_NFP3200)
-		np->nfp_mon_err = nfp_platform_device_register(np->cpp,
-				NFP_MON_ERR_TYPE);
-
-	if (nfp_dev_cpp)
-		np->nfp_dev_cpp = nfp_platform_device_register(np->cpp,
-				NFP_DEV_CPP_TYPE);
-
-	if (nfp_net_vnic)
-		np->nfp_net_vnic = nfp_platform_device_register_unit(np->cpp,
-							   NFP_NET_VNIC_TYPE,
-							   pcie_unit,
-							   NFP_NET_VNIC_UNITS);
-
-	if (nfp_net_null)
-		np->nfp_net_null = nfp_platform_device_register(np->cpp,
-							   NFP_NET_NULL_TYPE);
 	pci_set_drvdata(pdev, np);
 
 	return 0;
@@ -362,6 +379,7 @@ static void nfp_pci_remove(struct pci_dev *pdev)
 
 	nfp6000_pcie_sriov_disable(pdev);
 
+	nfp_platform_device_unregister(np->nfp_net_nic);
 	nfp_platform_device_unregister(np->nfp_net_null);
 	nfp_platform_device_unregister(np->nfp_net_vnic);
 	nfp_platform_device_unregister(np->nfp_dev_cpp);
@@ -421,6 +439,10 @@ static int __init nfp_main_init(void)
 	if (err < 0)
 		goto fail_net_vnic_init;
 
+	err = nfp_net_nic_init();
+	if (err < 0)
+		goto fail_net_nic_init;
+
 	err = nfp3200_plat_init();
 	if (err < 0)
 		goto fail_plat_init;
@@ -434,6 +456,8 @@ static int __init nfp_main_init(void)
 fail_pci_init:
 	nfp3200_plat_exit();
 fail_plat_init:
+	nfp_net_nic_exit();
+fail_net_nic_init:
 	nfp_net_vnic_exit();
 fail_net_vnic_init:
 	nfp_net_null_exit();
@@ -451,6 +475,7 @@ static void __exit nfp_main_exit(void)
 {
 	pci_unregister_driver(&nfp_pcie_driver);
 	nfp3200_plat_exit();
+	nfp_net_nic_exit();
 	nfp_net_vnic_exit();
 	nfp_net_null_exit();
 	nfp_mon_err_exit();
