@@ -564,8 +564,6 @@ int nfp_cpp_area_writeq(struct nfp_cpp_area *area, unsigned long offset,
  * @param xpb_tgt	XPB target and address
  * @param value         value to write
  *
- * KERNEL: This operation is safe to call in interrupt or softirq context.
- *
  * @return 0 on success, or -errno on failure
  */
 int nfp_xpb_writel(struct nfp_cpp *cpp, uint32_t xpb_tgt, uint32_t value);
@@ -576,8 +574,6 @@ int nfp_xpb_writel(struct nfp_cpp *cpp, uint32_t xpb_tgt, uint32_t value);
  * @param cpp           NFP CPP device handle
  * @param xpb_tgt	XPB target and address
  * @param value         output value
- *
- * KERNEL: This operation is safe to call in interrupt or softirq context.
  *
  * @return 0 on success, or -errno on failure
  */
@@ -590,8 +586,6 @@ int nfp_xpb_readl(struct nfp_cpp *cpp, uint32_t xpb_tgt, uint32_t *value);
  * @param xpb_tgt       XPB target and address
  * @param mask          mask of bits to alter
  * @param value         value to modify
- *
- * KERNEL: This operation is safe to call in interrupt or softirq context.
  *
  * @return 0 on success, or -errno on failure
  */
