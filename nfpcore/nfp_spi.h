@@ -7,6 +7,8 @@
 #ifndef NFP_SPI_H
 #define NFP_SPI_H
 
+#include <linux/bitops.h>
+
 struct nfp_spi;
 
 /**
@@ -77,8 +79,8 @@ int nfp_spi_mode_get(struct nfp_spi *spi, int *mode);
  * @param       rx_bit_cnt               RX buffer size in bits
  * @param       mdio_data_drive_disable  MDIO compatibility flag
  */
-#define CS_SELECT       (1 << 0)
-#define CS_DESELECT     (1 << 1)
+#define CS_SELECT       BIT(0)
+#define CS_DESELECT     BIT(1)
 int nfp6000_spi_transact(struct nfp_spi *spi, int cs, int cs_action,
 			 const void *tx, uint32_t tx_bit_cnt,
 			 void *rx, uint32_t rx_bit_cnt,

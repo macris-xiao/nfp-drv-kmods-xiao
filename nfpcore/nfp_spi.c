@@ -27,28 +27,28 @@ struct nfp_spi {
 
 /* NFP6000 SPI CONTROLLER defines */
 #define NFP_SPI_PORTMC(x)    (0x10+(((x)&3)<<2))
-#define   NFP_SPI_PORTMC_DATADRIVEDISABLE                 (1 << 31)
-#define   NFP_SPI_PORTMC_CLOCKIDLE                        (1 << 29)
+#define   NFP_SPI_PORTMC_DATADRIVEDISABLE                 BIT(31)
+#define   NFP_SPI_PORTMC_CLOCKIDLE                        BIT(29)
 #define   NFP_SPI_PORTMC_SELECT(_x)                       (((_x) & 0xf) << 24)
 #define   NFP_SPI_PORTMC_DATAWIDTH(_x)                    (((_x) & 0x3) << 20)
-#define   NFP_SPI_PORTMC_DATAINTRAIL                      (1 << 19)
-#define   NFP_SPI_PORTMC_DATAINLEAD                       (1 << 18)
-#define   NFP_SPI_PORTMC_DATAOUTTRAIL                     (1 << 17)
-#define   NFP_SPI_PORTMC_DATAOUTLEAD                      (1 << 16)
-#define   NFP_SPI_PORTMC_CLOCKDISABLE                     (1 << 15)
+#define   NFP_SPI_PORTMC_DATAINTRAIL                      BIT(19)
+#define   NFP_SPI_PORTMC_DATAINLEAD                       BIT(18)
+#define   NFP_SPI_PORTMC_DATAOUTTRAIL                     BIT(17)
+#define   NFP_SPI_PORTMC_DATAOUTLEAD                      BIT(16)
+#define   NFP_SPI_PORTMC_CLOCKDISABLE                     BIT(15)
 #define   NFP_SPI_PORTMC_CLOCKEDGECOUNT(_x)               (((_x) & 0x7f) << 8)
 #define NFP_SPI_PORTCFG(x)   (0x00+(((x)&3)<<2))
-#define   NFP_SPI_PORTCFG_MODE                            (1 << 31)
+#define   NFP_SPI_PORTCFG_MODE                            BIT(31)
 #define     NFP_SPI_PORTCFG_MODE_AUTOMATIC                (0 << 31)
-#define     NFP_SPI_PORTCFG_MODE_MANUAL                   (1 << 31)
+#define     NFP_SPI_PORTCFG_MODE_MANUAL                   BIT(31)
 #define NFP_SPI_PORTMDO(x)   (0x20+(((x)&3)<<2))
 #define NFP_SPI_PORTMDI(x)   (0x30+(((x)&3)<<2))
 #define NFP_SPI_SPIIOCONFIG                                  0x00000100
 #define NFP_SPI_SPIIOIDLESTATUS                              0x00000104
 #define NFP_SPI_WE                         0x0000010c
-#define   NFP_SPI_WE_AVAILABLE  (1 << 4)
+#define   NFP_SPI_WE_AVAILABLE  BIT(4)
 #define   NFP_SPI_WE_WRITEENABLETARGET(_x) (((_x) & 0xf) << 0)
-#define   NFP_SPI_PORTCFG_BUSY                            (1 << 30)
+#define   NFP_SPI_PORTCFG_BUSY                            BIT(30)
 
 #define VALID_CS(cs)            ((cs >= 0) && (cs <= 3))
 #define CS_OFF                  NFP_SPI_PORTMC_SELECT(0xf)
@@ -58,8 +58,8 @@ struct nfp_spi {
 		: CS_OFF)
 
 #define SPIMODEBITS(s)                                                \
-	((s->mode & (1 << 1) ? NFP_SPI_PORTMC_CLOCKIDLE : 0) |        \
-	 (s->mode & (1 << 0)                                          \
+	((s->mode & BIT(1) ? NFP_SPI_PORTMC_CLOCKIDLE : 0) |        \
+	 (s->mode & BIT(0)                                          \
 	  ? (NFP_SPI_PORTMC_DATAINTRAIL | NFP_SPI_PORTMC_DATAOUTLEAD) \
 	  : (NFP_SPI_PORTMC_DATAINLEAD | NFP_SPI_PORTMC_DATAOUTTRAIL)))
 
@@ -77,7 +77,7 @@ struct nfp_spi {
 		ctrl |= NFP_SPI_PORTMC_CLOCKEDGECOUNT(cnt);     \
 	} while (0)
 
-#define SPI_DEFAULT_MODE        ((1 << 1)|(1 << 0))	/* SPI_MODE3 */
+#define SPI_DEFAULT_MODE        (BIT(1)|BIT(0))	/* SPI_MODE3 */
 #define SPIXDAT23_OFFS          8
 #define SPI_MAX_BITS_PER_CTRL_WRITE 32
 
@@ -225,7 +225,7 @@ int nfp6000_spi_transact(struct nfp_spi *spi, int cs, int cs_action,
 	ctrl |=
 	    NFP_SPI_PORTMC_DATAWIDTH(spi->width) | spi->clkdiv | CS_BITS(cs);
 
-	if (mdio_data_drive_disable && tx == NULL) {
+	if (mdio_data_drive_disable && !tx) {
 		/* used only for MDIO compatibility/implementation
 		 * via this routine
 		 */
@@ -240,10 +240,9 @@ int nfp6000_spi_transact(struct nfp_spi *spi, int cs, int cs_action,
 			return err;
 	}
 
-	_tx = (uint8_t *) tx;
-	_rx = (uint8_t *) rx;
-	for (; (tx_bit_cnt > 0) || (rx_bit_cnt > 0);) {
-
+	_tx = (uint8_t *)tx;
+	_rx = (uint8_t *)rx;
+	while ((tx_bit_cnt > 0) || (rx_bit_cnt > 0)) {
 		txbits =
 		    min_t(uint32_t, SPI_MAX_BITS_PER_CTRL_WRITE, tx_bit_cnt);
 		rxbits =
@@ -372,7 +371,7 @@ struct nfp_spi *nfp_spi_acquire(struct nfp_device *nfp, int bus, int width)
 		return ERR_PTR(key);
 
 	spi = kzalloc(sizeof(*spi), GFP_KERNEL);
-	if (spi == NULL)
+	if (!spi)
 		return ERR_PTR(-ENOMEM);
 
 	spi->cpp = cpp;
@@ -386,7 +385,7 @@ struct nfp_spi *nfp_spi_acquire(struct nfp_device *nfp, int bus, int width)
 							 NFP_CPP_ACTION_RW, 0),
 					      NFP_ARM_SPI, 0x400);
 
-	if (spi->csr == NULL) {
+	if (!spi->csr) {
 		kfree(spi);
 		return ERR_PTR(-ENOMEM);
 	}
