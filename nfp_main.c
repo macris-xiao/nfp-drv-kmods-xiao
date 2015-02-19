@@ -49,6 +49,9 @@ MODULE_PARM_DESC(nfp_net_null, "Null net devices (default = disabled)");
 bool nfp_net_vnic = 1;
 module_param(nfp_net_vnic, bool, 0444);
 MODULE_PARM_DESC(nfp_net_vnic, "vNIC net devices (default = enabled)");
+bool nfp_mon_event = 1;
+module_param(nfp_mon_event, bool, 0444);
+MODULE_PARM_DESC(nfp_mon_event, "Event monitor support (default = enabled)");
 
 struct nfp_pci {
 	struct nfp_cpp *cpp;
@@ -255,6 +258,7 @@ static int nfp_pci_probe(struct pci_dev *pdev,
 {
 	struct nfp_pci *np;
 	int pcie_unit, err;
+	int irq;
 
 	err = pci_enable_device(pdev);
 	if (err < 0)
@@ -283,13 +287,18 @@ static int nfp_pci_probe(struct pci_dev *pdev,
 	/* Completely optional - we will be fine with Legacy IRQs also */
 	err = pci_enable_msi_range(pdev, 1, 1);
 	np->msi_enabled = (err < 0) ? 0 : 1;
+	if (nfp_mon_event) {
+			irq = pdev->irq;
+	} else {
+		irq = -1;
+	}
 
 	switch (pdev->device) {
 	case PCI_DEVICE_NFP3200:
-		np->cpp = nfp_cpp_from_nfp3200_pcie(pdev, pdev->irq);
+		np->cpp = nfp_cpp_from_nfp3200_pcie(pdev, irq);
 		break;
 	case PCI_DEVICE_NFP6000:
-		np->cpp = nfp_cpp_from_nfp6000_pcie(pdev, pdev->irq);
+		np->cpp = nfp_cpp_from_nfp6000_pcie(pdev, irq);
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 8, 0)) && defined(CONFIG_PCI_IOV)
 		if (!IS_ERR_OR_NULL(np->cpp)) {
 			err = nfp_sriov_attr_add(&pdev->dev);
