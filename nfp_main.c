@@ -55,7 +55,7 @@ MODULE_PARM_DESC(nfp_mon_event, "Event monitor support (default = enabled)");
 
 struct nfp_pci {
 	struct nfp_cpp *cpp;
-	int msi_enabled;
+	struct msix_entry msix;
 
 	struct platform_device *nfp_mon_err;
 	struct platform_device *nfp_dev_cpp;
@@ -284,10 +284,12 @@ static int nfp_pci_probe(struct pci_dev *pdev,
 		goto err_kzalloc;
 	}
 
-	/* Completely optional - we will be fine with Legacy IRQs also */
-	err = pci_enable_msi_range(pdev, 1, 1);
-	np->msi_enabled = (err < 0) ? 0 : 1;
 	if (nfp_mon_event) {
+		/* Completely optional - we will be fine with Legacy IRQs also */
+		err = pci_enable_msix(pdev, &np->msix, 1);
+		if (pdev->msix_enabled)
+			irq = np->msix.vector;
+		else
 			irq = pdev->irq;
 	} else {
 		irq = -1;
@@ -343,8 +345,7 @@ static int nfp_pci_probe(struct pci_dev *pdev,
 	return 0;
 
 err_nfp_cpp:
-	if (np->msi_enabled)
-		pci_disable_msi(pdev);
+	pci_disable_msix(pdev);
 
 	kfree(np);
 err_kzalloc:
@@ -374,8 +375,7 @@ static void nfp_pci_remove(struct pci_dev *pdev)
 	pci_set_drvdata(pdev, NULL);
 	nfp_cpp_free(np->cpp);
 
-	if (np->msi_enabled)
-		pci_disable_msi(pdev);
+	pci_disable_msix(pdev);
 
 	kfree(np);
 	pci_release_regions(pdev);
