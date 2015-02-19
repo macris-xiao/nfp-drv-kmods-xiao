@@ -31,11 +31,6 @@
 #define KBUILD_MODNAME "nfp_net_common"
 #endif
 
-#ifndef CONFIG_PCI_MSI
- #info "Defining CONFIG_PCI_MSI"
- #define CONFIG_PCI_MSI
-#endif
-
 #include <linux/version.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -781,7 +776,7 @@ static int nfp_net_tx(struct sk_buff *skb, struct net_device *netdev)
 	txd = &tx_ring->txds[wr_idx];
 	txd->eop = (nr_frags == 0);
 	txd->dma_len = skb_headlen(skb);
-	txd->dma_addr_hi = (dma_addr >> 32) & 0xff;
+	txd->dma_addr_hi = ((uint64_t)dma_addr >> 32) & 0xff;
 	txd->dma_addr_lo = dma_addr & 0xffffffff;
 	txd->data_len = skb->len;
 
@@ -818,7 +813,7 @@ static int nfp_net_tx(struct sk_buff *skb, struct net_device *netdev)
 			txd = &tx_ring->txds[wr_idx];
 			*txd = txdg;
 			txd->dma_len = fsize;
-			txd->dma_addr_hi = (dma_addr >> 32) & 0xff;
+			txd->dma_addr_hi = ((uint64_t)dma_addr >> 32) & 0xff;
 			txd->dma_addr_lo = dma_addr & 0xffffffff;
 			txd->eop = (f == nr_frags - 1);
 
@@ -1070,7 +1065,7 @@ int nfp_net_tx_dump(struct nfp_net_tx_ring *tx_ring, char *p)
 		}
 		if (tx_ring->txbufs && tx_ring->txbufs[i].dma_addr)
 			off += sprintf(p + off, " dma_addr=%#llx",
-				       tx_ring->txbufs[i].dma_addr);
+				       (unsigned long long)tx_ring->txbufs[i].dma_addr);
 
 		if (i == tx_ring->rd_p % txd_cnt)
 			off += sprintf(p + off, " H_RD");
@@ -1355,7 +1350,7 @@ static int nfp_net_rx_fill_freelist(struct nfp_net_rx_ring *rx_ring)
 			/* Fill freelist descriptor */
 			rxd = &rx_ring->rxds[wr_idx];
 			rxd->fld.dd = 0;
-			rxd->fld.dma_addr_hi = (dma_addr >> 32) & 0xff;
+			rxd->fld.dma_addr_hi = ((uint64_t)dma_addr >> 32) & 0xff;
 			rxd->fld.dma_addr_lo = dma_addr & 0xffffffff;
 			rx_ring->wr_p++;
 		}
@@ -1442,7 +1437,7 @@ int nfp_net_rx_dump(struct nfp_net_rx_ring *rx_ring, char *p)
 		}
 		if (rx_ring->rxbufs && rx_ring->rxbufs[i].dma_addr)
 			off += sprintf(p + off, " dma_addr=%#llx",
-				       rx_ring->rxbufs[i].dma_addr);
+				       (unsigned long long)rx_ring->rxbufs[i].dma_addr);
 
 		if (i == rx_ring->rd_p % rxd_cnt)
 			off += sprintf(p + off, " H_RD ");
@@ -1585,7 +1580,7 @@ static int nfp_net_tx_ring_alloc(struct nfp_net_tx_ring *tx_ring)
 
 	nn_dbg(nn, "TxQ%02d: QCidx=%02d cnt=%d dma=%#llx host=%p\n",
 	       tx_ring->idx, tx_ring->qcidx,
-	       tx_ring->cnt, tx_ring->dma, tx_ring->txds);
+	       tx_ring->cnt, (unsigned long long)tx_ring->dma, tx_ring->txds);
 
 	return 0;
 
@@ -1661,7 +1656,7 @@ static int nfp_net_rx_ring_alloc(struct nfp_net_rx_ring *rx_ring)
 
 	nn_dbg(nn, "RxQ%02d: FlQCidx=%02d RxQCidx=%02d cnt=%d dma=%#llx host=%p\n",
 	       rx_ring->idx, rx_ring->fl_qcidx, rx_ring->rx_qcidx,
-	       rx_ring->cnt, rx_ring->dma, rx_ring->rxds);
+	       rx_ring->cnt, (unsigned long long)rx_ring->dma, rx_ring->rxds);
 
 	return 0;
 
