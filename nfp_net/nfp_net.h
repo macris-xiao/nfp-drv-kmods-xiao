@@ -46,9 +46,16 @@
 #define nn_assert(cond, fmt, args...)
 #endif
 
-/* On the 6k the FW currently does not support interrupts yet. We use
- * a hrtimer for polling instead. */
+/* On the 6k we are in the process of developing MSI/MSI-X support in
+ * the FW.  Until that is fnished, use a HRTIMER for polling.  Defined
+ * @CONFIG_NFP_NET_USE_IRQS to configure the driver to use interrupts
+ * on the 6k.
+ */
+#ifdef CONFIG_NFP_NET_USE_IRQS
+#undef NFP_NET_HRTIMER_6000
+#else
 #define NFP_NET_HRTIMER_6000
+#endif
 
 /* Define to enable the SR-IOV related netdev operations */
 #undef NFP_NET_NDO_SRIOV
