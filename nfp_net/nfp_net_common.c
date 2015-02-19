@@ -233,6 +233,7 @@ static int nfp_net_msix_alloc(struct nfp_net *nn, int nr_vecs)
  *
  * Return: Number of MSI vectors obtained or 0 or error.
  */
+#if 0 /* Unused for now */
 static int nfp_net_msi_alloc(struct nfp_net *nn, int nr_vecs)
 {
 	struct pci_dev *pdev = nn->pdev;
@@ -266,6 +267,7 @@ static int nfp_net_msi_alloc(struct nfp_net *nn, int nr_vecs)
 
 	return nvecs;
 }
+#endif
 
 /**
  * nfp_net_irqs_alloc - allocates MSI/MSI-X irqs
@@ -287,13 +289,11 @@ int nfp_net_irqs_alloc(struct nfp_net *nn)
 		return wanted_vecs;
 	}
 
-	if (!nn->is_vf)
-		nvecs = nfp_net_msix_alloc(nn, wanted_vecs);
-	else
-		nvecs = nfp_net_msi_alloc(nn, wanted_vecs);
+	/* Use MSI-X for both NFP3200/NFP6000 */
+	nvecs = nfp_net_msix_alloc(nn, wanted_vecs);
 
 	if (nvecs == 0) {
-		nn_err(nn, "Failed to allocate MSI-X or MSI IRQs\n");
+		nn_err(nn, "Failed to allocate MSI-X IRQs\n");
 		return 0;
 	}
 
