@@ -39,10 +39,7 @@ endif
 override EXTRA_CFLAGS += -DCONFIG_NFP_A0_WORKAROUND -DCONFIG_NFP_A1_WORKAROUND
 override EXTRA_CFLAGS += -DDEBUG
 override EXTRA_CFLAGS += -Werror
-ifeq ($(VERSION).$(PATCHLEVEL).$(SUBLEVEL),2.6.28)
 override EXTRA_CFLAGS += -I$(src)
-endif
-override EXTRA_CFLAGS += -I$(src)/include
 
 NFPCORE_OBJS := \
 	    nfpcore/nfp3200_pcie.o \
