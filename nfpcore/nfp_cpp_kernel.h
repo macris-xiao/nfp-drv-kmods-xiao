@@ -115,6 +115,7 @@ void nfp_cpp_event_callback(struct nfp_cpp_event *event);
 int nfp_cpp_event_as_callback(struct nfp_cpp_event *event,
 			      void (*callback)(void *), void *priv);
 
+uint64_t nfp_cpp_island_mask(struct nfp_cpp *cpp);
 
 #endif /* NFP_CPP_KERNEL_H */
 

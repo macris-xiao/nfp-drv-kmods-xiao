@@ -47,6 +47,9 @@
 
 #define NFP_CPP_DIR_NAME	"nfp_cpp"
 
+#define NFP_ARM_GCSR_SOFTMODEL2                              0x0000014c
+#define NFP_ARM_GCSR_SOFTMODEL3                              0x00000150
+
 struct nfp_cpp_resource {
 	struct list_head list;
 	const char *name;
@@ -70,6 +73,8 @@ struct nfp_cpp {
 
 	/* NFP6000 CPP Mapping Table */
 	uint32_t imb_cat_table[16];
+	/* NFP6000 Island Mask */
+	uint64_t island_mask;
 };
 
 struct nfp_cpp_area {
@@ -1427,6 +1432,9 @@ struct nfp_cpp *nfp_cpp_from_operations(const struct nfp_cpp_operations *ops)
 	}
 
 	if (NFP_CPP_MODEL_IS_6000(cpp->model)) {
+		uint32_t mask[2];
+		const uint32_t arm = NFP_CPP_ID(NFP_CPP_TARGET_ARM,
+						NFP_CPP_ACTION_RW, 0);
 		uint32_t xpbaddr;
 		size_t tgt;
 		for (tgt = 0;
@@ -1443,6 +1451,13 @@ struct nfp_cpp *nfp_cpp_from_operations(const struct nfp_cpp_operations *ops)
 				return ERR_PTR(err);
 			}
 		}
+
+		nfp_cpp_readl(cpp, arm, NFP_ARM_GCSR + NFP_ARM_GCSR_SOFTMODEL2,
+			      &mask[0]);
+		nfp_cpp_readl(cpp, arm, NFP_ARM_GCSR + NFP_ARM_GCSR_SOFTMODEL3,
+			      &mask[1]);
+
+		cpp->island_mask = (((uint64_t) mask[1] << 32) | mask[0]);
 	}
 
 #ifdef CONFIG_PROC_FS
@@ -1493,6 +1508,12 @@ void *nfp_cpp_priv(struct nfp_cpp *cpp)
 	return cpp->op->priv;
 }
 EXPORT_SYMBOL(nfp_cpp_priv);
+
+uint64_t nfp_cpp_island_mask(struct nfp_cpp *cpp)
+{
+    return cpp->island_mask;
+}
+EXPORT_SYMBOL(nfp_cpp_island_mask);
 
 int nfp_cppcore_init(void)
 {
