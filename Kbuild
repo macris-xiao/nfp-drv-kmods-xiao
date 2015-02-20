@@ -10,7 +10,6 @@
 ## Define our own config variables.
 ## A kernel Kconfig file may define these variables one day.
 CONFIG_MFD_NFP ?= m
-CONFIG_NET_NFPVF ?= m
 
 # un-comment for debug symbols
 # override EXTRA_CFLAGS += -g3
@@ -41,8 +40,9 @@ override EXTRA_CFLAGS += -DDEBUG
 override EXTRA_CFLAGS += -Werror
 override EXTRA_CFLAGS += -I$(src)
 
-NFPCORE_OBJS := \
-	    nfpcore/nfp3200_pcie.o \
+obj-$(CONFIG_MFD_NFP) += nfp.o
+
+nfp-objs := nfpcore/nfp3200_pcie.o \
 	    nfpcore/nfp3200_plat.o \
 	    nfpcore/nfp6000_pcie.o \
 	    nfpcore/crc32.o \
@@ -68,26 +68,8 @@ NFPCORE_OBJS := \
 	    nfpcore/nfp_platform.o \
 	    nfpcore/nfp_resource.o \
 	    nfpcore/nfp_rtsym.o \
-	    nfpcore/nfp_spi.o
-
-NFP_NET_OBJS := \
-		nfp_net/nfp_net_common.o \
-		nfp_net/nfp_net_ethtool.o \
-		nfp_net/nfp_net_main.o
-
-obj-$(CONFIG_MFD_NFP) += nfp.o
-
-nfp-objs := \
-		$(NFPCORE_OBJS) \
-		$(NFP_NET_OBJS) \
-		nfp_main.o
-
-obj-$(CONFIG_NET_NFPVF) += nfp_netvf.o
-
-nfp_netvf-objs := \
-		nfp_net/nfp_net_common.o \
-		nfp_net/nfp_net_ethtool.o \
-		nfp_net/nfp_netvf_main.o
+	    nfpcore/nfp_spi.o \
+	    nfp_main.o
 
 
 ####################

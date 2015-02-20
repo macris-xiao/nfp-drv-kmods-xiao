@@ -34,7 +34,6 @@
 #include "nfpcore/nfp_dev_cpp.h"
 #include "nfpcore/nfp_net_null.h"
 #include "nfpcore/nfp_net_vnic.h"
-#include "nfp_net/nfp_net_nic.h"
 
 #include "nfpcore/nfp-bsp/nfp_resource.h"
 
@@ -50,9 +49,6 @@ MODULE_PARM_DESC(nfp_net_null, "Null net devices (default = disabled)");
 bool nfp_net_vnic = 1;
 module_param(nfp_net_vnic, bool, 0444);
 MODULE_PARM_DESC(nfp_net_vnic, "vNIC net devices (default = enabled)");
-bool nfp_net_nic;
-module_param(nfp_net_nic, bool, 0444);
-MODULE_PARM_DESC(nfp_net_nic, "NIC net devices (default = disabled)");
 bool nfp_mon_event = 1;
 module_param(nfp_mon_event, bool, 0444);
 MODULE_PARM_DESC(nfp_mon_event, "Event monitor support (default = enabled)");
@@ -65,7 +61,6 @@ struct nfp_pci {
 	struct platform_device *nfp_dev_cpp;
 	struct platform_device *nfp_net_null;
 	struct platform_device *nfp_net_vnic;
-	struct platform_device *nfp_net_nic;
 
 #ifdef CONFIG_PCI_IOV
 	/* SR-IOV handling */
@@ -283,9 +278,6 @@ static void register_pf(struct nfp_pci *np)
 		np->nfp_net_null = nfp_platform_device_register(np->cpp,
 							   NFP_NET_NULL_TYPE);
 
-	if (nfp_net_nic)
-		np->nfp_net_nic = nfp_platform_device_register(np->cpp,
-							   NFP_NET_NIC_TYPE);
 }
 
 static int nfp_pci_probe(struct pci_dev *pdev,
@@ -379,7 +371,6 @@ static void nfp_pci_remove(struct pci_dev *pdev)
 
 	nfp6000_pcie_sriov_disable(pdev);
 
-	nfp_platform_device_unregister(np->nfp_net_nic);
 	nfp_platform_device_unregister(np->nfp_net_null);
 	nfp_platform_device_unregister(np->nfp_net_vnic);
 	nfp_platform_device_unregister(np->nfp_dev_cpp);
@@ -439,10 +430,6 @@ static int __init nfp_main_init(void)
 	if (err < 0)
 		goto fail_net_vnic_init;
 
-	err = nfp_net_nic_init();
-	if (err < 0)
-		goto fail_net_nic_init;
-
 	err = nfp3200_plat_init();
 	if (err < 0)
 		goto fail_plat_init;
@@ -456,8 +443,6 @@ static int __init nfp_main_init(void)
 fail_pci_init:
 	nfp3200_plat_exit();
 fail_plat_init:
-	nfp_net_nic_exit();
-fail_net_nic_init:
 	nfp_net_vnic_exit();
 fail_net_vnic_init:
 	nfp_net_null_exit();
@@ -475,7 +460,6 @@ static void __exit nfp_main_exit(void)
 {
 	pci_unregister_driver(&nfp_pcie_driver);
 	nfp3200_plat_exit();
-	nfp_net_nic_exit();
 	nfp_net_vnic_exit();
 	nfp_net_null_exit();
 	nfp_mon_err_exit();
