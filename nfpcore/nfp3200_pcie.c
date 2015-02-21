@@ -151,6 +151,7 @@ struct nfp3200_pcie {
 #define NFP_A_WORKAROUND	(1 << 1)
 	uint32_t workaround;
 	struct {
+		uint32_t vnic_base;
 		struct nfp_cpp_area *internal_write_area;
 		void __iomem *pciewr;
 	} a1;
@@ -827,10 +828,11 @@ static int nfp_cpp_pcie_area_init(
 	 * specific use case (nfp_net_vnic), and prevents
 	 * the locking of all three BARs by the default NFP driver.
 	 */
-	if (nfp->workaround & NFP_A_WORKAROUND) {
+	if (nfp->workaround & NFP_A1_WORKAROUND) {
 		if (target == NFP_CPP_TARGET_MU &&
 		    (action == NFP_CPP_ACTION_RW || action == 0 || action == 1) &&
-		    (address >= SZ_4K && (address + size) <= (SZ_4K + SZ_4K))) {
+		    (address >= nfp->a1.vnic_base &&
+		     (address + size) <= (nfp->a1.vnic_base + 0x1000))) {
 			if (action == NFP_CPP_ACTION_RW || action == 0)
 				priv->width.read = 4;
 			if (action == NFP_CPP_ACTION_RW || action == 1)
@@ -1352,6 +1354,9 @@ static int nfp_cpp_pcie_init(struct nfp_cpp *cpp)
 			goto err_pcie_write_acquire;
 		nfp->a1.pciewr =
 			nfp_cpp_area_iomem(nfp->a1.internal_write_area);
+
+		/* ARM vNIC base - see workaround in nfp_cpp_pcie_area_init */
+		nfp->a1.vnic_base = 0xe000;
 
 		/*
 		 * To avoid ECC errors, write something to CLS address used

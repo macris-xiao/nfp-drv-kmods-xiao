@@ -304,6 +304,10 @@ static int workaround_resource_table(struct nfp_cpp *cpp,
 	if (err < 0)
 		return err;
 
+	/* The following resources preserve the nfp-bsp-2012.09
+	 * series resource list, which is assumed if there
+	 * is no existing resource map on a NFP3200
+	 */
 	err = nfp_cpp_resource_add(cpp, NFP_RESOURCE_ARM_WORKSPACE,
 				   ddr,
 				   (uint64_t)(ddr0_size + ddr1_size - 512)
@@ -327,12 +331,32 @@ static int workaround_resource_table(struct nfp_cpp *cpp,
 		return err;
 
 	err = nfp_cpp_resource_add(cpp, NFP_RESOURCE_NFP_NFFW, ddr,
+		0x1000, 0x1000, NULL);
+	if (err < 0)
+		return err;
+
+	err = nfp_cpp_resource_add(cpp, "msix.tbl", ddr,
 		0x2000, 0x1000, NULL);
 	if (err < 0)
 		return err;
 
+	err = nfp_cpp_resource_add(cpp, "msix.pba", ddr,
+		0x3000, 0x1000, NULL);
+	if (err < 0)
+		return err;
+
+	err = nfp_cpp_resource_add(cpp, "arm.tty", ddr,
+		0xb000, 0x3000, NULL);
+	if (err < 0)
+		return err;
+
 	err = nfp_cpp_resource_add(cpp, NFP_RESOURCE_VNIC_PCI_0, ddr,
-		0x1000, 0x1000, NULL);
+		0xe000, 0x1000, NULL);
+	if (err < 0)
+		return err;
+
+	err = nfp_cpp_resource_add(cpp, "arm.ctrl", ddr,
+		0xf000, 0x1000, NULL);
 	if (err < 0)
 		return err;
 
