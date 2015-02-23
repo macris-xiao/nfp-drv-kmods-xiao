@@ -29,12 +29,6 @@
 #include <linux/err.h>
 #include <linux/etherdevice.h>
 
-#ifndef CONFIG_MFD_NFP_EXPORT
-#include <linux/module.h>
-#undef EXPORT_SYMBOL
-#define EXPORT_SYMBOL(x) /**/
-#endif
-
 /* This is required when building common objects for
  * multiple modules
  */
