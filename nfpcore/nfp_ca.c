@@ -217,6 +217,7 @@ static int nfp_ca_parse(struct nfp_cpp *cpp, const void *buff, size_t bytes,
 	if (ca != NFP_CA_START || ca32_to_cpu(&byte[1]) != NFP_CA_START_MAGIC)
 		return -EINVAL;
 
+	err = 0;
 	for (loc = NFP_CA_SZ(NFP_CA_START); loc < bytes;
 			loc += NFP_CA_SZ(byte[loc])) {
 		const uint8_t *vp = &byte[loc+1];
