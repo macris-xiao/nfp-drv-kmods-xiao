@@ -23,6 +23,7 @@
 #include "nfp_nbi_mac_eth.h"
 
 #include "nfp6000/nfp6000.h"
+#include "nfp6000/nfp_xpb.h"
 
 /* Perform a soft reset of the NFP3200:
  *   - TODO
@@ -43,12 +44,35 @@ static int nfp3200_reset_soft(struct nfp_device *nfp)
 #define  NFP_NBI_MACX_CSR_MAC_BLOCK_RST_MAC_RX_RST_MPB		BIT(20)
 #define  NFP_NBI_MACX_CSR_MAC_BLOCK_RST_MAC_TX_RST_CORE		BIT(19)
 #define  NFP_NBI_MACX_CSR_MAC_BLOCK_RST_MAC_RX_RST_CORE		BIT(18)
+#define NFP_NBI_MACX_CSR_EG_BUFFER_CREDIT_POOL_COUNT	0x00000098
+#define   NFP_NBI_MACX_CSR_EG_BUFFER_CREDIT_POOL_COUNT_EG_BUFFER_CREDIT_COUNT1_of(_x) (((_x) >> 16) & 0x3fff)
+#define   NFP_NBI_MACX_CSR_EG_BUFFER_CREDIT_POOL_COUNT_EG_BUFFER_CREDIT_COUNT_of(_x) (((_x) >> 0) & 0x3fff)
 #define NFP_NBI_MACX_CSR_IG_BUFFER_CREDIT_POOL_COUNT	0x000000a0
+#define   NFP_NBI_MACX_CSR_IG_BUFFER_CREDIT_POOL_COUNT_IG_BUFFER_CREDIT_COUNT1_of(_x) (((_x) >> 16) & 0x3fff)
+#define   NFP_NBI_MACX_CSR_IG_BUFFER_CREDIT_POOL_COUNT_IG_BUFFER_CREDIT_COUNT_of(_x) (((_x) >> 0) & 0x3fff)
+#define NFP_NBI_MACX_ETH(_x)                                 (NFP_NBI_MACX + 0x40000 + ((_x) & 0x1) * 0x20000)
+#define NFP_NBI_MACX_ETH_MACETHSEG_ETH_CMD_CONFIG(_x)	\
+						(0x00000008 + (0x400 * ((_x) & 0xf)))
+#define  NFP_NBI_MACX_ETH_MACETHSEG_ETH_CMD_CONFIG_ETH_RX_ENA	BIT(1)
+#define NFP_NBI_MACX_CSR_MAC_SYS_SUPPORT_CTRL			0x00000014
+#define  NFP_NBI_MACX_CSR_MAC_SYS_SUPPORT_CTRL_SPLIT_MEM_IG	BIT(8)
+
 
 #define NFP_NBI_DMAX					(NBIX_BASE + 0x000000)
 #define NFP_NBI_DMAX_CSR				(NFP_NBI_DMAX + 0x00000)
 #define NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG(_x) \
 					(0x00000040 + (0x4 * ((_x) & 0x1f)))
+#define   NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_CTM_of(_x)	(((_x) >> 21) & 0x3f)
+#define   NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_PKT_CREDIT_of(_x) (((_x) >> 10) & 0x7ff)
+#define   NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_BUF_CREDIT_of(_x) (((_x) >> 0) & 0x3ff)
+
+
+#define CTMX_BASE                                            (0x60000)
+#define NFP_CTMX_CFG                                         (CTMX_BASE + 0x000000)
+#define NFP_CTMX_PKT                                         (CTMX_BASE + 0x010000)
+#define NFP_CTMX_PKT_MU_PE_ACTIVE_PACKET_COUNT               0x00000400
+#define   NFP_CTMX_PKT_MUPESTATS_MU_PE_STAT_of(_x)           (((_x) >> 0) & 0x3ff)
+
 
 int nfp6000_island_power(struct nfp_device *nfp, int state)
 {
@@ -236,6 +260,112 @@ static int nfp6000_stop_me_island(struct nfp_device *nfp, int island)
 	return 0;
 }
 
+static int nfp6000_nbi_mac_check_freebufs(struct nfp_nbi_dev *nbi)
+{
+	uint32_t tmp;
+	int err, ok, split;
+	struct timespec ts, timeout = {
+		.tv_sec = 0,
+		.tv_nsec = 500 * 1000 * 1000,
+	};
+	const int igsplit = 1007;
+	const int egsplit = 495;
+
+	err = nfp_nbi_mac_regr(nbi, NFP_NBI_MACX_CSR,
+			NFP_NBI_MACX_CSR_MAC_SYS_SUPPORT_CTRL, &tmp);
+	if (err < 0)
+		return err;
+
+	split = tmp & NFP_NBI_MACX_CSR_MAC_SYS_SUPPORT_CTRL_SPLIT_MEM_IG;
+
+	ts = CURRENT_TIME;
+	timeout = timespec_add(ts, timeout);
+
+	ok = 1;
+	do {
+		int igcount, igcount1, egcount, egcount1;
+
+		err = nfp_nbi_mac_regr(nbi, NFP_NBI_MACX_CSR,
+			NFP_NBI_MACX_CSR_IG_BUFFER_CREDIT_POOL_COUNT,
+			&tmp);
+		if (err < 0)
+			return err;
+
+		igcount = NFP_NBI_MACX_CSR_IG_BUFFER_CREDIT_POOL_COUNT_IG_BUFFER_CREDIT_COUNT_of(tmp);
+		igcount1 = NFP_NBI_MACX_CSR_IG_BUFFER_CREDIT_POOL_COUNT_IG_BUFFER_CREDIT_COUNT1_of(tmp);
+
+		err = nfp_nbi_mac_regr(nbi, NFP_NBI_MACX_CSR,
+			NFP_NBI_MACX_CSR_EG_BUFFER_CREDIT_POOL_COUNT,
+			&tmp);
+		if (err < 0)
+			return err;
+
+		egcount = NFP_NBI_MACX_CSR_EG_BUFFER_CREDIT_POOL_COUNT_EG_BUFFER_CREDIT_COUNT_of(tmp);
+		egcount1 = NFP_NBI_MACX_CSR_EG_BUFFER_CREDIT_POOL_COUNT_EG_BUFFER_CREDIT_COUNT1_of(tmp);
+
+		if (split) {
+			ok &= (igcount == igsplit);
+			ok &= (egcount == egsplit);
+			ok &= (igcount1 == igsplit);
+			ok &= (egcount1 == egsplit);
+		} else {
+			ok &= (igcount == igsplit*2);
+			ok &= (egcount == egsplit*2);
+		}
+
+		if (!ok) {
+			ts = CURRENT_TIME;
+			if (timespec_compare(&ts, &timeout) >= 0) {
+				return -ETIMEDOUT;
+			}
+		}
+	} while (!ok);
+
+	return 0;
+}
+
+static int nfp6000_nbi_check_dma_credits(struct nfp_nbi_dev *nbi, struct nfp_cpp *cpp)
+{
+	int err, p;
+	uint32_t tmp;
+	const int pktcred = 128;
+	const int bufcred = 63;
+
+	for (p = 0; p < 32; p++) {
+		int ctm, pkt, buf;
+
+		err = nfp_nbi_mac_regr(nbi, NFP_NBI_DMAX_CSR,
+			NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG(p),
+			&tmp);
+		if (err < 0)
+			return err;
+
+		ctm = NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_CTM_of(tmp);
+		if (ctm == 0)
+			continue;
+
+		pkt = NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_PKT_CREDIT_of(tmp);
+		if (pkt != pktcred)
+			return -EBUSY;
+
+		buf = NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_BUF_CREDIT_of(tmp);
+		if (buf != bufcred)
+			return -EBUSY;
+
+		err = nfp_xpb_readl(cpp, NFP_XPB_ISLAND(ctm) + NFP_CTMX_PKT
+					+ NFP_CTMX_PKT_MU_PE_ACTIVE_PACKET_COUNT,
+					&tmp);
+		if (err < 0)
+			return err;
+
+		if (NFP_CTMX_PKT_MUPESTATS_MU_PE_STAT_of(tmp) != 0)
+			return -EBUSY;
+
+	}
+
+	return 0;
+}
+
 /* Perform a soft reset of the NFP6000:
  *   - Disable traffic ingress
  *   - Verify all NBI MAC packet buffers have returned
@@ -251,18 +381,48 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 {
 	struct nfp_cpp *cpp = nfp_device_cpp(nfp);
 	struct nfp_nbi_dev *nbi[2];
+	int mac_enable[2];
 	int i, p, err;
 
-	for (i = 0; i < 2; i++)
+	for (i = 0; i < 2; i++) {
+		uint32_t tmp;
+
 		nbi[i] = nfp_nbi_open(nfp, i);
+		if (nbi[i] == NULL)
+			continue;
+
+		err = nfp_nbi_mac_regr(nbi[i], NFP_NBI_MACX_CSR,
+					NFP_NBI_MACX_CSR_MAC_BLOCK_RST,
+					&tmp);
+		if (err < 0)
+			return err;
+
+		mac_enable[i] = 0;
+		if (!(tmp & NFP_NBI_MACX_CSR_MAC_BLOCK_RST_MAC_HY0_STAT_RST))
+			mac_enable[i] |= BIT(0);
+		if (!(tmp & NFP_NBI_MACX_CSR_MAC_BLOCK_RST_MAC_HY1_STAT_RST))
+			mac_enable[i] |= BIT(1);
+
+		/* No MACs at all? Then we don't care. */
+		if (mac_enable[i] == 0) {
+			nfp_nbi_close(nbi[i]);
+			nbi[i] = NULL;
+		}
+	}
 
 	/* Disable traffic ingress */
 	for (i = 0; i < 2; i++) {
 		if (!nbi[i])
 			continue;
+
 		for (p = 0; p < 24; p++) {
-			err = nfp_nbi_mac_eth_write_cmdconfig(nbi[i],
-					p / 12, p % 12, (1 << 1), 0);
+			uint32_t r, mask;
+
+			mask = NFP_NBI_MACX_ETH_MACETHSEG_ETH_CMD_CONFIG_ETH_RX_ENA;
+			r = NFP_NBI_MACX_ETH_MACETHSEG_ETH_CMD_CONFIG(p % 12);
+
+			err = nfp_nbi_mac_regw(nbi[i], NFP_NBI_MACX_ETH(p / 12), r,
+						mask, 0);
 			if (err < 0)
 				return err;
 		}
@@ -270,33 +430,12 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 
 	/* Verify all NBI MAC packet buffers have returned */
 	for (i = 0; i < 2; i++) {
-		uint32_t tmp;
-		struct timespec ts, timeout = {
-			.tv_sec = 0,
-			.tv_nsec = 500 * 1000 * 1000,
-		};
-
 		if (!nbi[i])
 			continue;
 
-		ts = CURRENT_TIME;
-		timeout = timespec_add(ts, timeout);
-
-		do {
-			err = nfp_nbi_mac_regr(nbi[i], NFP_NBI_MACX_CSR,
-				NFP_NBI_MACX_CSR_IG_BUFFER_CREDIT_POOL_COUNT,
-				&tmp);
-
-			if (err < 0)
-				return err;
-
-			ts = CURRENT_TIME;
-			if (timespec_compare(&ts, &timeout) >= 0) {
-				pr_info("%s:%d 0x%08x\n", __func__, __LINE__, tmp);
-				return -ETIMEDOUT;
-			}
-
-		} while (tmp != 0);
+		err = nfp6000_nbi_mac_check_freebufs(nbi[i]);
+		if (err < 0)
+			return err;
 	}
 
 	/* Wait for PCIE DMA Queues to empty */
@@ -382,6 +521,10 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 				NFP_NBI_MACX_CSR_MAC_BLOCK_RST_MAC_RX_RST_CORE |
 				NFP_NBI_MACX_CSR_MAC_BLOCK_RST_MAC_HY0_STAT_RST |
 				NFP_NBI_MACX_CSR_MAC_BLOCK_RST_MAC_HY1_STAT_RST;
+
+		if (!nbi[i])
+			continue;
+
 		err = nfp_nbi_mac_regw(nbi[i], NFP_NBI_MACX_CSR,
 				NFP_NBI_MACX_CSR_MAC_BLOCK_RST, mask, mask);
 		if (err < 0)
@@ -394,75 +537,25 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 
 	/* Verify all NBI MAC packet buffers have returned */
 	for (i = 0; i < 2; i++) {
-		uint32_t tmp;
-		struct timespec ts, timeout = {
-			.tv_sec = 0,
-			.tv_nsec = 500 * 1000 * 1000,
-		};
-
 		if (!nbi[i])
 			continue;
 
-		ts = CURRENT_TIME;
-		timeout = timespec_add(ts, timeout);
-
-		do {
-			err = nfp_nbi_mac_regr(nbi[i], NFP_NBI_MACX_CSR,
-				NFP_NBI_MACX_CSR_IG_BUFFER_CREDIT_POOL_COUNT,
-				&tmp);
-
-			if (err < 0)
-				return err;
-
-			ts = CURRENT_TIME;
-			if (timespec_compare(&ts, &timeout) >= 0) {
-				pr_info("%s:%d 0x%08x\n", __func__, __LINE__, tmp);
-				return -ETIMEDOUT;
-			}
-
-		} while (tmp != 0);
+		err = nfp6000_nbi_mac_check_freebufs(nbi[i]);
+		if (err < 0)
+			return err;
 	}
 
 	/* Verify that all NBI/MAC credits have returned */
 	for (i = 0; i < 2; i++) {
-		int ok;
-		uint32_t tmp;
-		struct timespec ts, timeout = {
-			.tv_sec = 0,
-			.tv_nsec = 500 * 1000 * 1000,
-		};
-
 		if (!nbi[i])
 			continue;
 
-		ts = CURRENT_TIME;
-		timeout = timespec_add(ts, timeout);
-
-		do {
-			ok = 1;
-
-			for (p = 0; p < 32; p++) {
-				err = nfp_nbi_mac_regr(nbi[i], NFP_NBI_DMAX_CSR,
-					NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG(p),
-					&tmp);
-
-				if (err < 0)
-					return err;
-
-				ok &= (tmp == 0) ? 1 : 0;
-			}
-
-			if (!ok) {
-				ts = CURRENT_TIME;
-				if (timespec_compare(&ts, &timeout) >= 0) {
-					pr_info("%s:%d 0x%08x\n", __func__, __LINE__, tmp);
-					return -ETIMEDOUT;
-				}
-			}
-
-		} while (!ok);
+		err = nfp6000_nbi_check_dma_credits(nbi[i], cpp);
+		if (err < 0)
+			return err;
 	}
 
+	/* No need for NBI access anymore.. */
 	for (i = 0; i < 2; i++) {
 		if (nbi[i])
 			nfp_nbi_close(nbi[i]);
