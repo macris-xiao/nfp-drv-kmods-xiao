@@ -68,6 +68,12 @@ void nfp_nbi_close(struct nfp_nbi_dev *nbi)
 }
 EXPORT_SYMBOL(nfp_nbi_close);
 
+int nfp_nbi_index(struct nfp_nbi_dev *nbi)
+{
+	return nbi->nbi;
+}
+EXPORT_SYMBOL(nfp_nbi_index);
+
 int nfp_nbi_mac_stats_read_port(struct nfp_nbi_dev *nbi, int port,
 				struct nfp_nbi_mac_portstats *stats)
 {
