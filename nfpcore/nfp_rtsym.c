@@ -8,6 +8,7 @@
 #define NFP6000_LONGNAMES
 
 #include <linux/kernel.h>
+#include <linux/module.h>
 #include <linux/slab.h>
 
 #include "nfp.h"
