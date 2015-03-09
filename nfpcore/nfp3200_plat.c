@@ -703,31 +703,59 @@ void nfp3200_cpp_plat_explicit_release(struct nfp_cpp_explicit *expl)
 
 /* Perform the transaction */
 static int nfp3200_cpp_plat_explicit_do(struct nfp_cpp_explicit *expl,
-					const struct nfp_cpp_explicit_command *
-								cmd,
+					const struct nfp_cpp_explicit_command *cmd,
 					uint64_t address)
 {
 	struct nfp_cpp *cpp = nfp_cpp_explicit_cpp(expl);
 	struct nfp3200_plat *priv = nfp_cpp_priv(cpp);
 	struct nfp_plat_explicit_priv *expl_priv = nfp_cpp_explicit_priv(expl);
-	int err, ndx = expl_priv->index;
+	int err, index = expl_priv->index;
 	uint32_t expl1, expl2, post;
-	uint16_t sig_master, data_master;
+	uint16_t signal_master, data_master, default_master, data_ref, signal_ref;
 	uint32_t required = 0;
 	void __iomem *gcsr = priv->gcsr;
 	void __iomem *expl_io = priv->expl_io;
+	uint32_t model = nfp_cpp_model(cpp);
+
+	if (NFP_CPP_MODEL_IS_3200(model))
+		default_master = 0x65;
+	else if (NFP_CPP_MODEL_IS_6000(model))
+		default_master = 0x11;
+	else
+		default_master = 0x01;
+
+	if (cmd->data_master == 0)
+		data_master = default_master;
+	else
+		data_master = cmd->data_master;
+
+	if (cmd->data_master == 0 && cmd->data_ref == 0)
+		data_ref = EXPL_INDEX_TO_DATA_REF(index);
+	else
+		data_ref = cmd->data_ref;
+
+	if (cmd->signal_master == 0)
+		signal_master = default_master;
+	else
+		signal_master = cmd->signal_master;
+
+	if (cmd->signal_master == 0 && cmd->signal_ref == 0)
+		signal_ref = EXPL_INDEX_TO_SIGNAL_REF(index);
+	else
+		signal_ref = cmd->signal_ref;
+
 
 	expl1 = NFP_ARM_GCSR_EXPL1_BAR_POSTED
-		| NFP_ARM_GCSR_EXPL1_BAR_DATA_MASTER(cmd->data_master)
-		| NFP_ARM_GCSR_EXPL1_BAR_DATA_REF(cmd->data_ref)
-		| NFP_ARM_GCSR_EXPL1_BAR_SIGNAL_REF(cmd->signal_ref);
+		| NFP_ARM_GCSR_EXPL1_BAR_DATA_MASTER(data_master)
+		| NFP_ARM_GCSR_EXPL1_BAR_DATA_REF(data_ref)
+		| NFP_ARM_GCSR_EXPL1_BAR_SIGNAL_REF(signal_ref);
 
 	expl2 = NFP_ARM_GCSR_EXPL2_BAR_TGT(NFP_CPP_ID_TARGET_of(cmd->cpp_id))
 		| NFP_ARM_GCSR_EXPL2_BAR_ACT(NFP_CPP_ID_ACTION_of(cmd->cpp_id))
 		| NFP_ARM_GCSR_EXPL2_BAR_TOK(NFP_CPP_ID_TOKEN_of(cmd->cpp_id))
 		| NFP_ARM_GCSR_EXPL2_BAR_LEN(cmd->len)
 		| NFP_ARM_GCSR_EXPL2_BAR_BYTE_MASK(cmd->byte_mask)
-		| NFP_ARM_GCSR_EXPL2_BAR_SIGNAL_MASTER(cmd->signal_master);
+		| NFP_ARM_GCSR_EXPL2_BAR_SIGNAL_MASTER(signal_master);
 
 	post = 0;
 	if (cmd->posted) {
@@ -774,48 +802,30 @@ static int nfp3200_cpp_plat_explicit_do(struct nfp_cpp_explicit *expl,
 		}
 	}
 
-	data_master = NFP_ARM_GCSR_EXPL1_BAR_DATA_MASTER_of(expl1);
-	sig_master = NFP_ARM_GCSR_EXPL2_BAR_SIGNAL_MASTER_of(expl2);
+	if (signal_master == default_master) {
+		int ref = EXPL_INDEX_TO_SIGNAL_REF(index);
+		post &= ~(NFP_ARM_GCSR_EXPL_POST_SIG_A(~0) |
+			  NFP_ARM_GCSR_EXPL_POST_SIG_B(~0));
+		post |= NFP_ARM_GCSR_EXPL_POST_SIG_A(ref) |
+			NFP_ARM_GCSR_EXPL_POST_SIG_B(ref | 1);
+	    }
 
 	/* Write the EXPL0_BAR csr */
 	writel(NFP_ARM_GCSR_EXPL0_BAR_ADDR(address),
-	       gcsr + NFP_ARM_GCSR_EXPL0_BAR(ndx));
+	       gcsr + NFP_ARM_GCSR_EXPL0_BAR(index));
 
-	/* Write the EXPL1_BAR csr */
-	if (data_master == NFP_CPP_MASTER_ARM) {
-		expl1 &= ~NFP_ARM_GCSR_EXPL1_BAR_DATA_REF(~(1 << 2));
-		expl1 |= NFP_ARM_GCSR_EXPL1_BAR_DATA_REF(
-				EXPL_INDEX_TO_DATA_REF(ndx));
-	}
-
-	if (sig_master == NFP_CPP_MASTER_ARM) {
-		expl1 &= ~NFP_ARM_GCSR_EXPL1_BAR_SIGNAL_REF(~0);
-		expl1 |= NFP_ARM_GCSR_EXPL1_BAR_SIGNAL_REF(
-				EXPL_INDEX_TO_SIGNAL_REF(ndx));
-	}
-
-	writel(expl1, gcsr + NFP_ARM_GCSR_EXPL1_BAR(ndx));
+	writel(expl1, gcsr + NFP_ARM_GCSR_EXPL1_BAR(index));
 
 	/* Write the EXPL2_BAR csr */
-	writel(expl2, gcsr + NFP_ARM_GCSR_EXPL2_BAR(ndx));
+	writel(expl2, gcsr + NFP_ARM_GCSR_EXPL2_BAR(index));
 
 	/* Write the EXPL_POST csr */
-	if (sig_master == NFP_CPP_MASTER_ARM) {
-		post &= ~(NFP_ARM_GCSR_EXPL_POST_SIG_A(~1) |
-				NFP_ARM_GCSR_EXPL_POST_SIG_B(~1));
-		post |= NFP_ARM_GCSR_EXPL_POST_SIG_A(
-				EXPL_INDEX_TO_SIGNAL_REF(ndx)) |
-			NFP_ARM_GCSR_EXPL_POST_SIG_B(
-				EXPL_INDEX_TO_SIGNAL_REF(ndx));
-	}
-
 	writel(post & ~NFP_ARM_GCSR_EXPL_POST_CMD_COMPLETE, gcsr +
-			NFP_ARM_GCSR_EXPL_POST(ndx));
-
+			NFP_ARM_GCSR_EXPL_POST(index));
 	/* Start the transaction, by doing a dummy read from the
 	 * ARM Gasket area
 	 */
-	readb(expl_io + (NFP_ARM_GCSR_EXPL_SIZE * ndx) +
+	readb(expl_io + (NFP_ARM_GCSR_EXPL_SIZE * index) +
 			(address & (NFP_ARM_GCSR_EXPL_SIZE-1)));
 
 	/* If we have been told to wait for one or more
@@ -825,8 +835,8 @@ static int nfp3200_cpp_plat_explicit_do(struct nfp_cpp_explicit *expl,
 	 */
 	if (required) {
 		do {
-			post = readl(gcsr + NFP_ARM_GCSR_EXPL_POST(ndx));
-			post = readl(gcsr + NFP_ARM_GCSR_EXPL_POST(ndx));
+			post = readl(gcsr + NFP_ARM_GCSR_EXPL_POST(index));
+			post = readl(gcsr + NFP_ARM_GCSR_EXPL_POST(index));
 		} while (((post & required) != required));
 	}
 
@@ -900,11 +910,11 @@ const struct nfp_cpp_operations nfp3200_cpp_plat_template = {
 
 static const struct of_device_id nfp3200_plat_match[] = {
 	{
-		.compatible = "netronome,nfp3200-arm-cpp",
-		.data = nfp3200_target_pushpull
-	}, {
 		.compatible = "netronome,nfp6000-arm-cpp",
 		.data = nfp6000_target_pushpull
+	}, {
+		.compatible = "netronome,nfp3200-arm-cpp",
+		.data = nfp3200_target_pushpull
 	}, {
 	},
 };
