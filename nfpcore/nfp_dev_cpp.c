@@ -538,7 +538,7 @@ static int explicit_csr_to_cmd(struct nfp_cpp_explicit *expl,
 	}
 
 	signal_master = NFP_ARM_GCSR_EXPL2_BAR_SIGNAL_MASTER_of(expl2);
-	signal_ref = NFP_ARM_GCSR_EXPL1_BAR_SIGNAL_REF_of(expl2);
+	signal_ref = NFP_ARM_GCSR_EXPL1_BAR_SIGNAL_REF_of(expl1);
 
 	if (signal_master || signal_ref) {
 		err = nfp_cpp_explicit_set_signal(expl, signal_master,
