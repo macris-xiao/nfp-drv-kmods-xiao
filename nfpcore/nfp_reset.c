@@ -211,7 +211,7 @@ static int nfp6000_stop_me(struct nfp_device *nfp, int island, int menum)
 	if (err < 0)
 		return err;
 
-	udelay(1);
+	mdelay(1);
 
 	/* This may seem like a rushed test, but in the 1 microsecond sleep
 	 * the ME has executed about a 1000 instructions and even more during
@@ -303,9 +303,10 @@ static int nfp6000_nbi_mac_check_freebufs(struct nfp_nbi_dev *nbi)
 {
 	uint32_t tmp;
 	int err, ok, split;
+	const int timeout_ms = 500;
 	struct timespec ts, timeout = {
 		.tv_sec = 0,
-		.tv_nsec = 500 * 1000 * 1000,
+		.tv_nsec = timeout_ms * 1000 * 1000,
 	};
 	const int igsplit = 1007;
 	const int egsplit = 495;
@@ -492,6 +493,8 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 		}
 	}
 
+	mdelay(500);
+
 	/* Verify all NBI MAC packet buffers have returned */
 	for (i = 0; i < 2; i++) {
 		if (!nbi[i])
@@ -504,6 +507,7 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 
 	/* Wait for PCIE DMA Queues to empty */
 	for (i = 0; i < 4; i++) {
+		const int timeout_ms = 500;
 		uint32_t tmp;
 		const uint32_t pci = NFP_CPP_ISLAND_ID(
 						NFP_CPP_TARGET_PCIE, 2, 0, i+4);
@@ -513,7 +517,7 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 					NFP6000_DEVICE_PCI_CORE);
 		struct timespec ts, timeout = {
 			.tv_sec = 0,
-			.tv_nsec = 500 * 1000 * 1000,
+			.tv_nsec = timeout_ms * 1000 * 1000,
 		};
 
 		err = nfp_power_get(nfp, subdev, &state);
