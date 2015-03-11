@@ -83,8 +83,11 @@ int nfp6000_island_power(struct nfp_device *nfp, int state)
 	for (i = 0; i < 2; i++) {
 		err = nfp_power_set(nfp, NFP6000_DEVICE_NBI(i,
 					NFP6000_DEVICE_NBI_CORE), state);
-		if (err < 0)
+		if (err < 0) {
+			if (NFP_NOERR(err) == ENODEV)
+				continue;
 			return err;
+		}
 	}
 
 	/* Reset ILA cores */
@@ -92,8 +95,11 @@ int nfp6000_island_power(struct nfp_device *nfp, int state)
 		for (u = NFP6000_DEVICE_ILA_MEG1; u >= 0; u--) {
 			err = nfp_power_set(nfp, NFP6000_DEVICE_ILA(i, u),
 						 state);
-			if (err < 0)
+			if (err < 0) {
+				if (NFP_NOERR(err) == ENODEV)
+					break;
 				return err;
+			}
 		}
 	}
 
@@ -102,8 +108,11 @@ int nfp6000_island_power(struct nfp_device *nfp, int state)
 		for (u = NFP6000_DEVICE_FPC_MEG5; u >= 0; u--) {
 			err = nfp_power_set(nfp, NFP6000_DEVICE_FPC(i, u),
 						 state);
-			if (err < 0)
+			if (err < 0) {
+				if (NFP_NOERR(err) == ENODEV)
+					break;
 				return err;
+			}
 		}
 	}
 
@@ -112,8 +121,11 @@ int nfp6000_island_power(struct nfp_device *nfp, int state)
 		for (u = NFP6000_DEVICE_IMU_NLU; u >= 0; u--) {
 			err = nfp_power_set(nfp, NFP6000_DEVICE_IMU(i, u),
 						 state);
-			if (err < 0)
+			if (err < 0) {
+				if (NFP_NOERR(err) == ENODEV)
+					break;
 				return err;
+			}
 		}
 	}
 
@@ -122,8 +134,11 @@ int nfp6000_island_power(struct nfp_device *nfp, int state)
 		for (u = NFP6000_DEVICE_CRP_MEG1; u >= 0; u--) {
 			err = nfp_power_set(nfp, NFP6000_DEVICE_CRP(i, u),
 						 state);
-			if (err < 0)
+			if (err < 0) {
+				if (NFP_NOERR(err) == ENODEV)
+					break;
 				return err;
+			}
 		}
 	}
 
@@ -133,8 +148,11 @@ int nfp6000_island_power(struct nfp_device *nfp, int state)
 		     u--) {
 			err = nfp_power_set(nfp, NFP6000_DEVICE_PCI(i, u),
 						 state);
-			if (err < 0)
+			if (err < 0) {
+				if (NFP_NOERR(err) == ENODEV)
+					break;
 				return err;
+			}
 		}
 	}
 
@@ -242,8 +260,11 @@ static int nfp6000_stop_me_island(struct nfp_device *nfp, int island)
 
 		err = nfp_power_get(nfp, NFP6000_DEVICE(island, 
 						meg_device + i), &state);
-		if (err < 0)
+		if (err < 0) {
+			if (NFP_NOERR(err) == ENODEV)
+				continue;
 			return err;
+		}
 
 		if (state != NFP_DEVICE_STATE_ON)
 			continue;
@@ -386,6 +407,21 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 
 	for (i = 0; i < 2; i++) {
 		uint32_t tmp;
+		int state;
+
+		err = nfp_power_get(nfp, NFP6000_DEVICE_NBI(i, 0), &state);
+		if (err < 0) {
+			if (NFP_NOERR(err) == ENODEV) {
+				nbi[i] = NULL;
+				continue;
+			}
+			return err;
+		}
+
+		if (state != NFP_DEVICE_STATE_ON) {
+			nbi[i] = NULL;
+			continue;
+		}
 
 		nbi[i] = nfp_nbi_open(nfp, i);
 		if (nbi[i] == NULL)
@@ -452,8 +488,11 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 		};
 
 		err = nfp_power_get(nfp, subdev, &state);
-		if (err < 0)
-			return err;
+		if (err < 0) {
+			if (NFP_NOERR(err) == ENODEV)
+				continue;
+			goto exit;
+		}
 
 		if (state != NFP_DEVICE_STATE_ON)
 			continue;
@@ -497,8 +536,21 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 
 	/* Clear all PCIe DMA Queues */
 	for (i = 0; i < 4; i++) {
+		unsigned int subdev = NFP6000_DEVICE_PCI(i,
+					NFP6000_DEVICE_PCI_CORE);
+		int state;
 		const uint32_t pci = NFP_CPP_ISLAND_ID(
 						NFP_CPP_TARGET_PCIE, 3, 0, i+4);
+
+		err = nfp_power_get(nfp, subdev, &state);
+		if (err < 0) {
+			if (NFP_NOERR(err) == ENODEV)
+				continue;
+			goto exit;
+		}
+
+		if (state != NFP_DEVICE_STATE_ON)
+			continue;
 
 		for (p = 0; p < 256; p++) {
 			uint32_t q = 0x80000 | (p << 11);
