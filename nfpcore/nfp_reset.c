@@ -29,6 +29,14 @@
 #include "nfp6000/nfp6000.h"
 #include "nfp6000/nfp_xpb.h"
 
+#ifndef NFP_APP_PACKET_CREDITS
+#define NFP_APP_PACKET_CREDITS	128
+#endif
+
+#ifndef NFP_APP_BUFFER_CREDITS
+#define NFP_APP_BUFFER_CREDITS	63
+#endif
+
 /* Perform a soft reset of the NFP3200:
  *   - TODO
  */
@@ -92,13 +100,16 @@ static int nfp3200_reset_soft(struct nfp_device *nfp)
 
 
 
-int nfp6000_island_power(struct nfp_device *nfp, int state)
+int nfp6000_island_power(struct nfp_device *nfp, int nbi_mask, int state)
 {
 	int err;
 	int i, u;
 
 	/* Reset NBI cores */
 	for (i = 0; i < 2; i++) {
+		if ((nbi_mask & BIT(i)) == 0)
+			continue;
+
 		err = nfp_power_set(nfp, NFP6000_DEVICE_NBI(i,
 					NFP6000_DEVICE_NBI_CORE), state);
 		if (err < 0) {
@@ -227,8 +238,10 @@ static int nfp6000_stop_me(struct nfp_device *nfp, int island, int menum)
 	if (err < 0)
 		return err;
 
-	if (tmp & NFP_ME_ActCtxStatus_AB0)
+	if (tmp & NFP_ME_ActCtxStatus_AB0) {
+		nfp_err(nfp, "ME%d.%d did not stop after 1000us\n", island, menum);
 		return -EIO;
+	}
 
 	return 0;
 }
@@ -299,7 +312,8 @@ static int nfp6000_stop_me_island(struct nfp_device *nfp, int island)
 	return 0;
 }
 
-static int nfp6000_nbi_mac_check_freebufs(struct nfp_nbi_dev *nbi)
+static int nfp6000_nbi_mac_check_freebufs(struct nfp_device *nfp,
+					  struct nfp_nbi_dev *nbi)
 {
 	uint32_t tmp;
 	int err, ok, split;
@@ -344,18 +358,31 @@ static int nfp6000_nbi_mac_check_freebufs(struct nfp_nbi_dev *nbi)
 		egcount1 = NFP_NBI_MACX_CSR_EG_BUFFER_CREDIT_POOL_COUNT_EG_BUFFER_CREDIT_COUNT1_of(tmp);
 
 		if (split) {
-			ok &= (igcount == igsplit);
-			ok &= (egcount == egsplit);
-			ok &= (igcount1 == igsplit);
-			ok &= (egcount1 == egsplit);
+			ok &= (igcount >= igsplit);
+			ok &= (egcount >= egsplit);
+			ok &= (igcount1 >= igsplit);
+			ok &= (egcount1 >= egsplit);
 		} else {
-			ok &= (igcount == igsplit*2);
-			ok &= (egcount == egsplit*2);
+			ok &= (igcount >= igsplit*2);
+			ok &= (egcount >= egsplit*2);
 		}
 
 		if (!ok) {
 			ts = CURRENT_TIME;
 			if (timespec_compare(&ts, &timeout) >= 0) {
+				nfp_err(nfp, "After %dms, NBI%d did not flush all packet buffers\n",
+						timeout_ms, nfp_nbi_index(nbi));
+				if (split) {
+					nfp_err(nfp, "\t(ingress %d/%d != %d/%d, egress %d/%d != %d/%d)\n",
+						igcount, igcount1,
+						igsplit, igsplit,
+						egcount, egcount1,
+						egsplit, egsplit );
+				} else {
+					nfp_err(nfp, "\t(ingress %d != %d, egress %d != %d)\n",
+						igcount, igsplit,
+						egcount, egsplit);
+				}
 				return -ETIMEDOUT;
 			}
 		}
@@ -364,15 +391,18 @@ static int nfp6000_nbi_mac_check_freebufs(struct nfp_nbi_dev *nbi)
 	return 0;
 }
 
-static int nfp6000_nbi_check_dma_credits(struct nfp_nbi_dev *nbi, struct nfp_cpp *cpp)
+static int nfp6000_nbi_check_dma_credits(struct nfp_device *nfp, struct nfp_nbi_dev *nbi)
 {
-	int err, p;
+	struct nfp_cpp *cpp = nfp_device_cpp(nfp);
+	int err, p, seen_last = 1;
 	uint32_t tmp;
-	const int pktcred = 128;
-	const int bufcred = 63;
+	const int app_pktcred = NFP_APP_PACKET_CREDITS;
+	const int app_bufcred = NFP_APP_BUFFER_CREDITS;
 
-	for (p = 0; p < 32; p++) {
-		int ctm, pkt, buf;
+	for (p = 31; p >= 0; p--) {
+		int ctm, pkt, buf, stat;
+		int pktcred;
+		int bufcred;
 
 		err = nfp_nbi_mac_regr(nbi, NFP_NBI_DMAX_CSR,
 			NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG(p),
@@ -385,12 +415,29 @@ static int nfp6000_nbi_check_dma_credits(struct nfp_nbi_dev *nbi, struct nfp_cpp
 			continue;
 
 		pkt = NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_PKT_CREDIT_of(tmp);
-		if (pkt != pktcred)
-			return -EBUSY;
 
 		buf = NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_BUF_CREDIT_of(tmp);
-		if (buf != bufcred)
+
+		if (!seen_last) {
+			pktcred = 0;
+			bufcred = 0;
+			seen_last = 1;
+		} else {
+			pktcred = app_pktcred;
+			bufcred = app_bufcred;
+		}
+
+		if (pkt != pktcred) {
+			nfp_err(nfp, "NBI%d DMA%d CTM%d did not drain packets (%d != %d)\n",
+					nfp_nbi_index(nbi), p, ctm, pkt, pktcred);
 			return -EBUSY;
+		}
+
+		if (buf != bufcred) {
+			nfp_err(nfp, "NBI%d DMA%d CTM%d did not drain buffers (%d != %d)\n",
+					nfp_nbi_index(nbi), p, ctm, buf, bufcred);
+			return -EBUSY;
+		}
 
 		err = nfp_xpb_readl(cpp, NFP_XPB_ISLAND(ctm) + NFP_CTMX_PKT
 					+ NFP_CTMX_PKT_MU_PE_ACTIVE_PACKET_COUNT,
@@ -398,8 +445,12 @@ static int nfp6000_nbi_check_dma_credits(struct nfp_nbi_dev *nbi, struct nfp_cpp
 		if (err < 0)
 			return err;
 
-		if (NFP_CTMX_PKT_MUPESTATS_MU_PE_STAT_of(tmp) != 0)
+		stat = NFP_CTMX_PKT_MUPESTATS_MU_PE_STAT_of(tmp);
+		if (stat) {
+			nfp_err(nfp, "NBI%d DMA%d (CTM%d) is still active (%d packets)\n",
+					nfp_nbi_index(nbi), p, ctm, stat);
 			return -EBUSY;
+		}
 
 	}
 
@@ -422,7 +473,7 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 	struct nfp_cpp *cpp = nfp_device_cpp(nfp);
 	struct nfp_nbi_dev *nbi[2];
 	int mac_enable[2];
-	int i, p, err;
+	int i, p, err, nbi_mask = 0;
 	struct nfp_resource *res;
 	struct nfp_cpp_area *area;
 
@@ -455,6 +506,8 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 		if (nbi[i] == NULL)
 			continue;
 
+		nbi_mask |= BIT(i);
+
 		err = nfp_nbi_mac_regr(nbi[i], NFP_NBI_MACX_CSR,
 					NFP_NBI_MACX_CSR_MAC_BLOCK_RST,
 					&tmp);
@@ -485,9 +538,11 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 			mask = NFP_NBI_MACX_ETH_MACETHSEG_ETH_CMD_CONFIG_ETH_RX_ENA;
 			r = NFP_NBI_MACX_ETH_MACETHSEG_ETH_CMD_CONFIG(p % 12);
 
-			err = nfp_nbi_mac_regw(nbi[i], NFP_NBI_MACX_ETH(p / 12), r,
-						mask, 0);
+			err = nfp_nbi_mac_regw(nbi[i], NFP_NBI_MACX_ETH(p / 12),
+						r, mask, 0);
 			if (err < 0) {
+				nfp_err(nfp, "Can't disable RX traffic for port %d.%d\n",
+						i, p);
 				goto exit;
 			}
 		}
@@ -500,7 +555,7 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 		if (!nbi[i])
 			continue;
 
-		err = nfp6000_nbi_mac_check_freebufs(nbi[i]);
+		err = nfp6000_nbi_mac_check_freebufs(nfp, nbi[i]);
 		if (err < 0)
 			goto exit;
 	}
@@ -639,7 +694,7 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 		if (!nbi[i])
 			continue;
 
-		err = nfp6000_nbi_mac_check_freebufs(nbi[i]);
+		err = nfp6000_nbi_mac_check_freebufs(nfp, nbi[i]);
 		if (err < 0)
 			goto exit;
 	}
@@ -649,7 +704,7 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 		if (!nbi[i])
 			continue;
 
-		err = nfp6000_nbi_check_dma_credits(nbi[i], cpp);
+		err = nfp6000_nbi_check_dma_credits(nfp, nbi[i]);
 		if (err < 0)
 			goto exit;
 	}
@@ -661,11 +716,11 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 	}
 
 	/* Soft reset subcomponents relevant to this model */
-	err = nfp6000_island_power(nfp, NFP_DEVICE_STATE_RESET);
+	err = nfp6000_island_power(nfp, nbi_mask, NFP_DEVICE_STATE_RESET);
 	if (err < 0)
 		goto exit;
 
-	err = nfp6000_island_power(nfp, NFP_DEVICE_STATE_ON);
+	err = nfp6000_island_power(nfp, nbi_mask, NFP_DEVICE_STATE_ON);
 	if (err < 0)
 		goto exit;
 
