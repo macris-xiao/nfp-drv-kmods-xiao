@@ -15,8 +15,12 @@
  *
  */
 
-#include "nfp.h"
+#define NFP_SUBSYS	"nfp_reset: "
 
+#include "nfp.h"
+#include "nfp_device.h"
+
+#include "nfp_resource.h"
 #include "nfp_reset.h"
 #include "nfp_power.h"
 #include "nfp_nbi.h"
@@ -404,6 +408,15 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 	struct nfp_nbi_dev *nbi[2];
 	int mac_enable[2];
 	int i, p, err;
+	struct nfp_resource *res;
+	struct nfp_cpp_area *area;
+
+	/* Claim the nfp.nffw resource page */
+	res = nfp_resource_acquire(nfp, NFP_RESOURCE_NFP_NFFW);
+	if (!res) {
+		nfp_err(nfp, "Can't aquire %s resource\n", NFP_RESOURCE_NFP_NFFW);
+		return -EBUSY;
+	}
 
 	for (i = 0; i < 2; i++) {
 		uint32_t tmp;
@@ -431,7 +444,7 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 					NFP_NBI_MACX_CSR_MAC_BLOCK_RST,
 					&tmp);
 		if (err < 0)
-			return err;
+			goto exit;
 
 		mac_enable[i] = 0;
 		if (!(tmp & NFP_NBI_MACX_CSR_MAC_BLOCK_RST_MAC_HY0_STAT_RST))
@@ -459,8 +472,9 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 
 			err = nfp_nbi_mac_regw(nbi[i], NFP_NBI_MACX_ETH(p / 12), r,
 						mask, 0);
-			if (err < 0)
-				return err;
+			if (err < 0) {
+				goto exit;
+			}
 		}
 	}
 
@@ -471,7 +485,7 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 
 		err = nfp6000_nbi_mac_check_freebufs(nbi[i]);
 		if (err < 0)
-			return err;
+			goto exit;
 	}
 
 	/* Wait for PCIE DMA Queues to empty */
@@ -528,10 +542,8 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 	/* Stop all MEs */
 	for (i = 0; i < 64; i++) {
 		err = nfp6000_stop_me_island(nfp, i);
-		if (err < 0) {
-			pr_info("%s:%d %d\n", __func__, __LINE__, i);
-			return err;
-		}
+		if (err < 0)
+			goto exit;
 	}
 
 	/* Clear all PCIe DMA Queues */
@@ -553,15 +565,17 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 			continue;
 
 		for (p = 0; p < 256; p++) {
-			uint32_t q = 0x80000 | (p << 11);
+			uint32_t q = NFP_PCIE_Q(p);
 
-			err = nfp_cpp_writel(cpp, pci, q + 0x8, 0x80000000);
+			err = nfp_cpp_writel(cpp, pci, q + NFP_QCTLR_STS_LO,
+						NFP_QCTLR_STS_LO_RPTR_ENABLE);
 			if (err < 0)
-				return err;
+				goto exit;
 
-			err = nfp_cpp_writel(cpp, pci, q + 0xc, 0x04000000);
+			err = nfp_cpp_writel(cpp, pci, q + NFP_QCTLR_STS_HI,
+						NFP_QCTLR_STS_HI_EMPTY);
 			if (err < 0)
-				return err;
+				goto exit;
 		}
 	}
 
@@ -580,11 +594,12 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 		err = nfp_nbi_mac_regw(nbi[i], NFP_NBI_MACX_CSR,
 				NFP_NBI_MACX_CSR_MAC_BLOCK_RST, mask, mask);
 		if (err < 0)
-			return err;
+			goto exit;
+
 		err = nfp_nbi_mac_regw(nbi[i], NFP_NBI_MACX_CSR,
 				NFP_NBI_MACX_CSR_MAC_BLOCK_RST, mask, 0);
 		if (err < 0)
-			return err;
+			goto exit;
 	}
 
 	/* Verify all NBI MAC packet buffers have returned */
@@ -594,7 +609,7 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 
 		err = nfp6000_nbi_mac_check_freebufs(nbi[i]);
 		if (err < 0)
-			return err;
+			goto exit;
 	}
 
 	/* Verify that all NBI/MAC credits have returned */
@@ -604,7 +619,7 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 
 		err = nfp6000_nbi_check_dma_credits(nbi[i], cpp);
 		if (err < 0)
-			return err;
+			goto exit;
 	}
 
 	/* No need for NBI access anymore.. */
@@ -616,13 +631,36 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 	/* Soft reset subcomponents relevant to this model */
 	err = nfp6000_island_power(nfp, NFP_DEVICE_STATE_RESET);
 	if (err < 0)
-		return err;
+		goto exit;
 
 	err = nfp6000_island_power(nfp, NFP_DEVICE_STATE_ON);
 	if (err < 0)
-		return err;
+		goto exit;
 
-	return 0;
+	/* Clear all NFP NFFW page */
+	area = nfp_cpp_area_alloc_acquire(cpp, nfp_resource_cpp_id(res),
+					  nfp_resource_address(res),
+					  nfp_resource_size(res));
+	if (!area) {
+		nfp_err(nfp, "Can't acquire area for %s resource\n",
+				NFP_RESOURCE_NFP_NFFW);
+		err = -ENOMEM;
+		goto exit;
+	}
+
+	err = nfp_cpp_area_fill(area, 0, 0, nfp_resource_size(res));
+	nfp_cpp_area_release_free(area);
+	if (err < 0) {
+		nfp_err(nfp, "Can't erase area of %s resource\n",
+				NFP_RESOURCE_NFP_NFFW);
+		goto exit;
+	}
+
+	err = 0;
+
+exit:
+	nfp_resource_release(res);
+	return err;
 }
 
 /* Perform a soft reset of the NFP:
