@@ -77,6 +77,20 @@ static int nfp3200_reset_soft(struct nfp_device *nfp)
 #define NFP_CTMX_PKT_MU_PE_ACTIVE_PACKET_COUNT               0x00000400
 #define   NFP_CTMX_PKT_MUPESTATS_MU_PE_STAT_of(_x)           (((_x) >> 0) & 0x3ff)
 
+#define NFP_PCIE_DMA						(0x040000)
+#define NFP_PCIE_DMA_QSTS0_TOPCI				0x000000e0
+#define   NFP_PCIE_DMA_DMAQUEUESTATUS0_DMA_LO_AVAIL_of(_x)   (((_x) >> 24) & 0xff)
+#define NFP_PCIE_DMA_QSTS1_TOPCI                             0x000000e4
+#define   NFP_PCIE_DMA_DMAQUEUESTATUS1_DMA_HI_AVAIL_of(_x)   (((_x) >> 24) & 0xff)
+#define   NFP_PCIE_DMA_DMAQUEUESTATUS1_DMA_MED_AVAIL_of(_x)  (((_x) >> 8) & 0xff)
+
+#define NFP_PCIE_Q(_x)				(0x080000 + ((_x) & 0xff) * 0x10)
+#define NFP_QCTLR_STS_LO                                     0x00000008
+#define   NFP_QCTLR_STS_LO_RPTR_ENABLE				BIT(31)
+#define NFP_QCTLR_STS_HI                                     0x0000000c
+#define   NFP_QCTLR_STS_HI_EMPTY				BIT(26)
+
+
 
 int nfp6000_island_power(struct nfp_device *nfp, int state)
 {
@@ -494,6 +508,7 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 		const uint32_t pci = NFP_CPP_ISLAND_ID(
 						NFP_CPP_TARGET_PCIE, 2, 0, i+4);
 		int state, ok;
+		const int dma_low = 128, dma_med = 64, dma_hi = 64;
 		unsigned int subdev = NFP6000_DEVICE_PCI(i,
 					NFP6000_DEVICE_PCI_CORE);
 		struct timespec ts, timeout = {
@@ -515,24 +530,37 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 		timeout = timespec_add(ts, timeout);
 
 		do {
-			err = nfp_cpp_readl(cpp, pci, 0x400e4, &tmp);
+			int hi, med, low;
+
+			ok = 1;
+			err = nfp_cpp_readl(cpp, pci, NFP_PCIE_DMA +
+						NFP_PCIE_DMA_QSTS0_TOPCI, &tmp);
 			if (err < 0)
-				return err;
+				goto exit;
 
-			ok = (tmp & 0xff00ff00) == 0x40004000;
-			if (ok) {
-				err = nfp_cpp_readl(cpp, pci, 0x400e0, &tmp);
-				if (err < 0)
-					return err;
+			low = NFP_PCIE_DMA_DMAQUEUESTATUS0_DMA_LO_AVAIL_of(tmp);
 
-				ok = (tmp & 0xff000000) == 0x80000000;
-			}
+			err = nfp_cpp_readl(cpp, pci, NFP_PCIE_DMA +
+						NFP_PCIE_DMA_QSTS1_TOPCI, &tmp);
+			if (err < 0)
+				goto exit;
+
+			med = NFP_PCIE_DMA_DMAQUEUESTATUS1_DMA_MED_AVAIL_of(tmp);
+			hi  = NFP_PCIE_DMA_DMAQUEUESTATUS1_DMA_HI_AVAIL_of(tmp);
+
+			ok &= low == dma_low;
+			ok &= med == dma_med;
+			ok &= hi  == dma_hi;
 
 			if (!ok) {
 				ts = CURRENT_TIME;
 				if (timespec_compare(&ts, &timeout) >= 0) {
-					pr_info("%s:%d 0x%08x\n", __func__, __LINE__, tmp);
-					return -ETIMEDOUT;
+					nfp_err(nfp, "PCI%d DMA queues did not drain in %dms (%d/%d/%d != %d/%d/%d)\n",
+							i, timeout_ms,
+							low, med, hi,
+							dma_low, dma_med, dma_hi);
+					err = -ETIMEDOUT;
+					goto exit;
 				}
 			}
 
