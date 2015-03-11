@@ -20,14 +20,14 @@ nfp-kmod-src-absdir := $(nfp-kmod-absdir)
 # Following relative path is used by linux_kmod_template
 nfp-kmod-src-dir := $(nfp-kmod-dir)
 
-nfp-kmod-srcs = $(nfp-kmod-dir)/Kbuild \
+nfp-kmod-srcs = $(nfp-kmod-src-dir)/Kbuild \
   $(subst $(dir_src_top)/,,\
-	$(wildcard $(addprefix $(dir_src_top)/$(nfp-kmod-dir)/,*.c *.h))\
-	$(wildcard $(addprefix $(dir_src_top)/$(nfp-kmod-dir)/nfp_net/,*.c *.h))\
-	$(wildcard $(addprefix $(dir_src_top)/$(nfp-kmod-dir)/nfpcore/,*.c *.h))\
-	$(wildcard $(addprefix $(dir_src_top)/$(nfp-kmod-dir)/nfpcore/nfp3200/,*.h))\
-	$(wildcard $(addprefix $(dir_src_top)/$(nfp-kmod-dir)/nfpcore/nfp6000/,*.h))\
-	$(wildcard $(addprefix $(dir_src_top)/$(nfp-kmod-dir)/nfpcore/nfp-bsp/,*.h))\
+	$(wildcard $(addprefix $(dir_src_top)/$(nfp-kmod-src-dir)/,*.c *.h))\
+	$(wildcard $(addprefix $(dir_src_top)/$(nfp-kmod-src-dir)/nfp_net/,*.c *.h))\
+	$(wildcard $(addprefix $(dir_src_top)/$(nfp-kmod-src-dir)/nfpcore/,*.c *.h))\
+	$(wildcard $(addprefix $(dir_src_top)/$(nfp-kmod-src-dir)/nfpcore/nfp3200/,*.h))\
+	$(wildcard $(addprefix $(dir_src_top)/$(nfp-kmod-src-dir)/nfpcore/nfp6000/,*.h))\
+	$(wildcard $(addprefix $(dir_src_top)/$(nfp-kmod-src-dir)/nfpcore/nfp-bsp/,*.h))\
    )
 
 nfp-headers-linux-include = $(nfp-kmod-absdir)
