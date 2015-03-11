@@ -113,7 +113,7 @@ int nfp6000_island_power(struct nfp_device *nfp, int nbi_mask, int state)
 		err = nfp_power_set(nfp, NFP6000_DEVICE_NBI(i,
 					NFP6000_DEVICE_NBI_CORE), state);
 		if (err < 0) {
-			if (NFP_NOERR(err) == ENODEV)
+			if (err == -ENODEV)
 				continue;
 			return err;
 		}
@@ -125,7 +125,7 @@ int nfp6000_island_power(struct nfp_device *nfp, int nbi_mask, int state)
 			err = nfp_power_set(nfp, NFP6000_DEVICE_ILA(i, u),
 						 state);
 			if (err < 0) {
-				if (NFP_NOERR(err) == ENODEV)
+				if (err == -ENODEV)
 					break;
 				return err;
 			}
@@ -138,7 +138,7 @@ int nfp6000_island_power(struct nfp_device *nfp, int nbi_mask, int state)
 			err = nfp_power_set(nfp, NFP6000_DEVICE_FPC(i, u),
 						 state);
 			if (err < 0) {
-				if (NFP_NOERR(err) == ENODEV)
+				if (err == -ENODEV)
 					break;
 				return err;
 			}
@@ -151,7 +151,7 @@ int nfp6000_island_power(struct nfp_device *nfp, int nbi_mask, int state)
 			err = nfp_power_set(nfp, NFP6000_DEVICE_IMU(i, u),
 						 state);
 			if (err < 0) {
-				if (NFP_NOERR(err) == ENODEV)
+				if (err == -ENODEV)
 					break;
 				return err;
 			}
@@ -164,7 +164,7 @@ int nfp6000_island_power(struct nfp_device *nfp, int nbi_mask, int state)
 			err = nfp_power_set(nfp, NFP6000_DEVICE_CRP(i, u),
 						 state);
 			if (err < 0) {
-				if (NFP_NOERR(err) == ENODEV)
+				if (err == -ENODEV)
 					break;
 				return err;
 			}
@@ -178,7 +178,7 @@ int nfp6000_island_power(struct nfp_device *nfp, int nbi_mask, int state)
 			err = nfp_power_set(nfp, NFP6000_DEVICE_PCI(i, u),
 						 state);
 			if (err < 0) {
-				if (NFP_NOERR(err) == ENODEV)
+				if (err == -ENODEV)
 					break;
 				return err;
 			}
@@ -292,7 +292,7 @@ static int nfp6000_stop_me_island(struct nfp_device *nfp, int island)
 		err = nfp_power_get(nfp, NFP6000_DEVICE(island, 
 						meg_device + i), &state);
 		if (err < 0) {
-			if (NFP_NOERR(err) == ENODEV)
+			if (err == -ENODEV)
 				continue;
 			return err;
 		}
@@ -490,7 +490,7 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 
 		err = nfp_power_get(nfp, NFP6000_DEVICE_NBI(i, 0), &state);
 		if (err < 0) {
-			if (NFP_NOERR(err) == ENODEV) {
+			if (err == -ENODEV) {
 				nbi[i] = NULL;
 				continue;
 			}
@@ -577,7 +577,7 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 
 		err = nfp_power_get(nfp, subdev, &state);
 		if (err < 0) {
-			if (NFP_NOERR(err) == ENODEV)
+			if (err == -ENODEV)
 				continue;
 			goto exit;
 		}
@@ -643,7 +643,7 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 
 		err = nfp_power_get(nfp, subdev, &state);
 		if (err < 0) {
-			if (NFP_NOERR(err) == ENODEV)
+			if (err == -ENODEV)
 				continue;
 			goto exit;
 		}
