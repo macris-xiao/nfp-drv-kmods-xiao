@@ -1,0 +1,292 @@
+/*
+ * Copyright (C) 2015, Netronome, Inc.
+ * All right reserved.
+ * Author: Jason McMullan <jason.mcmullan@netronome.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ */
+
+#include <linux/kernel.h>
+#include <linux/mutex.h>
+#include <linux/module.h>
+#include <linux/list.h>
+
+#include "nfp.h"
+#include "nfp_device.h"
+#include "nfp_roce.h"
+#include "nfp_rtsym.h"
+
+#include "nfp6000/nfp6000.h"
+
+struct nfp_roce {
+	struct list_head list;
+	struct nfp_roce_info info;
+	struct nfp_cpp_area *command;
+	struct nfp_cpp_area *doorbell;
+	struct netro_ibdev *ibdev;
+};
+
+static LIST_HEAD(nfp_roce_list);
+
+static DEFINE_MUTEX(roce_driver_mutex);
+static struct nfp_roce_drv *roce_driver;
+
+/**
+ * nfp_register_roce_driver - Register the RoCE driver with NFP core.
+ *
+ * @param[in]   roce_if   RoCE driver callback function table.
+ * @return                0 on success, otherwise error.
+ *
+ * This routine is called by the netro RoCEv2 kernel driver to
+ * notify the NFP NIC/core driver that the RoCE driver has been loaded. If
+ * RoCE is not enabled or the ABI version is not supported, the NFP NIC/core
+ * should return an error. Otherwise, the NFP NIC/core should invoke the
+ * add_device() callback for each NIC instance.
+ */
+int nfp_register_roce_driver(struct nfp_roce_drv *drv)
+{
+	struct nfp_roce *roce;
+
+	if (!drv || drv->abi_version != NETRO_ROCE_ABI_VERSION)
+		return -EINVAL;
+
+	mutex_lock(&roce_driver_mutex);
+	if (roce_driver) {
+		mutex_unlock(&roce_driver_mutex);
+		return -EBUSY;
+	}
+	roce_driver = drv;
+
+	list_for_each_entry(roce, &nfp_roce_list, list) {
+		BUG_ON(roce->ibdev != NULL);
+		roce->ibdev = roce_driver->add_device(&roce->info);
+		if (IS_ERR_OR_NULL(roce->ibdev)) {
+			int err = roce->ibdev ? PTR_ERR(roce->ibdev) : -ENODEV;
+			dev_warn(&roce->info.pdev->dev,
+				"ROCE: Can't register device: %d\n", err);
+			roce->ibdev = NULL;
+		}
+	}
+
+	mutex_unlock(&roce_driver_mutex);
+
+	return 0;
+}
+EXPORT_SYMBOL(nfp_register_roce_driver);
+
+/**
+ * nfp_unregister_roce_driver - Unregister the RoCE driver with NFP core.
+ *
+ * @param[in]   roce_if   The callback function table passed in the
+ * associated nfp_register_roce_driver() call.
+ *
+ * This routine is called by the netro RoCEv2 driver to notify the NFP
+ * NIC/core driver that the RoCE driver is unloading. The NFP NIC
+ * driver invokes the remove_device routine for each netro RoCE device
+ * that has been added.
+ */
+void nfp_unregister_roce_driver(struct nfp_roce_drv *drv)
+{
+	mutex_lock(&roce_driver_mutex);
+	if (drv == roce_driver) {
+		struct nfp_roce *roce;
+		list_for_each_entry(roce, &nfp_roce_list, list) {
+			if (!roce->ibdev)
+				continue;
+			roce_driver->remove_device(roce->ibdev);
+			roce->ibdev = NULL;
+		}
+		roce_driver = NULL;
+	}
+	mutex_unlock(&roce_driver_mutex);
+}
+EXPORT_SYMBOL(nfp_unregister_roce_driver);
+
+/**
+ * nfp_roce_attach - attach a network device set to the ROCE subsystem
+ *
+ * Returns: IS_ERR() checkable pointer
+ *
+ * This routine attachs a ROCE interface to a pci/cpp/netdev triple,
+ * and returns a ROCE handle.
+ */
+struct nfp_roce *nfp_roce_add(struct nfp_device *nfp,
+				  struct net_device **netdev, int netdevs,
+				  struct msix_entry *msix_entry,
+				  int msix_entries)
+{
+	const char *cmd_symbol = "_cmd_iface_reg";
+	int err, i;
+	struct nfp_cpp *cpp;
+	struct device *dev;
+	const struct nfp_rtsym *cmd;
+	struct nfp_roce *roce;
+	struct nfp_roce_info *info;
+
+	/* First, let's validate that the NFP device is
+	 * a PCI interface.
+	 */
+	if (!nfp) {
+		err = -EINVAL;
+		goto error_check;
+	}
+
+	cpp = nfp_device_cpp(nfp);
+	dev = nfp_cpp_device(cpp);
+
+	if (!dev || !dev->parent) {
+		err = -ENODEV;
+		goto error_check;
+	}
+
+	if (!dev_is_pci(dev)) {
+		err = -EINVAL;
+		goto error_check;
+	}
+
+	if (!netdev || netdevs < 1) {
+		nfp_info(nfp, "ROCE: No net devices found\n");
+		err = -EINVAL;
+		goto error_check;
+	}
+
+	if (netdevs > ARRAY_SIZE(info->netdev)) {
+		nfp_info(nfp, "ROCE: Only %d net devices supported\n",
+				(int)ARRAY_SIZE(info->netdev));
+		netdevs = ARRAY_SIZE(info->netdev);
+	}
+
+	cmd = nfp_rtsym_lookup(nfp, cmd_symbol);
+	if (!cmd) {
+		nfp_err(nfp, "ROCE: rtsym '%s' does not exist\n",
+				cmd_symbol);
+		err = -ENOENT;
+		goto error_check;
+	}
+
+	roce = kzalloc(sizeof(*roce) +
+		       sizeof(struct msix_entry) * msix_entries,
+		       GFP_KERNEL);
+	if (!roce) {
+		err = -ENOMEM;
+		goto error_check;
+	}
+
+	info = &roce->info;
+	info->model = nfp_cpp_model(cpp);
+	info->pdev = to_pci_dev(dev);
+
+	for (i = 0; i < netdevs; i++)
+		info->netdev[i] = netdev[i];
+
+	roce->command = nfp_cpp_area_alloc_acquire(cpp,
+				NFP_CPP_ISLAND_ID(cmd->target,
+						  NFP_CPP_ACTION_RW, 0,
+						  cmd->domain),
+				cmd->addr, cmd->size);
+	if (IS_ERR_OR_NULL(roce->command)) {
+		err = roce->command ? PTR_ERR(roce->command) : -ENOMEM;
+		goto error_command;
+	}
+
+	info->db_length = 0x1000 * 64;
+	roce->doorbell = nfp_cpp_area_alloc_acquire(cpp,
+				NFP_CPP_ISLAND_ID(NFP_CPP_TARGET_CLS,
+						  NFP_CPP_ACTION_RW, 0,
+						  4 /* PCI0 Island */),
+				0x80000000,
+				info->db_length);
+	if (IS_ERR_OR_NULL(roce->doorbell)) {
+		err = roce->doorbell ? PTR_ERR(roce->doorbell) : -ENOMEM;
+		goto error_doorbell;
+	}
+
+	info->cmdif = nfp_cpp_area_iomem(roce->command);
+
+	info->db_base = nfp_cpp_area_phys(roce->doorbell);
+
+	ether_addr_copy(info->def_mac, info->netdev[0]->dev_addr);
+
+	info->num_vectors = msix_entries;
+	for (i = 0; i < msix_entries; i++)
+		info->msix[i] = msix_entry[i];
+
+	mutex_lock(&roce_driver_mutex);
+	list_add(&roce->list, &nfp_roce_list);
+
+	/* If we already have a ROCE driver registered, try to
+	 * use it. If it fails, that's fine, we can try another
+	 * one at the next reload.
+	 */
+	if (roce_driver) {
+		roce->ibdev = roce_driver->add_device(info);
+		if (IS_ERR_OR_NULL(roce->ibdev)) {
+			err = roce->ibdev ? PTR_ERR(roce->ibdev) : -ENODEV;
+			nfp_warn(nfp, "ROCE: Can't create interface: %d\n", err);
+			roce->ibdev = NULL;
+		}
+	}
+
+	mutex_unlock(&roce_driver_mutex);
+	return roce;
+
+error_doorbell:
+	nfp_cpp_area_release_free(roce->command);
+error_command:
+	kfree(roce);
+error_check:
+
+	return ERR_PTR(err);
+}
+EXPORT_SYMBOL(nfp_roce_add);
+
+/**
+ * nfp_roce_remove - remove a ROCE device
+ *
+ * This routine attachs a ROCE interface to a pci/cpp/netdev triple,
+ * and returns a ROCE handle.
+ */
+void nfp_roce_remove(struct nfp_roce *roce)
+{
+	if (IS_ERR_OR_NULL(roce))
+		return;
+
+	mutex_lock(&roce_driver_mutex);
+	list_del(&roce->list);
+
+	if (roce->ibdev) {
+		roce_driver->remove_device(roce->ibdev);
+		roce->ibdev = NULL;
+	}
+
+	nfp_cpp_area_release_free(roce->doorbell);
+	nfp_cpp_area_release_free(roce->command);
+	kfree(roce);
+	mutex_unlock(&roce_driver_mutex);
+}
+EXPORT_SYMBOL(nfp_roce_remove);
+
+/**
+ * nfp_roce_state - Alter the state of the ROCE device
+ *
+ * This should be coordinated with the netdev state
+ */
+void nfp_roce_port_set_state(struct nfp_roce *roce, int port, enum nfp_roce_devstate_e state)
+{
+	mutex_lock(&roce_driver_mutex);
+	if (roce_driver && roce->ibdev)
+		roce_driver->event_notifier(roce->ibdev, port, state);
+	mutex_unlock(&roce_driver_mutex);
+}
+EXPORT_SYMBOL(nfp_roce_port_set_state);
+
+/* vim: set shiftwidth=8 noexpandtab: */

@@ -69,6 +69,7 @@ nfp-objs := nfpcore/nfp3200_pcie.o \
 	    nfpcore/nfp_power.o \
 	    nfpcore/nfp_reset.o \
 	    nfpcore/nfp_resource.o \
+	    nfpcore/nfp_roce.o \
 	    nfpcore/nfp_rtsym.o \
 	    nfpcore/nfp_spi.o \
 	    nfp_main.o
