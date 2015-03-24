@@ -849,7 +849,7 @@ static uint32_t nfp_xpb_to_cpp(struct nfp_cpp *cpp, uint32_t *xpb_addr)
 				 * uses Island 0 / Global Bit
 				 */
 				(*xpb_addr) &= ~0x7f000000;
-				if (*xpb_addr < 0xa0000) {
+				if (*xpb_addr < 0x60000) {
 					*xpb_addr |= (1 << 30);
 				} else {
 					/* And only non-ARM interfaces use 
