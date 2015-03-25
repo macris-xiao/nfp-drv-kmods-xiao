@@ -148,6 +148,8 @@ struct nfp_roce *nfp_roce_add(struct nfp_device *nfp,
 		goto error_check;
 	}
 
+	dev = dev->parent;
+
 	if (!dev_is_pci(dev)) {
 		err = -EINVAL;
 		goto error_check;
