@@ -542,8 +542,6 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 	uint32_t bpe[2][32];
 	int bpes[2];
 
-	nfp_info(nfp, "Beginning NFP Soft reset...\n");
-
 	/* Claim the nfp.nffw resource page */
 	res = nfp_resource_acquire(nfp, NFP_RESOURCE_NFP_NFFW);
 	if (!res) {
@@ -607,7 +605,6 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 		if (!nbi[i])
 			continue;
 
-		nfp_info(nfp, "Disabling ingress traffic for NBI%d...\n", i);
 		for (p = 0; p < 24; p++) {
 			uint32_t r, mask;
 
@@ -631,7 +628,6 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 		if (!nbi[i])
 			continue;
 
-		nfp_info(nfp, "Verify all NBI%d MAC packet buffers are returned...\n", i);
 		err = nfp6000_nbi_mac_check_freebufs(nfp, nbi[i]);
 		if (err < 0)
 			goto exit;
@@ -665,7 +661,6 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 		ts = CURRENT_TIME;
 		timeout = timespec_add(ts, timeout);
 
-		nfp_info(nfp, "Waiting for PCIE island%d DMA Queues to empty...\n", i);
 		do {
 			int hi, med, low;
 
@@ -705,7 +700,6 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 	}
 
 	/* Stop all MEs */
-	nfp_info(nfp, "Stopping all ME islands...\n");
 	for (i = 0; i < 64; i++) {
 		err = nfp6000_stop_me_island(nfp, i);
 		if (err < 0)
@@ -730,7 +724,6 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 		if (state != NFP_DEVICE_STATE_ON)
 			continue;
 
-		nfp_info(nfp, "Clearing PCIE island%d DMA Queues...\n", i);
 		for (p = 0; p < 256; p++) {
 			uint32_t q = NFP_PCIE_Q(p);
 
@@ -758,8 +751,6 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 		if (!nbi[i])
 			continue;
 
-		nfp_info(nfp, "Resetting NBI%d MAC gaskets...\n", i);
-
 		err = nfp_nbi_mac_regw(nbi[i], NFP_NBI_MACX_CSR,
 				NFP_NBI_MACX_CSR_MAC_BLOCK_RST, mask, mask);
 		if (err < 0)
@@ -776,7 +767,6 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 		if (!nbi[i])
 			continue;
 
-		nfp_info(nfp, "Verifying NBI%d MAC packet buffers are returned...\n", i);
 		err = nfp6000_nbi_mac_check_freebufs(nfp, nbi[i]);
 		if (err < 0)
 			goto exit;
@@ -787,7 +777,6 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 		if (!nbi[i])
 			continue;
 
-		nfp_info(nfp, "Verifying NBI%d DMA pkt/buf credits are returned...\n", i);
 		err = nfp6000_nbi_check_dma_credits(nfp, nbi[i],
 						    &bpe[i][0], bpes[i]);
 		if (err < 0)
@@ -801,18 +790,15 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 	}
 
 	/* Soft reset subcomponents relevant to this model */
-	nfp_info(nfp, "Putting relevant islands into RESET state...\n");
 	err = nfp6000_island_power(nfp, nbi_mask, NFP_DEVICE_STATE_RESET);
 	if (err < 0)
 		goto exit;
 
-	nfp_info(nfp, "Putting relevant islands into ON state...\n");
 	err = nfp6000_island_power(nfp, nbi_mask, NFP_DEVICE_STATE_ON);
 	if (err < 0)
 		goto exit;
 
 	/* Clear all NFP NFFW page */
-	nfp_info(nfp, "Clearing all NFP NFFW page...\n");
 	area = nfp_cpp_area_alloc_acquire(cpp, nfp_resource_cpp_id(res),
 					  nfp_resource_address(res),
 					  nfp_resource_size(res));
