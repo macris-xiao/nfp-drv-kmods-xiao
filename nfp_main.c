@@ -18,6 +18,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/pci.h>
+#include <linux/firmware.h>
 
 #include "nfpcore/nfp_common.h"
 #include "nfp_modinfo.h"
@@ -28,7 +29,10 @@
 #include "nfpcore/nfp3200_pcie.h"
 #include "nfpcore/nfp6000_pcie.h"
 
+#include "nfpcore/nfp.h"
 #include "nfpcore/nfp_platform.h"
+#include "nfpcore/nfp_ca.h"
+#include "nfpcore/nfp_reset.h"
 
 #include "nfpcore/nfp_mon_err.h"
 #include "nfpcore/nfp_dev_cpp.h"
@@ -52,10 +56,17 @@ MODULE_PARM_DESC(nfp_net_vnic, "vNIC net devices (default = enabled)");
 bool nfp_mon_event = 1;
 module_param(nfp_mon_event, bool, 0444);
 MODULE_PARM_DESC(nfp_mon_event, "Event monitor support (default = enabled)");
+char *nfp3200_firmware;
+module_param(nfp3200_firmware, charp, 0444);
+MODULE_PARM_DESC(nfp3200_firmware, "NFP3200 firmware to load from /lib/firmware/");
+char *nfp6000_firmware;
+module_param(nfp6000_firmware, charp, 0444);
+MODULE_PARM_DESC(nfp6000_firmware, "NFP6000 firmware to load from /lib/firmware/");
 
 struct nfp_pci {
 	struct nfp_cpp *cpp;
 	struct msix_entry msix;
+	int fw_loaded;
 
 	struct platform_device *nfp_mon_err;
 	struct platform_device *nfp_dev_cpp;
@@ -154,6 +165,49 @@ static int nfp6000_pcie_sriov_configure(struct pci_dev *pdev, int num_vfs)
 	else
 		return nfp6000_pcie_sriov_enable(pdev, num_vfs);
 }
+
+/**
+ * nfp_pcie_fw_load - Load the firmware image
+ *
+ * Return: -ERRNO, 0 for no firmware loaded, 1 for firmware loaded
+ */
+static int nfp_pcie_fw_load(struct pci_dev *pdev, struct nfp_cpp *cpp)
+{
+	const struct firmware *fw = NULL;
+	const char *fw_name;
+	uint32_t model = nfp_cpp_model(cpp);
+	int err;
+
+	if (NFP_CPP_MODEL_IS_3200(model))
+		fw_name = nfp3200_firmware;
+	else if (NFP_CPP_MODEL_IS_6000(model))
+		fw_name = nfp6000_firmware;
+	else
+		return 0;
+
+	if (!fw_name)
+		return 0;
+
+	err = request_firmware(&fw, fw_name, &pdev->dev);
+	if (err < 0) {
+		fw = NULL;
+		goto exit;
+	}
+
+	err = nfp_ca_replay(cpp, fw->data, fw->size);
+	release_firmware(fw);
+	if (err < 0)
+		goto exit;
+
+	dev_info(&pdev->dev, "Loaded FW image: %s\n", fw_name);
+	return 1;
+
+exit:
+	dev_err(&pdev->dev, "Could not %s firmare \"%s\", err %d\n",
+		fw ? "load" : "request", fw_name, err);
+	return err;
+}
+
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 8, 0))
 #ifdef CONFIG_PCI_IOV
@@ -347,11 +401,20 @@ static int nfp_pci_probe(struct pci_dev *pdev,
 		goto err_nfp_cpp;
 	}
 
+	err = nfp_pcie_fw_load(pdev, np->cpp);
+	if (err < 0)
+		goto err_fw_load;
+
+	np->fw_loaded = !!err;
+
 	register_pf(np);
 
 	pci_set_drvdata(pdev, np);
 
 	return 0;
+
+err_fw_load:
+	nfp_cpp_free(np->cpp);
 
 err_nfp_cpp:
 	pci_disable_msix(pdev);
@@ -369,18 +432,37 @@ static void nfp_pci_remove(struct pci_dev *pdev)
 {
 	struct nfp_pci *np = pci_get_drvdata(pdev);
 
-	nfp6000_pcie_sriov_disable(pdev);
-
 	nfp_platform_device_unregister(np->nfp_net_null);
 	nfp_platform_device_unregister(np->nfp_net_vnic);
-	nfp_platform_device_unregister(np->nfp_dev_cpp);
 	nfp_platform_device_unregister(np->nfp_mon_err);
+
+	nfp6000_pcie_sriov_disable(pdev);
+
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 8, 0))
 #ifdef CONFIG_PCI_IOV
 	if (pdev->device == PCI_DEVICE_NFP6000)
 		nfp_sriov_attr_remove(&pdev->dev);
 #endif
 #endif
+
+	if (np->fw_loaded) {
+		int rc;
+		struct nfp_device *nfp_dev;
+
+		nfp_dev = nfp_device_from_cpp(np->cpp);
+
+		if (nfp_dev) {
+			rc = nfp_reset_soft(nfp_dev);
+			if (rc < 0) {
+				dev_warn(&pdev->dev, "Could not unload firmware, err = %d\n", rc);
+			} else {
+				dev_info(&pdev->dev, "Firmware safely unloaded\n");
+			}
+		}
+	}
+
+	nfp_platform_device_unregister(np->nfp_dev_cpp);
+
 	pci_set_drvdata(pdev, NULL);
 	nfp_cpp_free(np->cpp);
 
