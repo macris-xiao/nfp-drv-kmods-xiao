@@ -15,6 +15,7 @@
 
 #include <linux/kernel.h>
 #include <linux/delay.h>
+#include <linux/zlib.h>
 
 #include "nfp_common.h"
 #include "nfp_cpp.h"
@@ -34,6 +35,7 @@ struct nfp_ca_start {
 };
 
 #define NFP_CA_START_MAGIC  0x0066424e  /* "NBf\000" */
+#define NFP_CA_ZSTART_MAGIC 0x007a424e  /* "NBz\000" - zlib compressed */
 
 #define NFP_CA_START        NFP_CA(0, struct nfp_ca_start)
 #define NFP_CA_END          NFP_CA(0, uint32_t) /* u32 is CRC32 */
@@ -58,6 +60,14 @@ struct nfp_ca_start {
 #define NFP_CA_INC_READ_IGNV_8  NFP_CA(18, uint64_t)
 #define NFP_CA_POLL_4           NFP_CA(19, uint32_t)
 #define NFP_CA_POLL_8           NFP_CA(20, uint64_t)
+
+static inline void cpu_to_ca32(uint8_t *byte, uint32_t val)
+{
+	int i;
+
+	for (i = 0; i < 4; i++)
+		byte[i] = (val >> (8 * i)) & 0xff;
+}
 
 static inline uint32_t ca32_to_cpu(const uint8_t *byte)
 {
@@ -192,6 +202,42 @@ static int nfp_ca_cpp(struct nfp_cpp *cpp, enum nfp_ca_action action,
 	return err;
 }
 
+static int uncompress(uint8_t *out, size_t out_size, const uint8_t *in, size_t in_size)
+{
+	int err, ws_size;
+	z_stream zs = {};
+
+	ws_size = zlib_inflate_workspacesize();
+
+	zs.next_in = in;
+	zs.avail_in = in_size;
+	zs.next_out = out;
+	zs.avail_out = out_size;
+	zs.workspace = kmalloc(ws_size, GFP_KERNEL);
+	if (zs.workspace == NULL)
+		return -ENOMEM;
+
+	err = zlib_inflateInit(&zs);
+	if (err != Z_OK) {
+		err = (err == Z_MEM_ERROR) ? -ENOMEM : -EIO;
+		goto exit;
+	}
+
+	err = zlib_inflate(&zs, Z_FINISH);
+	if (err != Z_STREAM_END) {
+		err = (err == Z_MEM_ERROR) ? -ENOMEM : -EIO;
+		goto exit;
+	}
+
+	zlib_inflateEnd(&zs);
+	err = 0;
+
+exit:
+	kfree(zs.workspace);
+	return err;
+}
+
+
 /**
  * nfp_ca_parse - Parse a CPP Action replay file
  * @cpp:   CPP handle
@@ -203,9 +249,10 @@ static int nfp_ca_parse(struct nfp_cpp *cpp, const void *buff, size_t bytes,
 			nfp_ca_callback cb)
 {
 	const uint8_t *byte = buff;
+	uint8_t *zbuff = NULL;
 	uint32_t cpp_id = 0;
 	uint64_t cpp_addr = 0;
-	size_t loc;
+	size_t loc, usize;
 	uint8_t ca;
 	int err = -EINVAL;
 
@@ -214,8 +261,45 @@ static int nfp_ca_parse(struct nfp_cpp *cpp, const void *buff, size_t bytes,
 		return -EINVAL;
 
 	ca = byte[0];
-	if (ca != NFP_CA_START || ca32_to_cpu(&byte[1]) != NFP_CA_START_MAGIC)
+	if (ca != NFP_CA_START)
 		return -EINVAL;
+
+	switch (ca32_to_cpu(&byte[1])) {
+	case NFP_CA_ZSTART_MAGIC:
+		/* Decompress first... */
+		usize = ca32_to_cpu(&byte[5]);
+		zbuff = kmalloc(usize, GFP_KERNEL);
+		if (!zbuff)
+			return -ENOMEM;
+		usize -= NFP_CA_SZ(NFP_CA_START);
+		err = uncompress((uint8_t *)zbuff + NFP_CA_SZ(NFP_CA_START), usize, (const uint8_t *)&byte[NFP_CA_SZ(NFP_CA_START)], bytes - NFP_CA_SZ(NFP_CA_START));
+		if (err < 0) {
+			kfree(zbuff);
+			/* Uncompression error */
+			return err;
+		}
+
+		/* Patch up start to look like a NFP_CA_START */
+		usize += NFP_CA_SZ(NFP_CA_START);
+		zbuff[0] = NFP_CA_START;
+		cpu_to_ca32(&zbuff[1], NFP_CA_START_MAGIC);
+		cpu_to_ca32(&zbuff[5], usize);
+
+		bytes = usize;
+		byte = zbuff;
+		/* FALLTHROUGH */
+	case NFP_CA_START_MAGIC:
+		/* Uncompressed start */
+		usize = ca32_to_cpu(&byte[5]);
+		if (usize < bytes) {
+			/* Too small! */
+			err = -ENOSPC;
+			goto exit;
+		}
+		break;
+	default:
+		return -ENOSPC;
+	}
 
 	err = 0;
 	for (loc = NFP_CA_SZ(NFP_CA_START); loc < bytes;
@@ -312,22 +396,26 @@ static int nfp_ca_parse(struct nfp_cpp *cpp, const void *buff, size_t bytes,
 			break;
 		}
 		if (err < 0)
-			break;
+			goto exit;
 	}
 
-	if (err >= 0 && ca == NFP_CA_END && loc == bytes) {
+	if (ca == NFP_CA_END && loc == bytes) {
 		if (cb == nfp_ca_null) {
 			uint32_t crc;
 
 			loc -= NFP_CA_SZ(NFP_CA_END);
 			crc = crc32_posix(byte, loc);
-			if (crc != ca32_to_cpu(&byte[loc+1]))
-				return -EINVAL;
+			if (crc != ca32_to_cpu(&byte[loc+1])) {
+				err = -EINVAL;
+				goto exit;
+			}
 		}
 		err = 0;
-	} else if (err >= 0) {
-		err = -EINVAL;
 	}
+
+exit:
+	if (zbuff)
+		kfree(zbuff);
 
 	return err;
 }
