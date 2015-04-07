@@ -394,7 +394,6 @@ static int nfp6000_nbi_mac_check_freebufs(struct nfp_device *nfp,
 
 static int nfp6000_nbi_check_dma_credits(struct nfp_device *nfp, struct nfp_nbi_dev *nbi, const uint32_t *bpe, int bpes )
 {
-	struct nfp_cpp *cpp = nfp_device_cpp(nfp);
 	int err, p;
 	uint32_t tmp;
 
@@ -402,7 +401,7 @@ static int nfp6000_nbi_check_dma_credits(struct nfp_device *nfp, struct nfp_nbi_
 		return 0;
 
 	for (p = 0; p < bpes; p++) {
-		int ctm, pkt, buf, stat;
+		int ctm, pkt, buf;
 		int ctmb, pktb, bufb;
 
 		err = nfp_nbi_mac_regr(nbi, NFP_NBI_DMAX_CSR,
@@ -423,7 +422,7 @@ static int nfp6000_nbi_check_dma_credits(struct nfp_device *nfp, struct nfp_nbi_
 		bufb = NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_BUF_CREDIT_of(bpe[p]);
 
 		if (ctm != ctmb) {
-			nfp_err(nfp, "NBI%d DMA%d CTM%d, expected CTM%d\n",
+			nfp_err(nfp, "NBI%d DMA BPE%d CTM%d, expected CTM%d\n",
 					nfp_nbi_index(nbi), p, ctm, ctmb);
 			return -EBUSY;
 		}
@@ -440,22 +439,28 @@ static int nfp6000_nbi_check_dma_credits(struct nfp_device *nfp, struct nfp_nbi_
 			return -EBUSY;
 		}
 
-		err = nfp_xpb_readl(cpp, NFP_XPB_ISLAND(ctm) + NFP_CTMX_PKT
-					+ NFP_CTMX_PKT_MU_PE_ACTIVE_PACKET_COUNT,
-					&tmp);
-		if (err < 0)
-			return err;
-
-		stat = NFP_CTMX_PKT_MUPESTATS_MU_PE_STAT_of(tmp);
-		if (stat) {
-			nfp_err(nfp, "NBI%d DMA%d (CTM%d) is still active (%d packets)\n",
-					nfp_nbi_index(nbi), p, ctm, stat);
-			return -EBUSY;
-		}
-
 	}
 
 	return 0;
+}
+
+static int nfp6000_ctm_get_active_pkt_count(struct nfp_device *nfp, int ctm)
+{
+	struct nfp_cpp *cpp = nfp_device_cpp(nfp);
+	int err, stat;
+	uint32_t tmp;
+
+	err = nfp_xpb_readl(cpp, NFP_XPB_OVERLAY(ctm) + NFP_CTMX_PKT
+				+ NFP_CTMX_PKT_MU_PE_ACTIVE_PACKET_COUNT,
+				&tmp);
+	if (err < 0) {
+		nfp_err(nfp, "Error reading CTM active packet count\n");
+		return err;
+	}
+
+	stat = NFP_CTMX_PKT_MUPESTATS_MU_PE_STAT_of(tmp);
+
+	return stat;
 }
 
 #define BPECFG_MAGIC_CHECK(x)	(((x) & 0xffffff00) == 0xdada0100)
@@ -781,6 +786,30 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 						    &bpe[i][0], bpes[i]);
 		if (err < 0)
 			goto exit;
+	}
+
+	/* Verify that no active FPC CTM packets are outstanding */
+	for (i = 0; i <= 6; i++) {
+		int state;
+
+		err = nfp_power_get(nfp, NFP6000_DEVICE_FPC(i, NFP6000_DEVICE_FPC_CORE), &state);
+		if (err < 0) {
+			if (err == -ENODEV)
+				continue;
+			return err;
+		}
+		if (state != NFP_DEVICE_STATE_ON) {
+			continue;
+		}
+
+		err = nfp6000_ctm_get_active_pkt_count(nfp, 32+i);
+		if (err < 0)
+			goto exit;
+		if (err > 0) {
+			nfp_err(nfp, "ME island%d shows active packets (%d)\n", i, err);
+			err = -1;
+			goto exit;
+		}
 	}
 
 	/* No need for NBI access anymore.. */
