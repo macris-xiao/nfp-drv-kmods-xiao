@@ -60,6 +60,8 @@ struct nfp_ca_start {
 #define NFP_CA_INC_READ_IGNV_8  NFP_CA(18, uint64_t)
 #define NFP_CA_POLL_4           NFP_CA(19, uint32_t)
 #define NFP_CA_POLL_8           NFP_CA(20, uint64_t)
+#define NFP_CA_MASK_4           NFP_CA(21, uint32_t)
+#define NFP_CA_MASK_8           NFP_CA(22, uint64_t)
 
 static inline void cpu_to_ca32(uint8_t *byte, uint32_t val)
 {
@@ -104,13 +106,15 @@ enum nfp_ca_action {
 };
 
 typedef int (*nfp_ca_callback)(struct nfp_cpp *cpp, enum nfp_ca_action action,
-	uint32_t cpp_id, uint64_t cpp_addr, uint64_t val);
+			       uint32_t cpp_id, uint64_t cpp_addr,
+			       uint64_t val, uint64_t mask);
 
 /**
  * nfp_ca_null - Null callback used for CRC calculation
  */
 static int nfp_ca_null(struct nfp_cpp *cpp, enum nfp_ca_action action,
-		       uint32_t cpp_id, uint64_t cpp_addr, uint64_t val)
+		       uint32_t cpp_id, uint64_t cpp_addr,
+		       uint64_t val, uint64_t mask)
 {
 	return 0;
 }
@@ -119,7 +123,8 @@ static int nfp_ca_null(struct nfp_cpp *cpp, enum nfp_ca_action action,
  * nfp_ca_cpp - Replay CPP transactions
  */
 static int nfp_ca_cpp(struct nfp_cpp *cpp, enum nfp_ca_action action,
-		      uint32_t cpp_id, uint64_t cpp_addr, uint64_t val)
+		      uint32_t cpp_id, uint64_t cpp_addr,
+		      uint64_t val, uint64_t mask)
 {
 	uint32_t tmp32;
 	uint64_t tmp64;
@@ -156,7 +161,7 @@ static int nfp_ca_cpp(struct nfp_cpp *cpp, enum nfp_ca_action action,
 			if (err < 0)
 				break;
 
-			if (val != tmp64) {
+			if (val != (tmp64 & mask)) {
 				msleep(10);
 				timeout--;
 			} else {
@@ -188,9 +193,21 @@ static int nfp_ca_cpp(struct nfp_cpp *cpp, enum nfp_ca_action action,
 		err = nfp_cpp_readq(cpp, cpp_id, cpp_addr, &tmp64);
 		break;
 	case NFP_CA_ACTION_WRITE32:
+		if (~(uint32_t)mask) {
+			err = nfp_cpp_readl(cpp, cpp_id, cpp_addr, &tmp32);
+			if (err < 0)
+				return err;
+			val |= tmp32 & mask;
+		}
 		err = nfp_cpp_writel(cpp, cpp_id, cpp_addr, val);
 		break;
 	case NFP_CA_ACTION_WRITE64:
+		if (~(uint32_t)mask) {
+			err = nfp_cpp_readq(cpp, cpp_id, cpp_addr, &tmp64);
+			if (err < 0)
+				return err;
+			val |= tmp64 & mask;
+		}
 		err = nfp_cpp_writeq(cpp, cpp_id, cpp_addr, val);
 		break;
 	default:
@@ -255,6 +272,8 @@ static int nfp_ca_parse(struct nfp_cpp *cpp, const void *buff, size_t bytes,
 	size_t loc, usize;
 	uint8_t ca;
 	int err = -EINVAL;
+	uint32_t mask32 = ~(uint32_t)0;
+	uint64_t mask64 = ~(uint64_t)0;
 
 	/* File too small? */
 	if (bytes < (NFP_CA_SZ(NFP_CA_START) + NFP_CA_SZ(NFP_CA_END)))
@@ -329,7 +348,7 @@ static int nfp_ca_parse(struct nfp_cpp *cpp, const void *buff, size_t bytes,
 		case NFP_CA_READ_4:
 			tmp32 = ca32_to_cpu(vp);
 			err = cb(cpp, NFP_CA_ACTION_READ32,
-				 cpp_id, cpp_addr, tmp32);
+				 cpp_id, cpp_addr, tmp32, mask32);
 			break;
 		case NFP_CA_INC_READ_8:
 			cpp_addr += 8;
@@ -337,17 +356,17 @@ static int nfp_ca_parse(struct nfp_cpp *cpp, const void *buff, size_t bytes,
 		case NFP_CA_READ_8:
 			tmp64 = ca64_to_cpu(vp);
 			err = cb(cpp, NFP_CA_ACTION_READ64,
-				 cpp_id, cpp_addr, tmp64);
+				 cpp_id, cpp_addr, tmp64, mask64);
 			break;
 		case NFP_CA_POLL_4:
 			tmp32 = ca32_to_cpu(vp);
 			err = cb(cpp, NFP_CA_ACTION_POLL32,
-				 cpp_id, cpp_addr, tmp32);
+				 cpp_id, cpp_addr, tmp32, mask32);
 			break;
 		case NFP_CA_POLL_8:
 			tmp64 = ca64_to_cpu(vp);
 			err = cb(cpp, NFP_CA_ACTION_POLL64,
-				 cpp_id, cpp_addr, tmp64);
+				 cpp_id, cpp_addr, tmp64, mask64);
 			break;
 		case NFP_CA_INC_READ_IGNV_4:
 			cpp_addr += 4;
@@ -355,7 +374,7 @@ static int nfp_ca_parse(struct nfp_cpp *cpp, const void *buff, size_t bytes,
 		case NFP_CA_READ_IGNV_4:
 			tmp32 = ca32_to_cpu(vp);
 			err = cb(cpp, NFP_CA_ACTION_READ_IGNV32,
-				 cpp_id, cpp_addr, tmp32);
+				 cpp_id, cpp_addr, tmp32, mask32);
 			break;
 		case NFP_CA_INC_READ_IGNV_8:
 			cpp_addr += 8;
@@ -363,7 +382,7 @@ static int nfp_ca_parse(struct nfp_cpp *cpp, const void *buff, size_t bytes,
 		case NFP_CA_READ_IGNV_8:
 			tmp64 = ca64_to_cpu(vp);
 			err = cb(cpp, NFP_CA_ACTION_READ_IGNV64,
-				 cpp_id, cpp_addr, tmp64);
+				 cpp_id, cpp_addr, tmp64, mask64);
 			break;
 		case NFP_CA_INC_WRITE_4:
 		case NFP_CA_INC_ZERO_4:
@@ -376,7 +395,7 @@ static int nfp_ca_parse(struct nfp_cpp *cpp, const void *buff, size_t bytes,
 			else
 				tmp32 = ca32_to_cpu(vp);
 			err = cb(cpp, NFP_CA_ACTION_WRITE32,
-				 cpp_id, cpp_addr, tmp32);
+				 cpp_id, cpp_addr, tmp32, mask32);
 			break;
 		case NFP_CA_INC_WRITE_8:
 		case NFP_CA_INC_ZERO_8:
@@ -389,7 +408,13 @@ static int nfp_ca_parse(struct nfp_cpp *cpp, const void *buff, size_t bytes,
 			else
 				tmp64 = ca64_to_cpu(vp);
 			err = cb(cpp, NFP_CA_ACTION_WRITE64,
-				 cpp_id, cpp_addr, tmp64);
+				 cpp_id, cpp_addr, tmp64, mask64);
+			break;
+		case NFP_CA_MASK_4:
+			mask32 = ca32_to_cpu(vp);
+			break;
+		case NFP_CA_MASK_8:
+			mask64 = ca64_to_cpu(vp);
 			break;
 		default:
 			err = -EINVAL;
