@@ -513,7 +513,7 @@ static int bpe_lookup(struct nfp_device *nfp, int nbi,
 		bpe[i] = readl(ptr++);
 	}
 
-	err = 0;
+	err = BPECFG_MAGIC_COUNT(tmp);
 
 exit:
 	nfp_cpp_area_release_free(area);
