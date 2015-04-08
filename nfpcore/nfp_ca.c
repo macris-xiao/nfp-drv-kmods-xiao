@@ -197,7 +197,7 @@ static int nfp_ca_cpp(struct nfp_cpp *cpp, enum nfp_ca_action action,
 			err = nfp_cpp_readl(cpp, cpp_id, cpp_addr, &tmp32);
 			if (err < 0)
 				return err;
-			val |= tmp32 & mask;
+			val |= tmp32 & ~mask;
 		}
 		err = nfp_cpp_writel(cpp, cpp_id, cpp_addr, val);
 		break;
@@ -206,7 +206,7 @@ static int nfp_ca_cpp(struct nfp_cpp *cpp, enum nfp_ca_action action,
 			err = nfp_cpp_readq(cpp, cpp_id, cpp_addr, &tmp64);
 			if (err < 0)
 				return err;
-			val |= tmp64 & mask;
+			val |= tmp64 & ~mask;
 		}
 		err = nfp_cpp_writeq(cpp, cpp_id, cpp_addr, val);
 		break;
