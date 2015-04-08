@@ -72,7 +72,7 @@ static int __nfp_resource_location(struct nfp_cpp *cpp, int *target,
 	return size / sizeof(struct nfp_resource_entry);
 }
 
-int __nfp_resource_entry_init(struct nfp_cpp *cpp,
+static int __nfp_resource_entry_init(struct nfp_cpp *cpp,
 			      int entry,
 			      const struct nfp_resource_entry_region *region,
 			      struct nfp_cpp_mutex **resource_mutex)
@@ -131,6 +131,16 @@ int __nfp_resource_entry_init(struct nfp_cpp *cpp,
 	return 0;
 }
 
+/**
+ * nfp_cpp_resource_init() - Construct a new NFP Resource table
+ * @cpp:		NFP CPP handle
+ * @mutexp:		Location to place the resource table's mutex
+ *
+ * NOTE: If mutexp is NULL, the mutex of the resource table is
+ * implictly unlocked.
+ *
+ * Return: 0, or -ERRNO
+ */
 int nfp_cpp_resource_init(struct nfp_cpp *cpp, struct nfp_cpp_mutex **mutexp)
 {
 	uint32_t cpp_id;
@@ -177,6 +187,20 @@ int nfp_cpp_resource_init(struct nfp_cpp *cpp, struct nfp_cpp_mutex **mutexp)
 	return 0;
 }
 
+/**
+ * nfp_cpp_resource_add() - Construct a new NFP Resource entry
+ * @cpp:		NFP CPP handle
+ * @name:		Name of the resource
+ * @cpp_id:		NFP CPP ID of the resource
+ * @address:		NFP CPP address of the resource
+ * @size:		Size, in bytes, of the resource area
+ * @resource_mutex:	Location to place the resource's mutex
+ *
+ * NOTE: If resource_mutex is NULL, the mutex of the resource is
+ * implictly unlocked.
+ *
+ * Return: 0, or -ERRNO
+ */
 int nfp_cpp_resource_add(struct nfp_cpp *cpp, const char *name,
 			 uint32_t cpp_id, uint64_t address, uint64_t size,
 		struct nfp_cpp_mutex **resource_mutex)
@@ -344,6 +368,15 @@ static int nfp_cpp_resource_acquire(struct nfp_cpp *cpp,
 	return -ENOENT;
 }
 
+/**
+ * nfp_resource_acquire() - Acquire a resource handle
+ * @nfp:		NFP Device handle
+ * @name:		Name of the resource
+ *
+ * NOTE: This function implictly locks the acquired resource
+ *
+ * Return: NFP Resource handle, or NULL
+ */
 struct nfp_resource *nfp_resource_acquire(struct nfp_device *nfp,
 					  const char *name)
 {
@@ -380,6 +413,12 @@ struct nfp_resource *nfp_resource_acquire(struct nfp_device *nfp,
 	return res;
 }
 
+/**
+ * nfp_resource_release() - Release a NFP Resource handle
+ * @res:	NFP Resource handle
+ *
+ * NOTE: This function implictly unlocks the resource handle
+ */
 void nfp_resource_release(struct nfp_resource *res)
 {
 	nfp_cpp_mutex_unlock(res->mutex);
@@ -387,23 +426,46 @@ void nfp_resource_release(struct nfp_resource *res)
 	kfree(res);
 }
 
+/**
+ * nfp_resource_cpp_id() - Return the cpp_id of a resource handle
+ * @res:	NFP Resource handle
+ *
+ * Return: NFP CPP ID
+ */
 uint32_t nfp_resource_cpp_id(struct nfp_resource *res)
 {
 	return res->cpp_id;
 }
 
+/**
+ * nfp_resource_name() - Return the name of a resource handle
+ * @res:	NFP Resource handle
+ *
+ * Return: const char pointer to the name of the resource
+ */
 const char *nfp_resource_name(struct nfp_resource *res)
 {
 	return res->name;
 }
 
+/**
+ * nfp_resource_address() - Return the address of a resource handle
+ * @res:	NFP Resource handle
+ *
+ * Return: Address of the resource
+ */
 uint64_t nfp_resource_address(struct nfp_resource *res)
 {
 	return res->addr;
 }
 
+/**
+ * nfp_resource_size() - Return the size in bytes of a resource handle
+ * @res:	NFP Resource handle
+ *
+ * Return: Size of the resource in bytes
+ */
 uint64_t nfp_resource_size(struct nfp_resource *res)
 {
 	return res->size;
 }
-
