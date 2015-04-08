@@ -94,6 +94,8 @@ struct nfp_spi {
 #define MAX_SPI_HZ              ((PCLK_HZ /   2))	/* ~500MHz */
 #define DEF_SPI_HZ              MHZ(5)
 
+#define BITS_TO_BYTES(x)    (((x) + 7) / 8)
+
 static int nfp6000_spi_csr_readl(struct nfp_spi *spi, uint32_t csr,
 				 uint32_t *val)
 {
@@ -209,7 +211,19 @@ static int nfp6000_spi_set_clk_pol(struct nfp_spi *spi)
 	return nfp6000_spi_csr_writel(spi, NFP_SPI_SPIIOIDLESTATUS, val);
 }
 
-#define BITS_TO_BYTES(x)    (((x) + 7) / 8)
+/**
+ * nfp6000_spi_transact() - Perform an arbitrary SPI transaction
+ * @spi:                      SPI Bus
+ * @cs:                       SPI Chip select (0..3)
+ * @cs_action:                Combination of the CS_SELECT and CS_DESELECT flags
+ * @tx:                       TX buffer
+ * @tx_bit_cnt:               TX buffer size in bits
+ * @rx:                       RX buffer
+ * @rx_bit_cnt:               RX buffer size in bits
+ * @mdio_data_drive_disable:  MDIO compatibility flag
+ *
+ * Return: 0 or -ERRNO
+ */
 int nfp6000_spi_transact(struct nfp_spi *spi, int cs, int cs_action,
 			 const void *tx, uint32_t tx_bit_cnt,
 			 void *rx, uint32_t rx_bit_cnt,
@@ -306,6 +320,17 @@ int nfp6000_spi_transact(struct nfp_spi *spi, int cs, int cs_action,
 	return err;
 }
 
+/**
+ * nfp_spi_read() - Perform a trivial SPI read
+ * @spi:     SPI Bus
+ * @cs:      SPI Chip select (0..3)
+ * @cmd_len: Number of bytes in the command
+ * @cmd:     SPI command
+ * @res_len: Number of bytes of response
+ * @res:     SPI response
+ *
+ * Return: 0 or -ERRNO
+ */
 int nfp_spi_read(struct nfp_spi *spi, int cs,
 		 unsigned int cmd_len, const void *cmd,
 		 unsigned int res_len, void *res)
@@ -321,6 +346,17 @@ int nfp_spi_read(struct nfp_spi *spi, int cs,
 				    NULL, 0, res, res_len * 8, 0);
 }
 
+/**
+ * nfp_spi_write() - Perform a trivial SPI write
+ * @spi:     SPI Bus
+ * @cs:      SPI Chip select (0..3)
+ * @cmd_len: Number of bytes in the command
+ * @cmd:     SPI command
+ * @dat_len: Number of bytes of write data
+ * @dat:     SPI write data
+ *
+ * Return: 0 or -ERRNO
+ */
 int nfp_spi_write(struct nfp_spi *spi, int cs,
 		  unsigned int cmd_len, const void *cmd,
 		  unsigned int dat_len, const void *dat)
@@ -348,11 +384,13 @@ static inline int spi_interface_key(uint16_t interface)
 	}
 }
 
-/* Acquire a handle to one of the NFP SPI busses
+/**
+ * nfp_spi_acquire() - Acquire a handle to one of the NFP SPI busses
+ * @nfp:     NFP Device
+ * @bus:     SPI Bus (0..3)
+ * @width:   SPI Bus Width (0 (default), 1 bit, 2 bit, or 4 bit)
  *
- * @param       nfp     NFP Device
- * @param       bus     SPI Bus (0..3)
- * @param       width   SPI Bus Width (0 (default), 1 bit, 2 bit, or 4 bit)
+ * Return: NFP SPI handle or ERR_PTR()
  */
 struct nfp_spi *nfp_spi_acquire(struct nfp_device *nfp, int bus, int width)
 {
@@ -442,9 +480,9 @@ struct nfp_spi *nfp_spi_acquire(struct nfp_device *nfp, int bus, int width)
 	return spi;
 }
 
-/* Release the handle to a NFP SPI bus
- *
- * @param       spi     NFP SPI bus
+/**
+ * nfp_spi_release() - Release the handle to a NFP SPI bus
+ * @spi:     NFP SPI bus
  */
 void nfp_spi_release(struct nfp_spi *spi)
 {
@@ -454,10 +492,12 @@ void nfp_spi_release(struct nfp_spi *spi)
 	kfree(spi);
 }
 
-/* Set the clock rate of the NFP SPI bus
+/**
+ * nfp_spi_speed_set() - Set the clock rate of the NFP SPI bus
+ * @spi:     NFP SPI bus
+ * @hz:      SPI clock rate (-1 = default speed)
  *
- * @param       spi     NFP SPI bus
- * @param       hz      SPI clock rate (-1 = default speed)
+ * Return: 0 or -ERRNO
  */
 int nfp_spi_speed_set(struct nfp_spi *spi, int hz)
 {
@@ -473,10 +513,12 @@ int nfp_spi_speed_set(struct nfp_spi *spi, int hz)
 	return 0;
 }
 
-/* Get the clock rate of the NFP SPI bus
+/**
+ * nfp_spi_speed_get() - Get the clock rate of the NFP SPI bus
+ * @spi:     NFP SPI bus
+ * @hz:      SPI clock rate pointer
  *
- * @param       spi     NFP SPI bus
- * @param       hz      SPI clock rate pointer
+ * Return: 0 or -ERRNO
  */
 int nfp_spi_speed_get(struct nfp_spi *spi, int *hz)
 {
@@ -486,12 +528,14 @@ int nfp_spi_speed_get(struct nfp_spi *spi, int *hz)
 	return 0;
 }
 
-/* Set the SPI mode
- *
- * @param       spi     NFP SPI bus
- * @param       mode    SPI CPHA/CPOL mode (-1, 0, 1, 2, or 3)
+/**
+ * nfp_spi_mode_set() - Set the SPI mode
+ * @spi:     NFP SPI bus
+ * @mode:    SPI CPHA/CPOL mode (-1, 0, 1, 2, or 3)
  *
  * Use mode of '-1' for the default for this bus.
+ *
+ * Return: 0 or -ERRNO
  */
 int nfp_spi_mode_set(struct nfp_spi *spi, int mode)
 {
@@ -504,10 +548,12 @@ int nfp_spi_mode_set(struct nfp_spi *spi, int mode)
 	return 0;
 }
 
-/* Get the SPI mode
+/**
+ * nfp_spi_mode_get() - Get the SPI mode
+ * @spi:     NFP SPI bus
+ * @mode:    SPI CPHA/CPOL mode pointer
  *
- * @param       spi     NFP SPI bus
- * @param       mode    SPI CPHA/CPOL mode pointer
+ * Return: 0 or -ERRNO
  */
 int nfp_spi_mode_get(struct nfp_spi *spi, int *mode)
 {
@@ -516,5 +562,3 @@ int nfp_spi_mode_get(struct nfp_spi *spi, int *mode)
 
 	return 0;
 }
-
-/* vim: set shiftwidth=8 noexpandtab:  */
