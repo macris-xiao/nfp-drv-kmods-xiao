@@ -318,7 +318,7 @@ static void nfp_net_vnic_rx_poll(struct nfp_net_vnic *vnic)
 		nfp_net_vnic_rx(vnic);
 }
 
-/**
+/*
  * nfp_net_vnic_schedule - Schedule NFP net timer to trigger again
  * @vnic:	vnic pointer
  */
@@ -328,7 +328,7 @@ static inline void nfp_net_vnic_schedule(struct nfp_net_vnic *vnic)
 
 }
 
-/**
+/*
  * nfp_net_vnic_timer - Timer triggered to poll vnic queues
  * @data:	vnic pointer
  */
@@ -476,7 +476,7 @@ static void nfp_net_vnic_attr_remove(struct nfp_net_vnic *vnic)
 }
 
 
-/**
+/*
  * nfp_net_vnic_assign_addr - Assign a MAC address (and work out remote address)
  * @netdev:	netdev pointer
  *
@@ -763,6 +763,13 @@ static struct platform_driver nfp_net_vnic_driver = {
 	},
 };
 
+/**
+ * nfp_net_vnic_init() - Register the ARM vNIC NFP network driver
+ *
+ * For communication with the NFP ARM Linux, if running
+ *
+ * Return: 0, or -ERRNO
+ */
 int nfp_net_vnic_init(void)
 {
 	pr_info("%s: NFP vNIC driver, Copyright (C) 2010-2015 Netronome Systems\n",
@@ -771,14 +778,10 @@ int nfp_net_vnic_init(void)
 	return platform_driver_register(&nfp_net_vnic_driver);
 }
 
+/**
+ * nfp_net_vnic_exit() - Unregister the ARM vNIC NFP network driver
+ */
 void nfp_net_vnic_exit(void)
 {
 	platform_driver_unregister(&nfp_net_vnic_driver);
 }
-
-/*
- * Local variables:
- * c-file-style: "Linux"
- * indent-tabs-mode: t
- * End:
- */

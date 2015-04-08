@@ -23,4 +23,3 @@ int nfp_mon_err_init(void);
 void nfp_mon_err_exit(void);
 
 #endif /* NFP_MON_ERR_H */
-/* vim: set shiftwidth=4 expandtab:  */

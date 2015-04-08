@@ -19,8 +19,6 @@
  * @file          nfp_mon_err.c
  * @brief         NFP Hardware Error Monitor Driver
  *
- * vim:shiftwidth=8:noexpandtab
- *
  */
 
 #include <linux/kernel.h>
@@ -444,9 +442,9 @@ static int nfp_err_release_filters(struct nfp_err_cdev *cdev)
 	return 0;
 }
 
-/**
+/*
  * nfp_err_add_device - callback for CPP devices being added
- * @cpp:	CPP handle
+ * @pdev:	Platform device
  */
 static int nfp_err_plat_probe(struct platform_device *pdev)
 {
@@ -533,9 +531,9 @@ err_cdev_add:
 	return err;
 }
 
-/**
+/*
  * nfp_err_remove_device - callback for removing CPP devices
- * @cpp:	CPP handle
+ * @pdev:	Platform device
  */
 static int nfp_err_plat_remove(struct platform_device *pdev)
 {
@@ -564,10 +562,11 @@ static struct platform_driver nfp_err_plat_driver = {
 	},
 };
 
-/*
- *		Driver Initialization
+/**
+ * nfp_mon_err_init() - Register the NFP error monitor driver
+ *
+ * Return: 0, or -ERRNO
  */
-
 int __init nfp_mon_err_init(void)
 {
 	dev_t dev_id;
@@ -597,16 +596,12 @@ err_chrdev:
 	return err;
 }
 
+/**
+ * nfp_mon_err_exit() - Unregister the NFP error monitor driver
+ */
 void nfp_mon_err_exit(void)
 {
 	platform_driver_unregister(&nfp_err_plat_driver);
 	unregister_chrdev_region(MKDEV(nfp_err_major, 0), NFP_ERR_MAX);
 	class_destroy(nfp_err_class);
 }
-
-/*
- * Local variables:
- * c-file-style: "Linux"
- * indent-tabs-mode: t
- * End:
- */

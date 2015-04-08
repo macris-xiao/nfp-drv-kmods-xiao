@@ -16,8 +16,6 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
- * vim:shiftwidth=8:noexpandtab
- *
  * @file kernel/mfd-nfp/nfp_dev_cpp.c
  *
  * Implements the NFP CPP API interface (/dev/nfp-cpp-N)
@@ -192,9 +190,9 @@ static void nfp_dev_cpp_area_free(struct nfp_dev_cpp_area *area)
 	kfree(area);
 }
 
-/**
+/*
  * nfp_dev_cpp_vma_acquire - Acquire the NFP CPP area of a cdev vma
- * @vma:	vma to acquire
+ * @cvma:	vma to acquire
  *
  * Acquire CPP area in the cdev vma
  *
@@ -223,9 +221,9 @@ static int nfp_dev_cpp_vma_acquire(struct nfp_dev_cpp_vma *cvma)
 	return 0;
 }
 
-/**
+/*
  * nfp_dev_cpp_vma_release - Release the NFP CPP area of a cdev vma
- * @vma:	vma to release
+ * @cvma:	vma to release
  *
  * Unmap and release vma
  * Must be called with cdev->area.lock
@@ -1232,7 +1230,10 @@ static struct platform_driver nfp_dev_cpp_driver = {
 	},
 };
 
-/** Allocate global NFP resources.
+/** 
+ * nfp_dev_cpp_init() - Register the NFP CPP /dev driver
+ *
+ * Return: 0, or -ERRNO
  */
 int nfp_dev_cpp_init(void)
 {
@@ -1261,7 +1262,8 @@ err_cpp:
 	return err;
 }
 
-/** Release global NFP character device resources.
+/** 
+ * nfp_dev_cpp_exit() - Unregister the NFP CPP /dev driver
  */
 void nfp_dev_cpp_exit(void)
 {
@@ -1269,10 +1271,3 @@ void nfp_dev_cpp_exit(void)
 	class_destroy(nfp_dev_cpp_class);
 	unregister_chrdev_region(MKDEV(nfp_dev_cpp_major, 0), NFP_DEV_CPP_MAX);
 }
-
-/*
- * Local variables:
- * c-file-style: "Linux"
- * indent-tabs-mode: t
- * End:
- */

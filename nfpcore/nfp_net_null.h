@@ -24,4 +24,3 @@ int nfp_net_null_init(void);
 void nfp_net_null_exit(void);
 
 #endif /* NFP_NET_NULL_H */
-/* vim: set shiftwidth=8 noexpandtab:  */

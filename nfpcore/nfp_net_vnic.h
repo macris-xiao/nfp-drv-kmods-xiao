@@ -25,4 +25,3 @@ int nfp_net_vnic_init(void);
 void nfp_net_vnic_exit(void);
 
 #endif /* NFP_NET_VNIC_H */
-/* vim: set shiftwidth=8 noexpandtab:  */

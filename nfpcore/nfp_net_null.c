@@ -531,9 +531,11 @@ static void nfp_net_null_destroy(struct nfp_net_null *np, int port)
 	free_netdev(dev);
 }
 
-/**
- * nfp_net_null_add_device - callback for CPP devices being added
- * @cpp:	CPP handle
+/*
+ * nfp_net_null_probe() - callback for CPP devices being added
+ * @pdev:	Platform device
+ *
+ * Return: 0, or -ERRNO
  */
 static int nfp_net_null_probe(struct platform_device *pdev)
 {
@@ -589,9 +591,11 @@ static int nfp_net_null_probe(struct platform_device *pdev)
 	return 0;
 }
 
-/**
- * nfp_net_null_remove_device - callback for removing CPP devices
- * @cpp:	CPP handle
+/*
+ * nfp_net_null_remove() - callback for removing CPP devices
+ * @pdev:	Platform device
+ *
+ * Return: 0, or -ERRNO
  */
 static int nfp_net_null_remove(struct platform_device *pdev)
 {
@@ -617,10 +621,13 @@ static struct platform_driver nfp_net_null_driver = {
 	},
 };
 
-/*
- *		Driver Initialization
+/**
+ * nfp_net_null_init() - Register the null NFP network driver
+ *
+ * Only for debugging PHY registration.
+ *
+ * Return: 0, or -ERRNO
  */
-
 int __init nfp_net_null_init(void)
 {
 	int err;
@@ -634,9 +641,10 @@ int __init nfp_net_null_init(void)
 	return 0;
 }
 
+/**
+ * nfp_net_null_exit() - Unregister the null NFP network driver
+ */
 void nfp_net_null_exit(void)
 {
 	platform_driver_unregister(&nfp_net_null_driver);
 }
-
-/* vim: set shiftwidth=8 noexpandtab:  */
