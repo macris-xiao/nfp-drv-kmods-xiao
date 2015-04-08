@@ -248,6 +248,12 @@ err_symtab:
 	return err;
 }
 
+/**
+ * nfp_rtsym_count() - Get the number of RTSYM descriptors
+ * @dev:		NFP Device handle
+ *
+ * Return: Number of RTSYM descriptors, or -ERRNO
+ */
 int nfp_rtsym_count(struct nfp_device *dev)
 {
 	struct nfp_rtsym_priv *priv = nfp_device_private(dev,
@@ -264,6 +270,13 @@ int nfp_rtsym_count(struct nfp_device *dev)
 }
 EXPORT_SYMBOL(nfp_rtsym_count);
 
+/**
+ * nfp_rtsym_get() - Get the Nth RTSYM descriptor
+ * @dev:		NFP Device handle
+ * @idx:		Index (0-based) of the RTSYM descriptor
+ *
+ * Return: const pointer to a struct nfp_rtsym descriptor, or NULL
+ */
 const struct nfp_rtsym *nfp_rtsym_get(struct nfp_device *dev, int idx)
 {
 	struct nfp_rtsym_priv *priv = nfp_device_private(dev,
@@ -283,6 +296,13 @@ const struct nfp_rtsym *nfp_rtsym_get(struct nfp_device *dev, int idx)
 }
 EXPORT_SYMBOL(nfp_rtsym_get);
 
+/**
+ * nfp_rtsym_lookup() - Return the RTSYM descriptor for a symbol name
+ * @dev:		NFP Device handle
+ * @name:		Symbol name
+ *
+ * Return: const pointer to a struct nfp_rtsym descriptor, or NULL
+ */
 const struct nfp_rtsym *nfp_rtsym_lookup(struct nfp_device *dev,
 					 const char *name)
 {
@@ -305,6 +325,10 @@ const struct nfp_rtsym *nfp_rtsym_lookup(struct nfp_device *dev,
 }
 EXPORT_SYMBOL(nfp_rtsym_lookup);
 
+/**
+ * nfp_rtsym_reload() - Force a reload of the RTSYM table
+ * @dev:	NFP Device handle
+ */
 void nfp_rtsym_reload(struct nfp_device *dev)
 {
 	struct nfp_rtsym_priv *priv = nfp_device_private(dev,
@@ -314,5 +338,3 @@ void nfp_rtsym_reload(struct nfp_device *dev)
 	priv->numrtsyms = 0;
 }
 EXPORT_SYMBOL(nfp_rtsym_reload);
-
-/* vim: set shiftwidth=8 noexpandtab: */
