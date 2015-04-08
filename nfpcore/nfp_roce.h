@@ -50,8 +50,19 @@ enum nfp_roce_devstate_e {
 	NFP_DEV_SHUTDOWN	= 2
 };
 
+/**
+ * struct nfp_roce_info - NFP RoCE subdriver interface
+ * @model:		Model number from nfp_cpp_model()
+ * @pdev:		PCI Device parent of CPP interface
+ * @netdev:		Network devices to attach RoCE ports to
+ * @cmdif:		Command interface iomem
+ * @db_base:		DMAable page area
+ * @db_length:		Size of DMAable page area
+ * @def_mac:		MAC for the RoCE interface
+ * @num_vectors:	Number of MSI-X vectors for RoCE's use
+ * @msix:		MSI-X vectors (resized to num_vectors)
+ */
 struct nfp_roce_info {
-	/* This is the model number from nfp_cpp_model() */
 	u32 model;
 
 	/* We need the following, don't see a way to get through NFP open */
@@ -83,7 +94,15 @@ struct nfp_roce_info {
 	struct msix_entry	msix[0];
 };
 
-/*
+struct netro_ibdev;
+
+/**
+ * struct nfp_roce_drv - NFP RoCE driver interface
+ * @abi_version:	Must be NETRO_ROCE_ABI_VERSION
+ * @add_device:		Callback to create a new RoCE device
+ * @remove_device:	Callback to remove an existing RoCE device
+ * @event_notifier:	Callback to update an existing RoCE device's state
+ *
  * NFP RoCE register driver input parameters. Passed to the NFP core
  * in the nfp_register_roce_driver() and nfp_unregister_roce_driver()
  * functions.
@@ -95,8 +114,6 @@ struct nfp_roce_info {
  * The netro event_notifier() call back is a state change handler
  * used to pass NFP device state changes from NFP driver to RoCE driver.
  */
-struct netro_ibdev;
-
 struct nfp_roce_drv {
 	u32	abi_version;
 	struct netro_ibdev *(*add_device)(struct nfp_roce_info *roce_info);
@@ -104,59 +121,15 @@ struct nfp_roce_drv {
 	void	(*event_notifier)(struct netro_ibdev *, int port, u32 state);
 };
 
-/**
- * nfp_register_roce_driver - Register the RoCE driver with NFP core.
- *
- * @param[in]   roce_if   RoCE driver callback function table.
- * @return                0 on success, otherwise error.
- *
- * This routine is called by the netro RoCEv2 kernel driver to
- * notify the NFP NIC/core driver that the RoCE driver has been loaded. If
- * RoCE is not enabled or the ABI version is not supported, the NFP NIC/core
- * should return an error. Otherwise, the NFP NIC/core should invoke the
- * add_device() callback for each NIC instance.
- */
 int nfp_register_roce_driver(struct nfp_roce_drv *drv);
-
-/**
- * nfp_unregister_roce_driver - Unregister the RoCE driver with NFP core.
- *
- * @param[in]   roce_if   The callback function table passed in the
- * associated nfp_register_roce_driver() call.
- *
- * This routine is called by the netro RoCEv2 driver to notify the NFP
- * NIC/core driver that the RoCE driver is unloading. The NFP NIC
- * driver invokes the remove_device routine for each netro RoCE device
- * that has been added.
- */
 void nfp_unregister_roce_driver(struct nfp_roce_drv *drv);
 
 struct nfp_roce;
 
-/**
- * nfp_roce_attach - attach a network device to the ROCE subsystem
- *
- * This routine attachs a ROCE interface to a pci/cpp/netdev triple,
- * and returns a ROCE handle.
- */
 struct nfp_roce *nfp_roce_add(struct nfp_device *nfp,
 			      struct net_device **netdev, int netdevs,
 			      struct msix_entry *entry, int entries);
-
-/**
- * nfp_roce_remove - remove a ROCE device
- *
- * This routine attachs a ROCE interface to a pci/cpp/netdev triple,
- * and returns a ROCE handle.
- */
 void nfp_roce_remove(struct nfp_roce *roce);
-
-/**
- * nfp_roce_state - Alter the state of the ROCE device
- *
- * This should be coordinated with the netdev state
- */
 void nfp_roce_set_devstate(struct nfp_roce *roce, enum nfp_roce_devstate_e state);
 
 #endif /* NFPCORE_NFP_ROCE_H */
-/* vim: set shiftwidth=8 noexpandtab:  */
