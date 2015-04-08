@@ -20,6 +20,18 @@
 #include "nfp_cpp_kernel.h"
 #include "nfp_platform.h"
 
+/**
+ * nfp_platform_device_register_unit() - Multi-unit NFP CPP bus devices
+ * @cpp:	NFP CPP handle
+ * @type:	Platform driver name to match to
+ * @unit:	Unit number of this device
+ * @units:	Maximum units per NFP CPP bus
+ *
+ * NOTE: Use nfp_platform_device_unregister() to release the
+ * struct platform_device.
+ *
+ * Return: struct platform_device *, or NULL
+ */
 struct platform_device *nfp_platform_device_register_unit(struct nfp_cpp *cpp,
 						     const char *type,
 						     int unit, int units)
@@ -56,16 +68,29 @@ struct platform_device *nfp_platform_device_register_unit(struct nfp_cpp *cpp,
 	return pdev;
 }
 
+/**
+ * nfp_platform_device_register() - NFP CPP bus device registration
+ * @cpp:	NFP CPP handle
+ * @type:	Platform driver name to match to
+ *
+ * NOTE: Use nfp_platform_device_unregister() to release the
+ * struct platform_device.
+ *
+ * Return: struct platform_device *, or NULL
+ */
 struct platform_device *nfp_platform_device_register(struct nfp_cpp *cpp,
 						     const char *type)
 {
 	return nfp_platform_device_register_unit(cpp, type, 0, 1);
 }
 
+/**
+ * nfp_platform_device_unregister() - Unregister a NFP CPP bus device
+ * @pdev:	Platform device
+ *
+ */
 void nfp_platform_device_unregister(struct platform_device *pdev)
 {
 	if (pdev)
 		platform_device_unregister(pdev);
 }
-
-/* vim: set shiftwidth=8 noexpandtab:  */

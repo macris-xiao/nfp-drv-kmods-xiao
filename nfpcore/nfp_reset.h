@@ -21,4 +21,3 @@
 int nfp_reset_soft(struct nfp_device *nfp);
 
 #endif /* NFPCORE_NFP_RESET_H */
-/* vim: set shiftwidth=8 noexpandtab:  */

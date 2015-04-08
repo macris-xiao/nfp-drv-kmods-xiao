@@ -9,7 +9,7 @@
 
 #include "nfp.h"
 
-/**
+/*
  * NFP Device Power States
  *
  * NFP_DEVICE_STATE_P0          Clocked, reset released
@@ -27,14 +27,15 @@
 #define NFP_DEVICE_STATE_P2     2
 #define NFP_DEVICE_STATE_P3     3
 
-/* Friendly aliases of the above device states
+/*
+ * Friendly aliases of the above device states
  */
 #define NFP_DEVICE_STATE_ON             NFP_DEVICE_STATE_P0
 #define NFP_DEVICE_STATE_SUSPEND        NFP_DEVICE_STATE_P1
 #define NFP_DEVICE_STATE_RESET          NFP_DEVICE_STATE_P2
 #define NFP_DEVICE_STATE_OFF            NFP_DEVICE_STATE_P3
 
-/**
+/*
  * NFP3200 specific subdevice identifiers
  */
 #define NFP3200_DEVICE(x)               ((x) & 0x1f)
@@ -55,7 +56,7 @@
 #define     NFP3200_DEVICE_QDR1         15
 #define     NFP3200_DEVICE_CRYPTO       16
 
-/**
+/*
  * NFP6000 specific subdevice identifiers
  */
 #define NFP6000_DEVICE(island, unit)     ((((island) & 0x3f)<< 8) | ((unit) & 0xf))
@@ -111,27 +112,8 @@
 #define     NFP6000_DEVICE_ILA_MEG0  2
 #define     NFP6000_DEVICE_ILA_MEG1  3
 
-/**
- * Get current device state
- *
- * @param dev           NFP device
- * @param subdevice     NFP subdevice
- * @param state         Power state
- *
- * @return 0 on success, or -1 on error (and set errno accordingly).
- */
 int nfp_power_get(struct nfp_device *dev, unsigned int subdevice, int *state);
 
-/**
- * Set device power state
- *
- * @param dev           NFP device
- * @param subdevice     NFP subdevice
- * @param state         Power state
- *
- * @return 0 on success, or -1 on error (and set errno accordingly).
- */
 int nfp_power_set(struct nfp_device *dev, unsigned int subdevice, int state);
 
 #endif /* __NFP_POWER_H__ */
-/* vim: set shiftwidth=8 noexpandtab: */

@@ -288,6 +288,14 @@ int nfp6000_reset_set(struct nfp_cpp *cpp, unsigned int subdevice, int reset,
 	return 0;
 }
 
+/**
+ * nfp_power_get() - Get current device state
+ * @nfp:           NFP Device handle
+ * @subdevice:     NFP subdevice
+ * @state:         Power state
+ *
+ * Return: 0, or -ERRNO
+ */
 int nfp_power_get(struct nfp_device *nfp, unsigned int subdevice, int *state)
 {
 	struct nfp_cpp *cpp;
@@ -368,6 +376,14 @@ static int nfp6000_island_init(struct nfp_cpp *cpp, int island)
 	return 0;
 }
 
+/**
+ * nfp_power_set() - Set device power state
+ * @nfp:           NFP Device handle
+ * @subdevice:     NFP subdevice
+ * @state:         Power state
+ *
+ * Return: 0, or -ERRNO
+ */
 int nfp_power_set(struct nfp_device *nfp, unsigned int subdevice, int state)
 {
 	struct nfp_cpp *cpp;
@@ -435,5 +451,3 @@ int nfp_power_set(struct nfp_device *nfp, unsigned int subdevice, int state)
 
 	return err;
 }
-
-/* vim: set shiftwidth=8 noexpandtab: */

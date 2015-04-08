@@ -724,7 +724,11 @@ exit:
 	return err;
 }
 
-/* Perform a soft reset of the NFP:
+/**
+ * nfp_reset_soft() - Perform a soft reset of the NFP
+ * @nfp:	NFP Device handle
+ *
+ * Return: 0, or -ERRNO
  */
 int nfp_reset_soft(struct nfp_device *nfp)
 {
@@ -743,5 +747,3 @@ int nfp_reset_soft(struct nfp_device *nfp)
 
 	return err;
 }
-
-/* vim: set shiftwidth=8 noexpandtab: */

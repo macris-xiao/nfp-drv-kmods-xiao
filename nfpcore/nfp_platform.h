@@ -21,6 +21,11 @@
 
 #include "nfp_cpp.h"
 
+/**
+ * struct nfp_platform_data - Per-device data
+ * @cpp:	NFP CPP handle
+ * @unit:	Device unit number
+ */
 struct nfp_platform_data {
 	struct nfp_cpp *cpp;
 	int unit;
@@ -38,4 +43,3 @@ struct platform_device *nfp_platform_device_register(struct nfp_cpp *cpp,
 void nfp_platform_device_unregister(struct platform_device *pdev);
 
 #endif /* NFP_PLATFORM_H */
-/* vim: set shiftwidth=8 noexpandtab:  */
