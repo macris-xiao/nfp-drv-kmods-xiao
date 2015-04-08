@@ -14,11 +14,82 @@
 #include "nfp_device.h"
 #include "nfp_cpp.h"
 
+/* Init-CSR owner IDs for firmware map to firmware IDs which start at 4.
+ * Lower IDs are reserved for target and loader IDs.
+ */
+#define NFFW_FWID_EXT   3 /* For active MEs that we didn't load. */
+#define NFFW_FWID_BASE  4
+
+#define NFFW_FWID_ALL   255
+
+/* Enough for all chip families */
+#define NFFW_MEINFO_CNT 120
+#define NFFW_FWINFO_CNT 120
+
+/* Work in 32-bit words to make cross-platform endianness easier to handle */
+
+/** nfp.nffw meinfo **/
+struct nffw_meinfo {
+	uint32_t ctxmask__fwid__meid;
+};
+
+struct nffw_fwinfo {
+	uint32_t loaded__mu_da__mip_off_hi;
+	uint32_t mip_cppid; /* 0 means no MIP */
+	uint32_t mip_offset_lo;
+};
+
+/** Resource: nfp.nffw main **/
+struct nfp_nffw_info {
+	uint32_t flags[2];
+	struct nffw_meinfo meinfo[NFFW_MEINFO_CNT];
+	struct nffw_fwinfo fwinfo[NFFW_FWINFO_CNT];
+};
+
 struct nfp_nffw_info_priv {
 	struct nfp_device *dev;
 	struct nfp_resource *res;
 	struct nfp_nffw_info fwinf;
 };
+
+/* NFFW_FWID_BASE is a firmware ID is the index
+ * into the table plus this base */
+
+/* loaded = loaded__mu_da__mip_off_hi<31:31> */
+static inline uint32_t nffw_fwinfo_loaded_get(
+	struct nffw_fwinfo *fi)
+{
+	return (fi->loaded__mu_da__mip_off_hi >> 31) & 1;
+}
+
+/* mip_cppid = mip_cppid */
+static inline uint32_t nffw_fwinfo_mip_cppid_get(
+	struct nffw_fwinfo *fi)
+{
+	return fi->mip_cppid;
+}
+
+/* loaded = loaded__mu_da__mip_off_hi<8:8> */
+static inline uint32_t nffw_fwinfo_mip_mu_da_get(
+	struct nffw_fwinfo *fi)
+{
+	return (fi->loaded__mu_da__mip_off_hi >> 8) & 1;
+}
+
+/* mip_offset = (loaded__mu_da__mip_off_hi<7:0> << 8) | mip_offset_lo */
+static inline uint64_t nffw_fwinfo_mip_offset_get(
+	struct nffw_fwinfo *fi)
+{
+	return (((uint64_t)fi->loaded__mu_da__mip_off_hi & 0xFF) << 32) |
+		fi->mip_offset_lo;
+}
+
+/* flg_init = flags[0]<0> */
+static inline uint32_t nffw_res_flg_init_get(
+	struct nfp_nffw_info *res)
+{
+	return ((res->flags[0] >> 0) & 0x1);
+}
 
 static void __nfp_nffw_info_des(void *data)
 {
@@ -53,6 +124,12 @@ static inline struct nfp_nffw_info *_nfp_nffw_info(
 	return &priv->fwinf;
 }
 
+/**
+ * nfp_nffw_info_release() - Acquire the lock on the NFFW table
+ * @dev:	NFP Device handle
+ *
+ * Return: 0, or -ERRNO
+ */
 int nfp_nffw_info_acquire(struct nfp_device *dev)
 {
 	struct nfp_resource *res;
@@ -105,6 +182,12 @@ int nfp_nffw_info_acquire(struct nfp_device *dev)
 	return 0;
 }
 
+/**
+ * nfp_nffw_info_release() - Release the lock on the NFFW table
+ * @dev:	NFP Device handle
+ *
+ * Return: 0, or -ERRNO
+ */
 int nfp_nffw_info_release(struct nfp_device *dev)
 {
 	struct nfp_resource *res;
@@ -152,199 +235,12 @@ int nfp_nffw_info_release(struct nfp_device *dev)
 	return 0;
 }
 
-int nfp_nffw_info_fw_loaded(struct nfp_device *dev)
-{
-	struct nfp_nffw_info *fwinf = _nfp_nffw_info(dev);
-
-	if (!fwinf)
-		return 0;
-
-	return nffw_res_flg_loaded_get(fwinf);
-}
-
-int nfp_nffw_info_fw_loaded_set(struct nfp_device *dev, int is_loaded)
-{
-	struct nfp_nffw_info *fwinf = _nfp_nffw_info(dev);
-
-	if (!fwinf)
-		return -EINVAL;
-
-	nffw_res_flg_loaded_set(fwinf, (is_loaded) ? 1 : 0);
-	return 0;
-}
-
-int nfp_nffw_info_fw_modular(struct nfp_device *dev)
-{
-	struct nfp_nffw_info *fwinf = _nfp_nffw_info(dev);
-
-	if (!fwinf)
-		return 0;
-
-	return nffw_res_flg_modular_get(fwinf);
-}
-
-int nfp_nffw_info_fw_modular_set(struct nfp_device *dev, int is_modular)
-{
-	struct nfp_nffw_info *fwinf = _nfp_nffw_info(dev);
-
-	if (!fwinf)
-		return -EINVAL;
-
-	nffw_res_flg_modular_set(fwinf, (is_modular) ? 1 : 0);
-
-	return 0;
-}
-
-uint8_t nfp_nffw_info_me_ctxmask(struct nfp_device *dev, int meid)
-{
-	size_t idx;
-	struct nffw_meinfo *meinfo;
-	struct nfp_nffw_info *fwinf = _nfp_nffw_info(dev);
-
-	if (!fwinf)
-		return 0;
-
-	for (idx = 0, meinfo = &fwinf->meinfo[0];
-		 idx < NFFW_MEINFO_CNT; idx++, meinfo++) {
-		if ((int)nffw_meinfo_meid_get(meinfo) == meid)
-			return nffw_meinfo_ctxmask_get(meinfo);
-	}
-
-	return 0;
-}
-
-int nfp_nffw_info_me_ctxmask_set(struct nfp_device *dev,
-				 int meid, uint8_t ctxmask)
-{
-	size_t idx;
-	struct nffw_meinfo *meinfo;
-	struct nfp_nffw_info *fwinf = _nfp_nffw_info(dev);
-
-	if (!fwinf)
-		return -ENODEV;
-
-	for (idx = 0, meinfo = &fwinf->meinfo[0];
-		 idx < NFFW_MEINFO_CNT; idx++, meinfo++) {
-		if ((int)nffw_meinfo_meid_get(meinfo) == meid) {
-			nffw_meinfo_ctxmask_set(meinfo, ctxmask);
-			return 0;
-		}
-	}
-
-	return -ENOENT;
-}
-
-uint8_t nfp_nffw_info_me_fwid(struct nfp_device *dev, int meid)
-{
-	size_t idx;
-	struct nffw_meinfo *meinfo;
-	struct nfp_nffw_info *fwinf = _nfp_nffw_info(dev);
-
-	if (!fwinf)
-		return 0;
-
-	for (idx = 0, meinfo = &fwinf->meinfo[0];
-		 idx < NFFW_MEINFO_CNT; idx++, meinfo++) {
-		if ((int)nffw_meinfo_meid_get(meinfo) == meid)
-			return nffw_meinfo_fwid_get(meinfo);
-	}
-
-	return 0;
-}
-
-int nfp_nffw_info_me_fwid_set(struct nfp_device *dev, int meid,
-							  uint8_t fwid)
-{
-	size_t idx;
-	struct nffw_meinfo *meinfo;
-	struct nfp_nffw_info *fwinf = _nfp_nffw_info(dev);
-
-	if (!fwinf)
-		return -ENODEV;
-
-	if (fwid == NFFW_FWID_ALL)
-		return -EINVAL;
-
-	for (idx = 0, meinfo = &fwinf->meinfo[0];
-		 idx < NFFW_MEINFO_CNT; idx++, meinfo++)
-		if ((int)nffw_meinfo_meid_get(meinfo) == meid)
-			break;
-
-	if (idx == NFFW_MEINFO_CNT)
-		return -ENOENT;
-
-	if (fwid) {
-		nffw_meinfo_fwid_set(meinfo, fwid);
-	} else {
-		nffw_meinfo_fwid_set(meinfo, 0);
-		nffw_meinfo_ctxmask_set(meinfo, 0);
-	}
-
-	return 0;
-}
-
-uint8_t nfp_nffw_info_fwid_alloc(struct nfp_device *dev)
-{
-	size_t idx;
-	struct nffw_fwinfo *fwinfo;
-	struct nfp_nffw_info *fwinf = _nfp_nffw_info(dev);
-
-	if (!fwinf)
-		return 0;
-
-	for (idx = 0, fwinfo = &fwinf->fwinfo[0];
-		 idx < NFFW_FWINFO_CNT; idx++, fwinfo++) {
-		if (!nffw_fwinfo_loaded_get(fwinfo)) {
-			nffw_fwinfo_loaded_set(fwinfo, 1);
-			return ((uint8_t)idx + NFFW_FWID_BASE);
-		}
-	}
-
-	return 0;
-}
-
-int nfp_nffw_info_fwid_free(struct nfp_device *dev, uint8_t fwid)
-{
-	struct nffw_fwinfo *fwinfo;
-	struct nffw_meinfo *meinfo;
-	size_t idx;
-	struct nfp_nffw_info *fwinf = _nfp_nffw_info(dev);
-
-	if (!fwinf)
-		return -ENODEV;
-
-	if ((fwid == 0) || (fwid == NFFW_FWID_ALL)) {
-		for (idx = 0, meinfo = &fwinf->meinfo[0];
-			idx < NFFW_MEINFO_CNT; idx++, meinfo++) {
-			nffw_meinfo_fwid_set(meinfo, 0);
-			nffw_meinfo_ctxmask_set(meinfo, 0);
-		}
-
-		for (idx = 0, fwinfo = &fwinf->fwinfo[0];
-			idx < NFFW_FWINFO_CNT; idx++, fwinfo++) {
-			nffw_fwinfo_loaded_set(fwinfo, 0);
-			nffw_fwinfo_mip_offset_set(fwinfo, 0);
-			nffw_fwinfo_mip_cppid_set(fwinfo, 0);
-		}
-
-		return 0;
-	}
-
-	if (fwid < NFFW_FWID_BASE)
-		return -EINVAL;
-
-	fwinfo = &fwinf->fwinfo[fwid - NFFW_FWID_BASE];
-	nffw_fwinfo_loaded_set(fwinfo, 0);
-	for (idx = 0, meinfo = &fwinf->meinfo[0];
-		 idx < NFFW_MEINFO_CNT; idx++, meinfo++) {
-		if (nffw_meinfo_fwid_get(meinfo) == fwid) {
-			nffw_meinfo_fwid_set(meinfo, 0);
-			nffw_meinfo_ctxmask_set(meinfo, 0);
-		}
-	}
-	return 0;
-}
-
+/**
+ * nfp_nffw_info_fwid_first() - Return the first firmware ID in the NFFW
+ * @dev:	NFP Device handle
+ *
+ * Return: First NFFW firmware ID
+ */
 uint8_t nfp_nffw_info_fwid_first(struct nfp_device *dev)
 {
 	size_t idx;
@@ -363,28 +259,15 @@ uint8_t nfp_nffw_info_fwid_first(struct nfp_device *dev)
 	return 0;
 }
 
-uint8_t nfp_nffw_info_fwid_next(struct nfp_device *dev, uint8_t fwid)
-{
-	size_t idx;
-	struct nffw_fwinfo *fwinfo;
-	struct nfp_nffw_info *fwinf = _nfp_nffw_info(dev);
-
-	if (!fwinf)
-		return 0;
-
-	if (fwid < NFFW_FWID_BASE)
-		return 0;
-
-	for (idx = (fwid - NFFW_FWID_BASE) + 1,
-		 fwinfo = &fwinf->fwinfo[(fwid - NFFW_FWID_BASE) + 1];
-		 idx < NFFW_FWINFO_CNT; idx++, fwinfo++) {
-		if (nffw_fwinfo_loaded_get(fwinfo))
-			return (idx + NFFW_FWID_BASE);
-	}
-
-	return 0;
-}
-
+/**
+ * nfp_nffw_info_fw_mip() - Retrive the location of the MIP of a firmware
+ * @dev:	NFP Device handle
+ * @fwid:	NFFW firmware ID
+ * @cpp_id:	Pointer to the CPP ID of the MIP
+ * @off:	Pointer to the CPP Address of the MIP
+ *
+ * Return: 0, or -ERRNO
+ */
 int nfp_nffw_info_fw_mip(struct nfp_device *dev, uint8_t fwid,
 			 uint32_t *cpp_id, uint64_t *off)
 {
@@ -410,28 +293,5 @@ int nfp_nffw_info_fw_mip(struct nfp_device *dev, uint8_t fwid,
 	if (nffw_fwinfo_mip_mu_da_get(fwinfo))
 		*off |= (1ULL << 63);
 
-	return 0;
-}
-
-int nfp_nffw_info_fw_mip_set(struct nfp_device *dev, uint8_t fwid,
-						 uint32_t cpp_id, uint64_t off)
-{
-	struct nffw_fwinfo *fwinfo;
-	struct nfp_nffw_info *fwinf = _nfp_nffw_info(dev);
-
-	if (!fwinf)
-		return -ENODEV;
-
-	if (fwid < NFFW_FWID_BASE)
-		return -EINVAL;
-
-	fwinfo = &fwinf->fwinfo[fwid - NFFW_FWID_BASE];
-
-	if (!nffw_fwinfo_loaded_get(fwinfo))
-		return -ENOENT;
-
-	nffw_fwinfo_mip_cppid_set(fwinfo, cpp_id);
-	nffw_fwinfo_mip_offset_set(fwinfo, off);
-	nffw_fwinfo_mip_mu_da_set(fwinfo, ((off >> 63) & 1));
 	return 0;
 }
