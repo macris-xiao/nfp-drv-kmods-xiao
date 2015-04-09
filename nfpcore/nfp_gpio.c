@@ -74,6 +74,12 @@ static void *gpio_new(struct nfp_device *nfp)
 	return gpio;
 }
 
+/**
+ * nfp_gpio_pins() - Return the number of pins supported by this NFP
+ * @dev:	NFP Device handle
+ *
+ * Return: Number of GPIO pins, or -ERRNO
+ */
 int nfp_gpio_pins(struct nfp_device *dev)
 {
 	struct nfp_cpp *cpp = nfp_device_cpp(dev);
@@ -96,12 +102,12 @@ int nfp_gpio_pins(struct nfp_device *dev)
 
 
 /**
- * GPIO Pin Setup
+ * nfp_gpio_direction() - GPIO Pin Setup
+ * @dev:	NFP Device handle
+ * @gpio_pin:	GPIO Pin (0 .. 11)
+ * @is_output:	0 = input, 1 = output
  *
- * @param dev       NFP device
- * @param gpio_pin  GPIO Pin (0 .. 11)
- * @param is_output 0 = input, 1 = output
- * @return      Error code
+ * Return: 0, or -ERRNO
  */
 int nfp_gpio_direction(struct nfp_device *dev, int gpio_pin, int is_output)
 {
@@ -125,12 +131,12 @@ int nfp_gpio_direction(struct nfp_device *dev, int gpio_pin, int is_output)
 
 
 /**
- * GPIO Get Pin Direction
+ * nfp_gpio_get_direction() - GPIO Get Pin Direction
+ * @dev:	NFP Device handle
+ * @gpio_pin:	GPIO Pin (0 .. X)
+ * @is_output:	0 = input, 1 = output
  *
- * @param dev       NFP device
- * @param gpio_pin  GPIO Pin (0 .. X)
- * @param is_output 0 = input, 1 = output
- * @return      Error code
+ * Return: 0, or -ERRNO
  */
 int nfp_gpio_get_direction(struct nfp_device *dev, int gpio_pin, int *is_output)
 {
@@ -151,11 +157,11 @@ int nfp_gpio_get_direction(struct nfp_device *dev, int gpio_pin, int *is_output)
 }
 
 /**
- * GPIO Pin Input
+ * nfp_gpio_get() - GPIO Pin Input
+ * @dev:	NFP Device handle
+ * @gpio_pin:	GPIO Pin (0 .. 11)
  *
- * @param dev       NFP device
- * @param gpio_pin  GPIO Pin (0 .. 11)
- * @return      0, 1 = value of pin, < 0 = error code
+ * Return: 0, 1 = value of pin, or -ERRNO
  */
 int nfp_gpio_get(struct nfp_device *dev, int gpio_pin)
 {
@@ -177,12 +183,12 @@ int nfp_gpio_get(struct nfp_device *dev, int gpio_pin)
 }
 
 /**
- * GPIO Pin Output
+ * nfp_gpio_set() - GPIO Pin Output
+ * @dev:	NFP Device handle
+ * @gpio_pin:	GPIO Pin (0 .. 11)
+ * @value:	0, 1
  *
- * @param dev       NFP device
- * @param gpio_pin  GPIO Pin (0 .. 11)
- * @param value     0, 1
- * @return      0 = success, < 0 = error code
+ * Return: 0, or -ERRNO
  */
 int nfp_gpio_set(struct nfp_device *dev, int gpio_pin, int value)
 {
@@ -203,4 +209,3 @@ int nfp_gpio_set(struct nfp_device *dev, int gpio_pin, int value)
 
 	return err < 0 ? err : 0;
 }
-/* vim: set shiftwidth=8 noexpandtab: */
