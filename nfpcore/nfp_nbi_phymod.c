@@ -719,16 +719,14 @@ static int _phymod_select(struct nfp_phymod *phy)
 }
 
 /**
- * PHY Module enumeration
- * @ingroup nfp6000-only
+ * nfp_phymod_next() - PHY Module enumeration
+ * @nfp:	NFP device
+ * @ptr:	Abstract pointer, must be NULL to get the first port
  *
  * This function allows enumeration of the PHY Modules
  * attached to the system.
  *
- * @param nfp   NFP device
- * @param ptr   Abstract pointer, must be NULL to get the first port
- * @return  On succes: phymod
- * @return  On error: NULL
+ * Return: struct nfp_phymod *, or NULL
  */
 struct nfp_phymod *nfp_phymod_next(struct nfp_device *nfp, void **ptr)
 {
@@ -753,12 +751,11 @@ struct nfp_phymod *nfp_phymod_next(struct nfp_device *nfp, void **ptr)
 EXPORT_SYMBOL(nfp_phymod_next);
 
 /**
- * Get the index for a phymode
- * @ingroup nfp6000-only
+ * nfp_phymod_get_index() - Get the index for a phymode
+ * @phymod:		PHY module handle
+ * @index:		Pointer to a int for the index
  *
- * @param phymod
- * @param index 	Pointer to a int for the index
- * @return 0 on success, -1 and errno on error
+ * Return: 0, or -ERRNO
  */
 int nfp_phymod_get_index(struct nfp_phymod *phymod, int *index)
 {
@@ -770,12 +767,11 @@ int nfp_phymod_get_index(struct nfp_phymod *phymod, int *index)
 EXPORT_SYMBOL(nfp_phymod_get_index);
 
 /**
- * Get the string (UTF8) label for a phymode
- * @ingroup nfp6000-only
+ * nfp_phymod_get_label() - Get the string (UTF8) label for a phymode
+ * @phymod:		PHY module handle
+ * @label:		Pointer to a const char * for the label
  *
- * @param phymod
- * @param label		Pointer to a const char * for the label
- * @return 0 on success, -1 and errno on error
+ * Return: 0, or -ERRNO
  */
 int nfp_phymod_get_label(struct nfp_phymod *phymod, const char **label)
 {
@@ -788,12 +784,11 @@ EXPORT_SYMBOL(nfp_phymod_get_label);
 
 
 /**
- * Get the NBI ID for a phymode
- * @ingroup nfp6000-only
+ * nfp_phymod_get_nbi() - Get the NBI ID for a phymode
+ * @phymod:		PHY module handle
+ * @nbi:		Pointer to a int for the NBI
  *
- * @param phymod
- * @param nbi		Pointer to a int for the NBI
- * @return 0 on success, -1 and errno on error
+ * Return: 0, or -ERRNO
  */
 int nfp_phymod_get_nbi(struct nfp_phymod *phymod, int *nbi)
 {
@@ -805,13 +800,12 @@ int nfp_phymod_get_nbi(struct nfp_phymod *phymod, int *nbi)
 EXPORT_SYMBOL(nfp_phymod_get_nbi);
 
 /**
- * Get the base port and/or size
- * @ingroup nfp6000-only
+ * nfp_phymod_get_port() - Get the base port and/or size
+ * @phymod:		PHY module handle
+ * @base:		Pointer to a int for base port (0..23)
+ * @size:		Pointer to a int for number of ports
  *
- * @param phymod
- * @param base		Pointer to a int for base port (0..23)
- * @param size		Pointer to a int for number of ports
- * @return 0 on success, -1 and errno on error
+ * Return: 0, or -ERRNO
  */
 int nfp_phymod_get_port(struct nfp_phymod *phymod, int *base, int *size)
 {
@@ -826,12 +820,11 @@ int nfp_phymod_get_port(struct nfp_phymod *phymod, int *base, int *size)
 EXPORT_SYMBOL(nfp_phymod_get_port);
 
 /**
- * Get the type ID for the port
- * @ingroup nfp6000-only
+ * nfp_phymod_get_type() - Get the type ID for the port
+ * @phymod:		PHY module handle
+ * @type:		Pointer to a int for the type (see NFP_PHYMOD_TYPE_*)
  *
- * @param phymod
- * @param type		Pointer to a int for the type (see NFP_PHYMOD_TYPE_*)
- * @return 0 on success, -1 and errno on error
+ * Return: 0, or -ERRNO
  */
 int nfp_phymod_get_type(struct nfp_phymod *phymod, int *type)
 {
@@ -848,8 +841,10 @@ int nfp_phymod_get_type(struct nfp_phymod *phymod, int *type)
 EXPORT_SYMBOL(nfp_phymod_get_type);
 
 /**
- * Report status for a PHY module.
- * @ingroup nfp6000-only
+ * nfp_phymod_read_status() - Report status for a PHY module.
+ * @phymod:	PHY module
+ * @txstatus:	Transmit status summary for the module
+ * @rxstatus:	Receive status summary for the module
  *
  * The returned txstatus parameter indicates the type of PHY module in
  * the most significant byte.  The other bytes contain the summary
@@ -865,14 +860,9 @@ EXPORT_SYMBOL(nfp_phymod_get_type);
  * obtained for each of these alarms using the associated
  * type-specific function.
  *
- * @param phymod PHY module
- * @param[out] txstatus Transmit status summary for the module
- * @param[out] rxstatus Receive status summary for the module
- *
- * @return 0 on success. Return -errno on error.
- *
+ * Return: 0, or -ERRNO
  */
-int nfp_phymod_read_status(struct nfp_phymod *phy, uint32_t *txstatus,
+int nfp_phymod_read_status(struct nfp_phymod *phymod, uint32_t *txstatus,
 			   uint32_t *rxstatus)
 {
 	uint32_t txs = 0, rxs = 0;
@@ -892,7 +882,7 @@ int nfp_phymod_read_status(struct nfp_phymod *phy, uint32_t *txstatus,
 	for (i = 0; i < ARRAY_SIZE(status); i++) {
 		uint32_t tx, rx;
 
-		err = status[i].func(phy, &tx, &rx);
+		err = status[i].func(phymod, &tx, &rx);
 		if (err >= 0) {
 			txs |= tx ? status[i].flag : 0;
 			rxs |= rx ? status[i].flag : 0;
@@ -910,8 +900,10 @@ int nfp_phymod_read_status(struct nfp_phymod *phy, uint32_t *txstatus,
 EXPORT_SYMBOL(nfp_phymod_read_status);
 
 /**
- * Report Loss Of Signal status for a PHY module.
- * @ingroup nfp6000-only
+ * nfp_phymod_read_status_los() - Report Loss Of Signal status
+ * @phymod:	PHY module
+ * @txstatus:	Transmit LOS status for the module
+ * @rxstatus:	Receive LOS status for the module
  *
  * The returned txstatus parameter indicates the type of PHY module in
  * the most significant byte.  The other bytes contain the status
@@ -923,12 +915,7 @@ EXPORT_SYMBOL(nfp_phymod_read_status);
  * Loss of Signal (LOS) for each lane.  For the SFP(+) case the LOS
  * status is in bit zero; for QSFP bits 0-4 and for CXP bits 0-9.
  *
- * @param phymod PHY module
- * @param[out] txstatus Transmit LOS status for the module
- * @param[out] rxstatus Receive LOS status for the module
- *
- * @return 0 on success. Return -errno on failure.
- *
+ * Return: 0, or -ERRNO
  */
 int nfp_phymod_read_status_los(struct nfp_phymod *phymod, uint32_t *txstatus,
 			       uint32_t *rxstatus)
@@ -943,7 +930,10 @@ int nfp_phymod_read_status_los(struct nfp_phymod *phymod, uint32_t *txstatus,
 EXPORT_SYMBOL(nfp_phymod_read_status_los);
 
 /**
- * Report Fault status for a PHY module.
+ * nfp_phymod_read_status_fault() - Report Fault status
+ * @phymod:	PHY module
+ * @txstatus:	Transmit Fault status for the module
+ * @rxstatus:	Receive Fault status for the module
  *
  * The returned txstatus parameter indicates the type of PHY module in
  * the most significant byte.  The other bytes contain the Transmit
@@ -954,12 +944,7 @@ EXPORT_SYMBOL(nfp_phymod_read_status_los);
  * for each lane.  For the SFP(+) case the LOS status is in bit zero;
  * for QSFP bits 0-4 and for CXP bits 0-9.
  *
- * @param phymod PHY module
- * @param[out] txstatus Transmit Fault status for the module
- * @param[out] rxstatus Receive Fault status for the module
- *
- * @return 0 on success, < 0 on error.
- *
+ * Return: 0, or -ERRNO
  */
 int nfp_phymod_read_status_fault(struct nfp_phymod *phymod, uint32_t *txstatus,
 				 uint32_t *rxstatus)
@@ -974,8 +959,10 @@ int nfp_phymod_read_status_fault(struct nfp_phymod *phymod, uint32_t *txstatus,
 EXPORT_SYMBOL(nfp_phymod_read_status_fault);
 
 /**
- * Report Optical Power status for a PHY module.
- * @ingroup nfp6000-only
+ * nfp_phymod_read_status_optpower() - Report Optical Power status
+ * @phymod:	PHY module
+ * @txstatus:	Transmit Optical Power status for the module
+ * @rxstatus:	Receive Optical Power status for the module
  *
  * The returned txstatus parameter indicates the type of PHY module in
  * the most significant byte.  The other bytes contain the status of
@@ -990,12 +977,7 @@ EXPORT_SYMBOL(nfp_phymod_read_status_fault);
  * LSB for Low Power.  For the SFP(+) case the Optical Power status will
  * be in bits 0-1; for QSFP bits 0-7 and for CXP bits 0-19.
  *
- * @param phymod PHY module
- * @param[out] txstatus Transmit Optical Power status for the module
- * @param[out] rxstatus Receive Optical Power status for the module
- *
- * @return 0 on success, < 0 on error.
- *
+ * Return: 0, or -ERRNO
  */
 int nfp_phymod_read_status_optpower(struct nfp_phymod *phymod,
 				    uint32_t *txstatus,
@@ -1011,8 +993,10 @@ int nfp_phymod_read_status_optpower(struct nfp_phymod *phymod,
 EXPORT_SYMBOL(nfp_phymod_read_status_optpower);
 
 /**
- * Report Optical Bias status for a PHY module.
- * @ingroup nfp6000-only
+ * nfp_phymod_read_status_optbias() - Report Optical Bias status
+ * @phymod:	PHY module
+ * @txstatus:	Transmit Optical Bias status for the module
+ * @rxstatus:	Unused, should be NULL
  *
  * The returned txstatus parameter indicates the type of PHY module in
  * the most significant byte.  The other bytes contain the status of
@@ -1021,11 +1005,7 @@ EXPORT_SYMBOL(nfp_phymod_read_status_optpower);
  * LSB for Low Bias.  For the SFP(+) case the Optical Bias status will
  * be in bits 0-1; for QSFP bits 0-7 and for CXP bits 0-19.
  *
- * @param phymod PHY module
- * @param[out] txstatus Transmit Optical Bias status for the module
- *
- * @return 0 on success, < 0 on error.
- *
+ * Return: 0, or -ERRNO
  */
 int nfp_phymod_read_status_optbias(struct nfp_phymod *phymod,
 				   uint32_t *txstatus, uint32_t *rxstatus)
@@ -1040,8 +1020,10 @@ int nfp_phymod_read_status_optbias(struct nfp_phymod *phymod,
 EXPORT_SYMBOL(nfp_phymod_read_status_optbias);
 
 /**
- * Report High/Low Voltage status for a PHY module.
- * @ingroup nfp6000-only
+ * nfp_phymod_read_status_voltage() - Report High/Low Voltage status
+ * @phymod:	PHY module
+ * @txstatus:	Transmit High/Low Voltage status for the module
+ * @rxstatus:	Receive High/Low Voltage status for the module
  *
  * The returned txstatus parameter indicates the type of PHY module in
  * the most significant byte.  The other bytes contain the status of
@@ -1064,12 +1046,7 @@ EXPORT_SYMBOL(nfp_phymod_read_status_optbias);
  * each voltage - Vcc3.3 status is in bits 0-1; Vcc12 status is in
  * bits 2-3.
  *
- * @param phymod PHY module
- * @param[out] txstatus Transmit High/Low Voltage status for the module
- * @param[out] rxstatus Receive High/Low Voltage status for the module
- *
- * @return 0 on success, < 0 on error.
- *
+ * Return: 0, or -ERRNO
  */
 int nfp_phymod_read_status_voltage(struct nfp_phymod *phymod,
 				   uint32_t *txstatus,
@@ -1085,8 +1062,10 @@ int nfp_phymod_read_status_voltage(struct nfp_phymod *phymod,
 EXPORT_SYMBOL(nfp_phymod_read_status_voltage);
 
 /**
- * Report High/Low Temperature status for a PHY module.
- * @ingroup nfp6000-only
+ * nfp_phymod_read_status_temp() - Report High/Low Temperature status
+ * @phymod:	PHY module
+ * @txstatus:	Transmit High/Low Temperature status for the module
+ * @rxstatus:	Receive High/Low Temperature status for the module
  *
  * The returned txstatus parameter indicates the type of PHY module in
  * the most significant byte.  The other bytes contain the status of
@@ -1103,13 +1082,7 @@ EXPORT_SYMBOL(nfp_phymod_read_status_voltage);
  * Temperature. For all modules the High/Low Temperature status will be
  * in bits 0-1.
  *
- *
- * @param phymod PHY module
- * @param[out] txstatus Transmit High/Low Temperature status for the module
- * @param[out] rxstatus Receive High/Low Temperature status for the module
- *
- * @return 0 on success, < 0 on error.
- *
+ * Return: 0, or -ERRNO
  */
 int nfp_phymod_read_status_temp(struct nfp_phymod *phymod, uint32_t *txstatus,
 				uint32_t *rxstatus)
@@ -1124,8 +1097,10 @@ int nfp_phymod_read_status_temp(struct nfp_phymod *phymod, uint32_t *txstatus,
 EXPORT_SYMBOL(nfp_phymod_read_status_temp);
 
 /**
- * Read Lane Disable state for a PHY module.
- * @ingroup nfp6000-only
+ * nfp_phymod_read_lanedisable() - Read Lane Disable state for a PHY module.
+ * @phymod:	PHY module
+ * @txstatus:	Lane Disable status for the module
+ * @rxstatus:	Lane Disable status for the module
  *
  * The returned txstatus parameter indicates the type of PHY module in
  * the most significant byte.  The other bytes contain the status of
@@ -1145,29 +1120,25 @@ EXPORT_SYMBOL(nfp_phymod_read_status_temp);
  * returned in txstatus bits 0-23, the Receive Lane Disable states are
  * returned in rxstatus bits 0-23.
  *
- *
- * @param phymod PHY module
- * @param[out] txstatus Lane Disable status for the module
- * @param[out] rxstatus Lane Disable status for the module
- *
- * @return 0 on success, < 0 on error.
- *
+ * Return: 0, or -ERRNO
  */
-int nfp_phymod_read_lanedisable(struct nfp_phymod *phymod, uint32_t *txstate,
-				uint32_t *rxstate)
+int nfp_phymod_read_lanedisable(struct nfp_phymod *phymod, uint32_t *txstatus,
+				uint32_t *rxstatus)
 {
 	_phymod_select(phymod);
 
 	if (phymod->sff.op && phymod->sff.op->get_lane_dis)
-		return phymod->sff.op->get_lane_dis(phymod, txstate, rxstate);
+		return phymod->sff.op->get_lane_dis(phymod, txstatus, rxstatus);
 
 	return -EINVAL;
 }
 EXPORT_SYMBOL(nfp_phymod_read_lanedisable);
 
 /**
- * Write Lane Disable state for a PHY module.
- * @ingroup nfp6000-only
+ * nfp_phymod_write_lanedisable() - Write Lane Disable state for a PHY module.
+ * @phymod:	PHY module
+ * @txstate:	Lane Disable states for the module
+ * @rxstate:	Lane Disable states for the module
  *
  * Enable/Disable lanes in a PHY module as specified by the txstates
  * (transmit) and rxstates (receive) parameters.
@@ -1186,13 +1157,7 @@ EXPORT_SYMBOL(nfp_phymod_read_lanedisable);
  * specified in txstates bits 0-23, the Receive Lane Disable states are
  * specified in rxstates bits 0-23.
  *
- *
- * @param phymod PHY module
- * @param[in] txstates Lane Disable states for the module
- * @param[in] rxstates Lane Disable states for the module
- *
- * @return 0 on success, < 0 on error.
- *
+ * Return: 0, or -ERRNO
  */
 int nfp_phymod_write_lanedisable(struct nfp_phymod *phymod, uint32_t txstate,
 				 uint32_t rxstate)
@@ -1207,15 +1172,12 @@ int nfp_phymod_write_lanedisable(struct nfp_phymod *phymod, uint32_t txstate,
 EXPORT_SYMBOL(nfp_phymod_write_lanedisable);
 
 /**
- * Read a PHY module address (8-bit).
- * @ingroup nfp6000-only
+ * nfp_phymod_read8() - Read a PHY module address (8-bit).
+ * @phymod:	PHY module
+ * @addr:	address
+ * @data:	data return value
  *
- * @param phymod PHY module
- * @param[in] addr address
- * @param[out] data return value
- *
- * @return 0 on success, < 0 on error.
- *
+ * Return: 0, or -ERRNO
  */
 int nfp_phymod_read8(struct nfp_phymod *phymod, uint32_t addr,
 		     uint8_t *data)
@@ -1230,14 +1192,12 @@ int nfp_phymod_read8(struct nfp_phymod *phymod, uint32_t addr,
 EXPORT_SYMBOL(nfp_phymod_read8);
 
 /**
- * Write a PHY module address (8-bit).
- * @ingroup nfp6000-only
+ * nfp_phymod_write8() - Write a PHY module address (8-bit).
+ * @phymod:	PHY module
+ * @addr:	address
+ * @data:	value
  *
- * @param phymod PHY module
- * @param[in] addr address
- * @param[in] data value
- *
- * @return 0 on success, < 0 on error.
+ * Return: 0, or -ERRNO
  *
  */
 int nfp_phymod_write8(struct nfp_phymod *phymod, uint32_t addr,
@@ -1253,16 +1213,15 @@ int nfp_phymod_write8(struct nfp_phymod *phymod, uint32_t addr,
 EXPORT_SYMBOL(nfp_phymod_write8);
 
 /**
- * PHY Module Ethernet port enumeration
- * @ingroup nfp6000-only
+ * nfp_phymod_eth_next() - PHY Module Ethernet port enumeration
+ * @nfp:	NFP Device handle
+ * @phy:	PHY module
+ * @ptr:	Abstract pointer, must be NULL to get the first port
  *
  * This function allows enumeration of the Ethernet ports
  * attached to a PHY module
  *
- * @param phy   PHY module
- * @param ptr   Abstract pointer, must be NULL to get the first port
- * @return  On succes: phymod
- * @return  On error: NULL
+ * Return: struct nfp_phymod_eth pointer, or NULL
  */
 struct nfp_phymod_eth *nfp_phymod_eth_next(struct nfp_device *nfp, struct nfp_phymod *phy, void **ptr)
 {
@@ -1310,12 +1269,11 @@ struct nfp_phymod_eth *nfp_phymod_eth_next(struct nfp_device *nfp, struct nfp_ph
 EXPORT_SYMBOL(nfp_phymod_eth_next);
 
 /**
- * Get the index for a phymod's eth interface
- * @ingroup nfp6000-only
+ * nfp_phymod_eth_get_index() - Get the index for a phymod's eth interface
+ * @eth:		PHY module ethernet interface
+ * @index:		Pointer to a int for the index (unique for all eths)
  *
- * @param eth		PHY module ethernet interface
- * @param index 	Pointer to a int for the index (unique for all eths)
- * @return 0 on success, -1 and errno on error
+ * Return: 0, or -ERRNO
  */
 int nfp_phymod_eth_get_index(struct nfp_phymod_eth *eth, int *index)
 {
@@ -1327,13 +1285,12 @@ int nfp_phymod_eth_get_index(struct nfp_phymod_eth *eth, int *index)
 EXPORT_SYMBOL(nfp_phymod_eth_get_index);
 
 /**
- * Get the phymod and base lane for a phymod's eth interface
- * @ingroup nfp6000-only
+ * nfp_phymod_eth_get_phymod() - Get the phymod and base lane
+ * @eth:		PHY module ethernet interface
+ * @phy:		Pointer to a phymod, set to the parent PHY of this eth
+ * @lane:		Pointer to a int for the PHY lane for this eth
  *
- * @param eth		PHY module ethernet interface
- * @param phy		Pointer to a phymod, set to the parent PHY of this eth
- * @param index 	Pointer to a int for the PHY lane for this eth
- * @return 0 on success, -1 and errno on error
+ * Return: 0, or -ERRNO
  */
 int nfp_phymod_eth_get_phymod(struct nfp_phymod_eth *eth, struct nfp_phymod **phy, int *lane)
 {
@@ -1348,12 +1305,11 @@ int nfp_phymod_eth_get_phymod(struct nfp_phymod_eth *eth, struct nfp_phymod **ph
 EXPORT_SYMBOL(nfp_phymod_eth_get_phymod);
 
 /**
- * Get the MAC address of an ethernet port
- * @ingroup nfp6000-only
+ * nfp_phymod_eth_get_mac() - Get the MAC address of an ethernet port
+ * @eth:		PHY module ethernet interface
+ * @mac:		Pointer to a const uint8_t * for the 6-byte MAC
  *
- * @param eth		PHY module ethernet interface
- * @param mac		Pointer to a const uint8_t * for the 6-byte MAC
- * @return 0 on success, -1 and errno on error
+ * Return: 0, or -ERRNO
  */
 int nfp_phymod_eth_get_mac(struct nfp_phymod_eth *eth, const uint8_t **mac)
 {
@@ -1365,12 +1321,11 @@ int nfp_phymod_eth_get_mac(struct nfp_phymod_eth *eth, const uint8_t **mac)
 EXPORT_SYMBOL(nfp_phymod_eth_get_mac);
 
 /**
- * Get the string (UTF8) label for a phymod's Ethernet interface
- * @ingroup nfp6000-only
+ * nfp_phymod_eth_get_label() - Get the string (UTF8) label
+ * @eth:		PHY module ethernet interface
+ * @label:		Pointer to a const char * for the label
  *
- * @param eth		PHY module ethernet interface
- * @param label		Pointer to a const char * for the label
- * @return 0 on success, -1 and errno on error
+ * Return: 0, or -ERRNO
  */
 int nfp_phymod_eth_get_label(struct nfp_phymod_eth *eth, const char **label)
 {
@@ -1382,12 +1337,11 @@ int nfp_phymod_eth_get_label(struct nfp_phymod_eth *eth, const char **label)
 EXPORT_SYMBOL(nfp_phymod_eth_get_label);
 
 /**
- * Get the NBI ID for a phymod's Ethernet interface
- * @ingroup nfp6000-only
+ * nfp_phymod_eth_get_nbi() - Get the NBI ID for a phymod's Ethernet interface
+ * @eth:		PHY module ethernet interface
+ * @nbi:		Pointer to a int for the NBI
  *
- * @param eth		PHY module ethernet interface
- * @param nbi		Pointer to a int for the NBI
- * @return 0 on success, -1 and errno on error
+ * Return: 0, or -ERRNO
  */
 int nfp_phymod_eth_get_nbi(struct nfp_phymod_eth *eth, int *nbi)
 {
@@ -1399,13 +1353,12 @@ int nfp_phymod_eth_get_nbi(struct nfp_phymod_eth *eth, int *nbi)
 EXPORT_SYMBOL(nfp_phymod_eth_get_nbi);
 
 /**
- * Get the base port and/or lanes
- * @ingroup nfp6000-only
+ * nfp_phymod_eth_get_port() - Get the base port and/or lanes
+ * @eth:		PHY module ethernet interface
+ * @base:		Pointer to a int for base port (0..23)
+ * @lanes:		Pointer to a int for number of phy lanes
  *
- * @param eth		PHY module ethernet interface
- * @param base		Pointer to a int for base port (0..23)
- * @param lanes		Pointer to a int for number of phy lanes
- * @return 0 on success, -1 and errno on error
+ * Return: 0, or -ERRNO
  */
 int nfp_phymod_eth_get_port(struct nfp_phymod_eth *eth, int *base, int *lanes)
 {
@@ -1420,12 +1373,11 @@ int nfp_phymod_eth_get_port(struct nfp_phymod_eth *eth, int *base, int *lanes)
 EXPORT_SYMBOL(nfp_phymod_eth_get_port);
 
 /**
- * Get the speed of the Ethernet port (in megabits/sec)
- * @ingroup nfp6000-only
+ * nfp_phymod_eth_get_speed() - Get the speed of the Ethernet port
+ * @eth:		PHY module ethernet interface
+ * @speed:	Pointer to an int for speed (in megabits/sec)
  *
- * @param eth		PHY module ethernet interface
- * @param speed		Pointer to a int for speed (in megabits/sec)
- * @return 0 on success, -1 and errno on error
+ * Return: 0, or -ERRNO
  */
 int nfp_phymod_eth_get_speed(struct nfp_phymod_eth *eth, int *speed)
 {
@@ -1454,21 +1406,22 @@ int nfp_phymod_eth_get_speed(struct nfp_phymod_eth *eth, int *speed)
 EXPORT_SYMBOL(nfp_phymod_eth_get_speed);
 
 /**
- * Retrieve the fail-to-wire TX partner for an ethernet port
+ * nfp_phymod_eth_get_fail_to_wire() - Retrieve the fail-to-wire TX partner
+ * @eth:	PHY module ethernet interface
+ * @eth_label:	Pointer to a const char * to receive the label,
+ *                      or NULL if there is no fail-to-wire partner.
+ * @active:	Pointer to a int, which will hold 0 or 1 to indicate
+ *                      whether the fail-to-wire mode is active, or -1
+ *                      if no status indicator is present.
+ *
  * This is the label of the port that, when the port is in fail-to-wire
  * mode, all inbound packets are redirected to via external switching
  * hardware.
  *
  * Note that this is a system-wide label, and may not be in the ethernet
  * port set for this PHY, NBI, or even NFP.
- * 
- * @param eth           PHY module ethernet interface
- * @param eth_label     Pointer to a const char * to receive the label,
- *                      or NULL if there is no fail-to-wire partner.
- * @param active        Pointer to a int, which will hold 0 or 1 to indicate
- *                      whether the fail-to-wire mode is active, or -1
- *                      if no status indicator is present.
- * @return 0 on success, -1 and errno on error
+ *
+ * Return: 0, or -ERRNO
  */
 int nfp_phymod_eth_get_fail_to_wire(struct nfp_phymod_eth *eth, const char **eth_label, int *active)
 {
@@ -1487,11 +1440,11 @@ int nfp_phymod_eth_get_fail_to_wire(struct nfp_phymod_eth *eth, const char **eth
 EXPORT_SYMBOL(nfp_phymod_eth_get_fail_to_wire);
 
 /**
- * Force fail-to-wire mode, if available.
+ * nfp_phymod_eth_set_fail_to_wire() - Force fail-to-wire mode, if available.
+ * @eth:	PHY module ethernet interface
+ * @force:	0 for automatic fail to wire, 1 to force
  *
- * @param eth           PHY module ethernet interface
- * @param force         0 for automatic fail to wire, 1 to force
- * @return 0 on success, -1 and errno on error
+ * Return: 0, or -ERRNO
  */
 int nfp_phymod_eth_set_fail_to_wire(struct nfp_phymod_eth *eth, int force)
 {
@@ -1500,16 +1453,14 @@ int nfp_phymod_eth_set_fail_to_wire(struct nfp_phymod_eth *eth, int force)
 EXPORT_SYMBOL(nfp_phymod_eth_set_fail_to_wire);
 
 /**
- * Read PHY Disable state for an eth port
- * @ingroup nfp6000-only
- *
- * @param phymod PHY module
- * @param[out] txstatus Disable status for the ethernet port
- * @param[out] rxstatus Disable status for the ethernet port
- *
- * @return 0 on success. Set errno and return -1 on error.
+ * nfp_phymod_eth_read_disable() - Read PHY Disable state for an eth port
+ * @eth:	PHY module ethernet interface
+ * @txstatus:	 Disable status for the ethernet port
+ * @rxstatus:	Disable status for the ethernet port
  *
  * For both rxstatus and txstatus, 0 = active, 1 = disabled
+ *
+ * Return: 0, or -ERRNO
  */
 int nfp_phymod_eth_read_disable(struct nfp_phymod_eth *eth, uint32_t *txstatus,
 				uint32_t *rxstatus)
@@ -1536,16 +1487,14 @@ int nfp_phymod_eth_read_disable(struct nfp_phymod_eth *eth, uint32_t *txstatus,
 EXPORT_SYMBOL(nfp_phymod_eth_read_disable);
 
 /**
- * Write PHY Disable state for an eth port
- * @ingroup nfp6000-only
- *
- * @param phymod PHY module
- * @param[in] txstate Disable states for the ethernet port
- * @param[in] rxstate Disable states for the ethernet port
- *
- * @return 0 on success. Set errno and return -1 on error.
+ * nfp_phymod_eth_write_disable() - Write PHY Disable state for an eth port
+ * @eth:	PHY module ethernet interface
+ * @txstate:	Disable states for the ethernet port
+ * @rxstate:	Disable states for the ethernet port
  *
  * For both rxstatus and txstatus, 0 = active, 1 = disabled
+ *
+ * Return: 0, or -ERRNO
  */
 int nfp_phymod_eth_write_disable(struct nfp_phymod_eth *eth, uint32_t txstate,
 				 uint32_t rxstate)
@@ -1575,5 +1524,3 @@ int nfp_phymod_eth_write_disable(struct nfp_phymod_eth *eth, uint32_t txstate,
 	return 0;
 }
 EXPORT_SYMBOL(nfp_phymod_eth_write_disable);
-
-/* vim: set shiftwidth=8 noexpandtab: */
