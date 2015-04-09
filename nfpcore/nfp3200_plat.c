@@ -1297,11 +1297,20 @@ static struct platform_driver nfp3200_plat_driver = {
 	},
 };
 
+/**
+ * nfp3200_plat_init() - Register the NFP3200/NFP6000 ARM platform driver
+ *
+ * The same driver can handle the ARM CPP platform device for both
+ * the NFP3200 and the NFP6000
+ */
 int nfp3200_plat_init(void)
 {
 	return platform_driver_register(&nfp3200_plat_driver);
 }
 
+/**
+ * nfp3200_plat_exit() - Unregister the NFP3200/NFP6000 ARM platform driver
+ */
 void nfp3200_plat_exit(void)
 {
 	platform_driver_unregister(&nfp3200_plat_driver);

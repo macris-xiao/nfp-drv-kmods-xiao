@@ -113,7 +113,7 @@ module_param(nfp3200_debug, int, 0644);
 struct nfp3200_pcie;
 struct nfp_cpp_area_priv;
 
-/**
+/*
  * struct nfp_bar - describes BAR configuration and usage
  * @nfp:	backlink to owner
  * @barcfg:	cached contents of BAR config CSR
@@ -1427,6 +1427,13 @@ static void nfp_cpp_pcie_free(struct nfp_cpp *cpp)
 	kfree(nfp);
 }
 
+/**
+ * nfp_cpp_from_nfp3200_pcie() - Build a NFP CPP bus from a NFP3200 PCI device
+ * @pdev:	NFP3200 PCI device
+ * @event_irq:	IRQ bound to the event manager (optional)
+ *
+ * Return: NFP CPP handle
+ */
 struct nfp_cpp *nfp_cpp_from_nfp3200_pcie(struct pci_dev *pdev, int event_irq)
 {
 	struct nfp_cpp_operations *ops;
@@ -1547,11 +1554,3 @@ err_nfpmem_alloc:
 	dev_err(&pdev->dev, "NFP3200 PCI setup failed\n");
 	return ERR_PTR(err);
 }
-
-/*
- * Local variables:
- * c-file-style: "Linux"
- * indent-tabs-mode: t
- * End:
- * vim: set shiftwidth=8 noexpandtab:
- */

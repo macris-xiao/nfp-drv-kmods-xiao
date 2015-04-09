@@ -155,7 +155,7 @@ MODULE_PARM_DESC(nfp6000_debug, "Enable debugging for the NFP6000 PCIe");
 struct nfp6000_pcie;
 struct nfp6000_area_priv;
 
-/**
+/*
  * struct nfp_bar - describes BAR configuration and usage
  * @nfp:	backlink to owner
  * @barcfg:	cached contents of BAR config CSR
@@ -1513,7 +1513,14 @@ static void nfp6000_free(struct nfp_cpp *cpp)
 	kfree(nfp);
 }
 
-struct nfp_cpp *nfp_cpp_from_nfp6000_pcie(struct pci_dev *pdev, int irq)
+/**
+ * nfp_cpp_from_nfp6000_pcie() - Build a NFP CPP bus from a NFP3200 PCI device
+ * @pdev:	NFP6000 PCI device
+ * @event_irq:	IRQ bound to the event manager (optional)
+ *
+ * Return: NFP CPP handle
+ */
+struct nfp_cpp *nfp_cpp_from_nfp6000_pcie(struct pci_dev *pdev, int event_irq)
 {
 	struct nfp_cpp_operations *ops;
 	struct nfp6000_pcie *nfp;
@@ -1618,9 +1625,9 @@ struct nfp_cpp *nfp_cpp_from_nfp6000_pcie(struct pci_dev *pdev, int irq)
 	if (err)
 		goto err_enable_bars;
 
-	if (nfp->iomem.general && irq >= 0) {
+	if (nfp->iomem.general && event_irq >= 0) {
 		nfp->event = nfp_em_manager_create(
-				nfp->iomem.general + NFP_PCIE_EM, irq);
+				nfp->iomem.general + NFP_PCIE_EM, event_irq);
 		if (IS_ERR_OR_NULL(nfp->event)) {
 			err = nfp->event ? PTR_ERR(nfp->event) : -ENOMEM;
 			goto err_em_init;
@@ -1639,10 +1646,3 @@ err_nfpmem_alloc:
 	dev_err(&pdev->dev, "NFP6000 PCI setup failed\n");
 	return ERR_PTR(err);
 }
-
-/*
- * Local variables:
- * c-file-style: "Linux"
- * indent-tabs-mode: t
- * End:
- */

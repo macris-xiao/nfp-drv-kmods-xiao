@@ -26,4 +26,3 @@ static void nfp3200_plat_exit(void) { return; }
 #endif
 
 #endif /* LIBNFP_NFP3200_PLAT_H */
-/* vim: set shiftwidth=8 noexpandtab:  */
