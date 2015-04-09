@@ -1,8 +1,17 @@
 /*
- * Copyright (C) 2010-2015,  Netronome Systems, Inc.  All rights reserved.
+ * Copyright (C) 2010-2015,  Netronome Systems, Inc.
+ * All right reserved.
+ * Author: Jason McMullan <jason.mcmullan@netronome.com>
  *
- * @file		  nfp_mip.c
- * @brief		 Interface for Microcode Information Page (MIP)
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
  */
 
@@ -125,7 +134,28 @@ static void *__nfp_mip_con(struct nfp_device *dev)
 			__nfp_mip_des);
 }
 
-struct nfp_mip *nfp_mip(struct nfp_device *dev)
+/**
+ * nfp_mip() - Get MIP for NFP device.
+ * @dev:	NFP device
+ *
+ * Copy MIP structure from NFP device and return it.  The returned
+ * structure is handled internally by the library and should not be
+ * explicitly freed by the caller.  It will be implicitly freed when
+ * closing the NFP device.  Further, any subsequent call to
+ * nfp_mip_probe() returning non-zero renders references to any
+ * previously returned MIP structure invalid.
+ *
+ * If the MIP is found, the main fields of the MIP structure are
+ * automatically converted to the endianness of the host CPU, as are
+ * any MIP entries known to the library.  If a MIP entry is not known
+ * to the library, only the 'offset_next' field of the entry structure
+ * is endian converted.  The remainder of the structure is left as-is.
+ * Such entries must be searched for by explicitly converting the type
+ * and version to/from little-endian.
+ *
+ * Return: MIP structure, or NULL
+ */
+const struct nfp_mip *nfp_mip(struct nfp_device *dev)
 {
 	struct nfp_mip_priv *priv = nfp_device_private(dev, __nfp_mip_con);
         int err;
@@ -166,7 +196,7 @@ static int nfp_mip_nfp6000_mu_locality_lsb(struct nfp_device *dev)
 		NFP_IMB_TgtAddressModeCfg_AddrMode_40_bit);
 }
 
-int __nfp_mip_location(struct nfp_device *dev,
+static int __nfp_mip_location(struct nfp_device *dev,
 		       uint32_t *cppid, uint64_t *addr,
 		       unsigned long *size, unsigned long *load_time)
 {
@@ -249,35 +279,18 @@ err_probe:
 	return -ENODEV;
 }
 
-int _nfp_mip_scan(struct nfp_device *dev, int is_load)
-{
-#if 1
-	/* Since we scan from the host there is not need to ping the kernel */
-	return 0;
-#else
-	char path[PATH_MAX];
-	FILE *mipfile;
-	int retval;
-
-	/* Re-probe for the MIP. */
-	snprintf(path, sizeof(path), NFP_SYSFS_DEVICE_DIR "/mip",
-			nfp_device_number(dev));
-	path[sizeof(path) - 1] = 0;
-
-	mipfile = fopen(path, "w");
-	if (!mipfile)
-		return -1;
-
-	retval = fprintf(mipfile, "%d\n", is_load);
-	fclose(mipfile);
-
-	if (retval < 0)
-		return -1;
-
-	return 0;
-#endif
-}
-
+/**
+ * nfp_mip_probe() - Check if MIP has been updated.
+ * @dev:           NFP device
+ *
+ * Check if currently cached MIP has been updated on the NFP device,
+ * and read potential new contents.  If a call to nfp_mip_probe()
+ * returns non-zero, the old MIP structure returned by a previous call
+ * to nfp_mip() is no longer guaranteed to be present and any
+ * references to the old structure is invalid.
+ *
+ * Return: 1 if MIP has been updated, 0 if no update has occured, or -ERRNO
+ */
 int nfp_mip_probe(struct nfp_device *dev)
 {
 	struct nfp_mip_priv *priv = nfp_device_private(dev, __nfp_mip_con);
@@ -330,24 +343,4 @@ int nfp_mip_probe(struct nfp_device *dev)
 	priv->mip = mip;
 
 	return 1;
-}
-
-void *nfp_mip_find_entry(struct nfp_mip *mip, enum nfp_mip_entry_type type)
-{
-	struct nfp_mip_entry *ent;
-	int offset;
-
-	for (offset = mip->first_entry;
-		 (offset + sizeof(*ent)) < mip->mip_size;
-		 offset += ent->offset_next) {
-
-		ent = (struct nfp_mip_entry *) (((char *) mip) + offset);
-		if (ent->type == NFP_MIP_TYPE_NONE)
-			break;
-
-		if (ent->type == type)
-			return ent;
-	}
-
-	return NULL;
 }
