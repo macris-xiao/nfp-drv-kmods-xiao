@@ -17,8 +17,6 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
- * vim:shiftwidth=8:noexpandtab
- *
  * NFP CPP Implementation Specifics
  */
 
@@ -47,156 +45,89 @@ struct nfp_cpp_explicit_command {
 };
 
 /**
- * NFP CPP operations structure
+ * struct nfp_cpp_operations - NFP CPP operations structure
+ * @model:	Model ID (0 for built-in autodetection) 
+ * @interface:	Interface ID - required! 
+ * @serial:	Serial number, typically the management MAC for the NFP
+ * @area_priv_size:	Size of the nfp_cpp_area private data
+ * @event_priv_size:	Size of the nfp_cpp_event private data
+ * @owner:	Owner module
+ * @parent:	Parent device
+ * @priv:	Private data
+ * @init:	Initialize the NFP CPP bus, called by nfp_cpp_register()
+ * @free:	Free the bus, called during nfp_cpp_unregister()
+ * @area_init:	Initialize a new NFP CPP area (not serialized)
+ * @area_cleanup:	Clean up a NFP CPP area (not serialized)
+ * @area_acquire:	Acquire the NFP CPP area (serialized)
+ * @area_release:	Release area (serialized)
+ * @area_resource:	Get resource range of area (not serialized)
+ * @area_phys:		Get physical address of area (not serialized)
+ * @area_iomem:		Get iomem of area (not serialized)
+ * @area_read:		Perform a read from a NFP CPP area (serialized)
+ * @area_write:		Perform a write to a NFP CPP area (serialized)
+ * @event_acquire:	Create an event filter entry
+ * @event_release:	Release an event filter entry
+ * @explicit_priv_size:	Size of an explicit's private area
+ * @explicit_acquire:	Acquire an explicit area
+ * @explicit_release:	Release an explicit area
+ * @explicit_put:	Write data to send
+ * @explicit_get:	Read data received
+ * @explicit_do:	Perform the transaction
  */
 struct nfp_cpp_operations {
-	/** Model ID (0 for built-in autodetection) */
 	uint32_t model;
-	/** Interface ID - required! */
 	uint32_t interface;
-	/** Serial number, typically the management MAC for the NFP */
 	uint8_t serial[6];
 
-	/** Size of priv area in struct nfp_cpp_area */
 	size_t area_priv_size;
 	size_t event_priv_size;
 	struct module *owner;
 	struct device *parent;	/* Device handle */
 	void *priv;		/* Private data */
 
-	/** Initialize the NFP CPP bus
-	 * Called only once, during nfp_cpp_register()
-	 */
 	int (*init)(struct nfp_cpp *cpp);
-
-	/** Free the bus
-	 * Called only once, during nfp_cpp_unregister()
-	 */
 	void		(*free)(struct nfp_cpp *cpp);
 
-	/** Initialize a new NFP CPP area
-	 * NOTE: This is _not_ serialized
-	 */
 	int (*area_init)(struct nfp_cpp_area *area,
 			 uint32_t dest, unsigned long long address,
 			 unsigned long size);
-	/** Clean up a NFP CPP area before it is freed
-	 * NOTE: This is _not_ serialized
-	 */
 	void (*area_cleanup)(struct nfp_cpp_area *area);
-
-	/** Acquire resources for a NFP CPP area
-	 * Serialized
-	 */
 	int (*area_acquire)(struct nfp_cpp_area *area);
-	/** Release resources for a NFP CPP area
-	 * Serialized
-	 */
 	void (*area_release)(struct nfp_cpp_area *area);
-	/** Report allocated resource of a NFP CPP area
-	 * NOTE: This is _not_ serialized
-	 */
 	struct resource *(*area_resource)(struct nfp_cpp_area *area);
-	/** Return the CPU bus address of a NFP CPP area
-	 * NOTE: This is _not_ serialized
-	 */
 	phys_addr_t (*area_phys)(struct nfp_cpp_area *area);
-	/** Return a void IO pointer to a NFP CPP area
-	 * NOTE: This is _not_ serialized
-	 */
 	void __iomem *(*area_iomem)(struct nfp_cpp_area *area);
-	/** Perform a read from a NFP CPP area
-	 * Serialized
-	 */
 	int (*area_read)(struct nfp_cpp_area *area, void *kernel_vaddr,
 			 unsigned long offset, unsigned int length);
-	/** Perform a write to a NFP CPP area
-	 * Serialized
-	 */
 	int (*area_write)(struct nfp_cpp_area *area, const void *kernel_vaddr,
 			  unsigned long offset, unsigned int length);
 
-	/** IRQ and event management */
+	/* IRQ and event management */
 
-	/** Event management
-	 */
+	/* Event management */
 	int (*event_acquire)(struct nfp_cpp_event *event, uint32_t match,
 			     uint32_t mask, uint32_t type);
 	void (*event_release)(struct nfp_cpp_event *event);
 
-	/* Acquire an explicit transaction handle */
 	size_t explicit_priv_size;
 	int (*explicit_acquire)(struct nfp_cpp_explicit *expl);
-	/* Release an explicit transaction handle */
 	void (*explicit_release)(struct nfp_cpp_explicit *expl);
-	/* Write data to send */
 	int (*explicit_put)(struct nfp_cpp_explicit *expl,
 			    const void *buff, size_t len);
-	/* Read data received */
 	int (*explicit_get)(struct nfp_cpp_explicit *expl,
 			    void *buff, size_t len);
-	/* Perform the transaction */
 	int (*explicit_do)(struct nfp_cpp_explicit *expl,
 			   const struct nfp_cpp_explicit_command *cmd,
 			   uint64_t address);
 };
 
-/**
- * Create a NFP CPP handle from an operations structure
- *
- * @param   cpp_ops  NFP CPP operations structure
- * @return           NFP CPP handle on success, NULL on failure
- */
 struct nfp_cpp *nfp_cpp_from_operations(
 		const struct nfp_cpp_operations *cpp_ops);
-
-/**
- * Return the value of the 'priv' member of the cpp operations
- *
- * @param   cpp     NFP CPP operations structure
- * @return          Opaque private data
- */
 void *nfp_cpp_priv(struct nfp_cpp *priv);
-
-/**
- * Get the privately allocated portion of a NFP CPP area handle
- *
- * @param   cpp_area  NFP CPP area handle
- * @return            Pointer to the private area, or NULL on failure
- */
 void *nfp_cpp_area_priv(struct nfp_cpp_area *cpp_area);
-
-/**
- * Get the privately allocated portion of a NFP CPP explicit handle
- *
- * @param   cpp_area  NFP CPP explicit handle
- * @return            Pointer to the private area, or NULL on failure
- */
+ 
 void *nfp_cpp_explicit_priv(struct nfp_cpp_explicit *cpp_explicit);
-
-/**
- * Get the privately allocated portion of a NFP CPP event handle
- *
- * @param   cpp_event  NFP CPP event handle
- * @return             Pointer to the private area, or NULL on failure
- */
 void *nfp_cpp_event_priv(struct nfp_cpp_event *cpp_event);
-
-/**
- * KERNEL API:
- * Return the device that is the parent of the NFP CPP bus
- *
- * @param   cpp      NFP CPP operations structure
- * @return           Opaque device pointer
- */
-
 struct device *nfp_cpp_device(struct nfp_cpp *cpp);
 
 #endif /* NFP_CPP_IMP_H */
-
-/*
- * Local variables:
- * c-file-style: "Linux"
- * indent-tabs-mode: t
- * End:
- */

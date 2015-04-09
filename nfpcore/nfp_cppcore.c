@@ -174,8 +174,10 @@ static void nfp_cpp_put(struct nfp_cpp *cpp)
 }
 
 /**
- * nfp_cpp_from_device_id - open a CPP by ID
+ * nfp_cpp_from_device_id() - open a CPP by ID
  * @id:		device ID
+ *
+ * Return: NFP CPP handle, or NULL
  */
 struct nfp_cpp *nfp_cpp_from_device_id(int id)
 {
@@ -195,8 +197,10 @@ struct nfp_cpp *nfp_cpp_from_device_id(int id)
 EXPORT_SYMBOL(nfp_cpp_from_device_id);
 
 /**
- * nfp_cpp_device_id - get device ID of CPP handle
+ * nfp_cpp_device_id() - get device ID of CPP handle
  * @cpp:	CPP handle
+ *
+ * Return: NFP CPP device ID
  */
 int nfp_cpp_device_id(struct nfp_cpp *cpp)
 {
@@ -205,7 +209,7 @@ int nfp_cpp_device_id(struct nfp_cpp *cpp)
 EXPORT_SYMBOL(nfp_cpp_device_id);
 
 /**
- * nfp_cpp_free - free the CPP handle
+ * nfp_cpp_free() - free the CPP handle
  * @cpp:	CPP handle
  */
 void nfp_cpp_free(struct nfp_cpp *cpp)
@@ -215,10 +219,10 @@ void nfp_cpp_free(struct nfp_cpp *cpp)
 EXPORT_SYMBOL(nfp_cpp_free);
 
 /**
- * nfp_cpp_model - Retrieve the Model ID of the NFP
+ * nfp_cpp_model() - Retrieve the Model ID of the NFP
  * @cpp:	NFP CPP handle
  *
- * Returns the NFP CPP Model ID
+ * Return: NFP CPP Model ID
  */
 uint32_t nfp_cpp_model(struct nfp_cpp *cpp)
 {
@@ -228,10 +232,10 @@ uint32_t nfp_cpp_model(struct nfp_cpp *cpp)
 EXPORT_SYMBOL(nfp_cpp_model);
 
 /**
- * nfp_cpp_interface - Retrieve the Interface ID of the NFP
+ * nfp_cpp_interface() - Retrieve the Interface ID of the NFP
  * @cpp:	NFP CPP handle
  *
- * Returns NFP CPP Interface ID
+ * Return: NFP CPP Interface ID
  */
 uint16_t nfp_cpp_interface(struct nfp_cpp *cpp)
 {
@@ -240,11 +244,11 @@ uint16_t nfp_cpp_interface(struct nfp_cpp *cpp)
 EXPORT_SYMBOL(nfp_cpp_interface);
 
 /**
- * nfp_cpp_serial - Retrieve the Serial ID of the NFP
+ * nfp_cpp_serial() - Retrieve the Serial ID of the NFP
  * @cpp:	NFP CPP handle
  * @serial:	Pointer to NFP serial number
  *
- * Returns Length of NFP serial number
+ * Return: Length of NFP serial number
  */
 int nfp_cpp_serial(struct nfp_cpp *cpp, const uint8_t **serial)
 {
@@ -306,8 +310,10 @@ static struct nfp_cpp_area *nfp_cpp_area_get(struct nfp_cpp_area *area)
 }
 
 /**
- * nfp_cpp_area_priv - return private struct for CPP area
+ * nfp_cpp_area_priv() - return private struct for CPP area
  * @cpp_area:	CPP area handle
+ *
+ * Return: Private data for the CPP area
  */
 void *nfp_cpp_area_priv(struct nfp_cpp_area *cpp_area)
 {
@@ -316,8 +322,10 @@ void *nfp_cpp_area_priv(struct nfp_cpp_area *cpp_area)
 EXPORT_SYMBOL(nfp_cpp_area_priv);
 
 /**
- * nfp_cpp_area_cpp - return CPP handle for CPP area
+ * nfp_cpp_area_cpp() - return CPP handle for CPP area
  * @cpp_area:	CPP area handle
+ *
+ * Return: NFP CPP handle
  */
 struct nfp_cpp *nfp_cpp_area_cpp(struct nfp_cpp_area *cpp_area)
 {
@@ -326,8 +334,10 @@ struct nfp_cpp *nfp_cpp_area_cpp(struct nfp_cpp_area *cpp_area)
 EXPORT_SYMBOL(nfp_cpp_area_cpp);
 
 /**
- * nfp_cpp_area_name - return name of a CPP area
+ * nfp_cpp_area_name() - return name of a CPP area
  * @cpp_area:	CPP area handle
+ *
+ * Return: Name of the area, or NULL
  */
 const char *nfp_cpp_area_name(struct nfp_cpp_area *cpp_area)
 {
@@ -336,7 +346,7 @@ const char *nfp_cpp_area_name(struct nfp_cpp_area *cpp_area)
 EXPORT_SYMBOL(nfp_cpp_area_name);
 
 /**
- * nfp_cpp_area_alloc_with_name - allocate a new CPP area
+ * nfp_cpp_area_alloc_with_name() - allocate a new CPP area
  * @cpp:	CPP device handle
  * @dest:	NFP CPP ID
  * @name:	Name of region
@@ -347,6 +357,8 @@ EXPORT_SYMBOL(nfp_cpp_area_name);
  * be locked down with an 'acquire' before it can be safely accessed.
  *
  * NOTE: @address and @size must be 32-bit aligned values.
+ *
+ * Return: NFP CPP area handle, or NULL
  */
 struct nfp_cpp_area *nfp_cpp_area_alloc_with_name(
 	struct nfp_cpp *cpp, uint32_t dest,
@@ -417,7 +429,7 @@ struct nfp_cpp_area *nfp_cpp_area_alloc_with_name(
 EXPORT_SYMBOL(nfp_cpp_area_alloc_with_name);
 
 /**
- * nfp_cpp_area_alloc - allocate a new CPP area
+ * nfp_cpp_area_alloc() - allocate a new CPP area
  * @cpp:	CPP handle
  * @dest:	CPP id
  * @address:	start address on CPP target
@@ -427,6 +439,8 @@ EXPORT_SYMBOL(nfp_cpp_area_alloc_with_name);
  * be locked down with an 'acquire' before it can be safely accessed.
  *
  * NOTE: @address and @size must be 32-bit aligned values.
+ *
+ * Return: NFP CPP Area handle, or NULL
  */
 struct nfp_cpp_area *nfp_cpp_area_alloc(
 	struct nfp_cpp *cpp, uint32_t dest,
@@ -437,7 +451,7 @@ struct nfp_cpp_area *nfp_cpp_area_alloc(
 EXPORT_SYMBOL(nfp_cpp_area_alloc);
 
 /**
- * nfp_cpp_area_alloc_acquire - allocate a new CPP area and lock it down
+ * nfp_cpp_area_alloc_acquire() - allocate a new CPP area and lock it down
  * @cpp:	CPP handle
  * @dest:	CPP id
  * @address:	start address on CPP target
@@ -449,6 +463,8 @@ EXPORT_SYMBOL(nfp_cpp_area_alloc);
  * NOTE: @address and @size must be 32-bit aligned values.
  *
  * NOTE: The area must also be 'released' when the structure is freed.
+ *
+ * Return: NFP CPP Area handle, or NULL
  */
 struct nfp_cpp_area *nfp_cpp_area_alloc_acquire(
 		  struct nfp_cpp *cpp, uint32_t dest,
@@ -471,7 +487,7 @@ struct nfp_cpp_area *nfp_cpp_area_alloc_acquire(
 EXPORT_SYMBOL(nfp_cpp_area_alloc_acquire);
 
 /**
- * nfp_cpp_area_free - free up the CPP area
+ * nfp_cpp_area_free() - free up the CPP area
  * @area:	CPP area handle
  *
  * Frees up memory resources held by the CPP area.
@@ -483,7 +499,7 @@ void nfp_cpp_area_free(struct nfp_cpp_area *area)
 EXPORT_SYMBOL(nfp_cpp_area_free);
 
 /**
- * nfp_cpp_area_release_free - release CPP area and free it
+ * nfp_cpp_area_release_free() - release CPP area and free it
  * @area:	CPP area handle
  *
  * Releases CPP area and frees up memory resources held by the it.
@@ -496,11 +512,13 @@ void nfp_cpp_area_release_free(struct nfp_cpp_area *area)
 EXPORT_SYMBOL(nfp_cpp_area_release_free);
 
 /**
- * nfp_cpp_area_acquire - lock down a CPP area for access
+ * nfp_cpp_area_acquire() - lock down a CPP area for access
  * @area:	CPP area handle
  *
  * Locks down the CPP area for a potential long term activity.  Area
  * must always be locked down before being accessed.
+ *
+ * Return: 0, or -ERRNO
  */
 int nfp_cpp_area_acquire(struct nfp_cpp_area *area)
 {
@@ -529,13 +547,15 @@ int nfp_cpp_area_acquire(struct nfp_cpp_area *area)
 EXPORT_SYMBOL(nfp_cpp_area_acquire);
 
 /**
- * nfp_cpp_area_acquire_nonblocking - lock down a CPP area for access
+ * nfp_cpp_area_acquire_nonblocking() - lock down a CPP area for access
  * @area:	CPP area handle
  *
  * Locks down the CPP area for a potential long term activity.  Area
  * must always be locked down before being accessed.
  *
- * Returns -EAGAIN is no area is available
+ * NOTE: Returns -EAGAIN is no area is available
+ *
+ * Return: 0, or -ERRNO
  */
 int nfp_cpp_area_acquire_nonblocking(struct nfp_cpp_area *area)
 {
@@ -559,7 +579,7 @@ int nfp_cpp_area_acquire_nonblocking(struct nfp_cpp_area *area)
 EXPORT_SYMBOL(nfp_cpp_area_acquire_nonblocking);
 
 /**
- * nfp_cpp_area_release - release a locked down CPP area
+ * nfp_cpp_area_release() - release a locked down CPP area
  * @area:	CPP area handle
  *
  * Releases a previously locked down CPP area.
@@ -582,7 +602,7 @@ void nfp_cpp_area_release(struct nfp_cpp_area *area)
 EXPORT_SYMBOL(nfp_cpp_area_release);
 
 /**
- * nfp_cpp_area_read - read data from CPP area
+ * nfp_cpp_area_read() - read data from CPP area
  * @area:		CPP area handle
  * @offset:		offset into CPP area
  * @kernel_vaddr:	kernel address to put data into
@@ -593,6 +613,8 @@ EXPORT_SYMBOL(nfp_cpp_area_release);
  * NOTE: @offset and @length must be 32-bit aligned values.
  *
  * NOTE: Area must have been locked down with an 'acquire'.
+ *
+ * Return: length of io, or -ERRNO
  */
 int nfp_cpp_area_read(struct nfp_cpp_area *area,
 		      unsigned long offset, void *kernel_vaddr,
@@ -603,7 +625,7 @@ int nfp_cpp_area_read(struct nfp_cpp_area *area,
 EXPORT_SYMBOL(nfp_cpp_area_read);
 
 /**
- * nfp_cpp_area_write - write data to CPP area
+ * nfp_cpp_area_write() - write data to CPP area
  * @area:		CPP area handle
  * @offset:		offset into CPP area
  * @kernel_vaddr:	kernel address to read data from
@@ -614,6 +636,8 @@ EXPORT_SYMBOL(nfp_cpp_area_read);
  * NOTE: @offset and @length must be 32-bit aligned values.
  *
  * NOTE: Area must have been locked down with an 'acquire'.
+ *
+ * Return: length of io, or -ERRNO
  */
 int nfp_cpp_area_write(struct nfp_cpp_area *area,
 		       unsigned long offset, const void *kernel_vaddr,
@@ -624,13 +648,15 @@ int nfp_cpp_area_write(struct nfp_cpp_area *area,
 EXPORT_SYMBOL(nfp_cpp_area_write);
 
 /**
- * nfp_cpp_area_check_range - check if address range fits in CPP area
+ * nfp_cpp_area_check_range() - check if address range fits in CPP area
  * @area:	CPP area handle
  * @offset:	offset into CPP target
  * @length:	size of address range in bytes
  *
  * Check if address range fits within CPP area.  Return 0 if area
  * fits or -EFAULT on error.
+ *
+ * Return: 0, or -ERRNO
  */
 int nfp_cpp_area_check_range(struct nfp_cpp_area *area,
 			     unsigned long long offset, unsigned long length)
@@ -643,10 +669,12 @@ int nfp_cpp_area_check_range(struct nfp_cpp_area *area,
 EXPORT_SYMBOL(nfp_cpp_area_check_range);
 
 /**
- * nfp_cpp_area_resource - get resource
+ * nfp_cpp_area_resource() - get resource
  * @area:	CPP area handle
  *
  * NOTE: Area must have been locked down with an 'acquire'.
+ *
+ * Return: struct resource pointer, or NULL
  */
 struct resource *nfp_cpp_area_resource(struct nfp_cpp_area *area)
 {
@@ -660,10 +688,12 @@ struct resource *nfp_cpp_area_resource(struct nfp_cpp_area *area)
 EXPORT_SYMBOL(nfp_cpp_area_resource);
 
 /**
- * nfp_cpp_area_phys - get physical address of CPP area
+ * nfp_cpp_area_phys() - get physical address of CPP area
  * @area:	CPP area handle
  *
  * NOTE: Area must have been locked down with an 'acquire'.
+ *
+ * Return: phy_addr_t of the area, or NULL
  */
 phys_addr_t nfp_cpp_area_phys(struct nfp_cpp_area *area)
 {
@@ -677,13 +707,15 @@ phys_addr_t nfp_cpp_area_phys(struct nfp_cpp_area *area)
 EXPORT_SYMBOL(nfp_cpp_area_phys);
 
 /**
- * nfp_cpp_area_iomem - get IOMEM region for CPP area
+ * nfp_cpp_area_iomem() - get IOMEM region for CPP area
  * @area:	CPP area handle
  *
  * Returns an iomem pointer for use with readl()/writel() style
  * operations.
  *
  * NOTE: Area must have been locked down with an 'acquire'.
+ *
+ * Return: __iomem pointer to the area, or NULL
  */
 void __iomem *nfp_cpp_area_iomem(struct nfp_cpp_area *area)
 {
@@ -696,10 +728,12 @@ void __iomem *nfp_cpp_area_iomem(struct nfp_cpp_area *area)
 }
 EXPORT_SYMBOL(nfp_cpp_area_iomem);
 
-/* nfp_cpp_area_readl - Read a uint32_t word from an area
+/* nfp_cpp_area_readl() - Read a uint32_t word from an area
  * @area:	CPP Area handle
  * @offset:	Offset into area
  * @value:	Pointer to read buffer
+ *
+ * Return: length of the io, or -ERRNO
  */
 int nfp_cpp_area_readl(struct nfp_cpp_area *area,
 		       unsigned long offset, uint32_t *value)
@@ -714,10 +748,12 @@ int nfp_cpp_area_readl(struct nfp_cpp_area *area,
 }
 EXPORT_SYMBOL(nfp_cpp_area_readl);
 
-/* nfp_cpp_area_writel - Write a uint32_t word to an area
+/* nfp_cpp_area_writel() - Write a uint32_t word to an area
  * @area:	CPP Area handle
  * @offset:	Offset into area
  * @value:	Value to write
+ *
+ * Return: length of the io, or -ERRNO
  */
 int nfp_cpp_area_writel(struct nfp_cpp_area *area,
 			unsigned long offset, uint32_t value)
@@ -727,10 +763,12 @@ int nfp_cpp_area_writel(struct nfp_cpp_area *area,
 }
 EXPORT_SYMBOL(nfp_cpp_area_writel);
 
-/* nfp_cpp_area_readq - Read a uint64_t word from an area
+/* nfp_cpp_area_readq() - Read a uint64_t word from an area
  * @area:	CPP Area handle
  * @offset:	Offset into area
  * @value:	Pointer to read buffer
+ *
+ * Return: length of the io, or -ERRNO
  */
 int nfp_cpp_area_readq(struct nfp_cpp_area *area,
 		       unsigned long offset, uint64_t *value)
@@ -745,10 +783,12 @@ int nfp_cpp_area_readq(struct nfp_cpp_area *area,
 }
 EXPORT_SYMBOL(nfp_cpp_area_readq);
 
-/* nfp_cpp_area_writeq - Write a uint64_t word to an area
+/* nfp_cpp_area_writeq() - Write a uint64_t word to an area
  * @area:	CPP Area handle
  * @offset:	Offset into area
  * @value:	Value to write
+ *
+ * Return: length of the io, or -ERRNO
  */
 int nfp_cpp_area_writeq(struct nfp_cpp_area *area,
 			unsigned long offset, uint64_t value)
@@ -758,11 +798,13 @@ int nfp_cpp_area_writeq(struct nfp_cpp_area *area,
 }
 EXPORT_SYMBOL(nfp_cpp_area_writeq);
 
-/* nfp_cpp_readl - Read a uint32_t word from a CPP location
+/* nfp_cpp_readl() - Read a uint32_t word from a CPP location
  * @cpp:	CPP device handle
  * @cpp_id:	CPP ID for operation
  * @address:	Address for operation
  * @value:	Pointer to read buffer
+ *
+ * Return: length of the io, or -ERRNO
  */
 int nfp_cpp_readl(struct nfp_cpp *cpp, uint32_t cpp_id,
 		  unsigned long long address, uint32_t *value)
@@ -777,11 +819,13 @@ int nfp_cpp_readl(struct nfp_cpp *cpp, uint32_t cpp_id,
 }
 EXPORT_SYMBOL(nfp_cpp_readl);
 
-/* nfp_cpp_writel - Write a uint32_t word to a CPP location
+/* nfp_cpp_writel() - Write a uint32_t word to a CPP location
  * @cpp:	CPP device handle
  * @cpp_id:	CPP ID for operation
  * @address:	Address for operation
  * @value:	Value to write
+ *
+ * Return: length of the io, or -ERRNO
  */
 int nfp_cpp_writel(struct nfp_cpp *cpp, uint32_t cpp_id,
 		   unsigned long long address, uint32_t value)
@@ -791,11 +835,13 @@ int nfp_cpp_writel(struct nfp_cpp *cpp, uint32_t cpp_id,
 }
 EXPORT_SYMBOL(nfp_cpp_writel);
 
-/* nfp_cpp_readq - Read a uint64_t word from a CPP location
+/* nfp_cpp_readq() - Read a uint64_t word from a CPP location
  * @cpp:	CPP device handle
  * @cpp_id:	CPP ID for operation
  * @address:	Address for operation
  * @value:	Pointer to read buffer
+ *
+ * Return: length of the io, or -ERRNO
  */
 int nfp_cpp_readq(struct nfp_cpp *cpp, uint32_t cpp_id,
 		  unsigned long long address, uint64_t *value)
@@ -810,11 +856,13 @@ int nfp_cpp_readq(struct nfp_cpp *cpp, uint32_t cpp_id,
 }
 EXPORT_SYMBOL(nfp_cpp_readq);
 
-/* nfp_cpp_writeq - Write a uint64_t word to a CPP location
+/* nfp_cpp_writeq() - Write a uint64_t word to a CPP location
  * @cpp:	CPP device handle
  * @cpp_id:	CPP ID for operation
  * @address:	Address for operation
  * @value:	Value to write
+ *
+ * Return: length of the io, or -ERRNO
  */
 int nfp_cpp_writeq(struct nfp_cpp *cpp, uint32_t cpp_id,
 		   unsigned long long address, uint64_t value)
@@ -869,10 +917,12 @@ static uint32_t nfp_xpb_to_cpp(struct nfp_cpp *cpp, uint32_t *xpb_addr)
 	return xpb;
 }
 
-/* nfp_xpb_readl - Read a uint32_t word from a XPB location
+/* nfp_xpb_readl() - Read a uint32_t word from a XPB location
  * @cpp:	CPP device handle
  * @xpb_addr:	Address for operation
  * @value:	Pointer to read buffer
+ *
+ * Return: length of the io, or -ERRNO
  */
 int nfp_xpb_readl(struct nfp_cpp *cpp, uint32_t xpb_addr, uint32_t *value)
 {
@@ -882,10 +932,12 @@ int nfp_xpb_readl(struct nfp_cpp *cpp, uint32_t xpb_addr, uint32_t *value)
 }
 EXPORT_SYMBOL(nfp_xpb_readl);
 
-/* nfp_cpp_writel - Write a uint32_t word to a XPB location
+/* nfp_xpb_writel() - Write a uint32_t word to a XPB location
  * @cpp:	CPP device handle
  * @xpb_addr:	Address for operation
  * @value:	Value to write
+ *
+ * Return: length of the io, or -ERRNO
  */
 int nfp_xpb_writel(struct nfp_cpp *cpp, uint32_t xpb_addr, uint32_t value)
 {
@@ -896,8 +948,10 @@ int nfp_xpb_writel(struct nfp_cpp *cpp, uint32_t xpb_addr, uint32_t value)
 EXPORT_SYMBOL(nfp_xpb_writel);
 
 /**
- * nfp_cpp_explicit_priv - return private struct for CPP explicit
+ * nfp_cpp_explicit_priv() - return private struct for CPP explicit
  * @cpp_explicit:	CPP explicit handle
+ *
+ * Return: private data of the explicit, or NULL
  */
 void *nfp_cpp_explicit_priv(struct nfp_cpp_explicit *cpp_explicit)
 {
@@ -906,8 +960,10 @@ void *nfp_cpp_explicit_priv(struct nfp_cpp_explicit *cpp_explicit)
 EXPORT_SYMBOL(nfp_cpp_explicit_priv);
 
 /**
- * nfp_cpp_explicit_cpp - return CPP handle for CPP explicit
+ * nfp_cpp_explicit_cpp() - return CPP handle for CPP explicit
  * @cpp_explicit:	CPP explicit handle
+ *
+ * Return: NFP CPP handle of the explicit
  */
 struct nfp_cpp *nfp_cpp_explicit_cpp(struct nfp_cpp_explicit *cpp_explicit)
 {
@@ -936,15 +992,15 @@ EXPORT_SYMBOL(nfp_cpp_explicit_cpp);
 	} while (0)
 
 /**
- * nfp_cpp_explicit_acquire - Acquire explicit access handle
+ * nfp_cpp_explicit_acquire() - Acquire explicit access handle
  * @cpp:	NFP CPP handle
  * @data_ref:	Pointer to the resulting 'data_ref'
  * @signal_ref:	Pointer to the resulting 'signal_ref'
  *
- * Returns handle to explicit area
- *
  * The 'data_ref' and 'signal_ref' values are useful when
  * constructing the NFP_EXPL_CSR1 and NFP_EXPL_POST values.
+ *
+ * Return: NFP CPP explicit handle
  */
 struct nfp_cpp_explicit *nfp_cpp_explicit_acquire(struct nfp_cpp *cpp)
 {
@@ -967,11 +1023,13 @@ struct nfp_cpp_explicit *nfp_cpp_explicit_acquire(struct nfp_cpp *cpp)
 EXPORT_SYMBOL(nfp_cpp_explicit_acquire);
 
 /**
- * nfp_cpp_explicit_set_target - Set target fields for explicit
+ * nfp_cpp_explicit_set_target() - Set target fields for explicit
  * @expl:	Explicit handle
  * @cpp_id:	CPP ID field
  * @len:	CPP Length field
  * @mask:	CPP Mask field
+ *
+ * Return: 0, or -ERRNO
  */
 int nfp_cpp_explicit_set_target(struct nfp_cpp_explicit *expl,
 				uint32_t cpp_id, uint8_t len, uint8_t mask)
@@ -985,10 +1043,12 @@ int nfp_cpp_explicit_set_target(struct nfp_cpp_explicit *expl,
 EXPORT_SYMBOL(nfp_cpp_explicit_set_target);
 
 /**
- * nfp_cpp_explicit_set_data - Set data fields for explicit
+ * nfp_cpp_explicit_set_data() - Set data fields for explicit
  * @expl:		Explicit handle
  * @data_master:	CPP Data Master field
  * @data_ref:		CPP Data Ref field
+ *
+ * Return: 0, or -ERRNO
  */
 int nfp_cpp_explicit_set_data(struct nfp_cpp_explicit *expl,
 			      uint8_t data_master, uint16_t data_ref)
@@ -1001,10 +1061,12 @@ int nfp_cpp_explicit_set_data(struct nfp_cpp_explicit *expl,
 EXPORT_SYMBOL(nfp_cpp_explicit_set_data);
 
 /**
- * nfp_cpp_explicit_set_signal - Set signal fields for explicit
+ * nfp_cpp_explicit_set_signal() - Set signal fields for explicit
  * @expl:		Explicit handle
  * @signal_master:	CPP Signal Master field
  * @signal_ref:		CPP Signal Ref field
+ *
+ * Return: 0, or -ERRNO
  */
 int nfp_cpp_explicit_set_signal(struct nfp_cpp_explicit *expl,
 				uint8_t signal_master, uint8_t signal_ref)
@@ -1017,13 +1079,15 @@ int nfp_cpp_explicit_set_signal(struct nfp_cpp_explicit *expl,
 EXPORT_SYMBOL(nfp_cpp_explicit_set_signal);
 
 /**
- * nfp_cpp_explicit_set_posted - Set completion fields for explicit
+ * nfp_cpp_explicit_set_posted() - Set completion fields for explicit
  * @expl:		Explicit handle
  * @posted:		True for signaled completion, false otherwise
  * @siga:		CPP Signal A field
  * @siga_mode:		CPP Signal A Mode field
  * @sigb:		CPP Signal B field
  * @sigb_mode:		CPP Signal B Mode field
+ *
+ * Return: 0, or -ERRNO
  */
 int nfp_cpp_explicit_set_posted(struct nfp_cpp_explicit *expl, int posted,
 				uint8_t siga,
@@ -1042,7 +1106,7 @@ int nfp_cpp_explicit_set_posted(struct nfp_cpp_explicit *expl, int posted,
 EXPORT_SYMBOL(nfp_cpp_explicit_set_posted);
 
 /**
- * nfp_cpp_explicit_put - Set up the write (pull) data for a NFP CPP explicit access
+ * nfp_cpp_explicit_put() - Set up the write (pull) data for a NFP CPP explicit access
  * @expl:	NFP CPP Explicit handle
  * @buff:	Data to have the target pull in the transaction
  * @len:	Length of data, in bytes
@@ -1050,10 +1114,9 @@ EXPORT_SYMBOL(nfp_cpp_explicit_set_posted);
  * The 'len' parameter must be less than or equal to 128 bytes.
  *
  * If this function is called before the configuration
- * registers are set, it will return -1, with an errno of EINVAL.
+ * registers are set, it will return -EINVAL.
  *
- *
- * Returns  0 on success, -1 on failure (and set errno accordingly).
+ * Return: 0, or -ERRNO
  */
 int nfp_cpp_explicit_put(struct nfp_cpp_explicit *expl,
 			 const void *buff, size_t len)
@@ -1067,15 +1130,14 @@ int nfp_cpp_explicit_put(struct nfp_cpp_explicit *expl,
 EXPORT_SYMBOL(nfp_cpp_explicit_put);
 
 /**
- * nfp_cpp_explicit_do - Execute a transaction, and wait for it to complete
+ * nfp_cpp_explicit_do() - Execute a transaction, and wait for it to complete
  * @expl:	NFP CPP Explicit handle
  * @address:	Address to send in the explicit transaction
  *
  * If this function is called before the configuration
  * registers are set, it will return -1, with an errno of EINVAL.
  *
- *
- * Returns  0 on success, -1 on failure (and set errno accordingly).
+ * Return: 0, or -ERRNO
  */
 int nfp_cpp_explicit_do(struct nfp_cpp_explicit *expl, uint64_t address)
 {
@@ -1088,7 +1150,7 @@ int nfp_cpp_explicit_do(struct nfp_cpp_explicit *expl, uint64_t address)
 EXPORT_SYMBOL(nfp_cpp_explicit_do);
 
 /**
- * nfp_cpp_explicit - Get the 'push' (read) data from a NFP CPP explicit access
+ * nfp_cpp_explicit() - Get the 'push' (read) data from a NFP CPP explicit access
  * @expl:	NFP CPP Explicit handle
  * @buff:	Data that the target pushed in the transaction
  * @len:	Length of data, in bytes
@@ -1101,8 +1163,7 @@ EXPORT_SYMBOL(nfp_cpp_explicit_do);
  * If this function is called before nfp_cpp_explicit_wait()
  * has completed, it will return -1, with an errno of EBUSY.
  *
- *
- * Returns  0 on success, -1 on failure (and set errno accordingly).
+ * Return: 0, or -ERRNO
  */
 int nfp_cpp_explicit_get(struct nfp_cpp_explicit *expl, void *buff, size_t len)
 {
@@ -1115,7 +1176,7 @@ int nfp_cpp_explicit_get(struct nfp_cpp_explicit *expl, void *buff, size_t len)
 EXPORT_SYMBOL(nfp_cpp_explicit_get);
 
 /**
- * nfp_cpp_explicit_release - Release explicit access handle
+ * nfp_cpp_explicit_release() - Release explicit access handle
  * @expl:	NFP CPP Explicit handle
  *
  */
@@ -1127,8 +1188,10 @@ void nfp_cpp_explicit_release(struct nfp_cpp_explicit *expl)
 EXPORT_SYMBOL(nfp_cpp_explicit_release);
 
 /**
- * nfp_cpp_event_priv - return private struct for CPP event
+ * nfp_cpp_event_priv() - return private struct for CPP event
  * @cpp_event:	CPP event handle
+ *
+ * Return: Private data of the event, or NULL
  */
 void *nfp_cpp_event_priv(struct nfp_cpp_event *cpp_event)
 {
@@ -1137,8 +1200,10 @@ void *nfp_cpp_event_priv(struct nfp_cpp_event *cpp_event)
 EXPORT_SYMBOL(nfp_cpp_event_priv);
 
 /**
- * nfp_cpp_event_cpp - return CPP handle for CPP event
+ * nfp_cpp_event_cpp() - return CPP handle for CPP event
  * @cpp_event:	CPP event handle
+ *
+ * Return: NFP CPP handle of the event
  */
 struct nfp_cpp *nfp_cpp_event_cpp(struct nfp_cpp_event *cpp_event)
 {
@@ -1147,11 +1212,13 @@ struct nfp_cpp *nfp_cpp_event_cpp(struct nfp_cpp_event *cpp_event)
 EXPORT_SYMBOL(nfp_cpp_event_cpp);
 
 /**
- * nfp_cpp_event_alloc - Allocate an event monitor
+ * nfp_cpp_event_alloc() - Allocate an event monitor
  * @cpp:	CPP device handle
  * @match:	Event match bits
  * @mask:	Event match bits to compare against
  * @type:	Event filter type
+ *
+ * Return: NFP CPP event handle, or ERR_PTR()
  */
 struct nfp_cpp_event *nfp_cpp_event_alloc(
 	struct nfp_cpp *cpp, uint32_t match, uint32_t mask, int type)
@@ -1193,10 +1260,12 @@ struct nfp_cpp_event *nfp_cpp_event_alloc(
 EXPORT_SYMBOL(nfp_cpp_event_alloc);
 
 /**
- * nfp_cpp_event_as_callback - Execute callback when event is triggered
+ * nfp_cpp_event_as_callback() - Execute callback when event is triggered
  * @event:	Event handle
  * @func:	Function to call on trigger
  * @priv:	Private data for function
+ *
+ * Return: 0, or -ERRNO
  */
 int nfp_cpp_event_as_callback(struct nfp_cpp_event *event,
 			      void (*func)(void *), void *priv)
@@ -1213,7 +1282,7 @@ int nfp_cpp_event_as_callback(struct nfp_cpp_event *event,
 EXPORT_SYMBOL(nfp_cpp_event_as_callback);
 
 /**
- * nfp_cpp_event_callback - Execute the event's callback
+ * nfp_cpp_event_callback() - Execute the event's callback
  * @event:	Event handle
  *
  * This function should be called by the NFP CPP implementation
@@ -1239,7 +1308,7 @@ void nfp_cpp_event_callback(struct nfp_cpp_event *event)
 }
 
 /**
- * nfp_cpp_event_free - Free an event, releasing the event monitor
+ * nfp_cpp_event_free() - Free an event, releasing the event monitor
  * @event:	Event handle
  */
 void nfp_cpp_event_free(struct nfp_cpp_event *event)
@@ -1358,12 +1427,13 @@ static void nfp_cpp_dev_release(struct device *dev)
 }
 
 /**
- * Create a NFP CPP handle from an operations structure
- * @cpp_ops:	NFP CPP operations structure
- *
- * Returns            NFP CPP handle on success, ERR_PTR on failure
+ * nfp_cpp_from_operations() - Create a NFP CPP handle
+ *                             from an operations structure
+ * @ops:	NFP CPP operations structure
  *
  * NOTE: On failure, cpp_ops->free will be called!
+ *
+ * Return: NFP CPP handle on success, ERR_PTR on failure
  */
 struct nfp_cpp *nfp_cpp_from_operations(const struct nfp_cpp_operations *ops)
 {
@@ -1490,8 +1560,10 @@ struct nfp_cpp *nfp_cpp_from_operations(const struct nfp_cpp_operations *ops)
 EXPORT_SYMBOL(nfp_cpp_from_operations);
 
 /**
- * nfp_cpp_device: Get the Linux device handle of a CPP handle
+ * nfp_cpp_device() - Get the Linux device handle of a CPP handle
  * @cpp:	CPP handle
+ *
+ * Return: Device for the NFP CPP bus
  */
 struct device *nfp_cpp_device(struct nfp_cpp *cpp)
 {
@@ -1500,8 +1572,10 @@ struct device *nfp_cpp_device(struct nfp_cpp *cpp)
 EXPORT_SYMBOL(nfp_cpp_device);
 
 /**
- * nfp_cpp_priv: Get the operations private data of a CPP handle
+ * nfp_cpp_priv() - Get the operations private data of a CPP handle
  * @cpp:	CPP handle
+ *
+ * Return: Private data for the NFP CPP handle
  */
 void *nfp_cpp_priv(struct nfp_cpp *cpp)
 {
@@ -1509,12 +1583,23 @@ void *nfp_cpp_priv(struct nfp_cpp *cpp)
 }
 EXPORT_SYMBOL(nfp_cpp_priv);
 
+/**
+ * nfp_cpp_island_mask() - Return the island mask
+ * @cpp:	NFP CPP handle
+ *
+ * Return: 64-bit island mask
+ */
 uint64_t nfp_cpp_island_mask(struct nfp_cpp *cpp)
 {
     return cpp->island_mask;
 }
 EXPORT_SYMBOL(nfp_cpp_island_mask);
 
+/**
+ * nfp_cppcore_init() - Initialize base level NFP CPP API
+ *
+ * Return: 0, or -ERRNO
+ */
 int nfp_cppcore_init(void)
 {
 	pr_info("Netronome NFP CPP API\n");
@@ -1533,6 +1618,9 @@ int nfp_cppcore_init(void)
 	return 0;
 }
 
+/**
+ * nfp_cppcore_exit() - Cleanup base level NFP CPP API
+ */
 void nfp_cppcore_exit(void)
 {
 	BUG_ON(!list_empty(&nfp_cpp_list));
@@ -1540,10 +1628,3 @@ void nfp_cppcore_exit(void)
 	remove_proc_entry(NFP_CPP_DIR_NAME, NULL);
 #endif
 }
-
-/*
- * Local variables:
- * c-file-style: "Linux"
- * indent-tabs-mode: t
- * End:
- */

@@ -58,16 +58,15 @@
 #define   NFP_PL_DEVICE_ID_MINOR_REV_of(_x)   (((_x) >> 0) & 0xf)
 
 /**
- * Modify bits of a 32-bit value from the XPB bus
- *
- * @param cpp           NFP CPP device handle
- * @param xpb_tgt       XPB target and address
- * @param mask          mask of bits to alter
- * @param value         value to modify
+ * nfp_xpb_writelm() - Modify bits of a 32-bit value from the XPB bus
+ * @cpp:	NFP CPP device handle
+ * @xpb_tgt:	XPB target and address
+ * @mask:	mask of bits to alter
+ * @value:	value to modify
  *
  * KERNEL: This operation is safe to call in interrupt or softirq context.
  *
- * @return 0 on success, or -1 on failure (and set errno accordingly).
+ * Return: 0 on success, or -1 on failure (and set errno accordingly).
  */
 int nfp_xpb_writelm(struct nfp_cpp *cpp, uint32_t xpb_tgt,
 		    uint32_t mask, uint32_t value)
@@ -86,13 +85,14 @@ int nfp_xpb_writelm(struct nfp_cpp *cpp, uint32_t xpb_tgt,
 EXPORT_SYMBOL(nfp_xpb_writelm);
 
 /**
- * nfp_cpp_read - read from CPP target
+ * nfp_cpp_read() - read from CPP target
  * @cpp:		CPP handle
  * @destination:	CPP id
  * @address:		offset into CPP target
  * @kernel_vaddr:	kernel buffer for result
  * @length:		number of bytes to read
  *
+ * Return: length of io, or -ERRNO
  */
 int nfp_cpp_read(struct nfp_cpp *cpp, uint32_t destination,
 		 unsigned long long address,
@@ -117,13 +117,14 @@ out:
 EXPORT_SYMBOL(nfp_cpp_read);
 
 /**
- * nfp_cpp_write - write to CPP target
+ * nfp_cpp_write() - write to CPP target
  * @cpp:		CPP handle
  * @destination:	CPP id
  * @address:		offset into CPP target
  * @kernel_vaddr:	kernel buffer to read from
  * @length:		number of bytes to write
  *
+ * Return: length of io, or -ERRNO
  */
 int nfp_cpp_write(struct nfp_cpp *cpp, uint32_t destination,
 		  unsigned long long address,
@@ -148,7 +149,7 @@ out:
 EXPORT_SYMBOL(nfp_cpp_write);
 
 /**
- * nfp_cpp_area_fill - fill a CPP area with a value
+ * nfp_cpp_area_fill() - fill a CPP area with a value
  * @area:       CPP area
  * @offset:     offset into CPP area
  * @value:      value to fill with
@@ -156,6 +157,8 @@ EXPORT_SYMBOL(nfp_cpp_write);
  *
  * Fill indicated area with given value.  Return number of bytes
  * actually writtent, or negative on error.
+ *
+ * Return: length of io, or -ERRNO
  */
 int nfp_cpp_area_fill(struct nfp_cpp_area *area,
 		      unsigned long offset, uint32_t value,
@@ -455,7 +458,11 @@ static int _nfp_cpp_mutex_validate(uint32_t model, uint16_t interface,
 }
 
 /**
- * Initialize a mutex location
+ * nfp_cpp_mutex_init() - Initialize a mutex location
+ * @cpp:	NFP CPP handle
+ * @target:	NFP CPP target ID (ie NFP_CPP_TARGET_CLS or NFP_CPP_TARGET_MU)
+ * @address:	Offset into the address space of the NFP CPP target ID
+ * @key:	Unique 32-bit value for this mutex
  *
  * The CPP target:address must point to a 64-bit aligned location, and
  * will initialize 64 bits of data at the location.
@@ -466,12 +473,7 @@ static int _nfp_cpp_mutex_validate(uint32_t model, uint16_t interface,
  * This function should only be called when setting up
  * the initial lock state upon boot-up of the system.
  *
- * @param mutex		NFP CPP Mutex handle
- * @param target	NFP CPP target ID (ie NFP_CPP_TARGET_CLS or NFP_CPP_TARGET_MU)
- * @param address	Offset into the address space of the NFP CPP target ID
- * @param key		Unique 32-bit value for this mutex
- *
- * @return 0 on success, or -errno on failure
+ * Return: 0 on success, or -errno on failure
  */
 int nfp_cpp_mutex_init(struct nfp_cpp *cpp,
 		       int target, unsigned long long address, uint32_t key)
@@ -498,7 +500,11 @@ int nfp_cpp_mutex_init(struct nfp_cpp *cpp,
 }
 
 /**
- * Create a mutex handle from an address controlled by a MU Atomic engine
+ * nfp_cpp_mutex_alloc() - Create a mutex handle
+ * @cpp:	NFP CPP handle
+ * @target:	NFP CPP target ID (ie NFP_CPP_TARGET_CLS or NFP_CPP_TARGET_MU)
+ * @address:	Offset into the address space of the NFP CPP target ID
+ * @key:	32-bit unique key (must match the key at this location)
  *
  * The CPP target:address must point to a 64-bit aligned location, and
  * reserve 64 bits of data at the location for use by the handle.
@@ -506,12 +512,7 @@ int nfp_cpp_mutex_init(struct nfp_cpp *cpp,
  * Only target/address pairs that point to entities that support the
  * MU Atomic Engine's CmpAndSwap32 command are supported.
  *
- * @param cpp		NFP CPP handle
- * @param target	NFP CPP target ID (ie NFP_CPP_TARGET_CLS or NFP_CPP_TARGET_MU)
- * @param address	Offset into the address space of the NFP CPP target ID
- * @param key		32-bit unique key (must match the key at this location)
- *
- * @return		A non-NULL struct nfp_cpp_mutex * on success, NULL on failure.
+ * Return:	A non-NULL struct nfp_cpp_mutex * on success, NULL on failure.
  */
 struct nfp_cpp_mutex *nfp_cpp_mutex_alloc(
 		struct nfp_cpp *cpp,
@@ -551,9 +552,8 @@ struct nfp_cpp_mutex *nfp_cpp_mutex_alloc(
 }
 
 /**
- * Free a mutex handle - does not alter the lock state
- *
- * @param mutex		NFP CPP Mutex handle
+ * nfp_cpp_mutex_free() - Free a mutex handle - does not alter the lock state
+ * @mutex:	NFP CPP Mutex handle
  */
 void nfp_cpp_mutex_free(struct nfp_cpp_mutex *mutex)
 {
@@ -561,11 +561,10 @@ void nfp_cpp_mutex_free(struct nfp_cpp_mutex *mutex)
 }
 
 /**
- * Lock a mutex handle, using the NFP MU Atomic Engine
+ * nfp_cpp_mutex_lock() - Lock a mutex handle, using the NFP MU Atomic Engine
+ * @mutex:	NFP CPP Mutex handle
  *
- * @param mutex		NFP CPP Mutex handle
- *
- * @return 0 on success, or -errno on failure
+ * Return: 0 on success, or -errno on failure
  */
 int nfp_cpp_mutex_lock(struct nfp_cpp_mutex *mutex)
 {
@@ -591,11 +590,10 @@ int nfp_cpp_mutex_lock(struct nfp_cpp_mutex *mutex)
 }
 
 /**
- * Unlock a mutex handle, using the NFP MU Atomic Engine
+ * nfp_cpp_mutex_unlock() - Unlock a mutex handle, using the MU Atomic Engine
+ * @mutex:	NFP CPP Mutex handle
  *
- * @param mutex     NFP CPP Mutex handle
- *
- * @return 0 on success, or -errno on failure
+ * Return: 0 on success, or -errno on failure
  */
 int nfp_cpp_mutex_unlock(struct nfp_cpp_mutex *mutex)
 {
@@ -634,10 +632,10 @@ int nfp_cpp_mutex_unlock(struct nfp_cpp_mutex *mutex)
 }
 
 /**
- * Attempt to lock a mutex handle, using the NFP MU Atomic Engine
+ * nfp_cpp_mutex_trylock() - Attempt to lock a mutex handle
+ * @mutex:	NFP CPP Mutex handle
  *
- * @param mutex     NFP CPP Mutex handle
- * @return      0 if the lock succeeded, -errno on failure
+ * Return:      0 if the lock succeeded, -errno on failure
  */
 int nfp_cpp_mutex_trylock(struct nfp_cpp_mutex *mutex)
 {
@@ -847,5 +845,3 @@ int __nfp_cpp_explicit_write(struct nfp_cpp *cpp, uint32_t cpp_id,
 
 	return len;
 }
-
-/* vim: set shiftwidth=8 noexpandtab: */
