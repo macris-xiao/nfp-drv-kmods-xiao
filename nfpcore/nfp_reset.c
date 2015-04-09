@@ -25,6 +25,7 @@
 #include "nfp_power.h"
 #include "nfp_nbi.h"
 #include "nfp_nbi_mac_eth.h"
+#include "nfp_nbi_mac_misc.h"
 
 #include "nfp6000/nfp6000.h"
 #include "nfp6000/nfp_xpb.h"
