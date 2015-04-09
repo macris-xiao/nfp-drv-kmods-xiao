@@ -266,7 +266,13 @@ static int hwinfo_fetch(struct nfp_device *nfp, void **hwdb, size_t *hwdb_size)
 	return r;
 }
 
-
+/**
+ * nfp_hwinfo_lookup() - Find a value in the HWInfo table by name
+ * @nfp:	NFP Device handle
+ * @lookup:	HWInfo name to search for
+ *
+ * Return: Value of the HWInfo name, or NULL
+ */
 const char *nfp_hwinfo_lookup(struct nfp_device *nfp, const char *lookup)
 {
 	const char *val = NULL;
@@ -292,6 +298,12 @@ const char *nfp_hwinfo_lookup(struct nfp_device *nfp, const char *lookup)
 	return val;
 }
 
+/**
+ * nfp_hwinfo_init() - Initialize HWInfo cache
+ * @nfp:	NFP Device handle
+ *
+ * Return: 0, or -ERRNO
+ */
 int nfp_hwinfo_init(struct nfp_device *nfp)
 {
 	void *hwdb = NULL;
@@ -354,15 +366,12 @@ err:
 	return r;
 }
 
+/**
+ * nfp_hwinfo_cleanup() - Free memory held by the HWInfo cache
+ * @nfp:	NFP Device handle
+ */
 void nfp_hwinfo_cleanup(struct nfp_device *nfp)
 {
 	kfree(nfp->hwinfo);
 	nfp->hwinfo = NULL;
 }
-
-/*
- * Local variables:
- * c-file-style: "Linux"
- * indent-tabs-mode: t
- * End:
- */

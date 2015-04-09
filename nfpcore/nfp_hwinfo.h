@@ -23,4 +23,3 @@ void nfp_hwinfo_cleanup(struct nfp_device *);
 const char *nfp_hwinfo_lookup(struct nfp_device *nfp, const char *lookup);
 
 #endif /* NFP_HWINFO_H */
-/* vim: set shiftwidth=8 noexpandtab:  */
