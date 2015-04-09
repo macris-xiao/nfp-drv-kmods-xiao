@@ -31,10 +31,72 @@
 #include "nfp-bsp/nfp_target.h"
 
 #define NFP_MIP_SIGNATURE	0x0050494d  /* "MIP\0" */
-#define NFP_MIP_VERSION	  1
 #define NFP_MIP_MAX_OFFSET   (256*1024)
 
 #define UINT32_MAX	(0xffffffff)
+
+#define NFP_MIP_VERSION         1
+#define NFP_MIP_QC_VERSION      1
+#define NFP_MIP_VPCI_VERSION    1
+
+enum nfp_mip_entry_type {
+	NFP_MIP_TYPE_NONE = 0,
+	NFP_MIP_TYPE_QC = 1,
+	NFP_MIP_TYPE_VPCI = 2,
+};
+
+struct nfp_mip {
+	uint32_t signature;
+	uint32_t mip_version;
+	uint32_t mip_size;
+	uint32_t first_entry;
+
+	uint32_t version;
+	uint32_t buildnum;
+	uint32_t buildtime;
+	uint32_t loadtime;
+
+	uint32_t symtab_addr;
+	uint32_t symtab_size;
+	uint32_t strtab_addr;
+	uint32_t strtab_size;
+
+	char name[16];
+	char toolchain[32];
+};
+
+struct nfp_mip_entry {
+	uint32_t type;
+	uint32_t version;
+	uint32_t offset_next;
+};
+
+struct nfp_mip_qc {
+	uint32_t type;
+	uint32_t version;
+	uint32_t offset_next;
+	uint32_t type_config;
+	uint32_t type_config_size;
+	uint32_t host_config;
+	uint32_t host_config_size;
+	uint32_t config_signal;
+	uint32_t nfp_queue_size;
+	uint32_t queue_base;
+	uint32_t sequence_base;
+	uint32_t sequence_type;
+	uint32_t status_base;
+	uint32_t status_version;
+	uint32_t error_base;
+};
+
+struct nfp_mip_vpci {
+	uint32_t type;
+	uint32_t version;
+	uint32_t offset_next;
+	uint32_t vpci_epconfig;
+	uint32_t vpci_epconfig_size;
+};
+
 
 static void __mip_update_byteorder(struct nfp_mip *mip)
 {
@@ -343,4 +405,46 @@ int nfp_mip_probe(struct nfp_device *dev)
 	priv->mip = mip;
 
 	return 1;
+}
+
+/**
+ * nfp_mip_symtab() - Get the address and size of the MIP symbol table
+ * @mip:	MIP handle
+ * @addr:	Location for NFP DDR address of MIP symbol table
+ * @size:	Location for size of MIP symbol table
+ *
+ * Return: 0, or -ERRNO
+ */
+int nfp_mip_symtab(const struct nfp_mip *mip, uint32_t *addr, uint32_t *size)
+{
+	if (!mip)
+		return -EINVAL;
+
+	if (addr)
+		*addr = mip->symtab_addr;
+	if (size)
+		*size = mip->symtab_size;
+
+	return 0;
+}
+
+/**
+ * nfp_mip_strtab() - Get the address and size of the MIP symbol name table
+ * @mip:	MIP handle
+ * @addr:	Location for NFP DDR address of MIP symbol name table
+ * @size:	Location for size of MIP symbol name table
+ *
+ * Return: 0, or -ERRNO
+ */
+int nfp_mip_strtab(const struct nfp_mip *mip, uint32_t *addr, uint32_t *size)
+{
+	if (!mip)
+		return -EINVAL;
+
+	if (addr)
+		*addr = mip->strtab_addr;
+	if (size)
+		*size = mip->strtab_size;
+
+	return 0;
 }
