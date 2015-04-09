@@ -213,7 +213,7 @@ struct nfp6000_pcie {
 	} expl;
 
 	/* Event management */
-	struct nfp_em_manager event;
+	struct nfp_em_manager *event;
 };
 
 static inline uint32_t nfp_bar_maptype(struct nfp_bar *bar)
@@ -1483,7 +1483,7 @@ static int nfp6000_event_acquire(struct nfp_cpp_event *event, uint32_t match,
 	struct nfp6000_event_priv *ev = nfp_cpp_event_priv(event);
 	int filter;
 
-	filter = nfp_em_manager_acquire(&nfp->event, event, match, mask, type);
+	filter = nfp_em_manager_acquire(nfp->event, event, match, mask, type);
 	if (filter < 0)
 		return filter;
 
@@ -1498,7 +1498,7 @@ static void nfp6000_event_release(struct nfp_cpp_event *event)
 	struct nfp6000_pcie *nfp = nfp_cpp_priv(cpp);
 	struct nfp6000_event_priv *ev = nfp_cpp_event_priv(event);
 
-	nfp_em_manager_release(&nfp->event, ev->filter);
+	nfp_em_manager_release(nfp->event, ev->filter);
 }
 
 static void nfp6000_free(struct nfp_cpp *cpp)
@@ -1508,7 +1508,7 @@ static void nfp6000_free(struct nfp_cpp *cpp)
 	BUG_ON(!nfp);
 
 	nfp6000_pciebars_attr_remove(nfp_cpp_device(cpp));
-	nfp_em_manager_exit(&nfp->event);
+	nfp_em_manager_destroy(nfp->event);
 	disable_bars(nfp);
 	kfree(nfp);
 }
@@ -1536,8 +1536,6 @@ struct nfp_cpp *nfp_cpp_from_nfp6000_pcie(struct pci_dev *pdev, int irq)
 	ops = &nfp->ops;
 	ops->parent = &pdev->dev;
 	ops->priv = nfp;
-
-	spin_lock_init(&nfp->event.lock);
 
 	pos = pci_find_ext_capability(pdev, PCI_EXT_CAP_ID_DSN);
 	if (pos) {
@@ -1621,11 +1619,12 @@ struct nfp_cpp *nfp_cpp_from_nfp6000_pcie(struct pci_dev *pdev, int irq)
 		goto err_enable_bars;
 
 	if (nfp->iomem.general && irq >= 0) {
-		err = nfp_em_manager_init(&nfp->event,
-					  nfp->iomem.general + NFP_PCIE_EM,
-					  irq);
-		if (err < 0)
+		nfp->event = nfp_em_manager_create(
+				nfp->iomem.general + NFP_PCIE_EM, irq);
+		if (IS_ERR_OR_NULL(nfp->event)) {
+			err = nfp->event ? PTR_ERR(nfp->event) : -ENOMEM;
 			goto err_em_init;
+		}
 	}
 
 	/* Probe for all the common NFP devices */

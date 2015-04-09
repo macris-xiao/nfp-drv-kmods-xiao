@@ -11,38 +11,14 @@
 
 #include "nfp_cpp.h"
 
-struct nfp_em_manager {
-	spinlock_t lock;	/* Lock for the event filters */
-	int irq;
-	void __iomem *em;
-	struct {
-		uint32_t match;
-		uint32_t mask;
-		int type;
-		struct nfp_cpp_event *event;
-	} filter[32];
-};
+struct nfp_em_manager;
 
-/**
- * Initialize the event manager struct
- */
-int nfp_em_manager_init(struct nfp_em_manager *evm, void __iomem *em, int irq);
+struct nfp_em_manager *nfp_em_manager_create(void __iomem *em, int irq);
+void nfp_em_manager_destroy(struct nfp_em_manager *evm);
 
-/**
- * Release resources attached to the event manager
- */
-void nfp_em_manager_exit(struct nfp_em_manager *evm);
-
-/**
- * Acquire an event filter slot
- */
 int nfp_em_manager_acquire(struct nfp_em_manager *evm,
 			   struct nfp_cpp_event *event,
 			   uint32_t match, uint32_t mask, uint32_t type);
-
-/**
- * Release an event filter slot
- */
 void nfp_em_manager_release(struct nfp_em_manager *evm, int filter);
 
 #endif /* NFP_EM_MANAGER_H */

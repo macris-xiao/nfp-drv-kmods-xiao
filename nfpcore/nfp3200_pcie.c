@@ -170,7 +170,7 @@ struct nfp3200_pcie {
 #endif
 
 	/* Event management */
-	struct nfp_em_manager event;
+	struct nfp_em_manager *event;
 };
 
 static inline u32 read_pcie_csr(struct nfp3200_pcie *nfp, u32 off)
@@ -1303,7 +1303,7 @@ static int nfp3200_event_acquire(struct nfp_cpp_event *event, uint32_t match,
 	struct nfp3200_event_priv *ev = nfp_cpp_event_priv(event);
 	int filter;
 
-	filter = nfp_em_manager_acquire(&nfp->event, event, match, mask, type);
+	filter = nfp_em_manager_acquire(nfp->event, event, match, mask, type);
 	if (filter < 0)
 		return filter;
 
@@ -1318,7 +1318,7 @@ static void nfp3200_event_release(struct nfp_cpp_event *event)
 	struct nfp3200_pcie *nfp = nfp_cpp_priv(cpp);
 	struct nfp3200_event_priv *ev = nfp_cpp_event_priv(event);
 
-	nfp_em_manager_release(&nfp->event, ev->filter);
+	nfp_em_manager_release(nfp->event, ev->filter);
 }
 
 static int nfp_cpp_pcie_init(struct nfp_cpp *cpp)
@@ -1417,7 +1417,7 @@ static void nfp_cpp_pcie_free(struct nfp_cpp *cpp)
 		nfp_cpp_area_release_free(nfp->a1.internal_write_area);
 	}
 
-	nfp_em_manager_exit(&nfp->event);
+	nfp_em_manager_destroy(nfp->event);
 	disable_bars(nfp);
 	devm_iounmap(nfp->dev, nfp->pcietgt);
 #ifdef CONFIG_NFP_PCI32
@@ -1520,11 +1520,12 @@ struct nfp_cpp *nfp_cpp_from_nfp3200_pcie(struct pci_dev *pdev, int event_irq)
 #endif
 
 	if (event_irq >= 0) {
-		err = nfp_em_manager_init(&nfp->event,
-					  nfp->pcietgt + NFP_PCIE_EM,
-					  event_irq);
-		if (err < 0)
+		nfp->event = nfp_em_manager_create(nfp->pcietgt + NFP_PCIE_EM,
+						   event_irq);
+		if (IS_ERR_OR_NULL(nfp->event)) {
+			err = nfp->event ? PTR_ERR(nfp->event) : -ENOMEM;
 			goto err_em_init;
+		}
 	}
 
 	/* Probe for all the common NFP devices */

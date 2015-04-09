@@ -87,6 +87,17 @@
 #define NFP_EM_EVENT_SOURCE_of(ev)      (((ev) >> 4) & 0xfff)
 #define NFP_EM_EVENT_PROVIDER_of(ev)    (((ev) >> 16) & 0xf)
 
+struct nfp_em_manager {
+	spinlock_t lock;	/* Lock for the event filters */
+	int irq;
+	void __iomem *em;
+	struct {
+		uint32_t match;
+		uint32_t mask;
+		int type;
+		struct nfp_cpp_event *event;
+	} filter[32];
+};
 
 static irqreturn_t nfp_em_manager_irq(int irq, void *priv)
 {
@@ -106,29 +117,60 @@ static irqreturn_t nfp_em_manager_irq(int irq, void *priv)
 	return (tmp) ? IRQ_HANDLED : IRQ_NONE;
 }
 
-int nfp_em_manager_init(struct nfp_em_manager *evm, void __iomem *em, int irq)
+/**
+ * nfp_em_manager_create() - Create a new EventMonitor manager
+ * @em:		__iomem pointer to the EventMonitor
+ * @irq:	IRQ vector assigned to the EventMonitor
+ *
+ * Return: struct nfp_em_manager pointer, or ERR_PTR()
+ */
+struct nfp_em_manager *nfp_em_manager_create(void __iomem *em, int irq)
 {
 	int err;
+	struct nfp_em_manager *evm;
+
+	evm = kmalloc(sizeof(*evm), GFP_KERNEL);
+	if (evm == NULL)
+		return ERR_PTR(-ENOMEM);
 
 	evm->irq = irq;
 	evm->em = em;
 
+	spin_lock_init(&evm->lock);
+
 	err = request_irq(evm->irq, nfp_em_manager_irq,
 			  IRQF_SHARED, "nfp_em", evm);
-	if (err < 0)
-		evm->em = NULL;
+	if (err < 0) {
+		kfree(evm);
+		return ERR_PTR(err);
+	}
 
-	return err;
+	return evm;
 }
 
-void nfp_em_manager_exit(struct nfp_em_manager *evm)
+/**
+ * nfp_em_manager_destroy() - Release the NFP EventMonitor manager handle
+ * @evm:	NFP EventMonitor manager handle, or NULL
+ */
+void nfp_em_manager_destroy(struct nfp_em_manager *evm)
 {
-	if (!evm->em)
+	if (!evm)
 		return;
 
 	free_irq(evm->irq, evm);
+	kfree(evm);
 }
 
+/**
+ * nfp_em_manager_acquire() - Bind a EventMonitor filter to a NFP CPP event
+ * @evm:	NFP EventMonitor manager handle
+ * @event:	NFP CPP Event handle to call when the filter triggers
+ * @match:	EventMonitor filter match pattern
+ * @mask:	EventMonitor filter mask pattern
+ * @type:	EventMonitor filter type
+ *
+ * Return: filter number >= 0, or -ERRNO
+ */
 int nfp_em_manager_acquire(struct nfp_em_manager *evm,
 			   struct nfp_cpp_event *event,
 			   uint32_t match, uint32_t mask, uint32_t type)
@@ -136,7 +178,7 @@ int nfp_em_manager_acquire(struct nfp_em_manager *evm,
 	unsigned long flags;
 	int i;
 
-	if (!evm->em)
+	if (!evm)
 		return -EINVAL;
 
 	spin_lock_irqsave(&evm->lock, flags);
@@ -163,6 +205,11 @@ int nfp_em_manager_acquire(struct nfp_em_manager *evm,
 	return i;
 }
 
+/**
+ * nfp_em_manager_release: Unbind a filter from any NFP CPP Event
+ * @evm:	NFP EventMonitor manager handle
+ * @filter:	Filter number
+ */
 void nfp_em_manager_release(struct nfp_em_manager *evm, int filter)
 {
 	unsigned long flags;
@@ -176,5 +223,3 @@ void nfp_em_manager_release(struct nfp_em_manager *evm, int filter)
 	evm->filter[filter].event = NULL;
 	spin_unlock_irqrestore(&evm->lock, flags);
 }
-
-/* vim: set shiftwidth=8 noexpandtab:  */
