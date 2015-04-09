@@ -11,10 +11,3 @@
 int nfp_ca_replay(struct nfp_cpp *cpp, const void *ca_buffer, size_t ca_size);
 
 #endif /* NFP_CA_H */
-/* vim: set shiftwidth=4 expandtab:  */
-/*
- * Local variables:
- * c-file-style: "Linux"
- * indent-tabs-mode: t
- * End:
- */

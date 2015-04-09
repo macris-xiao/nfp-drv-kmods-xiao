@@ -109,8 +109,8 @@ typedef int (*nfp_ca_callback)(struct nfp_cpp *cpp, enum nfp_ca_action action,
 			       uint32_t cpp_id, uint64_t cpp_addr,
 			       uint64_t val, uint64_t mask);
 
-/**
- * nfp_ca_null - Null callback used for CRC calculation
+/*
+ * nfp_ca_null() - Null callback used for CRC calculation
  */
 static int nfp_ca_null(struct nfp_cpp *cpp, enum nfp_ca_action action,
 		       uint32_t cpp_id, uint64_t cpp_addr,
@@ -119,8 +119,8 @@ static int nfp_ca_null(struct nfp_cpp *cpp, enum nfp_ca_action action,
 	return 0;
 }
 
-/**
- * nfp_ca_cpp - Replay CPP transactions
+/*
+ * nfp_ca_cpp() - Replay CPP transactions
  */
 static int nfp_ca_cpp(struct nfp_cpp *cpp, enum nfp_ca_action action,
 		      uint32_t cpp_id, uint64_t cpp_addr,
@@ -255,7 +255,7 @@ exit:
 }
 
 
-/**
+/*
  * nfp_ca_parse - Parse a CPP Action replay file
  * @cpp:   CPP handle
  * @buff:  Buffer with trace data
@@ -451,9 +451,11 @@ exit:
  * @ca_buffer: Buffer with trace
  * @ca_size:   Size of Buffer
  *
- * The function performs two passes of the buffer.  The first is
+ * The function performs two passes of the buffer.  The first is to
  * calculate and verify the CRC at the end of the buffer, and the
- * second replays the transactions itself.
+ * second replays the transaction set.
+ *
+ * Return: 0, or -ERRNO
  */
 int nfp_ca_replay(struct nfp_cpp *cpp, const void *ca_buffer, size_t ca_size)
 {
@@ -465,11 +467,3 @@ int nfp_ca_replay(struct nfp_cpp *cpp, const void *ca_buffer, size_t ca_size)
 
 	return nfp_ca_parse(cpp, ca_buffer, ca_size, &nfp_ca_cpp);
 }
-
-/* vim: set shiftwidth=8 noexpandtab:  */
-/*
- * Local variables:
- * c-file-style: "Linux"
- * indent-tabs-mode: t
- * End:
- */
