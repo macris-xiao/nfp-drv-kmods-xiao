@@ -87,6 +87,14 @@ static unsigned long crctab_posix[] = {
 	0xa2f33668, 0xbcb4666d, 0xb8757bda, 0xb5365d03, 0xb1f740b4
 };
 
+/**
+ * crc32_posix_add() - Append data to a POSIX CRC32 calculation
+ * @crc32:	Current CRC32 working state (initialize as 0)
+ * @buff:	Pointer to buffer of data to add
+ * @len:	Size of buffer
+ *
+ * Return: New CRC32 working state
+ */
 uint32_t crc32_posix_add(uint32_t crc32, const void *buff, size_t len)
 {
 	const uint8_t *b = buff;
@@ -99,6 +107,13 @@ uint32_t crc32_posix_add(uint32_t crc32, const void *buff, size_t len)
 	return crc32;
 }
 
+/**
+ * crc32_posix_end() - Finalize POSIX CRC32 working state
+ * @crc32:	Current CRC32 working state
+ * @total_len:	Total length of data that was CRC32'd
+ *
+ * Return: Final POSIX CRC32 value
+ */
 uint32_t crc32_posix_end(uint32_t crc32, size_t total_len)
 {
 	/* Extend with the length of the string. */
@@ -111,11 +126,19 @@ uint32_t crc32_posix_end(uint32_t crc32, size_t total_len)
 	return ~crc32;
 }
 
-/* This is the standard Gary S. Brown's 32 bit CRC algorithm, but
+/**
+ * crc32_gb() - Gary S. Brown's 32 bit CRC algorithm
+ * @crc32:	Current CRC32 working state (initialize as 0)
+ * @buff:	Pointer to buffer of data to add
+ * @len:	Size of buffer
+ *
+ * This is the standard Gary S. Brown's 32 bit CRC algorithm, but
  * accumulate the CRC into the result of a previous CRC.
  * We can use the POSIX CRC table, but realize we need to
  * reflect the input and output. This adds some overhead, but
  * it saves on space.
+ *
+ * Return: New CRC32 working state
  */
 uint32_t crc32_gb(uint32_t crc32, const void *buff, size_t len)
 {
