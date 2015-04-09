@@ -16,8 +16,6 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
- * vim:shiftwidth=8:noexpandtab
- *
  * @file kernel/nfp_device.c
  *
  * The NFP CPP device wrapper
@@ -38,9 +36,16 @@
 #include "nfp3200/nfp_xpb.h"
 
 #include "nfp_common.h"
-#include "nfp_hwinfo.h"
 
 #include "nfp_device.h"
+
+struct nfp_device {
+	int cpp_free;
+	struct nfp_cpp *cpp;
+
+	spinlock_t private_lock;
+	struct list_head private_list;
+};
 
 struct nfp_device_private {
 	 struct list_head entry;
