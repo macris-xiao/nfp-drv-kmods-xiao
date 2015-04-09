@@ -82,13 +82,13 @@ static int board_state = 15;	/* board.state to match against */
 module_param(board_state, int, S_IRUGO);
 MODULE_PARM_DESC(board_state, "board.state to wait for");
 
-static void hwinfo_db_parse(struct nfp_device *nfp)
+static void hwinfo_db_parse(struct nfp_device *nfp, void *hwinfo)
 {
 	const char *key;
 	const char *val;
 
-	for (key = NFP_HWINFO_DATA_START(nfp->hwinfo);
-	     *key && key < (const char *)NFP_HWINFO_DATA_END(nfp->hwinfo);
+	for (key = NFP_HWINFO_DATA_START(hwinfo);
+	     *key && key < (const char *)NFP_HWINFO_DATA_END(hwinfo);
 	     key = val + strlen(val) + 1) {
 		val = key + strlen(key) + 1;
 
@@ -153,6 +153,7 @@ static int hwinfo_fetch_nowait(struct nfp_device *nfp, void **hwdb, size_t *hwdb
 	uint32_t ver;
 	uint8_t header[16];
 	void *tmpdb;
+	struct nfp_cpp *cpp = nfp_device_cpp(nfp);
 
 	res = nfp_resource_acquire(nfp, NFP_RESOURCE_NFP_HWINFO);
 	if (res) {
@@ -165,7 +166,7 @@ static int hwinfo_fetch_nowait(struct nfp_device *nfp, void **hwdb, size_t *hwdb
 		if (cpp_size < HWINFO_SIZE_MIN)
 			return -ENOENT;
 	} else {
-		uint32_t model = nfp_cpp_model(nfp->cpp);
+		uint32_t model = nfp_cpp_model(cpp);
 
 		/* Try getting the HWInfo table from the 'classic' location
 		 */
@@ -187,7 +188,7 @@ static int hwinfo_fetch_nowait(struct nfp_device *nfp, void **hwdb, size_t *hwdb
 	/* Fetch the hardware table from the ARM's SRAM (scratch).  It
 	 * occupies 0x0000 - 0x1fff.
 	 */
-	area = nfp_cpp_area_alloc_with_name(nfp->cpp, cpp_id, "nfp.hwinfo",
+	area = nfp_cpp_area_alloc_with_name(cpp, cpp_id, "nfp.hwinfo",
 					    cpp_addr, cpp_size);
 	if (!area)
 		return -EIO;
@@ -266,71 +267,41 @@ static int hwinfo_fetch(struct nfp_device *nfp, void **hwdb, size_t *hwdb_size)
 	return r;
 }
 
-/**
- * nfp_hwinfo_lookup() - Find a value in the HWInfo table by name
- * @nfp:	NFP Device handle
- * @lookup:	HWInfo name to search for
- *
- * Return: Value of the HWInfo name, or NULL
- */
-const char *nfp_hwinfo_lookup(struct nfp_device *nfp, const char *lookup)
+struct hwinfo_priv {
+	void *db;
+};
+
+static void hwinfo_des(void *ptr)
 {
-	const char *val = NULL;
-
-	/* This must only be called after nfp_hwinfo_init()
-	 * has returned.
-	 */
-
-	if (nfp->hwinfo && lookup) {
-		const char *key;
-
-		for (key = NFP_HWINFO_DATA_START(nfp->hwinfo);
-			*key &&
-			key < (const char *)NFP_HWINFO_DATA_END(nfp->hwinfo);
-			key = val + strlen(val) + 1, val = NULL) {
-			val = key + strlen(key) + 1;
-
-			if (strcmp(key, lookup) == 0)
-				break;
-		}
-	}
-
-	return val;
+	struct hwinfo_priv *priv = ptr;
+	kfree(priv->db);
 }
 
-/**
- * nfp_hwinfo_init() - Initialize HWInfo cache
- * @nfp:	NFP Device handle
- *
- * Return: 0, or -ERRNO
- */
-int nfp_hwinfo_init(struct nfp_device *nfp)
+static void *hwinfo_con(struct nfp_device *nfp)
 {
+	struct hwinfo_priv *priv = NULL;
 	void *hwdb = NULL;
 	size_t hwdb_size = 0;
 	int r = 0;
 	struct nfp_cpp *cpp = nfp_device_cpp(nfp);
 	uint32_t model;
 
-	if (nfp->hwinfo)
-		return 0;
-
 	model = nfp_cpp_model(cpp);
 
 	if (NFP_CPP_MODEL_IS_3200(model) &&
-	    NFP_CPP_INTERFACE_TYPE_of(nfp_cpp_interface(nfp->cpp)) ==
+	    NFP_CPP_INTERFACE_TYPE_of(nfp_cpp_interface(cpp)) ==
 	       NFP_CPP_INTERFACE_TYPE_PCI) {
 		u32 straps;
 		u32 pl_re;
 		u32 arm_re;
 
-		r = nfp_xpb_readl(nfp->cpp, NFP_XPB_PL|NFP_PL_STRAPS, &straps);
+		r = nfp_xpb_readl(cpp, NFP_XPB_PL|NFP_PL_STRAPS, &straps);
 		if (r < 0) {
 			nfp_err(nfp, "nfp_xpb_readl failed().\n");
 			r = -ENODEV;
 			goto err;
 		}
-		r = nfp_xpb_readl(nfp->cpp, NFP_XPB_PL|NFP_PL_RE, &pl_re);
+		r = nfp_xpb_readl(cpp, NFP_XPB_PL|NFP_PL_RE, &pl_re);
 		if (r < 0) {
 			nfp_err(nfp, "nfp_xpb_readl failed().\n");
 			r = -ENODEV;
@@ -353,25 +324,48 @@ int nfp_hwinfo_init(struct nfp_device *nfp)
 	if (r < 0)
 		goto err;
 
-	nfp->hwinfo = hwdb;
 	if (NFP_HWINFO_DEBUG)
-		hwinfo_db_parse(nfp);
+		hwinfo_db_parse(nfp, hwdb);
+
+	priv = nfp_device_private_alloc(nfp, sizeof(*priv),
+					hwinfo_des);
+	if (priv)
+		priv->db = hwdb;
+	else
+		r = -ENOMEM;
 
 err:
-	if (r < 0) {
+	if (r < 0 && hwdb)
 		kfree(hwdb);
-		nfp->hwinfo = NULL;
-	}
 
-	return r;
+	return priv;
 }
 
 /**
- * nfp_hwinfo_cleanup() - Free memory held by the HWInfo cache
+ * nfp_hwinfo_lookup() - Find a value in the HWInfo table by name
  * @nfp:	NFP Device handle
+ * @lookup:	HWInfo name to search for
+ *
+ * Return: Value of the HWInfo name, or NULL
  */
-void nfp_hwinfo_cleanup(struct nfp_device *nfp)
+const char *nfp_hwinfo_lookup(struct nfp_device *nfp, const char *lookup)
 {
-	kfree(nfp->hwinfo);
-	nfp->hwinfo = NULL;
+	const char *val = NULL;
+	const char *key;
+	struct hwinfo_priv *priv = nfp_device_private(nfp, hwinfo_con);
+
+	if (!priv || !lookup)
+		return NULL;
+
+	for (key = NFP_HWINFO_DATA_START(priv->db);
+		*key &&
+		key < (const char *)NFP_HWINFO_DATA_END(priv->db);
+		key = val + strlen(val) + 1, val = NULL) {
+		val = key + strlen(key) + 1;
+
+		if (strcmp(key, lookup) == 0)
+			break;
+	}
+
+	return val;
 }

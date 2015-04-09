@@ -85,16 +85,8 @@ struct nfp_device *nfp_device_from_cpp(struct nfp_cpp *cpp)
 		spin_lock_init(&nfp->private_lock);
 		INIT_LIST_HEAD(&nfp->private_list);
 
-		err = nfp_hwinfo_init(nfp);
-		if (err) {
-			dev_info(nfp_cpp_device(cpp), "NFP is unconfigured, ignoring this device.\n");
-			goto err_hwinfo;
-		}
-
 		return nfp;
 
-err_hwinfo:
-		kfree(nfp);
 err_nfp_alloc:
 		return NULL;
 }
@@ -117,8 +109,6 @@ void nfp_device_close(struct nfp_device *nfp)
 				priv->destructor(&priv[1]);
 			kfree(priv);
 		}
-
-		nfp_hwinfo_cleanup(nfp);
 
 		if (nfp->cpp_free)
 			nfp_cpp_free(nfp->cpp);
