@@ -50,11 +50,13 @@ struct nfp_device_private {
 };
 
 /**
- * nfp_device_cpp - Get the CPP handle from a struct nfp_device
+ * nfp_device_cpp() - Get the CPP handle from a struct nfp_device
  * @nfp:	NFP device
  *
  * NOTE: Do not call nfp_cpp_free() on the returned handle,
  *       as it is owned by the NFP device.
+ *
+ * Return: NFP CPP handle
  */
 struct nfp_cpp *nfp_device_cpp(struct nfp_device *nfp)
 {
@@ -63,8 +65,10 @@ struct nfp_cpp *nfp_device_cpp(struct nfp_device *nfp)
 EXPORT_SYMBOL(nfp_device_cpp);
 
 /**
- * nfp_device_from_cpp - Construct a NFP device from a CPP handle
+ * nfp_device_from_cpp() - Construct a NFP device from a CPP handle
  * @cpp:	CPP handle
+ *
+ * Return: NFP Device handle, or NULL
  */
 struct nfp_device *nfp_device_from_cpp(struct nfp_cpp *cpp)
 {
@@ -97,7 +101,8 @@ err_nfp_alloc:
 EXPORT_SYMBOL(nfp_device_from_cpp);
 
 /**
- * nfp_device_close - Close a NFP device
+ * nfp_device_close() - Close a NFP device
+ * @nfp:	NFP Device handle
  */
 void nfp_device_close(struct nfp_device *nfp)
 {
@@ -122,8 +127,10 @@ void nfp_device_close(struct nfp_device *nfp)
 EXPORT_SYMBOL(nfp_device_close);
 
 /**
- * nfp_device_open - Open a NFP device by ID
+ * nfp_device_open() - Open a NFP device by ID
  * @id:		NFP device ID
+ *
+ * Return: NFP Device handle, or NULL
  */
 struct nfp_device *nfp_device_open(unsigned int id)
 {
@@ -146,8 +153,10 @@ struct nfp_device *nfp_device_open(unsigned int id)
 EXPORT_SYMBOL(nfp_device_open);
 
 /**
- * nfp_device_id - Get the device ID from a NFP handle
+ * nfp_device_id() - Get the device ID from a NFP handle
  * @nfp:	NFP device
+ *
+ * Return: NFP Device ID
  */
 int nfp_device_id(struct nfp_device *nfp)
 {
@@ -156,12 +165,14 @@ int nfp_device_id(struct nfp_device *nfp)
 EXPORT_SYMBOL(nfp_device_id);
 
 /**
- * nfp_device_private - Allocate private memory for a NFP device
+ * nfp_device_private() - Allocate private memory for a NFP device
  * @dev:		NFP device
  * @constructor:	Constructor for the private area
  *
  * Returns a private memory area, identified by the constructor,
  * that will atomatically be freed on nfp_device_close().
+ *
+ * Return: Allocated and constructed private memory, or NULL
  */
 void *nfp_device_private(struct nfp_device *dev,
 				 void *(*constructor)(struct nfp_device *dev))
@@ -189,13 +200,15 @@ void *nfp_device_private(struct nfp_device *dev,
 EXPORT_SYMBOL(nfp_device_private);
 
 /**
- * nfp_device_private_alloc - Constructor allocation method
+ * nfp_device_private_alloc() - Constructor allocation method
  * @dev:		NFP device
  * @private_size:	Size to allocate
  * @destructor:		Destructor function to call on device close, or NULL
  *
  * Allocate your private area - must be called in the constructor
  * function passed to nfp_device_private().
+ *
+ * Return: Allocated memory, or NULL
  */
 void *nfp_device_private_alloc(struct nfp_device *dev,
 		size_t private_size,
@@ -214,10 +227,3 @@ void *nfp_device_private_alloc(struct nfp_device *dev,
 	return &priv[1];
 }
 EXPORT_SYMBOL(nfp_device_private_alloc);
-
-/*
- * Local variables:
- * c-file-style: "Linux"
- * indent-tabs-mode: t
- * End:
- */
