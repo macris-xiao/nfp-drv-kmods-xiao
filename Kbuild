@@ -46,8 +46,6 @@ nfp-objs := nfpcore/nfp3200_pcie.o \
 	    nfpcore/nfp3200_plat.o \
 	    nfpcore/nfp6000_pcie.o \
 	    nfpcore/crc32.o \
-	    nfpcore/i2c.o \
-	    nfpcore/i2c_gpio.o \
 	    nfpcore/nfp_armsp.o \
 	    nfpcore/nfp_ca.o \
 	    nfpcore/nfp_cppcore.o \
