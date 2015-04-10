@@ -497,20 +497,14 @@ static void nfp_net_vnic_attr_remove(struct nfp_net_vnic *vnic)
  * to the ARM from the host via the network link.
  */
 #define DEFAULT_MAC "\x02\x15\x4D\x42\x00\x00"
-static void nfp_net_vnic_assign_addr(struct net_device *netdev, int vnic_unit)
+static void nfp_net_vnic_assign_addr(struct net_device *netdev, int vnic_unit, const char *mac_str)
 {
 	struct nfp_net_vnic *vnic = netdev_priv(netdev);
-	char *netm_mac = "ethm.mac";
-	const char *mac_str;
 	u8 mac_addr[ETH_ALEN];
 	int default_mac = 0;
 
 	/* Try getting the MAC address from the Management interface  */
-	mac_str = nfp_hwinfo_lookup(vnic->nfp, netm_mac);
 	if (!mac_str) {
-		nfp_net_vnic_warn(vnic,
-				  "Could not determine MAC address from '%s'. Using default",
-				  netm_mac);
 		ether_addr_copy(mac_addr, DEFAULT_MAC);
 		default_mac = 1;
 		goto mac_out;
@@ -609,6 +603,8 @@ static int nfp_net_vnic_probe(struct platform_device *pdev)
 	int vnic_unit;
 	struct nfp_cpp *cpp;
 	struct nfp_platform_data *pdata;
+	char *netm_mac = "ethm.mac";
+	const char *mac_str;
 
 	pdata = nfp_platform_device_data(pdev);
 	BUG_ON(!pdata);
@@ -620,6 +616,15 @@ static int nfp_net_vnic_probe(struct platform_device *pdev)
 	nfp = nfp_device_from_cpp(cpp);
 	if (!nfp)
 		return -ENODEV;
+
+	/* HACK:
+	 *
+	 * We perform this hwinfo lookup here, since it will
+	 * cause the host driver to poll until all the platform
+	 * initialization has been completed by the NFP's ARM
+	 * firmware.
+	 */
+	mac_str = nfp_hwinfo_lookup(nfp, netm_mac);
 
 	switch (vnic_unit) {
 	case 0: res_name = NFP_RESOURCE_VNIC_PCI_0; break;
@@ -681,7 +686,11 @@ static int nfp_net_vnic_probe(struct platform_device *pdev)
 				!= NFP_CPP_INTERFACE_TYPE_ARM;
 
 	/* Work out our MAC address */
-	nfp_net_vnic_assign_addr(netdev, vnic_unit);
+	if (!mac_str)
+		nfp_net_vnic_warn(vnic,
+				  "Could not determine MAC address from '%s'. Using default",
+				  netm_mac);
+	nfp_net_vnic_assign_addr(netdev, vnic_unit, mac_str);
 
 	SET_NETDEV_DEV(netdev, &pdev->dev);
 	platform_set_drvdata(pdev, vnic);
