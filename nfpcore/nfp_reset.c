@@ -76,6 +76,7 @@ static int nfp3200_reset_soft(struct nfp_device *nfp)
 #define NFP_NBI_DMAX_CSR				(NFP_NBI_DMAX + 0x00000)
 #define NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG(_x) \
 					(0x00000040 + (0x4 * ((_x) & 0x1f)))
+#define   NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_BPENUM_of(_x) (((_x) >> 27) & 0x1f)
 #define   NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_CTM_of(_x)	(((_x) >> 21) & 0x3f)
 #define   NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_PKT_CREDIT_of(_x) (((_x) >> 10) & 0x7ff)
 #define   NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_BUF_CREDIT_of(_x) (((_x) >> 0) & 0x3ff)
@@ -402,7 +403,7 @@ static int nfp6000_nbi_check_dma_credits(struct nfp_device *nfp, struct nfp_nbi_
 		return 0;
 
 	for (p = 0; p < bpes; p++) {
-		int ctm, pkt, buf;
+		int ctm, pkt, buf, bp;
 		int ctmb, pktb, bufb;
 
 		err = nfp_nbi_mac_regr(nbi, NFP_NBI_DMAX_CSR,
@@ -411,32 +412,32 @@ static int nfp6000_nbi_check_dma_credits(struct nfp_device *nfp, struct nfp_nbi_
 		if (err < 0)
 			return err;
 
+		bp = NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_BPENUM_of(tmp);
+
 		ctm = NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_CTM_of(tmp);
-		if (ctm == 0)
-			continue;
-		ctmb = NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_CTM_of(bpe[p]);
+		ctmb = NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_CTM_of(bpe[bp]);
 
 		pkt = NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_PKT_CREDIT_of(tmp);
-		pktb = NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_PKT_CREDIT_of(bpe[p]);
+		pktb = NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_PKT_CREDIT_of(bpe[bp]);
 
 		buf = NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_BUF_CREDIT_of(tmp);
-		bufb = NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_BUF_CREDIT_of(bpe[p]);
+		bufb = NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_BUF_CREDIT_of(bpe[bp]);
 
 		if (ctm != ctmb) {
-			nfp_err(nfp, "NBI%d DMA BPE%d CTM%d, expected CTM%d\n",
-					nfp_nbi_index(nbi), p, ctm, ctmb);
+			nfp_err(nfp, "NBI%d DMA BPE%d targets CTM%d, expected CTM%d\n",
+					nfp_nbi_index(nbi), bp, ctm, ctmb);
 			return -EBUSY;
 		}
 
 		if (pkt != pktb) {
-			nfp_err(nfp, "NBI%d DMA%d CTM%d did not drain packets (%d != %d)\n",
-					nfp_nbi_index(nbi), p, ctm, pkt, pktb);
+			nfp_err(nfp, "NBI%d DMA BPE%d (CTM%d) outstanding packets (%d != %d)\n",
+					nfp_nbi_index(nbi), bp, ctm, pkt, pktb);
 			return -EBUSY;
 		}
 
 		if (buf != bufb) {
-			nfp_err(nfp, "NBI%d DMA%d CTM%d did not drain buffers (%d != %d)\n",
-					nfp_nbi_index(nbi), p, ctm, buf, bufb);
+			nfp_err(nfp, "NBI%d DMA BPE%d (CTM%d) outstanding buffers (%d != %d)\n",
+					nfp_nbi_index(nbi), bp, ctm, buf, bufb);
 			return -EBUSY;
 		}
 
