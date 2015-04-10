@@ -179,34 +179,40 @@ static int nfp_pcie_fw_load(struct pci_dev *pdev, struct nfp_cpp *cpp)
 	uint32_t model = nfp_cpp_model(cpp);
 	int err, timeout = 30; /* Seconds */
 	struct nfp_device *nfp;
+	int need_armsp;
 
-	if (NFP_CPP_MODEL_IS_3200(model))
+	if (NFP_CPP_MODEL_IS_3200(model)) {
 		fw_name = nfp3200_firmware;
-	else if (NFP_CPP_MODEL_IS_6000(model))
+		need_armsp = 0;
+	} else if (NFP_CPP_MODEL_IS_6000(model)) {
 		fw_name = nfp6000_firmware;
-	else
+		need_armsp = 1;
+	} else {
 		return 0;
+	}
 
 	if (!fw_name)
 		return 0;
 
 	/* Make sure we have the ARM service processor */
-	nfp = nfp_device_from_cpp(cpp);
-	if (!nfp)
-		return 0;
+	if (need_armsp) {
+		nfp = nfp_device_from_cpp(cpp);
+		if (!nfp)
+			return 0;
 
-	for (; timeout > 0; timeout--) {
-		err = nfp_armsp_command(nfp, SPCODE_NOOP);
-		if (err != -EAGAIN)
-			break;
-		if (msleep_interruptible(1000) > 0) {
-			err = -ETIMEDOUT;
-			break;
+		for (; timeout > 0; timeout--) {
+			err = nfp_armsp_command(nfp, SPCODE_NOOP);
+			if (err != -EAGAIN)
+				break;
+			if (msleep_interruptible(1000) > 0) {
+				err = -ETIMEDOUT;
+				break;
+			}
 		}
+		nfp_device_close(nfp);
+		if (err < 0)
+			return err;
 	}
-	nfp_device_close(nfp);
-	if (err < 0)
-		return err;
 
 	err = request_firmware(&fw, fw_name, &pdev->dev);
 	if (err < 0) {
