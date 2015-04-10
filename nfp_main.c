@@ -31,6 +31,7 @@
 
 #include "nfpcore/nfp.h"
 #include "nfpcore/nfp_platform.h"
+#include "nfpcore/nfp_armsp.h"
 #include "nfpcore/nfp_ca.h"
 #include "nfpcore/nfp_reset.h"
 
@@ -176,7 +177,8 @@ static int nfp_pcie_fw_load(struct pci_dev *pdev, struct nfp_cpp *cpp)
 	const struct firmware *fw = NULL;
 	const char *fw_name;
 	uint32_t model = nfp_cpp_model(cpp);
-	int err;
+	int err, timeout = 30; /* Seconds */
+	struct nfp_device *nfp;
 
 	if (NFP_CPP_MODEL_IS_3200(model))
 		fw_name = nfp3200_firmware;
@@ -187,6 +189,24 @@ static int nfp_pcie_fw_load(struct pci_dev *pdev, struct nfp_cpp *cpp)
 
 	if (!fw_name)
 		return 0;
+
+	/* Make sure we have the ARM service processor */
+	nfp = nfp_device_from_cpp(cpp);
+	if (!nfp)
+		return 0;
+
+	for (; timeout > 0; timeout--) {
+		err = nfp_armsp_command(nfp, SPCODE_NOOP);
+		if (err != -EAGAIN)
+			break;
+		if (msleep_interruptible(1000) > 0) {
+			err = -ETIMEDOUT;
+			break;
+		}
+	}
+	nfp_device_close(nfp);
+	if (err < 0)
+		return err;
 
 	err = request_firmware(&fw, fw_name, &pdev->dev);
 	if (err < 0) {
