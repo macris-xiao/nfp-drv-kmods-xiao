@@ -34,7 +34,7 @@
 #include <linux/pci.h>
 #include <linux/if_ether.h>
 
-#include "nfp_device.h"
+#include "nfp.h"
 /*
  * Information passed back to RoCE HCA driver by the NFP/core driver for each
  * NIC instance in the add_device() callback.

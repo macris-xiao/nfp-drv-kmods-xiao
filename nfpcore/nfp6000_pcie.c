@@ -16,8 +16,6 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
- * vim:shiftwidth=8:noexpandtab
- *
  * Multiplexes the NFP BARs between NFP internal resources and
  * implements the PCIe specific interface for generic CPP bus access.
  *
@@ -29,6 +27,7 @@
 #define NFP6000_LONGNAMES 1
 
 #include <linux/kernel.h>
+#include <linux/module.h>
 #include <linux/version.h>
 #include <linux/kref.h>
 #include <linux/io.h>
@@ -38,13 +37,13 @@
 
 #include <asm/cacheflush.h>
 
+#include "nfp.h"
 #include "nfp_cpp_kernel.h"
 #include "nfp_cpp_imp.h"
 
 #include "nfp6000/nfp6000.h"
 #include "nfp-bsp/nfp_target.h"
 
-#include "nfp_common.h"
 #include "nfp6000_pcie.h"
 #include "nfp_em_manager.h"
 #include "nfp_cpplib.h"

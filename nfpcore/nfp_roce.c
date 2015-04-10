@@ -21,7 +21,6 @@
 #include <linux/list.h>
 
 #include "nfp.h"
-#include "nfp_device.h"
 #include "nfp_roce.h"
 #include "nfp_rtsym.h"
 

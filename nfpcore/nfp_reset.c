@@ -18,7 +18,6 @@
 #define NFP_SUBSYS	"nfp_reset: "
 
 #include "nfp.h"
-#include "nfp_device.h"
 
 #include "nfp_resource.h"
 #include "nfp_reset.h"

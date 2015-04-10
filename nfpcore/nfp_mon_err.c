@@ -33,14 +33,14 @@
 #include <linux/slab.h>
 #include <linux/platform_device.h>
 
+#include "nfp.h"
 #include "nfp_cpp_kernel.h"
+
 #include "nfp3200/nfp_xpb.h"
 #include "nfp3200/nfp_em.h"
 #include "nfp3200/nfp_event.h"
 #include "nfp3200/nfp_im.h"
 
-#include "nfp_common.h"
-#include "nfp_platform.h"
 #include "nfp_mon_err.h"
 
 #define NFP_ERR_MAX 128

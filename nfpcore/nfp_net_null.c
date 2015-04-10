@@ -22,13 +22,12 @@
 #include <linux/etherdevice.h>
 #include <linux/platform_device.h>
 
+#include "nfp.h"
 #include "nfp_cpp_kernel.h"
 
 #include "nfp_nbi_mac_stats.h"
 #include "nfp_nbi_phymod.h"
 
-#include "nfp_common.h"
-#include "nfp_platform.h"
 #include "nfp_net_null.h"
 #include "nfp_nbi_mac_eth.h"
 

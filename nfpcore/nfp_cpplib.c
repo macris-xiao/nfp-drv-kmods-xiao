@@ -24,6 +24,7 @@
 #include <linux/sched.h>
 #include <linux/delay.h>
 
+#include "nfp.h"
 #include "nfp_cpp_kernel.h"
 
 #include "nfp3200/nfp3200.h"
@@ -37,7 +38,6 @@
 
 #include "nfp-bsp/nfp_resource.h"
 
-#include "nfp_common.h"
 #include "nfp_cpplib.h"
 #include "nfp_resource.h"
 

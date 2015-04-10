@@ -20,17 +20,15 @@
 #include <linux/pci.h>
 #include <linux/firmware.h>
 
-#include "nfpcore/nfp_common.h"
 #include "nfp_modinfo.h"
 
+#include "nfpcore/nfp.h"
 #include "nfpcore/nfp_cpplib.h"
 
 #include "nfpcore/nfp3200_plat.h"
 #include "nfpcore/nfp3200_pcie.h"
 #include "nfpcore/nfp6000_pcie.h"
 
-#include "nfpcore/nfp.h"
-#include "nfpcore/nfp_platform.h"
 #include "nfpcore/nfp_armsp.h"
 #include "nfpcore/nfp_ca.h"
 #include "nfpcore/nfp_reset.h"

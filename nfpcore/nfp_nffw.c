@@ -6,13 +6,12 @@
 
 #include <linux/kernel.h>
 
-#include "nfp_common.h"
+#include "nfp.h"
+#include "nfp_cpp.h"
+
 #include "nfp_resource.h"
 #include "nfp-bsp/nfp_resource.h"
-#include "nfp.h"
 #include "nfp_nffw.h"
-#include "nfp_device.h"
-#include "nfp_cpp.h"
 
 /* Init-CSR owner IDs for firmware map to firmware IDs which start at 4.
  * Lower IDs are reserved for target and loader IDs.

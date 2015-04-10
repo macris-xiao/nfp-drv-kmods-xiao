@@ -58,9 +58,6 @@
 #include "nfp3200/nfp_xpb.h"
 #include "nfp3200/nfp_pl.h"
 
-#include "nfp_common.h"
-#include "nfp_device.h"
-
 #define HWINFO_SIZE_MIN	0x100
 
 #undef NFP_SUBSYS

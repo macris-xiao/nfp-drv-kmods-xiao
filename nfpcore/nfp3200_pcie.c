@@ -28,11 +28,14 @@
 #include <linux/kref.h>
 #include <linux/io.h>
 #include <linux/delay.h>
+#include <linux/module.h>
 
 #include <asm/cacheflush.h>
 
 #include "nfp_cpp_kernel.h"
 #include "nfp_cpp_imp.h"
+
+#include "nfp.h"
 
 #include "nfp3200/nfp3200.h"
 #include "nfp3200/nfp_em.h"
@@ -41,7 +44,6 @@
 
 #include "nfp-bsp/nfp_target.h"
 
-#include "nfp_common.h"
 #include "nfp3200_pcie.h"
 #include "nfp_em_manager.h"
 #include "nfp_cpplib.h"

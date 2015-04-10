@@ -41,8 +41,6 @@
 #include "nfp-bsp/nfp_target.h"
 #include "nfp-bsp/nfp_resource.h"
 
-#include "nfp_platform.h"
-
 #include "nfp_mon_err.h"
 #include "nfp_dev_cpp.h"
 #include "nfp_net_null.h"

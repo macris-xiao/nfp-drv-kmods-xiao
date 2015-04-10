@@ -6,7 +6,7 @@
 #include <linux/kernel.h>
 #include <linux/slab.h>
 
-#include "nfp_device.h"
+#include "nfp.h"
 #include "nfp_cpp.h"
 #include "nfp_i2c.h"
 #include "nfp_gpio.h"

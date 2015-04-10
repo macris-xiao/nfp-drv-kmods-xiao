@@ -26,11 +26,13 @@
 #include <linux/platform_device.h>
 #include <linux/ioport.h>
 
-#include "nfp_cpp_kernel.h"
-#include "nfp_cpp_imp.h"
 #include <linux/sched.h>
 #include <linux/wait.h>
 #include <linux/mutex.h>
+
+#include "nfp.h"
+#include "nfp_cpp_kernel.h"
+#include "nfp_cpp_imp.h"
 
 #include "nfp_explicit.h"
 #include "nfp3200/nfp3200.h"
@@ -40,7 +42,6 @@
 #include "nfp3200/nfp_em.h"
 #include "nfp3200/nfp_im.h"
 
-#include "nfp_common.h"
 #include "nfp_cpplib.h"
 
 #include "nfp-bsp/nfp_target.h"

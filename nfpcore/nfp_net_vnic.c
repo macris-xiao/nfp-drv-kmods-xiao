@@ -34,8 +34,6 @@
 #include <linux/io.h>
 #include <linux/in6.h>
 
-#include "nfp_common.h"
-
 #include "nfp_cpp_kernel.h"
 
 #include "nfp.h"
@@ -43,7 +41,6 @@
 
 #include "nfp_hwinfo.h"
 #include "nfp_resource.h"
-#include "nfp_platform.h"
 #include "nfp_net_vnic.h"
 
 #define IPHDR_ALIGN_OFFSET	((16 - (sizeof(struct ethhdr))) & 0xf)

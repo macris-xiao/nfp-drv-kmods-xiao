@@ -36,13 +36,13 @@
 #include <linux/firmware.h>
 #include <linux/platform_device.h>
 
+#include "nfp.h"
 #include "nfp_cpp_kernel.h"
+
 #include "nfp_explicit.h"
 #include "nfp3200/nfp_arm.h"
 #include "nfp_ca.h"
 
-#include "nfp_common.h"
-#include "nfp_platform.h"
 #include "nfp_dev_cpp.h"
 
 #define NFP_DEV_CPP_DEBUG	0

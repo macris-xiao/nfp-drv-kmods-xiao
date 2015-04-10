@@ -17,7 +17,7 @@
 #include <linux/delay.h>
 #include <linux/zlib.h>
 
-#include "nfp_common.h"
+#include "nfp.h"
 #include "nfp_cpp.h"
 #include "nfp_ca.h"
 

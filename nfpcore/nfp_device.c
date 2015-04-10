@@ -35,10 +35,6 @@
 #include "nfp3200/nfp3200.h"
 #include "nfp3200/nfp_xpb.h"
 
-#include "nfp_common.h"
-
-#include "nfp_device.h"
-
 struct nfp_device {
 	int cpp_free;
 	struct nfp_cpp *cpp;

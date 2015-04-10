@@ -5,9 +5,9 @@
 
 #include <linux/kernel.h>
 
-#include "nfp_device.h"
-#include "nfp_gpio.h"
+#include "nfp.h"
 #include "nfp_cpp.h"
+#include "nfp_gpio.h"
 
 #include "nfp3200/nfp3200.h"
 #include "nfp3200/nfp_xpb.h"
