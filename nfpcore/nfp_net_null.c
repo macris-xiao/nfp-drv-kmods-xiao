@@ -25,11 +25,10 @@
 #include "nfp.h"
 #include "nfp_cpp.h"
 
-#include "nfp_nbi_mac_stats.h"
+#include "nfp_nbi.h"
 #include "nfp_nbi_phymod.h"
 
 #include "nfp_net_null.h"
-#include "nfp_nbi_mac_eth.h"
 
 #define TX_TIMEOUT	(2 * HZ)
 

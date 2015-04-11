@@ -20,7 +20,6 @@
 #include <linux/module.h>
 
 #include "nfp_nbi.h"
-#include "nfp_nbi_mac_stats.h"
 #include "nfp_resource.h"
 
 #include "nfp6000/nfp_xpb.h"

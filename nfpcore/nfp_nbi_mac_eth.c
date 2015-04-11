@@ -13,8 +13,6 @@
 
 #include "nfp.h"
 #include "nfp_nbi.h"
-#include "nfp_nbi_mac_eth.h"
-#include "nfp_nbi_mac_misc.h"
 
 #define NFP_MAC                                     0x3a0000
 #define NFP_MAC_MacMuxCtrl                          0x0000000c
