@@ -546,4 +546,25 @@ void nfp_cppcore_exit(void);
 
 int nfp_ca_replay(struct nfp_cpp *cpp, const void *ca_buffer, size_t ca_size);
 
+/* Implemented in nfp_platform.c */
+
+/**
+ * struct nfp_platform_data - Per-device data
+ * @cpp:	NFP CPP handle
+ * @unit:	Device unit number
+ */
+struct nfp_platform_data {
+	struct nfp_cpp *cpp;
+	int unit;
+};
+
+#define nfp_platform_device_data(pdev)	((pdev)->dev.platform_data)
+
+struct platform_device *nfp_platform_device_register_unit(struct nfp_cpp *cpp,
+							  const char *type,
+							  int unit, int units);
+struct platform_device *nfp_platform_device_register(struct nfp_cpp *cpp,
+						     const char *type);
+void nfp_platform_device_unregister(struct platform_device *pdev);
+
 #endif /* !__NFP_CPP_H__ */

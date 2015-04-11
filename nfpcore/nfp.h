@@ -67,27 +67,6 @@ void *nfp_device_private(struct nfp_device *dev,
 void *nfp_device_private_alloc(struct nfp_device *dev, size_t private_size,
 			       void (*destructor) (void *private_data));
 
-/* Implemented in nfp_platform.c */
-
-/**
- * struct nfp_platform_data - Per-device data
- * @cpp:	NFP CPP handle
- * @unit:	Device unit number
- */
-struct nfp_platform_data {
-	struct nfp_cpp *cpp;
-	int unit;
-};
-
-#define nfp_platform_device_data(pdev)	((pdev)->dev.platform_data)
-
-struct platform_device *nfp_platform_device_register_unit(struct nfp_cpp *cpp,
-							  const char *type,
-							  int unit, int units);
-struct platform_device *nfp_platform_device_register(struct nfp_cpp *cpp,
-						     const char *type);
-void nfp_platform_device_unregister(struct platform_device *pdev);
-
 /* Implemented in nfp_hwinfo.c */
 
 const char *nfp_hwinfo_lookup(struct nfp_device *nfp, const char *lookup);
