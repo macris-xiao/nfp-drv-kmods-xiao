@@ -16,6 +16,7 @@
 #include <linux/kernel.h>
 #include <linux/delay.h>
 #include <linux/zlib.h>
+#include <linux/slab.h>
 
 #include "nfp.h"
 #include "nfp_cpp.h"

@@ -8,9 +8,8 @@
 #include <linux/io.h>
 #include <linux/interrupt.h>
 
-#include "nfp_cpp_kernel.h"
-
-#include "nfp_em_manager.h"
+#include "nfp.h"
+#include "nfp_cpp.h"
 
 #define NFP_EM_FILTERS                 32
 

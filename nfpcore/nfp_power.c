@@ -5,7 +5,8 @@
 
 #include <linux/kernel.h>
 
-#include "nfp_cpp_kernel.h"
+#include "nfp.h"
+#include "nfp_cpp.h"
 
 #include "nfp6000/nfp_xpb.h"
 #include "nfp3200/nfp_xpb.h"

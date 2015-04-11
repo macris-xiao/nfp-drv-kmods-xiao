@@ -34,8 +34,6 @@
 #include <linux/io.h>
 #include <linux/in6.h>
 
-#include "nfp_cpp_kernel.h"
-
 #include "nfp.h"
 #include "nfp_cpp.h"
 

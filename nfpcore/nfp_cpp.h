@@ -245,6 +245,8 @@ uint32_t nfp_cpp_model(struct nfp_cpp *cpp);
  */
 #define NFP_CPP_INTERFACE_CHANNEL_of(interface)	(((interface) >>  0) & 0xff)
 
+/* Implemented in nfp_cppcore.c */
+
 uint16_t nfp_cpp_interface(struct nfp_cpp *cpp);
 int nfp_cpp_serial(struct nfp_cpp *cpp, const uint8_t **serial);
 
@@ -321,7 +323,6 @@ int nfp_cpp_mutex_lock(struct nfp_cpp_mutex *mutex);
 int nfp_cpp_mutex_unlock(struct nfp_cpp_mutex *mutex);
 int nfp_cpp_mutex_trylock(struct nfp_cpp_mutex *mutex);
 
-
 struct nfp_cpp_event;
 struct sigaction;
 
@@ -332,5 +333,213 @@ struct nfp_cpp *nfp_cpp_event_cpp(struct nfp_cpp_event *cpp_event);
 int nfp_cpp_event_as_signal(struct nfp_cpp_event *event, int signum,
 			    const struct sigaction *act);
 void nfp_cpp_event_free(struct nfp_cpp_event *event);
+
+struct nfp_cpp_explicit;
+
+struct nfp_cpp_explicit_command {
+	uint32_t cpp_id;
+	uint16_t data_ref;
+	uint8_t  data_master;
+	uint8_t  len;
+	uint8_t  byte_mask;
+	uint8_t  signal_master;
+	uint8_t  signal_ref;
+	uint8_t  posted;
+	uint8_t  siga;
+	uint8_t  sigb;
+	int8_t   siga_mode;
+	int8_t   sigb_mode;
+};
+
+/**
+ * struct nfp_cpp_operations - NFP CPP operations structure
+ * @model:	Model ID (0 for built-in autodetection) 
+ * @interface:	Interface ID - required! 
+ * @serial:	Serial number, typically the management MAC for the NFP
+ * @area_priv_size:	Size of the nfp_cpp_area private data
+ * @event_priv_size:	Size of the nfp_cpp_event private data
+ * @owner:	Owner module
+ * @parent:	Parent device
+ * @priv:	Private data
+ * @init:	Initialize the NFP CPP bus, called by nfp_cpp_register()
+ * @free:	Free the bus, called during nfp_cpp_unregister()
+ * @area_init:	Initialize a new NFP CPP area (not serialized)
+ * @area_cleanup:	Clean up a NFP CPP area (not serialized)
+ * @area_acquire:	Acquire the NFP CPP area (serialized)
+ * @area_release:	Release area (serialized)
+ * @area_resource:	Get resource range of area (not serialized)
+ * @area_phys:		Get physical address of area (not serialized)
+ * @area_iomem:		Get iomem of area (not serialized)
+ * @area_read:		Perform a read from a NFP CPP area (serialized)
+ * @area_write:		Perform a write to a NFP CPP area (serialized)
+ * @event_acquire:	Create an event filter entry
+ * @event_release:	Release an event filter entry
+ * @explicit_priv_size:	Size of an explicit's private area
+ * @explicit_acquire:	Acquire an explicit area
+ * @explicit_release:	Release an explicit area
+ * @explicit_put:	Write data to send
+ * @explicit_get:	Read data received
+ * @explicit_do:	Perform the transaction
+ */
+struct nfp_cpp_operations {
+	uint32_t model;
+	uint32_t interface;
+	uint8_t serial[6];
+
+	size_t area_priv_size;
+	size_t event_priv_size;
+	struct module *owner;
+	struct device *parent;	/* Device handle */
+	void *priv;		/* Private data */
+
+	int (*init)(struct nfp_cpp *cpp);
+	void		(*free)(struct nfp_cpp *cpp);
+
+	int (*area_init)(struct nfp_cpp_area *area,
+			 uint32_t dest, unsigned long long address,
+			 unsigned long size);
+	void (*area_cleanup)(struct nfp_cpp_area *area);
+	int (*area_acquire)(struct nfp_cpp_area *area);
+	void (*area_release)(struct nfp_cpp_area *area);
+	struct resource *(*area_resource)(struct nfp_cpp_area *area);
+	phys_addr_t (*area_phys)(struct nfp_cpp_area *area);
+	void __iomem *(*area_iomem)(struct nfp_cpp_area *area);
+	int (*area_read)(struct nfp_cpp_area *area, void *kernel_vaddr,
+			 unsigned long offset, unsigned int length);
+	int (*area_write)(struct nfp_cpp_area *area, const void *kernel_vaddr,
+			  unsigned long offset, unsigned int length);
+
+	/* IRQ and event management */
+
+	/* Event management */
+	int (*event_acquire)(struct nfp_cpp_event *event, uint32_t match,
+			     uint32_t mask, uint32_t type);
+	void (*event_release)(struct nfp_cpp_event *event);
+
+	size_t explicit_priv_size;
+	int (*explicit_acquire)(struct nfp_cpp_explicit *expl);
+	void (*explicit_release)(struct nfp_cpp_explicit *expl);
+	int (*explicit_put)(struct nfp_cpp_explicit *expl,
+			    const void *buff, size_t len);
+	int (*explicit_get)(struct nfp_cpp_explicit *expl,
+			    void *buff, size_t len);
+	int (*explicit_do)(struct nfp_cpp_explicit *expl,
+			   const struct nfp_cpp_explicit_command *cmd,
+			   uint64_t address);
+};
+
+struct nfp_cpp *nfp_cpp_from_operations(
+		const struct nfp_cpp_operations *cpp_ops);
+void *nfp_cpp_priv(struct nfp_cpp *priv);
+void *nfp_cpp_area_priv(struct nfp_cpp_area *cpp_area);
+ 
+void *nfp_cpp_explicit_priv(struct nfp_cpp_explicit *cpp_explicit);
+void *nfp_cpp_event_priv(struct nfp_cpp_event *cpp_event);
+struct device *nfp_cpp_device(struct nfp_cpp *cpp);
+
+/*
+ * The following section contains extensions to the
+ * NFP CPP API, to be used in a Linux kernel-space context.
+ */
+
+/*
+ * Use this channel ID for multiple virtual channel interfaces
+ * (ie ARM and PCIe) when setting up the nfp_cpp_ops.interface field.
+ */
+#define NFP_CPP_INTERFACE_CHANNEL_PEROPENER	255
+
+int nfp_cpp_area_acquire_nonblocking(struct nfp_cpp_area *area);
+struct device *nfp_cpp_device(struct nfp_cpp *cpp);
+int nfp_cpp_device_id(struct nfp_cpp *cpp);
+
+struct resource;
+
+struct resource *nfp_cpp_area_resource(struct nfp_cpp_area *area);
+phys_addr_t nfp_cpp_area_phys(struct nfp_cpp_area *area);
+void __iomem *nfp_cpp_area_iomem(struct nfp_cpp_area *area);
+
+void nfp_cpp_event_callback(struct nfp_cpp_event *event);
+int nfp_cpp_event_as_callback(struct nfp_cpp_event *event,
+			      void (*callback)(void *), void *priv);
+
+uint64_t nfp_cpp_island_mask(struct nfp_cpp *cpp);
+
+
+/* Implemented in nfp_explicit.c */
+
+/*
+ * Return code masks for nfp_cpp_explicit_do()
+ */
+#define NFP_SIGNAL_MASK_A	(1 << 0)	/* Signal A fired */
+#define NFP_SIGNAL_MASK_B	(1 << 1)	/* Signal B fired */
+
+enum nfp_cpp_explicit_signal_mode {
+	NFP_SIGNAL_NONE	= 0,
+	NFP_SIGNAL_PUSH	= 1,
+	NFP_SIGNAL_PUSH_OPTIONAL = -1,
+	NFP_SIGNAL_PULL = 2,
+	NFP_SIGNAL_PULL_OPTIONAL = -2,
+};
+
+struct nfp_cpp_explicit *nfp_cpp_explicit_acquire(struct nfp_cpp *cpp);
+int nfp_cpp_explicit_set_target(struct nfp_cpp_explicit *expl, uint32_t cpp_id,
+				uint8_t len, uint8_t mask);
+int nfp_cpp_explicit_set_data(struct nfp_cpp_explicit *expl,
+			      uint8_t data_master, uint16_t data_ref);
+int nfp_cpp_explicit_set_signal(struct nfp_cpp_explicit *expl,
+				uint8_t signal_master, uint8_t signal_ref);
+int nfp_cpp_explicit_set_posted(struct nfp_cpp_explicit *expl, int posted,
+				uint8_t siga,
+				enum nfp_cpp_explicit_signal_mode siga_mode,
+				uint8_t sigb,
+				enum nfp_cpp_explicit_signal_mode sigb_mode);
+int nfp_cpp_explicit_put(struct nfp_cpp_explicit *expl,
+			 const void *buff, size_t len);
+int nfp_cpp_explicit_do(struct nfp_cpp_explicit *expl, uint64_t address);
+int nfp_cpp_explicit_get(struct nfp_cpp_explicit *expl, void *buff, size_t len);
+void nfp_cpp_explicit_release(struct nfp_cpp_explicit *expl);
+struct nfp_cpp *nfp_cpp_explicit_cpp(struct nfp_cpp_explicit *expl);
+
+/* Implemented in nfp_em_manager.c */
+
+struct nfp_em_manager;
+
+struct nfp_em_manager *nfp_em_manager_create(void __iomem *em, int irq);
+void nfp_em_manager_destroy(struct nfp_em_manager *evm);
+
+int nfp_em_manager_acquire(struct nfp_em_manager *evm,
+			   struct nfp_cpp_event *event,
+			   uint32_t match, uint32_t mask, uint32_t type);
+void nfp_em_manager_release(struct nfp_em_manager *evm, int filter);
+
+/* Implemented in nfp_cpplib.c */
+
+#include "nfp3200/nfp3200.h"
+#include "nfp6000/nfp6000.h"
+
+int __nfp_cpp_model_autodetect(struct nfp_cpp *cpp, uint32_t *model);
+int __nfp_cpp_model_fixup(struct nfp_cpp *cpp);
+
+/* Helpers for the nfpXXXX_pcie.c interfaces */
+
+static inline int __nfp_cpp_id_is_prefetchable(uint32_t cpp_id)
+{
+	return (NFP_CPP_ID_TARGET_of(cpp_id) == NFP_CPP_TARGET_MU &&
+		(NFP_CPP_ID_ACTION_of(cpp_id) == NFP_CPP_ACTION_RW ||
+		 NFP_CPP_ID_ACTION_of(cpp_id) == 0));
+}
+
+int __nfp_cpp_explicit_read(struct nfp_cpp *cpp, uint32_t cpp_id,
+			    uint64_t addr, void *buff, size_t len,
+			    int width_read);
+
+int __nfp_cpp_explicit_write(struct nfp_cpp *cpp, uint32_t cpp_id,
+			     uint64_t addr, const void *buff, size_t len,
+			    int width_write);
+
+/* nfp_cppcore.c */
+
+int nfp_cppcore_init(void);
+void nfp_cppcore_exit(void);
 
 #endif /* !__NFP_CPP_H__ */

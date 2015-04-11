@@ -29,13 +29,13 @@
 #include <linux/io.h>
 #include <linux/delay.h>
 #include <linux/module.h>
+#include <linux/pci.h>
+#include <linux/sched.h>
 
 #include <asm/cacheflush.h>
 
-#include "nfp_cpp_kernel.h"
-#include "nfp_cpp_imp.h"
-
 #include "nfp.h"
+#include "nfp_cpp.h"
 
 #include "nfp3200/nfp3200.h"
 #include "nfp3200/nfp_em.h"
@@ -45,8 +45,6 @@
 #include "nfp-bsp/nfp_target.h"
 
 #include "nfp3200_pcie.h"
-#include "nfp_em_manager.h"
-#include "nfp_cpplib.h"
 
 /* Add your architecture here if it cannot
  * perform atomic readq()/writeq() transactions over

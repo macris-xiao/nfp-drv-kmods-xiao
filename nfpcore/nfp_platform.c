@@ -19,7 +19,7 @@
 #include <linux/platform_device.h>
 
 #include "nfp.h"
-#include "nfp_cpp_kernel.h"
+#include "nfp_cpp.h"
 
 /**
  * nfp_platform_device_register_unit() - Multi-unit NFP CPP bus devices

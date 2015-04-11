@@ -23,7 +23,7 @@
 #include <linux/platform_device.h>
 
 #include "nfp.h"
-#include "nfp_cpp_kernel.h"
+#include "nfp_cpp.h"
 
 #include "nfp_nbi_mac_stats.h"
 #include "nfp_nbi_phymod.h"

@@ -19,6 +19,7 @@
 #include <linux/kthread.h>
 
 #include "nfp.h"
+#include "nfp_cpp.h"
 #include "nfp_resource.h"
 
 #include "nfp_armsp.h"

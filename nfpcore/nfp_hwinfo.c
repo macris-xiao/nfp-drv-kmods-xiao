@@ -49,11 +49,11 @@
 #include <linux/delay.h>
 
 #include "nfp.h"
+#include "nfp_cpp.h"
 
 #include "nfp_resource.h"
 #include "nfp-bsp/nfp_resource.h"
 #include "nfp-bsp/nfp_hwinfo.h"
-#include "nfp_cpp_kernel.h"
 #include "nfp3200/nfp3200.h"
 #include "nfp3200/nfp_xpb.h"
 #include "nfp3200/nfp_pl.h"

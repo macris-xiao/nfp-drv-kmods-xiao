@@ -23,7 +23,7 @@
 #include "nfp_modinfo.h"
 
 #include "nfpcore/nfp.h"
-#include "nfpcore/nfp_cpplib.h"
+#include "nfpcore/nfp_cpp.h"
 
 #include "nfpcore/nfp3200_plat.h"
 #include "nfpcore/nfp3200_pcie.h"

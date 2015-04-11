@@ -31,18 +31,14 @@
 #include <linux/mutex.h>
 
 #include "nfp.h"
-#include "nfp_cpp_kernel.h"
-#include "nfp_cpp_imp.h"
+#include "nfp_cpp.h"
 
-#include "nfp_explicit.h"
 #include "nfp3200/nfp3200.h"
 #include "nfp3200/nfp_arm.h"
 #include "nfp3200/nfp_xpb.h"
 #include "nfp3200/nfp_event.h"
 #include "nfp3200/nfp_em.h"
 #include "nfp3200/nfp_im.h"
-
-#include "nfp_cpplib.h"
 
 #include "nfp-bsp/nfp_target.h"
 

@@ -34,19 +34,18 @@
 #include <linux/delay.h>
 #include <linux/interrupt.h>
 #include <linux/sort.h>
+#include <linux/sched.h>
+#include <linux/pci.h>
 
 #include <asm/cacheflush.h>
 
 #include "nfp.h"
-#include "nfp_cpp_kernel.h"
-#include "nfp_cpp_imp.h"
+#include "nfp_cpp.h"
 
 #include "nfp6000/nfp6000.h"
 #include "nfp-bsp/nfp_target.h"
 
 #include "nfp6000_pcie.h"
-#include "nfp_em_manager.h"
-#include "nfp_cpplib.h"
 
 /* Although technically we can do 256, we don't
  * want to exhaust the IRQ table on systems

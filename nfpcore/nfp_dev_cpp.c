@@ -37,9 +37,8 @@
 #include <linux/platform_device.h>
 
 #include "nfp.h"
-#include "nfp_cpp_kernel.h"
+#include "nfp_cpp.h"
 
-#include "nfp_explicit.h"
 #include "nfp3200/nfp_arm.h"
 #include "nfp_ca.h"
 

@@ -8,7 +8,11 @@
 #ifndef __NFP_H__
 #define __NFP_H__
 
-#include "nfp_cpp_kernel.h"
+#include <linux/device.h>
+
+#include "kcompat.h"
+
+#include "nfp_cpp.h"
 
 #define PCI_64BIT_BAR_COUNT             3
 
