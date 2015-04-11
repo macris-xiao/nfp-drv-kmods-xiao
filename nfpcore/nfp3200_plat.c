@@ -31,9 +31,7 @@
 #include <linux/slab.h>
 #include <linux/interrupt.h>
 
-#include "nfp_cpp_kernel.h"
-#include "nfp_cpp_imp.h"
-#include "nfp_explicit.h"
+#include "nfp_cpp.h"
 #include "nfp3200/nfp3200.h"
 #include "nfp3200/nfp_arm.h"
 #include "nfp3200/nfp_em.h"
@@ -45,7 +43,6 @@
 #include "nfp_dev_cpp.h"
 #include "nfp_net_null.h"
 #include "nfp_net_vnic.h"
-#include "nfp_cpplib.h"
 
 extern bool nfp_mon_err;
 extern bool nfp_dev_cpp;

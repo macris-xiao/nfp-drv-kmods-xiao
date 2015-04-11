@@ -34,7 +34,6 @@
 
 #include <asm/cacheflush.h>
 
-#include "nfp.h"
 #include "nfp_cpp.h"
 
 #include "nfp3200/nfp3200.h"

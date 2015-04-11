@@ -10,6 +10,20 @@
 
 #include <linux/ctype.h>
 
+#include "kcompat.h"
+
+#define PCI_64BIT_BAR_COUNT             3
+
+/*
+ * NFP hardware vendor/device ids.  Should be added to Linux.
+ */
+#define PCI_VENDOR_ID_NETRONOME		0x19ee
+#define PCI_DEVICE_NFP3200		0x3200
+#define PCI_DEVICE_NFP3240		0x3240
+#define PCI_DEVICE_NFP6000		0x6000
+
+#define NFP_CPP_NUM_TARGETS		16
+
 /*
  * NFP CPP device area handle
  */
