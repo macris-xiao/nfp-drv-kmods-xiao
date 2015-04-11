@@ -7,8 +7,6 @@
 #include <linux/kernel.h>
 
 #include "nfp.h"
-#include "nfp_resource.h"
-#include "nfp_hwinfo.h"
 #include "nfp_gpio.h"
 #include "nfp_i2c.h"
 #include "nfp_spi.h"

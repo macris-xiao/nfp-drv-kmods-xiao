@@ -29,9 +29,6 @@
 #include "nfpcore/nfp3200_pcie.h"
 #include "nfpcore/nfp6000_pcie.h"
 
-#include "nfpcore/nfp_armsp.h"
-#include "nfpcore/nfp_reset.h"
-
 #include "nfpcore/nfp_mon_err.h"
 #include "nfpcore/nfp_dev_cpp.h"
 #include "nfpcore/nfp_net_null.h"

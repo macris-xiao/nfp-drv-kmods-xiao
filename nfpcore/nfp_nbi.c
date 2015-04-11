@@ -20,7 +20,8 @@
 #include <linux/module.h>
 
 #include "nfp_nbi.h"
-#include "nfp_resource.h"
+
+#include "nfp-bsp/nfp_resource.h"
 
 #include "nfp6000/nfp_xpb.h"
 

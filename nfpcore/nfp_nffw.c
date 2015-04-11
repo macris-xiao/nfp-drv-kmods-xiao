@@ -9,8 +9,6 @@
 #include "nfp.h"
 #include "nfp_cpp.h"
 
-#include "nfp_resource.h"
-#include "nfp-bsp/nfp_resource.h"
 #include "nfp_nffw.h"
 
 /* Init-CSR owner IDs for firmware map to firmware IDs which start at 4.

@@ -19,8 +19,6 @@
 
 #include "nfp.h"
 
-#include "nfp_resource.h"
-#include "nfp_reset.h"
 #include "nfp_power.h"
 #include "nfp_nbi.h"
 #include "nfp_nffw.h"

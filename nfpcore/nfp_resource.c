@@ -28,11 +28,9 @@
 #include "nfp.h"
 #include "nfp_cpp.h"
 
-#include "nfp-bsp/nfp_resource.h"
 #include "nfp3200/nfp3200.h"
 
 #include "crc32.h"
-#include "nfp_resource.h"
 
 #define NFP_XPB_OVERLAY(island)  (((island) & 0x3f) << 24)
 #define NFP_XPB_ISLAND(island)   (NFP_XPB_OVERLAY(island) + 0x60000)
