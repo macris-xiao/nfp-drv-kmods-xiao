@@ -12,10 +12,9 @@
 #include <linux/slab.h>
 
 #include "nfp.h"
-#include "nfp_rtsym.h"
-#include "nfp_nffw.h"
-#include "nfp_mip.h"
 #include "nfp_cpp.h"
+#include "nfp_nffw.h"
+
 #include "nfp3200/nfp3200.h"
 
 /* These need to match the linker */

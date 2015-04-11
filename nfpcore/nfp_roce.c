@@ -22,7 +22,7 @@
 
 #include "nfp.h"
 #include "nfp_roce.h"
-#include "nfp_rtsym.h"
+#include "nfp_nffw.h"
 
 #include "nfp6000/nfp6000.h"
 

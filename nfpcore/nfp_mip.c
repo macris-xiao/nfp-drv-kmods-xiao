@@ -24,8 +24,7 @@
 #include "nfp.h"
 #include "nfp_cpp.h"
 #include "nfp_nffw.h"
-#include "nfp_mip.h"
-#include "nfp_rtsym.h"
+
 #include "nfp-bsp/nfp_target.h"
 
 #define NFP_MIP_SIGNATURE	0x0050494d  /* "MIP\0" */
