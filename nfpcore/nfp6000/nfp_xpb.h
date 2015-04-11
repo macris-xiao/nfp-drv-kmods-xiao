@@ -25,4 +25,3 @@
                                  (((device) & 0x3f) << 16))
 
 #endif /* NFP6000_XPB_H */
-/* vim: set shiftwidth=4 expandtab:  */

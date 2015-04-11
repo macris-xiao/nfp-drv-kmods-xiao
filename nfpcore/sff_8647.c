@@ -186,5 +186,3 @@ static const struct sff_ops sff_8647_ops = {
 };
 
 #endif /* NFP_NBI_PHYMOD_C */
-
-/* vim: set shiftwidth=4 expandtab:  */

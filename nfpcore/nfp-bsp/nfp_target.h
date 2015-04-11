@@ -1022,4 +1022,3 @@ static inline int nfp_target_cpp(uint32_t cpp_island_id,
 }
 
 #endif /* NFP_BSP_NFP_TARGET_H */
-/* vim: set shiftwidth=8 noexpandtab:  */

@@ -22,4 +22,3 @@
 struct nfp_cpp *nfp_cpp_from_nfp6000_pcie(struct pci_dev *pdev, int event_irq);
 
 #endif /* KERNEL_NFP6000_PCIE_H */
-/* vim: set shiftwidth=8 noexpandtab:  */

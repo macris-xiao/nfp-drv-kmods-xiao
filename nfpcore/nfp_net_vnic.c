@@ -16,8 +16,6 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
- * vim:shiftwidth=8:noexpandtab
- *
  * @file kernel/nfp_net_vnic.c
  *
  * Implements a software network interface for communicating over the

@@ -580,5 +580,3 @@ MODULE_AUTHOR("Netronome Systems <support@netronome.com>");
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("The Netronome Flow Processor (NFP) driver.");
 MODULE_INFO_NFP();
-
-/* vim: set shiftwidth=8 noexpandtab:  */
