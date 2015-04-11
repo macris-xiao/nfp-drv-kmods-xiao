@@ -542,4 +542,8 @@ int __nfp_cpp_explicit_write(struct nfp_cpp *cpp, uint32_t cpp_id,
 int nfp_cppcore_init(void);
 void nfp_cppcore_exit(void);
 
+/* Implemented in nfp_ca.c */
+
+int nfp_ca_replay(struct nfp_cpp *cpp, const void *ca_buffer, size_t ca_size);
+
 #endif /* !__NFP_CPP_H__ */

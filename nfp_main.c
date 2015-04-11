@@ -30,7 +30,6 @@
 #include "nfpcore/nfp6000_pcie.h"
 
 #include "nfpcore/nfp_armsp.h"
-#include "nfpcore/nfp_ca.h"
 #include "nfpcore/nfp_reset.h"
 
 #include "nfpcore/nfp_mon_err.h"

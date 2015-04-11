@@ -20,7 +20,6 @@
 
 #include "nfp.h"
 #include "nfp_cpp.h"
-#include "nfp_ca.h"
 
 #include "crc32.h"
 

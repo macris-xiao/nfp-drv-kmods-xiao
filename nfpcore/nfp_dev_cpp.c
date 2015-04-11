@@ -40,7 +40,6 @@
 #include "nfp_cpp.h"
 
 #include "nfp3200/nfp_arm.h"
-#include "nfp_ca.h"
 
 #include "nfp_dev_cpp.h"
 
