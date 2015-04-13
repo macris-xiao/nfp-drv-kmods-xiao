@@ -11,7 +11,6 @@
 #include "nfp6000/nfp_xpb.h"
 #include "nfp3200/nfp_xpb.h"
 #include "nfp3200/nfp_pl.h"
-#include "nfp_power.h"
 
 #define CTMX_BASE       (0x60000)
 #define NFP_CTMX_CFG    (CTMX_BASE + 0x000000)
