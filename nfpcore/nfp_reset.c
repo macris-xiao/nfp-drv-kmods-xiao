@@ -441,25 +441,6 @@ static int nfp6000_nbi_check_dma_credits(struct nfp_device *nfp, struct nfp_nbi_
 	return 0;
 }
 
-static int nfp6000_ctm_get_active_pkt_count(struct nfp_device *nfp, int ctm)
-{
-	struct nfp_cpp *cpp = nfp_device_cpp(nfp);
-	int err, stat;
-	uint32_t tmp;
-
-	err = nfp_xpb_readl(cpp, NFP_XPB_OVERLAY(ctm) + NFP_CTMX_PKT
-				+ NFP_CTMX_PKT_MU_PE_ACTIVE_PACKET_COUNT,
-				&tmp);
-	if (err < 0) {
-		nfp_err(nfp, "Error reading CTM active packet count\n");
-		return err;
-	}
-
-	stat = NFP_CTMX_PKT_MUPESTATS_MU_PE_STAT_of(tmp);
-
-	return stat;
-}
-
 #define BPECFG_MAGIC_CHECK(x)	(((x) & 0xffffff00) == 0xdada0100)
 #define BPECFG_MAGIC_COUNT(x)	((x) & 0x000000ff)
 
@@ -732,7 +713,7 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 		if (err < 0)
 			goto exit;
 	}
-    
+
     /* Verify again that PCIe DMA Queues are now empty */
 	for (i = 0; i < 4; i++) {
 		int state;
@@ -836,30 +817,6 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 						    &bpe[i][0], bpes[i]);
 		if (err < 0)
 			goto exit;
-	}
-
-	/* Verify that no active FPC CTM packets are outstanding */
-	for (i = 0; i <= 6; i++) {
-		int state;
-
-		err = nfp_power_get(nfp, NFP6000_DEVICE_FPC(i, NFP6000_DEVICE_FPC_CORE), &state);
-		if (err < 0) {
-			if (err == -ENODEV)
-				continue;
-			return err;
-		}
-		if (state != NFP_DEVICE_STATE_ON) {
-			continue;
-		}
-
-		err = nfp6000_ctm_get_active_pkt_count(nfp, 32+i);
-		if (err < 0)
-			goto exit;
-		if (err > 0) {
-			nfp_err(nfp, "ME island%d shows active packets (%d)\n", i, err);
-			err = -1;
-			goto exit;
-		}
 	}
 
 	/* No need for NBI access anymore.. */
