@@ -522,6 +522,41 @@ exit:
 	return err;
 }
 
+/* Determine if a given PCIe's DMA Queues are empty */
+static int nfp6000_check_empty_pcie_dma_queues(struct nfp_device *nfp,
+                                               int pci_island, int *empty)
+{
+    uint32_t tmp;
+    const int dma_low = 128, dma_med = 64, dma_hi = 64;
+    int hi, med, low, ok, err;
+	struct nfp_cpp *cpp = nfp_device_cpp(nfp);
+    const uint32_t pci = NFP_CPP_ISLAND_ID(
+                    NFP_CPP_TARGET_PCIE, 2, 0, pci_island+4);
+
+    ok = 1;
+    err = nfp_cpp_readl(cpp, pci, NFP_PCIE_DMA +
+                NFP_PCIE_DMA_QSTS0_TOPCI, &tmp);
+    if (err < 0)
+        return err;
+
+    low = NFP_PCIE_DMA_DMAQUEUESTATUS0_DMA_LO_AVAIL_of(tmp);
+
+    err = nfp_cpp_readl(cpp, pci, NFP_PCIE_DMA +
+                NFP_PCIE_DMA_QSTS1_TOPCI, &tmp);
+    if (err < 0)
+        return err;
+
+    med = NFP_PCIE_DMA_DMAQUEUESTATUS1_DMA_MED_AVAIL_of(tmp);
+    hi  = NFP_PCIE_DMA_DMAQUEUESTATUS1_DMA_HI_AVAIL_of(tmp);
+
+    ok &= low == dma_low;
+    ok &= med == dma_med;
+    ok &= hi  == dma_hi;
+
+    *empty = ok;
+    return 0;
+}
+
 /* Perform a soft reset of the NFP6000:
  *   - Disable traffic ingress
  *   - Verify all NBI MAC packet buffers have returned
@@ -623,7 +658,16 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 		}
 	}
 
-	mdelay(500);
+    /* Wait for packets to drain from NBI to NFD or to be freed.
+     * Worst case guess is:
+     *      512 pkts per CTM, 12 MEs per CTM, 800MHz clock rate
+     *      ~1000 cycles to sink a single packet.
+     *      512/12 = 42 pkts per ME, therefore 1000*42=42,000 cycles
+     *      42K cycles at 800Mhz = 52.5us. Round up to 60us.
+     *
+     * TODO: Account for cut-through traffic.
+     */
+	udelay(60);
 
 	/* Verify all NBI MAC packet buffers have returned */
 	for (i = 0; i < 2; i++) {
@@ -635,20 +679,31 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 			goto exit;
 	}
 
-	/* Wait for PCIE DMA Queues to empty */
+	/* Wait for PCIE DMA Queues to empty.
+     *
+     *  How we calculate the wait time for DMA Queues to be empty:
+     *
+     *  Max CTM buffers that could be enqueued to one island: 512 x (7 ME
+     *  islands + 2 other islands) = 4608 CTM buffers
+     *
+     *  The minimum rate at which NFD would process that ring would occur if
+     *  NFD records the queues as "up" so that it DMAs the whole packet to the
+     *  host, and if the CTM buffers in the ring are all associated with jumbo
+     *  frames. Jumbo frames are <10kB, and NFD 3.0 processes ToPCI jumbo
+     *  frames at ±35Gbps (measured on star fighter card).  35e9 / 10 x 1024 x
+     *  8 = 427kpps.
+     *
+     *  The time to empty a ring holding 4608 packets at 427kpps is 10.79ms To
+     *  be conservative we round up to nearest whole number, i.e. 11ms.
+     */
+	mdelay(11);
+
+	/* Check all PCIE DMA Queues are empty. */
 	for (i = 0; i < 4; i++) {
-		const int timeout_ms = 500;
-		uint32_t tmp;
-		const uint32_t pci = NFP_CPP_ISLAND_ID(
-						NFP_CPP_TARGET_PCIE, 2, 0, i+4);
-		int state, ok;
-		const int dma_low = 128, dma_med = 64, dma_hi = 64;
+		int state;
+        int empty;
 		unsigned int subdev = NFP6000_DEVICE_PCI(i,
 					NFP6000_DEVICE_PCI_CORE);
-		struct timespec ts, timeout = {
-			.tv_sec = 0,
-			.tv_nsec = timeout_ms * 1000 * 1000,
-		};
 
 		err = nfp_power_get(nfp, subdev, &state);
 		if (err < 0) {
@@ -660,45 +715,15 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 		if (state != NFP_DEVICE_STATE_ON)
 			continue;
 
-		ts = CURRENT_TIME;
-		timeout = timespec_add(ts, timeout);
-
-		do {
-			int hi, med, low;
-
-			ok = 1;
-			err = nfp_cpp_readl(cpp, pci, NFP_PCIE_DMA +
-						NFP_PCIE_DMA_QSTS0_TOPCI, &tmp);
-			if (err < 0)
-				goto exit;
-
-			low = NFP_PCIE_DMA_DMAQUEUESTATUS0_DMA_LO_AVAIL_of(tmp);
-
-			err = nfp_cpp_readl(cpp, pci, NFP_PCIE_DMA +
-						NFP_PCIE_DMA_QSTS1_TOPCI, &tmp);
-			if (err < 0)
-				goto exit;
-
-			med = NFP_PCIE_DMA_DMAQUEUESTATUS1_DMA_MED_AVAIL_of(tmp);
-			hi  = NFP_PCIE_DMA_DMAQUEUESTATUS1_DMA_HI_AVAIL_of(tmp);
-
-			ok &= low == dma_low;
-			ok &= med == dma_med;
-			ok &= hi  == dma_hi;
-
-			if (!ok) {
-				ts = CURRENT_TIME;
-				if (timespec_compare(&ts, &timeout) >= 0) {
-					nfp_err(nfp, "PCI%d DMA queues did not drain in %dms (%d/%d/%d != %d/%d/%d)\n",
-							i, timeout_ms,
-							low, med, hi,
-							dma_low, dma_med, dma_hi);
-					err = -ETIMEDOUT;
-					goto exit;
-				}
-			}
-
-		} while (!ok);
+        err = nfp6000_check_empty_pcie_dma_queues(nfp, i, &empty);
+		if (err < 0) {
+			goto exit;
+		}
+        if (!empty) {
+            nfp_err(nfp, "PCI%d DMA queues did not drain\n",i);
+            err = -ETIMEDOUT;
+            goto exit;
+        }
 	}
 
 	/* Stop all MEs */
@@ -706,6 +731,34 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 		err = nfp6000_stop_me_island(nfp, i);
 		if (err < 0)
 			goto exit;
+	}
+    
+    /* Verify again that PCIe DMA Queues are now empty */
+	for (i = 0; i < 4; i++) {
+		int state;
+        int empty;
+		unsigned int subdev = NFP6000_DEVICE_PCI(i,
+					NFP6000_DEVICE_PCI_CORE);
+
+		err = nfp_power_get(nfp, subdev, &state);
+		if (err < 0) {
+			if (err == -ENODEV)
+				continue;
+			goto exit;
+		}
+
+		if (state != NFP_DEVICE_STATE_ON)
+			continue;
+
+        err = nfp6000_check_empty_pcie_dma_queues(nfp, i, &empty);
+		if (err < 0) {
+			goto exit;
+		}
+        if (!empty) {
+            nfp_err(nfp, "PCI%d DMA queue is not empty\n",i);
+            err = -ETIMEDOUT;
+            goto exit;
+        }
 	}
 
 	/* Clear all PCIe DMA Queues */
