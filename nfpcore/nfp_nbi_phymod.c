@@ -5,6 +5,7 @@
  */
 
 #include <linux/kernel.h>
+#include <linux/module.h>
 
 #include "nfp.h"
 #include "nfp_gpio.h"
