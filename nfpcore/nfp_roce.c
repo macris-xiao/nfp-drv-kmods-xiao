@@ -66,12 +66,13 @@ int nfp_register_roce_driver(struct nfp_roce_drv *drv)
 	roce_driver = drv;
 
 	list_for_each_entry(roce, &nfp_roce_list, list) {
-		BUG_ON(roce->ibdev != NULL);
+		BUG_ON(roce->ibdev);
 		roce->ibdev = roce_driver->add_device(&roce->info);
 		if (IS_ERR_OR_NULL(roce->ibdev)) {
 			int err = roce->ibdev ? PTR_ERR(roce->ibdev) : -ENODEV;
+
 			dev_warn(&roce->info.pdev->dev,
-				"RoCE: Can't register device: %d\n", err);
+				 "RoCE: Can't register device: %d\n", err);
 			roce->ibdev = NULL;
 		}
 	}
@@ -85,7 +86,7 @@ EXPORT_SYMBOL(nfp_register_roce_driver);
 /**
  * nfp_unregister_roce_driver() - Unregister the RoCE driver with NFP core.
  * @drv:	The callback function table passed in the associated
- * 		nfp_register_roce_driver() call.
+ *		nfp_register_roce_driver() call.
  *
  * This routine is called by the netro RoCEv2 driver to notify the NFP
  * NIC/core driver that the RoCE driver is unloading. The NFP NIC
@@ -97,6 +98,7 @@ void nfp_unregister_roce_driver(struct nfp_roce_drv *drv)
 	mutex_lock(&roce_driver_mutex);
 	if (drv == roce_driver) {
 		struct nfp_roce *roce;
+
 		list_for_each_entry(roce, &nfp_roce_list, list) {
 			if (!roce->ibdev)
 				continue;
@@ -123,9 +125,8 @@ EXPORT_SYMBOL(nfp_unregister_roce_driver);
  * Return: IS_ERR() checkable pointer to a struct nfp_roce
  */
 struct nfp_roce *nfp_roce_add(struct nfp_device *nfp,
-				  struct net_device **netdev, int netdevs,
-				  struct msix_entry *msix_entry,
-				  int msix_entries)
+			      struct net_device **netdev, int netdevs,
+			      struct msix_entry *msix_entry, int msix_entries)
 {
 	const char *cmd_symbol = "_cmd_iface_reg";
 	int err, i;
@@ -166,14 +167,14 @@ struct nfp_roce *nfp_roce_add(struct nfp_device *nfp,
 
 	if (netdevs > ARRAY_SIZE(info->netdev)) {
 		nfp_info(nfp, "RoCE: Only %d net devices supported\n",
-				(int)ARRAY_SIZE(info->netdev));
+			 (int)ARRAY_SIZE(info->netdev));
 		netdevs = ARRAY_SIZE(info->netdev);
 	}
 
 	cmd = nfp_rtsym_lookup(nfp, cmd_symbol);
 	if (!cmd) {
 		nfp_err(nfp, "RoCE: rtsym '%s' does not exist\n",
-				cmd_symbol);
+			cmd_symbol);
 		err = -ENOENT;
 		goto error_check;
 	}
@@ -236,7 +237,8 @@ struct nfp_roce *nfp_roce_add(struct nfp_device *nfp,
 		roce->ibdev = roce_driver->add_device(info);
 		if (IS_ERR_OR_NULL(roce->ibdev)) {
 			err = roce->ibdev ? PTR_ERR(roce->ibdev) : -ENODEV;
-			nfp_warn(nfp, "RoCE: Can't create interface: %d\n", err);
+			nfp_warn(nfp, "RoCE: Can't create interface: %d\n",
+				 err);
 			roce->ibdev = NULL;
 		}
 	}
@@ -289,7 +291,8 @@ EXPORT_SYMBOL(nfp_roce_remove);
  *
  * This should be coordinated with the netdev state
  */
-void nfp_roce_port_set_state(struct nfp_roce *roce, int port, enum nfp_roce_devstate_e state)
+void nfp_roce_port_set_state(struct nfp_roce *roce, int port,
+			     enum nfp_roce_devstate_e state)
 {
 	mutex_lock(&roce_driver_mutex);
 	if (roce_driver && roce->ibdev)

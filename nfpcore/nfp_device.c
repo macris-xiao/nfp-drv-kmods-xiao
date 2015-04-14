@@ -39,7 +39,7 @@ struct nfp_device {
 	int cpp_free;
 	struct nfp_cpp *cpp;
 
-	spinlock_t private_lock;
+	spinlock_t private_lock;	/* Lock for private_list */
 	struct list_head private_list;
 };
 
@@ -129,11 +129,11 @@ struct nfp_device *nfp_device_open(unsigned int id)
 		struct nfp_device *nfp;
 
 		cpp = nfp_cpp_from_device_id(id);
-		if (cpp == NULL)
+		if (!cpp)
 			return NULL;
 
 		nfp = nfp_device_from_cpp(cpp);
-		if (nfp == NULL) {
+		if (!nfp) {
 			nfp_cpp_free(cpp);
 			return NULL;
 		}
@@ -161,12 +161,12 @@ EXPORT_SYMBOL(nfp_device_id);
  * @constructor:	Constructor for the private area
  *
  * Returns a private memory area, identified by the constructor,
- * that will atomatically be freed on nfp_device_close().
+ * that will automatically be freed on nfp_device_close().
  *
  * Return: Allocated and constructed private memory, or NULL
  */
 void *nfp_device_private(struct nfp_device *dev,
-				 void *(*constructor)(struct nfp_device *dev))
+			 void *(*constructor)(struct nfp_device *dev))
 {
 	struct nfp_device_private *priv;
 
@@ -202,8 +202,8 @@ EXPORT_SYMBOL(nfp_device_private);
  * Return: Allocated memory, or NULL
  */
 void *nfp_device_private_alloc(struct nfp_device *dev,
-		size_t private_size,
-		void (*destructor)(void *private_data))
+			       size_t private_size,
+			       void (*destructor)(void *private_data))
 {
 	struct nfp_device_private *priv;
 

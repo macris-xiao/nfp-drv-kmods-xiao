@@ -13,10 +13,10 @@ struct sff_8436 {
 	int selected;
 	int page;
 	struct {
-		pin_t irq, present;
+		struct pin irq, present;
 	} in;
 	struct {
-		pin_t modsel, reset, lp_mode;
+		struct pin modsel, reset, lp_mode;
 	} out;
 	struct sff_bus bus;
 };
@@ -103,7 +103,7 @@ static int sff_8436_poll_irq(struct nfp_phymod *phy)
 	struct nfp_phymod_priv *priv = phy->priv;
 	struct sff_8436 *sff = phy->sff.priv;
 	int err;
-	
+
 	err = pin_get(priv->nfp, &sff->in.irq);
 	if (err < 0)
 		return err;
@@ -149,6 +149,7 @@ static int sff_8436_reset(struct nfp_phymod *phy, int in_reset)
 {
 	struct nfp_phymod_priv *priv = phy->priv;
 	struct sff_8436 *sff = phy->sff.priv;
+
 	return pin_set(priv->nfp, &sff->out.reset, in_reset ? 1 : 0);
 }
 
@@ -156,6 +157,7 @@ static int sff_8436_power(struct nfp_phymod *phy, int is_full_power)
 {
 	struct nfp_phymod_priv *priv = phy->priv;
 	struct sff_8436 *sff = phy->sff.priv;
+
 	return pin_set(priv->nfp, &sff->out.lp_mode, is_full_power ? 0 : 1);
 }
 
@@ -164,10 +166,8 @@ static int sff_8436_read8(struct nfp_phymod *phy, uint32_t reg, uint8_t *val)
 	struct sff_8436 *sff = phy->sff.priv;
 	int page = (reg >> 8);
 
-	if (!sff->selected
-	    || !sff->bus.op
-	    || !sff->bus.op->read8
-	    || !sff->bus.op->write8)
+	if (!sff->selected ||
+	    !sff->bus.op || !sff->bus.op->read8 || !sff->bus.op->write8)
 		return -EINVAL;
 
 	reg &= 0xff;
@@ -185,9 +185,7 @@ static int sff_8436_write8(struct nfp_phymod *phy, uint32_t reg, uint8_t val)
 	struct sff_8436 *sff = phy->sff.priv;
 	int page = (reg >> 8);
 
-	if (!sff->selected
-	    || !sff->bus.op
-	    || !sff->bus.op->write8)
+	if (!sff->selected || !sff->bus.op || !sff->bus.op->write8)
 		return -EINVAL;
 
 	reg &= 0xff;
@@ -240,7 +238,7 @@ static int sff_8436_status_los(struct nfp_phymod *phy,
 }
 
 static int sff_8436_status_fault(struct nfp_phymod *phy,
-			       uint32_t *tx_status, uint32_t *rx_status)
+				 uint32_t *tx_status, uint32_t *rx_status)
 {
 	uint8_t tmp;
 	int err;
@@ -263,7 +261,7 @@ static int sff_8436_status_fault(struct nfp_phymod *phy,
 }
 
 static int sff_8436_status_power(struct nfp_phymod *phy,
-			       uint32_t *tx_status, uint32_t *rx_status)
+				 uint32_t *tx_status, uint32_t *rx_status)
 {
 	uint8_t tmp;
 	int err;
@@ -283,7 +281,6 @@ static int sff_8436_status_power(struct nfp_phymod *phy,
 	if (tmp)
 		rxs |= (uint32_t)tmp << 8;
 
-
 	if (tx_status)
 		*tx_status = txs;
 
@@ -292,8 +289,9 @@ static int sff_8436_status_power(struct nfp_phymod *phy,
 
 	return 0;
 }
+
 static int sff_8436_status_bias(struct nfp_phymod *phy,
-			       uint32_t *tx_status, uint32_t *rx_status)
+				uint32_t *tx_status, uint32_t *rx_status)
 {
 	uint8_t tmp;
 	int err;
@@ -321,8 +319,9 @@ static int sff_8436_status_bias(struct nfp_phymod *phy,
 
 	return 0;
 }
+
 static int sff_8436_status_volt(struct nfp_phymod *phy,
-			       uint32_t *tx_status, uint32_t *rx_status)
+				uint32_t *tx_status, uint32_t *rx_status)
 {
 	uint8_t tmp;
 	int err;
@@ -345,8 +344,9 @@ static int sff_8436_status_volt(struct nfp_phymod *phy,
 
 	return 0;
 }
+
 static int sff_8436_status_temp(struct nfp_phymod *phy,
-			       uint32_t *tx_status, uint32_t *rx_status)
+				uint32_t *tx_status, uint32_t *rx_status)
 {
 	uint8_t tmp;
 	int err;
@@ -371,7 +371,7 @@ static int sff_8436_status_temp(struct nfp_phymod *phy,
 }
 
 static int sff_8436_get_lane_dis(struct nfp_phymod *phy,
-			       uint32_t *tx_status, uint32_t *rx_status)
+				 uint32_t *tx_status, uint32_t *rx_status)
 {
 	uint8_t tmp;
 	int err;
@@ -393,7 +393,7 @@ static int sff_8436_get_lane_dis(struct nfp_phymod *phy,
 }
 
 static int sff_8436_set_lane_dis(struct nfp_phymod *phy,
-			         uint32_t tx_status, uint32_t rx_status)
+				 uint32_t tx_status, uint32_t rx_status)
 {
 	return nfp_phymod_write8(phy, SFF_8436_DISABLE_TX, tx_status & 0xf);
 }

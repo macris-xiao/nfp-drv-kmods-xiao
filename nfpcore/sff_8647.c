@@ -13,10 +13,10 @@ struct sff_8647 {
 	int selected;
 	int page;
 	struct {
-		pin_t irq, present;
+		struct pin irq, present;
 	} in;
 	struct {
-		pin_t reset;
+		struct pin reset;
 	} out;
 	struct sff_bus bus;
 };
@@ -87,7 +87,7 @@ static int sff_8647_poll_irq(struct nfp_phymod *phy)
 	struct nfp_phymod_priv *priv = phy->priv;
 	struct sff_8647 *sff = phy->sff.priv;
 	int err;
-	
+
 	err = pin_get(priv->nfp, &sff->in.irq);
 	if (err < 0)
 		return err;
@@ -128,6 +128,7 @@ static int sff_8647_reset(struct nfp_phymod *phy, int in_reset)
 {
 	struct nfp_phymod_priv *priv = phy->priv;
 	struct sff_8647 *sff = phy->sff.priv;
+
 	return pin_set(priv->nfp, &sff->out.reset, in_reset ? 1 : 0);
 }
 
@@ -136,10 +137,8 @@ static int sff_8647_read8(struct nfp_phymod *phy, uint32_t reg, uint8_t *val)
 	struct sff_8647 *sff = phy->sff.priv;
 	int page = (reg >> 8);
 
-	if (!sff->selected
-	    || !sff->bus.op
-	    || !sff->bus.op->read8
-	    || !sff->bus.op->write8)
+	if (!sff->selected ||
+	    !sff->bus.op || !sff->bus.op->read8 || !sff->bus.op->write8)
 		return -EINVAL;
 
 	reg &= 0xff;
@@ -157,9 +156,7 @@ static int sff_8647_write8(struct nfp_phymod *phy, uint32_t reg, uint8_t val)
 	struct sff_8647 *sff = phy->sff.priv;
 	int page = (reg >> 8);
 
-	if (!sff->selected
-	    || !sff->bus.op
-	    || !sff->bus.op->write8)
+	if (!sff->selected || !sff->bus.op || !sff->bus.op->write8)
 		return -EINVAL;
 
 	reg &= 0xff;

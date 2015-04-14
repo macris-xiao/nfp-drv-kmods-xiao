@@ -24,10 +24,10 @@
 #include "crc32.h"
 
 /* up to 32 IDs, and up to 7 words of control information */
-#define NFP_CA_(id)         ((id)<<3)
-#define NFP_CA(id, type)    (NFP_CA_(id) | (sizeof(type)/sizeof(uint32_t)))
+#define NFP_CA_(id)         ((id) << 3)
+#define NFP_CA(id, type)    (NFP_CA_(id) | (sizeof(type) / sizeof(uint32_t)))
 #define NFP_CA_LEN(ca)      ((ca) & 0x7)
-#define NFP_CA_SZ(ca)       (1 + NFP_CA_LEN(ca)*4)
+#define NFP_CA_SZ(ca)       (1 + NFP_CA_LEN(ca) * 4)
 
 struct nfp_ca_start {
 	uint32_t magic;
@@ -162,7 +162,12 @@ static int nfp_ca_cpp(struct nfp_cpp *cpp, enum nfp_ca_action action,
 				break;
 
 			if (val != (tmp64 & mask)) {
-				msleep(10);
+				/* 'about 10ms' - see
+				 * Documentation/timers/timers-howto.txt
+				 * for why it is poor practice to use
+				 * msleep() for < 20ms sleeps.
+				 */
+				usleep_range(8000, 12000);
 				timeout--;
 			} else {
 				break;
@@ -219,7 +224,8 @@ static int nfp_ca_cpp(struct nfp_cpp *cpp, enum nfp_ca_action action,
 	return err;
 }
 
-static int uncompress(uint8_t *out, size_t out_size, const uint8_t *in, size_t in_size)
+static int uncompress(uint8_t *out, size_t out_size,
+		      const uint8_t *in, size_t in_size)
 {
 	int err, ws_size;
 	z_stream zs = {};
@@ -231,7 +237,7 @@ static int uncompress(uint8_t *out, size_t out_size, const uint8_t *in, size_t i
 	zs.next_out = out;
 	zs.avail_out = out_size;
 	zs.workspace = kmalloc(ws_size, GFP_KERNEL);
-	if (zs.workspace == NULL)
+	if (!zs.workspace)
 		return -ENOMEM;
 
 	err = zlib_inflateInit(&zs);
@@ -253,7 +259,6 @@ exit:
 	kfree(zs.workspace);
 	return err;
 }
-
 
 /*
  * nfp_ca_parse - Parse a CPP Action replay file
@@ -290,8 +295,11 @@ static int nfp_ca_parse(struct nfp_cpp *cpp, const void *buff, size_t bytes,
 		zbuff = kmalloc(usize, GFP_KERNEL);
 		if (!zbuff)
 			return -ENOMEM;
+
 		usize -= NFP_CA_SZ(NFP_CA_START);
-		err = uncompress((uint8_t *)zbuff + NFP_CA_SZ(NFP_CA_START), usize, (const uint8_t *)&byte[NFP_CA_SZ(NFP_CA_START)], bytes - NFP_CA_SZ(NFP_CA_START));
+		err = uncompress((uint8_t *)zbuff + NFP_CA_SZ(NFP_CA_START),
+				 usize, &byte[NFP_CA_SZ(NFP_CA_START)],
+				 bytes - NFP_CA_SZ(NFP_CA_START));
 		if (err < 0) {
 			kfree(zbuff);
 			/* Uncompression error */
@@ -323,7 +331,7 @@ static int nfp_ca_parse(struct nfp_cpp *cpp, const void *buff, size_t bytes,
 	err = 0;
 	for (loc = NFP_CA_SZ(NFP_CA_START); loc < bytes;
 			loc += NFP_CA_SZ(byte[loc])) {
-		const uint8_t *vp = &byte[loc+1];
+		const uint8_t *vp = &byte[loc + 1];
 		uint32_t tmp32;
 		uint64_t tmp64;
 
@@ -430,7 +438,7 @@ static int nfp_ca_parse(struct nfp_cpp *cpp, const void *buff, size_t bytes,
 
 			loc -= NFP_CA_SZ(NFP_CA_END);
 			crc = crc32_posix(byte, loc);
-			if (crc != ca32_to_cpu(&byte[loc+1])) {
+			if (crc != ca32_to_cpu(&byte[loc + 1])) {
 				err = -EINVAL;
 				goto exit;
 			}
@@ -439,8 +447,7 @@ static int nfp_ca_parse(struct nfp_cpp *cpp, const void *buff, size_t bytes,
 	}
 
 exit:
-	if (zbuff)
-		kfree(zbuff);
+	kfree(zbuff);
 
 	return err;
 }

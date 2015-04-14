@@ -68,10 +68,10 @@ static int __nfp_resource_location(struct nfp_cpp *cpp, int *target,
 	return size / sizeof(struct nfp_resource_entry);
 }
 
-static int __nfp_resource_entry_init(struct nfp_cpp *cpp,
-			      int entry,
-			      const struct nfp_resource_entry_region *region,
-			      struct nfp_cpp_mutex **resource_mutex)
+static int __nfp_resource_entry_init(struct nfp_cpp *cpp, int entry,
+				     const struct nfp_resource_entry_region
+						*region,
+				     struct nfp_cpp_mutex **resource_mutex)
 {
 	uint32_t cpp_id;
 	struct nfp_cpp_mutex *mutex;
@@ -101,7 +101,7 @@ static int __nfp_resource_entry_init(struct nfp_cpp *cpp,
 
 	/* We already own the initialized lock */
 	mutex = nfp_cpp_mutex_alloc(cpp, target, base, key);
-	if (mutex == NULL)
+	if (!mutex)
 		return -ENOMEM;
 
 	/* Mutex Owner and Key are already set */
@@ -229,7 +229,7 @@ int nfp_cpp_resource_add(struct nfp_cpp *cpp, const char *name,
 
 	key = NFP_RESOURCE_TABLE_KEY;
 	mutex = nfp_cpp_mutex_alloc(cpp, target, base, key);
-	if (mutex == NULL)
+	if (!mutex)
 		return -ENOMEM;
 
 	/* Wait for the lock.. */
@@ -308,7 +308,7 @@ static int nfp_cpp_resource_acquire(struct nfp_cpp *cpp,
 
 	key = NFP_RESOURCE_TABLE_KEY;
 	mutex = nfp_cpp_mutex_alloc(cpp, target, base, key);
-	if (mutex == NULL)
+	if (!mutex)
 		return -ENOMEM;
 
 	/* Wait for the lock.. */
@@ -395,7 +395,7 @@ struct nfp_resource *nfp_resource_acquire(struct nfp_device *nfp,
 	}
 
 	res = kzalloc(sizeof(*res), GFP_KERNEL);
-	if (res == NULL) {
+	if (!res) {
 		nfp_cpp_mutex_free(mutex);
 		return NULL;
 	}

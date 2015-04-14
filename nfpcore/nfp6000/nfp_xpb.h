@@ -20,8 +20,8 @@
  * For use with NFP6000 Databook "XPB Island and Device IDs" chapter
  */
 #define NFP_XPB_DEVICE(island, slave, device) \
-                                (NFP_XPB_OVERLAY(island) | \
-                                 (((slave) & 3) << 22) | \
-                                 (((device) & 0x3f) << 16))
+	(NFP_XPB_OVERLAY(island) | \
+	 (((slave) & 3) << 22) | \
+	 (((device) & 0x3f) << 16))
 
 #endif /* NFP6000_XPB_H */

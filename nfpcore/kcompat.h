@@ -47,6 +47,14 @@
 # endif
 #endif
 
+#include <linux/bitops.h>
+#ifndef BIT
+#define BIT(nr)			(1UL << (nr))
+#endif
+#ifndef BIT_ULL
+#define BIT_ULL(nr)		(1ULL << (nr))
+#endif
+
 /* RHEL has a tendency to heavily patch their kernels.  Sometimes it
  * is necessary to check for specific RHEL releases and not just for
  * Linux kernel version.  Define RHEL version macros for Linux kernels
@@ -94,7 +102,7 @@ static inline void __iomem *compat_devm_ioremap_nocache(struct device *dev,
 	return ioremap_nocache(offset, size);
 }
 
-static inline void compat_devm_iounmap(struct device *dev, void __iomem * addr)
+static inline void compat_devm_iounmap(struct device *dev, void __iomem *addr)
 {
 	iounmap(addr);
 }
@@ -113,7 +121,7 @@ static inline int compat_kstrtoul(const char *str, int base, unsigned long *res)
 	if (cp && *cp == '\n')
 		cp++;
 
-	return (cp == NULL || *cp != 0 || (cp - str) == 0) ? -EINVAL : 0;
+	return (!cp || *cp != 0 || (cp - str) == 0) ? -EINVAL : 0;
 }
 
 #define kstrtoul(str, base, res) compat_kstrtoul(str, base, res)
@@ -122,22 +130,22 @@ static inline int compat_kstrtoul(const char *str, int base, unsigned long *res)
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3, 0, 0)
 #include <linux/netdevice.h>
 #define compat_netdev_printk(dev, level, fmt, args...) \
-	({ printk("%s%s: " fmt, level, dev->name , ##args); })
+	({ printk("%s%s: " fmt, level, dev->name, ##args); })
 #ifndef netdev_info
 #define netdev_info(dev, format, args...) \
-	compat_netdev_printk(dev, KERN_INFO , format , ##args)
+	compat_netdev_printk(dev, KERN_INFO, format, ##args)
 #endif
 #ifndef netdev_dbg
 #define netdev_dbg(dev, format, args...) \
-	compat_netdev_printk(dev, KERN_DEBUG , format , ##args)
+	compat_netdev_printk(dev, KERN_DEBUG, format, ##args)
 #endif
 #ifndef netdev_warn
 #define netdev_warn(dev, format, args...) \
-	compat_netdev_printk(dev, KERN_WARNING , format , ##args)
+	compat_netdev_printk(dev, KERN_WARNING, format, ##args)
 #endif
 #ifndef netdev_err
 #define netdev_err(dev, format, args...) \
-	compat_netdev_printk(dev, KERN_ERR , format , ##args)
+	compat_netdev_printk(dev, KERN_ERR, format, ##args)
 #endif
 #endif /* < KERNEL_VERSION(3, 0, 0) */
 
@@ -235,7 +243,7 @@ static inline struct proc_dir_entry *proc_create(const char *name, mode_t mode,
 	struct proc_dir_entry *pde;
 
 	pde = create_proc_entry(name, mode, parent);
-	if (pde != NULL)
+	if (pde)
 		pde->proc_fops = proc_fops;
 
 	return pde;
@@ -243,7 +251,7 @@ static inline struct proc_dir_entry *proc_create(const char *name, mode_t mode,
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 24)
-#define DMA_BIT_MASK(n)	(((n) == 64) ? ~0ULL : ((1ULL<<(n))-1))
+#define DMA_BIT_MASK(n)	(((n) == 64) ? ~0ULL : ((1ULL << (n)) - 1))
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 20)
@@ -299,7 +307,7 @@ static inline int pci_enable_msi_block(struct pci_dev *dev, unsigned int nvec)
 #endif
 
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 28) && defined(CONFIG_X86_32)
-static inline __u64 readq(const void __iomem * addr)
+static inline __u64 readq(const void __iomem *addr)
 {
 	const u32 __iomem *p = addr;
 	u32 low, high;
@@ -307,10 +315,10 @@ static inline __u64 readq(const void __iomem * addr)
 	low = readl(p);
 	high = readl(p + 1);
 
-	return low + ((u64) high << 32);
+	return low + ((u64)high << 32);
 }
 
-static inline void writeq(__u64 val, void __iomem * addr)
+static inline void writeq(__u64 val, void __iomem *addr)
 {
 	writel(val, addr);
 	writel(val >> 32, addr + 4);
@@ -348,62 +356,16 @@ static inline void *_kmalloc_array(size_t n, size_t size, gfp_t flags)
 #define kmalloc_array(n, size, flags) _kmalloc_array(n, size, flags)
 #endif
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 7, 0))
-#define SUPPORTED_10baseT_Half        (1 << 0)
-#define SUPPORTED_10baseT_Full        (1 << 1)
-#define SUPPORTED_100baseT_Half       (1 << 2)
-#define SUPPORTED_100baseT_Full       (1 << 3)
-#define SUPPORTED_1000baseT_Half      (1 << 4)
-#define SUPPORTED_1000baseT_Full      (1 << 5)
-#define SUPPORTED_Autoneg             (1 << 6)
-#define SUPPORTED_TP                  (1 << 7)
-#define SUPPORTED_AUI                 (1 << 8)
-#define SUPPORTED_MII                 (1 << 9)
-#define SUPPORTED_FIBRE               (1 << 10)
-#define SUPPORTED_BNC                 (1 << 11)
-#define SUPPORTED_10000baseT_Full     (1 << 12)
-#define SUPPORTED_Pause               (1 << 13)
-#define SUPPORTED_Asym_Pause          (1 << 14)
-#define SUPPORTED_2500baseX_Full      (1 << 15)
-#define SUPPORTED_Backplane           (1 << 16)
-#define SUPPORTED_1000baseKX_Full     (1 << 17)
-#define SUPPORTED_10000baseKX4_Full   (1 << 18)
-#define SUPPORTED_10000baseKR_Full    (1 << 19)
-#define SUPPORTED_10000baseR_FEC      (1 << 20)
-#define SUPPORTED_20000baseMLD2_Full  (1 << 21)
-#define SUPPORTED_20000baseKR2_Full   (1 << 22)
-#define SUPPORTED_40000baseKR4_Full   (1 << 23)
-#define SUPPORTED_40000baseCR4_Full   (1 << 24)
-#define SUPPORTED_40000baseSR4_Full   (1 << 25)
-#define SUPPORTED_40000baseLR4_Full   (1 << 26)
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 6, 0))
+#define SUPPORTED_40000baseKR4_Full   BIT(23)
+#define SUPPORTED_40000baseCR4_Full   BIT(24)
+#define SUPPORTED_40000baseSR4_Full   BIT(25)
+#define SUPPORTED_40000baseLR4_Full   BIT(26)
 
-#define ADVERTISED_10baseT_Half       (1 << 0)
-#define ADVERTISED_10baseT_Full       (1 << 1)
-#define ADVERTISED_100baseT_Half      (1 << 2)
-#define ADVERTISED_100baseT_Full      (1 << 3)
-#define ADVERTISED_1000baseT_Half     (1 << 4)
-#define ADVERTISED_1000baseT_Full     (1 << 5)
-#define ADVERTISED_Autoneg            (1 << 6)
-#define ADVERTISED_TP                 (1 << 7)
-#define ADVERTISED_AUI                (1 << 8)
-#define ADVERTISED_MII                (1 << 9)
-#define ADVERTISED_FIBRE              (1 << 10)
-#define ADVERTISED_BNC                (1 << 11)
-#define ADVERTISED_10000baseT_Full    (1 << 12)
-#define ADVERTISED_Pause              (1 << 13)
-#define ADVERTISED_Asym_Pause         (1 << 14)
-#define ADVERTISED_2500baseX_Full     (1 << 15)
-#define ADVERTISED_Backplane          (1 << 16)
-#define ADVERTISED_1000baseKX_Full    (1 << 17)
-#define ADVERTISED_10000baseKX4_Full  (1 << 18)
-#define ADVERTISED_10000baseKR_Full   (1 << 19)
-#define ADVERTISED_10000baseR_FEC     (1 << 20)
-#define ADVERTISED_20000baseMLD2_Full (1 << 21)
-#define ADVERTISED_20000baseKR2_Full  (1 << 22)
-#define ADVERTISED_40000baseKR4_Full  (1 << 23)
-#define ADVERTISED_40000baseCR4_Full  (1 << 24)
-#define ADVERTISED_40000baseSR4_Full  (1 << 25)
-#define ADVERTISED_40000baseLR4_Full  (1 << 26)
+#define ADVERTISED_40000baseKR4_Full  BIT(23)
+#define ADVERTISED_40000baseCR4_Full  BIT(24)
+#define ADVERTISED_40000baseSR4_Full  BIT(25)
+#define ADVERTISED_40000baseLR4_Full  BIT(26)
 #endif
 
 /* SR-IOV related compat */
@@ -469,13 +431,13 @@ static inline int pci_vfs_assigned(struct pci_dev *pdev)
 #endif
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0))
-static inline void compat_ether_addr_copy(u8 * dst, const u8 * src)
+static inline void compat_ether_addr_copy(u8 *dst, const u8 *src)
 {
 #if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS)
-	*(u32 *) dst = *(const u32 *)src;
-	*(u16 *) (dst + 4) = *(const u16 *)(src + 4);
+	*(u32 *)dst = *(const u32 *)src;
+	*(u16 *)(dst + 4) = *(const u16 *)(src + 4);
 #else
-	u16 *a = (u16 *) dst;
+	u16 *a = (u16 *)dst;
 	const u16 *b = (const u16 *)src;
 
 	a[0] = b[0];
@@ -483,6 +445,7 @@ static inline void compat_ether_addr_copy(u8 * dst, const u8 * src)
 	a[2] = b[2];
 #endif
 }
+
 #define ether_addr_copy(dst, src) compat_ether_addr_copy(dst, src)
 #endif
 
@@ -524,9 +487,11 @@ static inline int compat_kstrtol(const char *cp, int base, long *valp)
  */
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 17, 0))
 #define NET_NAME_UNKNOWN ""
-static inline struct net_device *compat_alloc_netdev(int sizeof_priv,
-		const char *name, const char *assign_type,
-		void (*setup)(struct net_device *))
+static inline
+struct net_device *compat_alloc_netdev(int sizeof_priv,
+				       const char *name,
+				       const char *assign_type,
+				       void (*setup)(struct net_device *))
 {
 	return alloc_netdev(sizeof_priv, name, setup);
 }

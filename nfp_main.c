@@ -36,6 +36,8 @@
 
 #include "nfpcore/nfp-bsp/nfp_resource.h"
 
+#include "nfp_main.h"
+
 bool nfp_mon_err;
 module_param(nfp_mon_err, bool, 0444);
 MODULE_PARM_DESC(nfp_mon_err, "ECC Monitor (default = disbled)");
@@ -228,7 +230,6 @@ exit:
 	return err;
 }
 
-
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 8, 0))
 #ifdef CONFIG_PCI_IOV
 /* Kernel version 3.8 introduced a standard, sysfs based interface for
@@ -305,7 +306,7 @@ static ssize_t store_sriov_numvfs(struct device *dev,
 }
 
 static DEVICE_ATTR(sriov_totalvfs, S_IRUGO, show_sriov_totalvfs, NULL);
-static DEVICE_ATTR(sriov_numvfs, S_IRUGO|S_IWUSR|S_IWGRP,
+static DEVICE_ATTR(sriov_numvfs, S_IRUGO | S_IWUSR | S_IWGRP,
 		   show_sriov_numvfs, store_sriov_numvfs);
 
 static int nfp_sriov_attr_add(struct device *dev)
@@ -351,7 +352,6 @@ static void register_pf(struct nfp_pci *np)
 	if (nfp_net_null)
 		np->nfp_net_null = nfp_platform_device_register(np->cpp,
 							   NFP_NET_NULL_TYPE);
-
 }
 
 static int nfp_pci_probe(struct pci_dev *pdev,
@@ -385,7 +385,7 @@ static int nfp_pci_probe(struct pci_dev *pdev,
 	}
 
 	if (nfp_mon_event) {
-		/* Completely optional - we will be fine with Legacy IRQs also */
+		/* Completely optional: we will be fine with Legacy IRQs */
 		err = pci_enable_msix(pdev, &np->msix, 1);
 		if (pdev->msix_enabled)
 			irq = np->msix.vector;
@@ -473,11 +473,11 @@ static void nfp_pci_remove(struct pci_dev *pdev)
 
 		if (nfp_dev) {
 			rc = nfp_reset_soft(nfp_dev);
-			if (rc < 0) {
-				dev_warn(&pdev->dev, "Could not unload firmware, err = %d\n", rc);
-			} else {
+			if (rc < 0)
+				dev_warn(&pdev->dev, "Could not unload firmware, err = %d\n",
+					 rc);
+			else
 				dev_info(&pdev->dev, "Firmware safely unloaded\n");
-			}
 		}
 	}
 

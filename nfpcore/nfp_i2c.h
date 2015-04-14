@@ -10,7 +10,7 @@
 struct nfp_i2c;
 
 struct nfp_i2c *nfp_i2c_alloc(struct nfp_device *dev,
-		  int gpio_scl, int gpio_sda);
+			      int gpio_scl, int gpio_sda);
 void nfp_i2c_free(struct nfp_i2c *bus);
 
 int nfp_i2c_set_speed(struct nfp_i2c *bus, unsigned int speed_hz);

@@ -26,7 +26,7 @@ struct nfp_spi {
 #define NFP_SPI_TIMEOUT_MS         100
 
 /* NFP6000 SPI CONTROLLER defines */
-#define NFP_SPI_PORTMC(x)    (0x10+(((x)&3)<<2))
+#define NFP_SPI_PORTMC(x)    (0x10 + (((x) & 3) << 2))
 #define   NFP_SPI_PORTMC_DATADRIVEDISABLE                 BIT(31)
 #define   NFP_SPI_PORTMC_CLOCKIDLE                        BIT(29)
 #define   NFP_SPI_PORTMC_SELECT(_x)                       (((_x) & 0xf) << 24)
@@ -37,12 +37,12 @@ struct nfp_spi {
 #define   NFP_SPI_PORTMC_DATAOUTLEAD                      BIT(16)
 #define   NFP_SPI_PORTMC_CLOCKDISABLE                     BIT(15)
 #define   NFP_SPI_PORTMC_CLOCKEDGECOUNT(_x)               (((_x) & 0x7f) << 8)
-#define NFP_SPI_PORTCFG(x)   (0x00+(((x)&3)<<2))
+#define NFP_SPI_PORTCFG(x)   (0x00 + (((x) & 3) << 2))
 #define   NFP_SPI_PORTCFG_MODE                            BIT(31)
 #define     NFP_SPI_PORTCFG_MODE_AUTOMATIC                (0 << 31)
 #define     NFP_SPI_PORTCFG_MODE_MANUAL                   BIT(31)
-#define NFP_SPI_PORTMDO(x)   (0x20+(((x)&3)<<2))
-#define NFP_SPI_PORTMDI(x)   (0x30+(((x)&3)<<2))
+#define NFP_SPI_PORTMDO(x)   (0x20 + (((x) & 3) << 2))
+#define NFP_SPI_PORTMDI(x)   (0x30 + (((x) & 3) << 2))
 #define NFP_SPI_SPIIOCONFIG                                  0x00000100
 #define NFP_SPI_SPIIOIDLESTATUS                              0x00000104
 #define NFP_SPI_WE                         0x0000010c
@@ -77,7 +77,7 @@ struct nfp_spi {
 		ctrl |= NFP_SPI_PORTMC_CLOCKEDGECOUNT(cnt);     \
 	} while (0)
 
-#define SPI_DEFAULT_MODE        (BIT(1)|BIT(0))	/* SPI_MODE3 */
+#define SPI_DEFAULT_MODE        (BIT(1) | BIT(0))	/* SPI_MODE3 */
 #define SPIXDAT23_OFFS          8
 #define SPI_MAX_BITS_PER_CTRL_WRITE 32
 

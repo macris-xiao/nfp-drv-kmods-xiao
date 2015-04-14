@@ -19,7 +19,6 @@
 #define NFP_XPB_DEST_DEVICE_of(xpb_dest)	(((xpb_dest) >> 14) & 0x3f)
 #define NFP_XPB_DEST_ADDR_of(xpb_addr)		((xpb_addr) & 0x3fff)
 
-
 #define NFP_ME_CLUSTER_START(me) \
 	NFP_XPB_DEST(me, 1)	/* Cluster Config */
 #define NFP_ME_LSCRATCH_CSR_START(me) \

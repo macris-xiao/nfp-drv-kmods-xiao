@@ -95,7 +95,7 @@ static unsigned int nfp_net_vnic_pollinterval = 1;
 module_param(nfp_net_vnic_pollinterval, uint, 0444);
 MODULE_PARM_DESC(nfp_net_vnic_pollinterval, "Polling interval for Rx/Tx queues (in ms)");
 
-static unsigned int nfp_net_vnic_debug = 0;
+static unsigned int nfp_net_vnic_debug;
 module_param(nfp_net_vnic_debug, uint, 0444);
 MODULE_PARM_DESC(nfp_net_vnic_debug, "Enable debug printk messages");
 
@@ -113,22 +113,22 @@ MODULE_PARM_DESC(nfp_net_vnic_debug, "Enable debug printk messages");
 static void nnq_pkt_read(void *dst, struct nfp_net_vnic_queue __iomem *squeue,
 			 size_t size)
 {
-	u32 __iomem *s = (u32 __iomem *) &squeue->pktdata[0];
+	u32 __iomem *s = (u32 __iomem *)&squeue->pktdata[0];
 	u32 *d, n;
 
 	/* Make sure that packet data is aligned at word boundaries */
 #if PKTBUF_OFFSET != 0
 	u32 tmp = __raw_readl(s++);
-	u8 *tb = (u8 *) &tmp;
+	u8 *tb = (u8 *)&tmp;
 #  if PKTBUF_OFFSET == 1
-	((u8 *) dst)[0] = tb[1];
-	((u8 *) dst)[1] = tb[2];
-	((u8 *) dst)[2] = tb[3];
+	((u8 *)dst)[0] = tb[1];
+	((u8 *)dst)[1] = tb[2];
+	((u8 *)dst)[2] = tb[3];
 #  elif PKTBUF_OFFSET == 2
-	((u8 *) dst)[0] = tb[2];
-	((u8 *) dst)[1] = tb[3];
+	((u8 *)dst)[0] = tb[2];
+	((u8 *)dst)[1] = tb[3];
 #  elif PKTBUF_OFFSET == 3
-	((u8 *) dst)[0] = tb[3];
+	((u8 *)dst)[0] = tb[3];
 #  endif
 	dst += (4 - PKTBUF_OFFSET);
 	size -= (4 - PKTBUF_OFFSET);
@@ -143,22 +143,22 @@ static void nnq_pkt_read(void *dst, struct nfp_net_vnic_queue __iomem *squeue,
 static void nnq_pkt_write(struct nfp_net_vnic_queue __iomem *dqueue,
 			  void *src, size_t size)
 {
-	u32 __iomem *d = (u32 __iomem *) &dqueue->pktdata[0];
+	u32 __iomem *d = (u32 __iomem *)&dqueue->pktdata[0];
 	u32 *s, n;
 
 	/* Make sure that packet data is aligned at word boundaries */
 #if PKTBUF_OFFSET != 0
 	u32 tmp = 0;
-	u8 *tb = (u8 *) &tmp;
+	u8 *tb = (u8 *)&tmp;
 #  if PKTBUF_OFFSET == 1
-	tb[1] = ((u8 *) src)[0];
-	tb[2] = ((u8 *) src)[1];
-	tb[3] = ((u8 *) src)[2];
+	tb[1] = ((u8 *)src)[0];
+	tb[2] = ((u8 *)src)[1];
+	tb[3] = ((u8 *)src)[2];
 #  elif PKTBUF_OFFSET == 2
-	tb[2] = ((u8 *) src)[0];
-	tb[3] = ((u8 *) src)[1];
+	tb[2] = ((u8 *)src)[0];
+	tb[3] = ((u8 *)src)[1];
 #  elif PKTBUF_OFFSET == 3
-	tb[3] = ((u8 *) src)[0];
+	tb[3] = ((u8 *)src)[0];
 #  endif
 	__raw_writel(tmp, d++);
 	src += (4 - PKTBUF_OFFSET);
@@ -269,7 +269,9 @@ static int nfp_net_vnic_rx(struct nfp_net_vnic *vnic)
 
 	pkt_type = readl(&vnic->rx->ctrl.type);
 	if (pkt_size > vnic->mtu || pkt_type != 0) {
-		nfp_net_vnic_dbg(vnic, "Rx packet invalid (len = %d, type = %d)\n", pkt_size, pkt_type);
+		nfp_net_vnic_dbg(vnic,
+				 "Rx packet invalid (len = %d, type = %d)\n",
+				 pkt_size, pkt_type);
 		nnq_receive_pkt(vnic->rx);
 		return -EINVAL;
 	}
@@ -316,7 +318,6 @@ static void nfp_net_vnic_rx_poll(struct nfp_net_vnic *vnic)
 static inline void nfp_net_vnic_schedule(struct nfp_net_vnic *vnic)
 {
 	mod_timer(&vnic->timer, jiffies + vnic->timer_int);
-
 }
 
 /*
@@ -325,7 +326,7 @@ static inline void nfp_net_vnic_schedule(struct nfp_net_vnic *vnic)
  */
 static void nfp_net_vnic_timer(unsigned long data)
 {
-	struct nfp_net_vnic *vnic = (struct nfp_net_vnic *) data;
+	struct nfp_net_vnic *vnic = (struct nfp_net_vnic *)data;
 
 	BUG_ON(!vnic);
 
@@ -353,8 +354,8 @@ static int nfp_net_vnic_netdev_open(struct net_device *netdev)
 	/* Setup a timer for polling queues at regular intervals. */
 	init_timer(&vnic->timer);
 	vnic->timer.function = nfp_net_vnic_timer;
-	vnic->timer.data = (unsigned long) vnic;
-	vnic->timer_int = nfp_net_vnic_pollinterval * HZ/1000;
+	vnic->timer.data = (unsigned long)vnic;
+	vnic->timer_int = nfp_net_vnic_pollinterval * HZ / 1000;
 	if (!vnic->timer_int)
 		vnic->timer_int = 1;
 	nfp_net_vnic_schedule(vnic);
@@ -466,7 +467,6 @@ static void nfp_net_vnic_attr_remove(struct nfp_net_vnic *vnic)
 	device_remove_file(&vnic->pdev->dev, &dev_attr_remote_ip6);
 }
 
-
 /*
  * nfp_net_vnic_assign_addr - Assign a MAC address (and work out remote address)
  * @netdev:	netdev pointer
@@ -488,7 +488,8 @@ static void nfp_net_vnic_attr_remove(struct nfp_net_vnic *vnic)
  * to the ARM from the host via the network link.
  */
 #define DEFAULT_MAC "\x02\x15\x4D\x42\x00\x00"
-static void nfp_net_vnic_assign_addr(struct net_device *netdev, int vnic_unit, const char *mac_str)
+static void nfp_net_vnic_assign_addr(struct net_device *netdev,
+				     int vnic_unit, const char *mac_str)
 {
 	struct nfp_net_vnic *vnic = netdev_priv(netdev);
 	u8 mac_addr[ETH_ALEN];
@@ -618,14 +619,24 @@ static int nfp_net_vnic_probe(struct platform_device *pdev)
 	mac_str = nfp_hwinfo_lookup(nfp, netm_mac);
 
 	switch (vnic_unit) {
-	case 0: res_name = NFP_RESOURCE_VNIC_PCI_0; break;
-	case 1: res_name = NFP_RESOURCE_VNIC_PCI_1; break;
-	case 2: res_name = NFP_RESOURCE_VNIC_PCI_2; break;
-	case 3: res_name = NFP_RESOURCE_VNIC_PCI_3; break;
-	default: res_name = NULL; break;
+	case 0:
+		res_name = NFP_RESOURCE_VNIC_PCI_0;
+		break;
+	case 1:
+		res_name = NFP_RESOURCE_VNIC_PCI_1;
+		break;
+	case 2:
+		res_name = NFP_RESOURCE_VNIC_PCI_2;
+		break;
+	case 3:
+		res_name = NFP_RESOURCE_VNIC_PCI_3;
+		break;
+	default:
+		res_name = NULL;
+		break;
 	}
 
-	if (res_name == NULL) {
+	if (!res_name) {
 		nfp_device_close(nfp);
 		return -ENODEV;
 	}
@@ -645,7 +656,7 @@ static int nfp_net_vnic_probe(struct platform_device *pdev)
 
 	area = nfp_cpp_area_alloc_acquire(cpp,
 					  cpp_id, cpp_addr, barsz);
-	if (area == NULL) {
+	if (!area) {
 		dev_err(&pdev->dev, "Can't acquire %lu byte area at %d:%d:%d:0x%llx\n",
 			barsz, NFP_CPP_ID_TARGET_of(cpp_id),
 			NFP_CPP_ID_ACTION_of(cpp_id),
@@ -695,7 +706,7 @@ static int nfp_net_vnic_probe(struct platform_device *pdev)
 		goto err_pktbufs;
 	}
 
-	/* Setup rx/tx queues accoring to which side we're on. */
+	/* Setup rx/tx queues according to which side we're on. */
 	vnic->mtu = (barsz / 2) - sizeof(*vnic->rx) - sizeof(u32);
 	if (vnic->hostside) {
 		vnic->rx = vnic->pktbufs;
@@ -717,7 +728,7 @@ static int nfp_net_vnic_probe(struct platform_device *pdev)
 		goto err_add_attr;
 
 	nfp_net_vnic_info(vnic, "NFP vNIC MAC Address: %pM\n",
-		     netdev->dev_addr);
+			  netdev->dev_addr);
 
 	return 0;
 
@@ -734,7 +745,6 @@ err_area_acquire:
 err_resource_acquire:
 	nfp_device_close(nfp);
 	return err;
-
 }
 
 static int nfp_net_vnic_remove(struct platform_device *pdev)
@@ -773,7 +783,7 @@ static struct platform_driver nfp_net_vnic_driver = {
 int nfp_net_vnic_init(void)
 {
 	pr_info("%s: NFP vNIC driver, Copyright (C) 2010-2015 Netronome Systems\n",
-	       NFP_NET_VNIC_TYPE);
+		NFP_NET_VNIC_TYPE);
 
 	return platform_driver_register(&nfp_net_vnic_driver);
 }

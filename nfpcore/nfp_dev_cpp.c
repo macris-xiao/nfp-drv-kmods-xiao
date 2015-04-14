@@ -153,7 +153,7 @@ static int nfp_dev_cpp_area_alloc(struct nfp_dev_cpp_channel *chan,
 	char buff[64];
 
 	area = kzalloc(sizeof(*area), GFP_KERNEL);
-	if (area == NULL)
+	if (!area)
 		return -ENOMEM;
 
 	/* Can we allocate the area? */
@@ -161,7 +161,7 @@ static int nfp_dev_cpp_area_alloc(struct nfp_dev_cpp_channel *chan,
 	cpp_area = nfp_cpp_area_alloc_with_name(
 		chan->cdev->cpp, area_req->cpp_id, buff,
 		area_req->cpp_addr, area_req->size);
-	if (cpp_area == NULL) {
+	if (!cpp_area) {
 		kfree(area);
 		return -EINVAL;
 	}
@@ -262,7 +262,7 @@ static int nfp_dev_cpp_vma_evict(struct nfp_dev_cpp *cdev,
 	list_for_each_entry_safe(a, tmp, &cdev->area.list, area_list) {
 		if (list_empty(&a->vma.list))
 			continue;
-		if (this_cvma == NULL || this_cvma->area != a) {
+		if (!this_cvma || this_cvma->area != a) {
 			while (!list_empty(&a->vma.list)) {
 				struct nfp_dev_cpp_vma *ctmp;
 
@@ -271,7 +271,7 @@ static int nfp_dev_cpp_vma_evict(struct nfp_dev_cpp *cdev,
 							vma_list);
 				BUG_ON(ctmp == this_cvma);
 				trace_cdev_vma(ctmp, 0,
-					       this_cvma == NULL ? 'E' : 'e');
+					       !this_cvma ? 'E' : 'e');
 				/* Purge from the mapping */
 				zap_vma_ptes(ctmp->vma, ctmp->vma->vm_start,
 					     ctmp->vma->vm_end -
@@ -279,7 +279,7 @@ static int nfp_dev_cpp_vma_evict(struct nfp_dev_cpp *cdev,
 				nfp_dev_cpp_vma_release(ctmp);
 			}
 			err = 0;
-			if (this_cvma != NULL)
+			if (this_cvma)
 				break;
 		}
 	}
@@ -327,7 +327,7 @@ static int nfp_dev_cpp_open(struct inode *inode, struct file *file)
 	}
 
 	chan = kmalloc(sizeof(*chan), GFP_KERNEL);
-	if (chan == NULL) {
+	if (!chan) {
 		clear_bit(channel, cdev->channel_bitmap);
 		return -ENOMEM;
 	}
@@ -387,10 +387,10 @@ static ssize_t nfp_dev_cpp_op(struct file *file,
 	int err = 0;
 	size_t curlen = count, totlen = 0;
 
-	if (((*offp + count - 1) & ~(NFP_CPP_MEMIO_BOUNDARY-1)) !=
-	    (*offp & ~(NFP_CPP_MEMIO_BOUNDARY-1))) {
+	if (((*offp + count - 1) & ~(NFP_CPP_MEMIO_BOUNDARY - 1)) !=
+	    (*offp & ~(NFP_CPP_MEMIO_BOUNDARY - 1))) {
 		curlen = NFP_CPP_MEMIO_BOUNDARY -
-			(*offp & (NFP_CPP_MEMIO_BOUNDARY-1));
+			(*offp & (NFP_CPP_MEMIO_BOUNDARY - 1));
 	}
 
 	while (count > 0) {
@@ -602,7 +602,7 @@ static int do_cpp_event_acquire(struct nfp_dev_cpp_channel *chan,
 		return -EINVAL;
 
 	event = kmalloc(sizeof(*event), GFP_KERNEL);
-	if (event == NULL)
+	if (!event)
 		return -ENOMEM;
 
 	event->signal = event_req->signal;
@@ -798,7 +798,7 @@ static int nfp_dev_cpp_ioctl(struct inode *inode, struct file *filp,
 				     sizeof(cdev->firmware));
 		if (err < 0)
 			break;
-		cdev->firmware[sizeof(cdev->firmware)-1] = 0;
+		cdev->firmware[sizeof(cdev->firmware) - 1] = 0;
 		err = request_firmware(&fw, cdev->firmware, cdev->dev);
 		if (err < 0)
 			break;
@@ -977,7 +977,7 @@ static void nfp_cpp_mmap_open(struct vm_area_struct *vma)
 		((struct nfp_dev_cpp_vma *)vma->vm_private_data)->area;
 
 	cvma = kmalloc(sizeof(*cvma), GFP_KERNEL);
-	if (cvma != NULL) {
+	if (cvma) {
 		cvma->area = area;
 		cvma->vma = vma;
 		INIT_LIST_HEAD(&cvma->vma_list);
@@ -1104,7 +1104,7 @@ static ssize_t store_firmware(struct device *dev, struct device_attribute *attr,
 	if (!cp)
 		cp = buf + count;
 
-	if ((cp - buf) > (sizeof(cdev->firmware)-1))
+	if ((cp - buf) > (sizeof(cdev->firmware) - 1))
 		return -EINVAL;
 
 	memcpy(&cdev->firmware[0], buf, (cp - buf));
@@ -1141,7 +1141,7 @@ static int nfp_dev_cpp_probe(struct platform_device *pdev)
 	id = nfp_cpp_device_id(cpp);
 
 	cdev = kzalloc(sizeof(*cdev), GFP_KERNEL);
-	if (cdev == NULL) {
+	if (!cdev) {
 		nfp_cpp_free(cpp);
 		return -ENOMEM;
 	}
@@ -1228,7 +1228,7 @@ static struct platform_driver nfp_dev_cpp_driver = {
 	},
 };
 
-/** 
+/**
  * nfp_dev_cpp_init() - Register the NFP CPP /dev driver
  *
  * Return: 0, or -ERRNO
@@ -1260,7 +1260,7 @@ err_cpp:
 	return err;
 }
 
-/** 
+/**
  * nfp_dev_cpp_exit() - Unregister the NFP CPP /dev driver
  */
 void nfp_dev_cpp_exit(void)

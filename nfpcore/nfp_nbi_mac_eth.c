@@ -119,7 +119,7 @@ int nfp_nbi_mac_eth_ifdown(struct nfp_nbi_dev *nbi, int core, int port)
 	uint32_t m = 0;
 	int mode = 0;
 
-	if (nbi == NULL)
+	if (!nbi)
 		return -ENODEV;
 
 	if ((core < 0) || (core > 1))
@@ -172,7 +172,7 @@ int nfp_nbi_mac_eth_ifup(struct nfp_nbi_dev *nbi, int core, int port)
 	uint32_t m = 0;
 	int mode = 0;
 
-	if (nbi == NULL)
+	if (!nbi)
 		return -ENODEV;
 
 	if ((core < 0) || (core > 1))
@@ -180,7 +180,6 @@ int nfp_nbi_mac_eth_ifup(struct nfp_nbi_dev *nbi, int core, int port)
 
 	if ((port < 0) || (port > 11))
 		return -EINVAL;
-
 
 	/* Activate the segment */
 	r = NFP_MAC_ETH_MacEthGlobal_EthActCtlSeg;
@@ -245,7 +244,7 @@ int nfp_nbi_mac_eth_read_linkstate(struct nfp_nbi_dev *nbi, int core, int port,
 	uint32_t status = 0;
 	int ret;
 
-	if (nbi == NULL)
+	if (!nbi)
 		return -ENODEV;
 
 	if ((core < 0) || (core > 1))
@@ -256,7 +255,6 @@ int nfp_nbi_mac_eth_read_linkstate(struct nfp_nbi_dev *nbi, int core, int port,
 
 	if (linkstate)
 		*linkstate = 0;
-
 
 	ret = nfp_nbi_mac_regr(nbi, NFP_MAC,
 			       NFP_MAC_MacMuxCtrl, &d);
@@ -349,7 +347,7 @@ int nfp_nbi_mac_eth_read_mode(struct nfp_nbi_dev *nbi, int core, int port)
 	int mode;
 	int s;
 
-	if (nbi == NULL)
+	if (!nbi)
 		return -ENODEV;
 
 	if ((core < 0) || (core > 1))
@@ -369,7 +367,6 @@ int nfp_nbi_mac_eth_read_mode(struct nfp_nbi_dev *nbi, int core, int port)
 	if ((mux & m) > 0)
 		return NFP_NBI_MAC_ILK;
 
-
 	/* check port 0 for 100G 0x2050 */
 	r = NFP_MAC_ETH_MacEthChPcsSeg_Ctl1(0);
 	ret = nfp_nbi_mac_regr(nbi, NFP_MAC_ETH(core), r, &d);
@@ -381,7 +378,6 @@ int nfp_nbi_mac_eth_read_mode(struct nfp_nbi_dev *nbi, int core, int port)
 		/* port 0-9 = 100G - ports 10, 11 can be 10G */
 		if (port < 10)
 			return NFP_NBI_MAC_ENET_100G;
-
 	}
 
 	/* check ports 0,4,8 for 40G */
@@ -411,17 +407,16 @@ int nfp_nbi_mac_eth_read_mode(struct nfp_nbi_dev *nbi, int core, int port)
 
 		if (d & NFP_MAC_ETH_EthSgmiiIfMode_EthSgmiiPcsEnable) {
 			if (d & NFP_MAC_ETH_EthSgmiiIfMode_EthSgmiiEna) {
+				int s;
+
+				s = NFP_MAC_ETH_EthSgmiiIfMode_Speed_of(d);
 				/* SGMII */
-				switch
-				    (NFP_MAC_ETH_EthSgmiiIfMode_Speed_of
-				     (d)) {
+				switch (s) {
 				case (NFP_MAC_ETH_EthSgmiiIfMode_Speed_10Mbps):
-					mode =
-					    NFP_NBI_MAC_ENET_10M;
+					mode = NFP_NBI_MAC_ENET_10M;
 					break;
 				case (NFP_MAC_ETH_EthSgmiiIfMode_Speed_100Mbps):
-					mode =
-					    NFP_NBI_MAC_ENET_100M;
+					mode = NFP_NBI_MAC_ENET_100M;
 					break;
 				case (0x2):
 					/* AE case */
@@ -436,8 +431,9 @@ int nfp_nbi_mac_eth_read_mode(struct nfp_nbi_dev *nbi, int core, int port)
 				mode = NFP_NBI_MAC_ENET_1G;
 			}
 			return mode;
-		} else
+		} else {
 			return NFP_NBI_MAC_ENET_10G;
+		}
 
 		break;
 	case (NFP_NBI_MAC_EthChPcsCtl1_Mode_8023AV):
@@ -469,7 +465,7 @@ int nfp_nbi_mac_eth_write_mac_addr(struct nfp_nbi_dev *nbi, int core,
 	uint32_t d = 0;
 	uint32_t m = 0;
 
-	if (nbi == NULL)
+	if (!nbi)
 		return -ENODEV;
 
 	if ((core < 0) || (core > 1))
@@ -514,7 +510,7 @@ int nfp_nbi_mac_eth_read_mac_addr(struct nfp_nbi_dev *nbi, int core,
 	uint32_t d = 0;
 	uint32_t m = 0;
 
-	if (nbi == NULL)
+	if (!nbi)
 		return -ENODEV;
 
 	if ((core < 0) || (core > 1))
@@ -523,7 +519,7 @@ int nfp_nbi_mac_eth_read_mac_addr(struct nfp_nbi_dev *nbi, int core,
 	if ((port < 0) || (port > 11))
 		return -EINVAL;
 
-	if (hwaddr == NULL)
+	if (!hwaddr)
 		return -EINVAL;
 
 	r = NFP_MAC_ETH_MacEthSeg_EthMacAddr0(port);

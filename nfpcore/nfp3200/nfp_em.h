@@ -93,7 +93,7 @@
 
 #define NFP_EM_EVENT_TYPE_STATUS_FLAGS	4	/* Status flags event */
 
-#define NFP_EM_EVENT_PIN_ID(pin)	(((((pin) >> 3)&0x7) << 8) | \
+#define NFP_EM_EVENT_PIN_ID(pin)	(((((pin) >> 3) & 0x7) << 8) | \
 					 (1 << ((pin) & 0x7)))
 #define NFP_EM_EVENT_MATCH(source, pin_id, event_type)	(((source) << 16) | \
 							 ((pin_id) << 4) | \

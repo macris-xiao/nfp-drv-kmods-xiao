@@ -43,28 +43,27 @@ static int nfp3200_reset_soft(struct nfp_device *nfp)
 }
 
 #define NBIX_BASE					(0xa0000)
-#define NFP_NBI_MACX					(NBIX_BASE + 0x300000) 
+#define NFP_NBI_MACX					(NBIX_BASE + 0x300000)
 #define NFP_NBI_MACX_CSR				(NFP_NBI_MACX + 0x00000)
-#define NFP_NBI_MACX_CSR_MAC_BLOCK_RST			0x00000
-#define  NFP_NBI_MACX_CSR_MAC_BLOCK_RST_MAC_HY1_STAT_RST	BIT(23)
-#define  NFP_NBI_MACX_CSR_MAC_BLOCK_RST_MAC_HY0_STAT_RST	BIT(22)
-#define  NFP_NBI_MACX_CSR_MAC_BLOCK_RST_MAC_TX_RST_MPB		BIT(21)
-#define  NFP_NBI_MACX_CSR_MAC_BLOCK_RST_MAC_RX_RST_MPB		BIT(20)
-#define  NFP_NBI_MACX_CSR_MAC_BLOCK_RST_MAC_TX_RST_CORE		BIT(19)
-#define  NFP_NBI_MACX_CSR_MAC_BLOCK_RST_MAC_RX_RST_CORE		BIT(18)
-#define NFP_NBI_MACX_CSR_EG_BUFFER_CREDIT_POOL_COUNT	0x00000098
-#define   NFP_NBI_MACX_CSR_EG_BUFFER_CREDIT_POOL_COUNT_EG_BUFFER_CREDIT_COUNT1_of(_x) (((_x) >> 16) & 0x3fff)
-#define   NFP_NBI_MACX_CSR_EG_BUFFER_CREDIT_POOL_COUNT_EG_BUFFER_CREDIT_COUNT_of(_x) (((_x) >> 0) & 0x3fff)
-#define NFP_NBI_MACX_CSR_IG_BUFFER_CREDIT_POOL_COUNT	0x000000a0
-#define   NFP_NBI_MACX_CSR_IG_BUFFER_CREDIT_POOL_COUNT_IG_BUFFER_CREDIT_COUNT1_of(_x) (((_x) >> 16) & 0x3fff)
-#define   NFP_NBI_MACX_CSR_IG_BUFFER_CREDIT_POOL_COUNT_IG_BUFFER_CREDIT_COUNT_of(_x) (((_x) >> 0) & 0x3fff)
-#define NFP_NBI_MACX_ETH(_x)                                 (NFP_NBI_MACX + 0x40000 + ((_x) & 0x1) * 0x20000)
-#define NFP_NBI_MACX_ETH_MACETHSEG_ETH_CMD_CONFIG(_x)	\
-						(0x00000008 + (0x400 * ((_x) & 0xf)))
-#define  NFP_NBI_MACX_ETH_MACETHSEG_ETH_CMD_CONFIG_ETH_RX_ENA	BIT(1)
-#define NFP_NBI_MACX_CSR_MAC_SYS_SUPPORT_CTRL			0x00000014
-#define  NFP_NBI_MACX_CSR_MAC_SYS_SUPPORT_CTRL_SPLIT_MEM_IG	BIT(8)
-
+#define NFP_NBI_MACX_MAC_BLOCK_RST			0x00000
+#define  NFP_NBI_MACX_MAC_BLOCK_RST_MAC_HY1_STAT_RST	BIT(23)
+#define  NFP_NBI_MACX_MAC_BLOCK_RST_MAC_HY0_STAT_RST	BIT(22)
+#define  NFP_NBI_MACX_MAC_BLOCK_RST_MAC_TX_RST_MPB		BIT(21)
+#define  NFP_NBI_MACX_MAC_BLOCK_RST_MAC_RX_RST_MPB		BIT(20)
+#define  NFP_NBI_MACX_MAC_BLOCK_RST_MAC_TX_RST_CORE		BIT(19)
+#define  NFP_NBI_MACX_MAC_BLOCK_RST_MAC_RX_RST_CORE		BIT(18)
+#define NFP_NBI_MACX_EG_BCP_COUNT	0x00000098
+#define   NFP_NBI_MACX_EG_BCP_COUNT_EG_BCC1_of(_x) (((_x) >> 16) & 0x3fff)
+#define   NFP_NBI_MACX_EG_BCP_COUNT_EG_BCC_of(_x) (((_x) >> 0) & 0x3fff)
+#define NFP_NBI_MACX_IG_BCP_COUNT	0x000000a0
+#define   NFP_NBI_MACX_IG_BCP_COUNT_IG_BCC1_of(_x) (((_x) >> 16) & 0x3fff)
+#define   NFP_NBI_MACX_IG_BCP_COUNT_IG_BCC_of(_x) (((_x) >> 0) & 0x3fff)
+#define NFP_NBI_MACX_ETH(_x)  (NFP_NBI_MACX + 0x40000 + ((_x) & 0x1) * 0x20000)
+#define  NFP_NBI_MACX_ETH_SEG_CMD_CONFIG(_x)	\
+					(0x00000008 + (0x400 * ((_x) & 0xf)))
+#define   NFP_NBI_MACX_ETH_SEG_CMD_CONFIG_ETH_RX_ENA	BIT(1)
+#define NFP_NBI_MACX_MAC_SYS_SUPPORT_CTRL			0x00000014
+#define  NFP_NBI_MACX_MAC_SYS_SUPPORT_CTRL_SPLIT_MEM_IG	BIT(8)
 
 #define NFP_NBI_DMAX					(NBIX_BASE + 0x000000)
 #define NFP_NBI_DMAX_CSR				(NFP_NBI_DMAX + 0x00000)
@@ -72,30 +71,32 @@ static int nfp3200_reset_soft(struct nfp_device *nfp)
 					(0x00000040 + (0x4 * ((_x) & 0x1f)))
 #define   NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_BPENUM_of(_x) (((_x) >> 27) & 0x1f)
 #define   NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_CTM_of(_x)	(((_x) >> 21) & 0x3f)
-#define   NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_PKT_CREDIT_of(_x) (((_x) >> 10) & 0x7ff)
-#define   NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_BUF_CREDIT_of(_x) (((_x) >> 0) & 0x3ff)
+#define   NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_PKT_CREDIT_of(_x) \
+							(((_x) >> 10) & 0x7ff)
+#define   NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_BUF_CREDIT_of(_x) \
+							(((_x) >> 0) & 0x3ff)
 
+#define CTMX_BASE                                      (0x60000)
+#define NFP_CTMX_CFG                                   (CTMX_BASE + 0x000000)
+#define NFP_CTMX_PKT                                   (CTMX_BASE + 0x010000)
+#define NFP_CTMX_PKT_MU_PE_ACTIVE_PACKET_COUNT         0x00000400
+#define   NFP_CTMX_PKT_MUPESTATS_MU_PE_STAT_of(_x)     (((_x) >> 0) & 0x3ff)
 
-#define CTMX_BASE                                            (0x60000)
-#define NFP_CTMX_CFG                                         (CTMX_BASE + 0x000000)
-#define NFP_CTMX_PKT                                         (CTMX_BASE + 0x010000)
-#define NFP_CTMX_PKT_MU_PE_ACTIVE_PACKET_COUNT               0x00000400
-#define   NFP_CTMX_PKT_MUPESTATS_MU_PE_STAT_of(_x)           (((_x) >> 0) & 0x3ff)
+#define NFP_PCIE_DMA					(0x040000)
+#define NFP_PCIE_DMA_QSTS0_TOPCI			0x000000e0
+#define   NFP_PCIE_DMA_DMAQUEUESTATUS0_DMA_LO_AVAIL_of(_x) \
+							(((_x) >> 24) & 0xff)
+#define NFP_PCIE_DMA_QSTS1_TOPCI                        0x000000e4
+#define   NFP_PCIE_DMA_DMAQUEUESTATUS1_DMA_HI_AVAIL_of(_x) \
+							(((_x) >> 24) & 0xff)
+#define   NFP_PCIE_DMA_DMAQUEUESTATUS1_DMA_MED_AVAIL_of(_x) \
+							(((_x) >> 8) & 0xff)
 
-#define NFP_PCIE_DMA						(0x040000)
-#define NFP_PCIE_DMA_QSTS0_TOPCI				0x000000e0
-#define   NFP_PCIE_DMA_DMAQUEUESTATUS0_DMA_LO_AVAIL_of(_x)   (((_x) >> 24) & 0xff)
-#define NFP_PCIE_DMA_QSTS1_TOPCI                             0x000000e4
-#define   NFP_PCIE_DMA_DMAQUEUESTATUS1_DMA_HI_AVAIL_of(_x)   (((_x) >> 24) & 0xff)
-#define   NFP_PCIE_DMA_DMAQUEUESTATUS1_DMA_MED_AVAIL_of(_x)  (((_x) >> 8) & 0xff)
-
-#define NFP_PCIE_Q(_x)				(0x080000 + ((_x) & 0xff) * 0x10)
+#define NFP_PCIE_Q(_x)			(0x080000 + ((_x) & 0xff) * 0x10)
 #define NFP_QCTLR_STS_LO                                     0x00000008
 #define   NFP_QCTLR_STS_LO_RPTR_ENABLE				BIT(31)
 #define NFP_QCTLR_STS_HI                                     0x0000000c
 #define   NFP_QCTLR_STS_HI_EMPTY				BIT(26)
-
-
 
 int nfp6000_island_power(struct nfp_device *nfp, int nbi_mask, int state)
 {
@@ -107,8 +108,10 @@ int nfp6000_island_power(struct nfp_device *nfp, int nbi_mask, int state)
 		if ((nbi_mask & BIT(i)) == 0)
 			continue;
 
-		err = nfp_power_set(nfp, NFP6000_DEVICE_NBI(i,
-					NFP6000_DEVICE_NBI_CORE), state);
+		err = nfp_power_set(nfp,
+				    NFP6000_DEVICE_NBI(i,
+						       NFP6000_DEVICE_NBI_CORE),
+				    state);
 		if (err < 0) {
 			if (err == -ENODEV)
 				continue;
@@ -119,8 +122,8 @@ int nfp6000_island_power(struct nfp_device *nfp, int nbi_mask, int state)
 	/* Reset ILA cores */
 	for (i = 0; i < 2; i++) {
 		for (u = NFP6000_DEVICE_ILA_MEG1; u >= 0; u--) {
-			err = nfp_power_set(nfp, NFP6000_DEVICE_ILA(i, u),
-						 state);
+			err = nfp_power_set(nfp,
+					    NFP6000_DEVICE_ILA(i, u), state);
 			if (err < 0) {
 				if (err == -ENODEV)
 					break;
@@ -132,8 +135,8 @@ int nfp6000_island_power(struct nfp_device *nfp, int nbi_mask, int state)
 	/* Reset FPC cores */
 	for (i = 0; i < 7; i++) {
 		for (u = NFP6000_DEVICE_FPC_MEG5; u >= 0; u--) {
-			err = nfp_power_set(nfp, NFP6000_DEVICE_FPC(i, u),
-						 state);
+			err = nfp_power_set(nfp,
+					    NFP6000_DEVICE_FPC(i, u), state);
 			if (err < 0) {
 				if (err == -ENODEV)
 					break;
@@ -145,8 +148,8 @@ int nfp6000_island_power(struct nfp_device *nfp, int nbi_mask, int state)
 	/* Reset IMU islands */
 	for (i = 0; i < 2; i++) {
 		for (u = NFP6000_DEVICE_IMU_NLU; u >= 0; u--) {
-			err = nfp_power_set(nfp, NFP6000_DEVICE_IMU(i, u),
-						 state);
+			err = nfp_power_set(nfp,
+					    NFP6000_DEVICE_IMU(i, u), state);
 			if (err < 0) {
 				if (err == -ENODEV)
 					break;
@@ -158,8 +161,8 @@ int nfp6000_island_power(struct nfp_device *nfp, int nbi_mask, int state)
 	/* Reset CRP islands */
 	for (i = 0; i < 2; i++) {
 		for (u = NFP6000_DEVICE_CRP_MEG1; u >= 0; u--) {
-			err = nfp_power_set(nfp, NFP6000_DEVICE_CRP(i, u),
-						 state);
+			err = nfp_power_set(nfp,
+					    NFP6000_DEVICE_CRP(i, u), state);
 			if (err < 0) {
 				if (err == -ENODEV)
 					break;
@@ -172,8 +175,8 @@ int nfp6000_island_power(struct nfp_device *nfp, int nbi_mask, int state)
 	for (i = 0; i < 4; i++) {
 		for (u = NFP6000_DEVICE_PCI_MEG1; u >= NFP6000_DEVICE_PCI_MEG0;
 		     u--) {
-			err = nfp_power_set(nfp, NFP6000_DEVICE_PCI(i, u),
-						 state);
+			err = nfp_power_set(nfp,
+					    NFP6000_DEVICE_PCI(i, u), state);
 			if (err < 0) {
 				if (err == -ENODEV)
 					break;
@@ -236,7 +239,8 @@ static int nfp6000_stop_me(struct nfp_device *nfp, int island, int menum)
 		return err;
 
 	if (tmp & NFP_ME_ActCtxStatus_AB0) {
-		nfp_err(nfp, "ME%d.%d did not stop after 1000us\n", island, menum);
+		nfp_err(nfp, "ME%d.%d did not stop after 1000us\n",
+			island, menum);
 		return -EIO;
 	}
 
@@ -286,8 +290,9 @@ static int nfp6000_stop_me_island(struct nfp_device *nfp, int island)
 	for (i = 0; i < megs; i++) {
 		int state;
 
-		err = nfp_power_get(nfp, NFP6000_DEVICE(island, 
-						meg_device + i), &state);
+		err = nfp_power_get(nfp,
+				    NFP6000_DEVICE(island, meg_device + i),
+				    &state);
 		if (err < 0) {
 			if (err == -ENODEV)
 				continue;
@@ -297,11 +302,11 @@ static int nfp6000_stop_me_island(struct nfp_device *nfp, int island)
 		if (state != NFP_DEVICE_STATE_ON)
 			continue;
 
-		err = nfp6000_stop_me(nfp, island, i*2 + 0);
+		err = nfp6000_stop_me(nfp, island, i * 2 + 0);
 		if (err < 0)
 			return err;
 
-		err = nfp6000_stop_me(nfp, island, i*2 + 1);
+		err = nfp6000_stop_me(nfp, island, i * 2 + 1);
 		if (err < 0)
 			return err;
 	}
@@ -323,11 +328,11 @@ static int nfp6000_nbi_mac_check_freebufs(struct nfp_device *nfp,
 	const int egsplit = 495;
 
 	err = nfp_nbi_mac_regr(nbi, NFP_NBI_MACX_CSR,
-			NFP_NBI_MACX_CSR_MAC_SYS_SUPPORT_CTRL, &tmp);
+			       NFP_NBI_MACX_MAC_SYS_SUPPORT_CTRL, &tmp);
 	if (err < 0)
 		return err;
 
-	split = tmp & NFP_NBI_MACX_CSR_MAC_SYS_SUPPORT_CTRL_SPLIT_MEM_IG;
+	split = tmp & NFP_NBI_MACX_MAC_SYS_SUPPORT_CTRL_SPLIT_MEM_IG;
 
 	ts = CURRENT_TIME;
 	timeout = timespec_add(ts, timeout);
@@ -337,22 +342,20 @@ static int nfp6000_nbi_mac_check_freebufs(struct nfp_device *nfp,
 		int igcount, igcount1, egcount, egcount1;
 
 		err = nfp_nbi_mac_regr(nbi, NFP_NBI_MACX_CSR,
-			NFP_NBI_MACX_CSR_IG_BUFFER_CREDIT_POOL_COUNT,
-			&tmp);
+				       NFP_NBI_MACX_IG_BCP_COUNT, &tmp);
 		if (err < 0)
 			return err;
 
-		igcount = NFP_NBI_MACX_CSR_IG_BUFFER_CREDIT_POOL_COUNT_IG_BUFFER_CREDIT_COUNT_of(tmp);
-		igcount1 = NFP_NBI_MACX_CSR_IG_BUFFER_CREDIT_POOL_COUNT_IG_BUFFER_CREDIT_COUNT1_of(tmp);
+		igcount = NFP_NBI_MACX_IG_BCP_COUNT_IG_BCC_of(tmp);
+		igcount1 = NFP_NBI_MACX_IG_BCP_COUNT_IG_BCC1_of(tmp);
 
 		err = nfp_nbi_mac_regr(nbi, NFP_NBI_MACX_CSR,
-			NFP_NBI_MACX_CSR_EG_BUFFER_CREDIT_POOL_COUNT,
-			&tmp);
+				       NFP_NBI_MACX_EG_BCP_COUNT, &tmp);
 		if (err < 0)
 			return err;
 
-		egcount = NFP_NBI_MACX_CSR_EG_BUFFER_CREDIT_POOL_COUNT_EG_BUFFER_CREDIT_COUNT_of(tmp);
-		egcount1 = NFP_NBI_MACX_CSR_EG_BUFFER_CREDIT_POOL_COUNT_EG_BUFFER_CREDIT_COUNT1_of(tmp);
+		egcount = NFP_NBI_MACX_EG_BCP_COUNT_EG_BCC_of(tmp);
+		egcount1 = NFP_NBI_MACX_EG_BCP_COUNT_EG_BCC1_of(tmp);
 
 		if (split) {
 			ok &= (igcount >= igsplit);
@@ -360,21 +363,21 @@ static int nfp6000_nbi_mac_check_freebufs(struct nfp_device *nfp,
 			ok &= (igcount1 >= igsplit);
 			ok &= (egcount1 >= egsplit);
 		} else {
-			ok &= (igcount >= igsplit*2);
-			ok &= (egcount >= egsplit*2);
+			ok &= (igcount >= igsplit * 2);
+			ok &= (egcount >= egsplit * 2);
 		}
 
 		if (!ok) {
 			ts = CURRENT_TIME;
 			if (timespec_compare(&ts, &timeout) >= 0) {
 				nfp_err(nfp, "After %dms, NBI%d did not flush all packet buffers\n",
-						timeout_ms, nfp_nbi_index(nbi));
+					timeout_ms, nfp_nbi_index(nbi));
 				if (split) {
 					nfp_err(nfp, "\t(ingress %d/%d != %d/%d, egress %d/%d != %d/%d)\n",
 						igcount, igcount1,
 						igsplit, igsplit,
 						egcount, egcount1,
-						egsplit, egsplit );
+						egsplit, egsplit);
 				} else {
 					nfp_err(nfp, "\t(ingress %d != %d, egress %d != %d)\n",
 						igcount, igsplit,
@@ -388,7 +391,9 @@ static int nfp6000_nbi_mac_check_freebufs(struct nfp_device *nfp,
 	return 0;
 }
 
-static int nfp6000_nbi_check_dma_credits(struct nfp_device *nfp, struct nfp_nbi_dev *nbi, const uint32_t *bpe, int bpes )
+static int nfp6000_nbi_check_dma_credits(struct nfp_device *nfp,
+					 struct nfp_nbi_dev *nbi,
+					 const uint32_t *bpe, int bpes)
 {
 	int err, p;
 	uint32_t tmp;
@@ -401,8 +406,8 @@ static int nfp6000_nbi_check_dma_credits(struct nfp_device *nfp, struct nfp_nbi_
 		int ctmb, pktb, bufb;
 
 		err = nfp_nbi_mac_regr(nbi, NFP_NBI_DMAX_CSR,
-			NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG(p),
-			&tmp);
+				       NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG(p),
+				       &tmp);
 		if (err < 0)
 			return err;
 
@@ -419,22 +424,21 @@ static int nfp6000_nbi_check_dma_credits(struct nfp_device *nfp, struct nfp_nbi_
 
 		if (ctm != ctmb) {
 			nfp_err(nfp, "NBI%d DMA BPE%d targets CTM%d, expected CTM%d\n",
-					nfp_nbi_index(nbi), bp, ctm, ctmb);
+				nfp_nbi_index(nbi), bp, ctm, ctmb);
 			return -EBUSY;
 		}
 
 		if (pkt != pktb) {
 			nfp_err(nfp, "NBI%d DMA BPE%d (CTM%d) outstanding packets (%d != %d)\n",
-					nfp_nbi_index(nbi), bp, ctm, pkt, pktb);
+				nfp_nbi_index(nbi), bp, ctm, pkt, pktb);
 			return -EBUSY;
 		}
 
 		if (buf != bufb) {
 			nfp_err(nfp, "NBI%d DMA BPE%d (CTM%d) outstanding buffers (%d != %d)\n",
-					nfp_nbi_index(nbi), bp, ctm, buf, bufb);
+				nfp_nbi_index(nbi), bp, ctm, buf, bufb);
 			return -EBUSY;
 		}
-
 	}
 
 	return 0;
@@ -444,7 +448,7 @@ static int nfp6000_nbi_check_dma_credits(struct nfp_device *nfp, struct nfp_nbi_
 #define BPECFG_MAGIC_COUNT(x)	((x) & 0x000000ff)
 
 static int bpe_lookup(struct nfp_device *nfp, int nbi,
-			uint32_t *bpe, int bpe_max)
+		      uint32_t *bpe, int bpe_max)
 {
 	int err, i;
 	const struct nfp_rtsym *sym;
@@ -463,7 +467,7 @@ static int bpe_lookup(struct nfp_device *nfp, int nbi,
 
 	id = NFP_CPP_ISLAND_ID(sym->target, NFP_CPP_ACTION_RW, 0, sym->domain);
 	area = nfp_cpp_area_alloc_acquire(nfp_device_cpp(nfp), id, sym->addr,
-						sym->size);
+					  sym->size);
 	if (IS_ERR_OR_NULL(area)) {
 		nfp_err(nfp, "%s: Can't acquire area\n", buff);
 		return area ? PTR_ERR(area) : -ENOMEM;
@@ -479,21 +483,20 @@ static int bpe_lookup(struct nfp_device *nfp, int nbi,
 	tmp = readl(ptr++);
 	if (!BPECFG_MAGIC_CHECK(tmp)) {
 		nfp_err(nfp, "%s: Magic value (0x%08x) unrecognized\n",
-				buff, tmp);
+			buff, tmp);
 		err = -EINVAL;
 		goto exit;
 	}
 
 	if (BPECFG_MAGIC_COUNT(tmp) > bpe_max) {
 		nfp_err(nfp, "%s: Magic count (%d) too large (> %d)\n",
-				buff, BPECFG_MAGIC_COUNT(tmp), bpe_max);
+			buff, BPECFG_MAGIC_COUNT(tmp), bpe_max);
 		err = -EINVAL;
 		goto exit;
 	}
 
-	for (i = 0; i < bpe_max; i++) {
+	for (i = 0; i < bpe_max; i++)
 		bpe[i] = readl(ptr++);
-	}
 
 	err = BPECFG_MAGIC_COUNT(tmp);
 
@@ -504,37 +507,37 @@ exit:
 
 /* Determine if a given PCIe's DMA Queues are empty */
 static int nfp6000_check_empty_pcie_dma_queues(struct nfp_device *nfp,
-                                               int pci_island, int *empty)
+					       int pci_island, int *empty)
 {
-    uint32_t tmp;
-    const int dma_low = 128, dma_med = 64, dma_hi = 64;
-    int hi, med, low, ok, err;
+	uint32_t tmp;
+	const int dma_low = 128, dma_med = 64, dma_hi = 64;
+	int hi, med, low, ok, err;
 	struct nfp_cpp *cpp = nfp_device_cpp(nfp);
-    const uint32_t pci = NFP_CPP_ISLAND_ID(
-                    NFP_CPP_TARGET_PCIE, 2, 0, pci_island+4);
+	const uint32_t pci = NFP_CPP_ISLAND_ID(NFP_CPP_TARGET_PCIE,
+					       2, 0, pci_island + 4);
 
-    ok = 1;
-    err = nfp_cpp_readl(cpp, pci, NFP_PCIE_DMA +
-                NFP_PCIE_DMA_QSTS0_TOPCI, &tmp);
-    if (err < 0)
-        return err;
+	ok = 1;
+	err = nfp_cpp_readl(cpp, pci, NFP_PCIE_DMA +
+		NFP_PCIE_DMA_QSTS0_TOPCI, &tmp);
+	if (err < 0)
+		return err;
 
-    low = NFP_PCIE_DMA_DMAQUEUESTATUS0_DMA_LO_AVAIL_of(tmp);
+	low = NFP_PCIE_DMA_DMAQUEUESTATUS0_DMA_LO_AVAIL_of(tmp);
 
-    err = nfp_cpp_readl(cpp, pci, NFP_PCIE_DMA +
-                NFP_PCIE_DMA_QSTS1_TOPCI, &tmp);
-    if (err < 0)
-        return err;
+	err = nfp_cpp_readl(cpp, pci, NFP_PCIE_DMA +
+		NFP_PCIE_DMA_QSTS1_TOPCI, &tmp);
+	if (err < 0)
+		return err;
 
-    med = NFP_PCIE_DMA_DMAQUEUESTATUS1_DMA_MED_AVAIL_of(tmp);
-    hi  = NFP_PCIE_DMA_DMAQUEUESTATUS1_DMA_HI_AVAIL_of(tmp);
+	med = NFP_PCIE_DMA_DMAQUEUESTATUS1_DMA_MED_AVAIL_of(tmp);
+	hi  = NFP_PCIE_DMA_DMAQUEUESTATUS1_DMA_HI_AVAIL_of(tmp);
 
-    ok &= low == dma_low;
-    ok &= med == dma_med;
-    ok &= hi  == dma_hi;
+	ok &= low == dma_low;
+	ok &= med == dma_med;
+	ok &= hi  == dma_hi;
 
-    *empty = ok;
-    return 0;
+	*empty = ok;
+	return 0;
 }
 
 /* Perform a soft reset of the NFP6000:
@@ -562,7 +565,8 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 	/* Claim the nfp.nffw resource page */
 	res = nfp_resource_acquire(nfp, NFP_RESOURCE_NFP_NFFW);
 	if (!res) {
-		nfp_err(nfp, "Can't aquire %s resource\n", NFP_RESOURCE_NFP_NFFW);
+		nfp_err(nfp, "Can't aquire %s resource\n",
+			NFP_RESOURCE_NFP_NFFW);
 		return -EBUSY;
 	}
 
@@ -585,21 +589,21 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 		}
 
 		nbi[i] = nfp_nbi_open(nfp, i);
-		if (nbi[i] == NULL)
+		if (!nbi[i])
 			continue;
 
 		nbi_mask |= BIT(i);
 
 		err = nfp_nbi_mac_regr(nbi[i], NFP_NBI_MACX_CSR,
-					NFP_NBI_MACX_CSR_MAC_BLOCK_RST,
-					&tmp);
+				       NFP_NBI_MACX_MAC_BLOCK_RST,
+				       &tmp);
 		if (err < 0)
 			goto exit;
 
 		mac_enable[i] = 0;
-		if (!(tmp & NFP_NBI_MACX_CSR_MAC_BLOCK_RST_MAC_HY0_STAT_RST))
+		if (!(tmp & NFP_NBI_MACX_MAC_BLOCK_RST_MAC_HY0_STAT_RST))
 			mac_enable[i] |= BIT(0);
-		if (!(tmp & NFP_NBI_MACX_CSR_MAC_BLOCK_RST_MAC_HY1_STAT_RST))
+		if (!(tmp & NFP_NBI_MACX_MAC_BLOCK_RST_MAC_HY1_STAT_RST))
 			mac_enable[i] |= BIT(1);
 
 		/* No MACs at all? Then we don't care. */
@@ -625,14 +629,14 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 		for (p = 0; p < 24; p++) {
 			uint32_t r, mask;
 
-			mask = NFP_NBI_MACX_ETH_MACETHSEG_ETH_CMD_CONFIG_ETH_RX_ENA;
-			r = NFP_NBI_MACX_ETH_MACETHSEG_ETH_CMD_CONFIG(p % 12);
+			mask =  NFP_NBI_MACX_ETH_SEG_CMD_CONFIG_ETH_RX_ENA;
+			r =  NFP_NBI_MACX_ETH_SEG_CMD_CONFIG(p % 12);
 
 			err = nfp_nbi_mac_regw(nbi[i], NFP_NBI_MACX_ETH(p / 12),
-						r, mask, 0);
+					       r, mask, 0);
 			if (err < 0) {
 				nfp_err(nfp, "Can't disable RX traffic for port %d.%d\n",
-						i, p);
+					i, p);
 				goto exit;
 			}
 		}
@@ -647,7 +651,7 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
      *
      * TODO: Account for cut-through traffic.
      */
-	udelay(60);
+	usleep_range(60, 100);
 
 	/* Verify all NBI MAC packet buffers have returned */
 	for (i = 0; i < 2; i++) {
@@ -681,7 +685,7 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 	/* Check all PCIE DMA Queues are empty. */
 	for (i = 0; i < 4; i++) {
 		int state;
-        int empty;
+	int empty;
 		unsigned int subdev = NFP6000_DEVICE_PCI(i,
 					NFP6000_DEVICE_PCI_CORE);
 
@@ -695,15 +699,15 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 		if (state != NFP_DEVICE_STATE_ON)
 			continue;
 
-        err = nfp6000_check_empty_pcie_dma_queues(nfp, i, &empty);
-		if (err < 0) {
+		err = nfp6000_check_empty_pcie_dma_queues(nfp, i, &empty);
+		if (err < 0)
+			goto exit;
+
+		if (!empty) {
+			nfp_err(nfp, "PCI%d DMA queues did not drain\n", i);
+			err = -ETIMEDOUT;
 			goto exit;
 		}
-        if (!empty) {
-            nfp_err(nfp, "PCI%d DMA queues did not drain\n",i);
-            err = -ETIMEDOUT;
-            goto exit;
-        }
 	}
 
 	/* Stop all MEs */
@@ -716,7 +720,7 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
     /* Verify again that PCIe DMA Queues are now empty */
 	for (i = 0; i < 4; i++) {
 		int state;
-        int empty;
+	int empty;
 		unsigned int subdev = NFP6000_DEVICE_PCI(i,
 					NFP6000_DEVICE_PCI_CORE);
 
@@ -730,15 +734,15 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 		if (state != NFP_DEVICE_STATE_ON)
 			continue;
 
-        err = nfp6000_check_empty_pcie_dma_queues(nfp, i, &empty);
-		if (err < 0) {
+		err = nfp6000_check_empty_pcie_dma_queues(nfp, i, &empty);
+		if (err < 0)
+			goto exit;
+
+		if (!empty) {
+			nfp_err(nfp, "PCI%d DMA queue is not empty\n", i);
+			err = -ETIMEDOUT;
 			goto exit;
 		}
-        if (!empty) {
-            nfp_err(nfp, "PCI%d DMA queue is not empty\n",i);
-            err = -ETIMEDOUT;
-            goto exit;
-        }
 	}
 
 	/* Clear all PCIe DMA Queues */
@@ -746,8 +750,8 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 		unsigned int subdev = NFP6000_DEVICE_PCI(i,
 					NFP6000_DEVICE_PCI_CORE);
 		int state;
-		const uint32_t pci = NFP_CPP_ISLAND_ID(
-						NFP_CPP_TARGET_PCIE, 3, 0, i+4);
+		const uint32_t pci = NFP_CPP_ISLAND_ID(NFP_CPP_TARGET_PCIE,
+						       3, 0, i + 4);
 
 		err = nfp_power_get(nfp, subdev, &state);
 		if (err < 0) {
@@ -763,12 +767,12 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 			uint32_t q = NFP_PCIE_Q(p);
 
 			err = nfp_cpp_writel(cpp, pci, q + NFP_QCTLR_STS_LO,
-						NFP_QCTLR_STS_LO_RPTR_ENABLE);
+					     NFP_QCTLR_STS_LO_RPTR_ENABLE);
 			if (err < 0)
 				goto exit;
 
 			err = nfp_cpp_writel(cpp, pci, q + NFP_QCTLR_STS_HI,
-						NFP_QCTLR_STS_HI_EMPTY);
+					     NFP_QCTLR_STS_HI_EMPTY);
 			if (err < 0)
 				goto exit;
 		}
@@ -776,23 +780,23 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 
 	/* Reset MAC NBI gaskets */
 	for (i = 0; i < 2; i++) {
-		uint32_t mask = NFP_NBI_MACX_CSR_MAC_BLOCK_RST_MAC_TX_RST_MPB |
-				NFP_NBI_MACX_CSR_MAC_BLOCK_RST_MAC_RX_RST_MPB |
-				NFP_NBI_MACX_CSR_MAC_BLOCK_RST_MAC_TX_RST_CORE |
-				NFP_NBI_MACX_CSR_MAC_BLOCK_RST_MAC_RX_RST_CORE |
-				NFP_NBI_MACX_CSR_MAC_BLOCK_RST_MAC_HY0_STAT_RST |
-				NFP_NBI_MACX_CSR_MAC_BLOCK_RST_MAC_HY1_STAT_RST;
+		uint32_t mask = NFP_NBI_MACX_MAC_BLOCK_RST_MAC_TX_RST_MPB |
+				NFP_NBI_MACX_MAC_BLOCK_RST_MAC_RX_RST_MPB |
+				NFP_NBI_MACX_MAC_BLOCK_RST_MAC_TX_RST_CORE |
+				NFP_NBI_MACX_MAC_BLOCK_RST_MAC_RX_RST_CORE |
+				NFP_NBI_MACX_MAC_BLOCK_RST_MAC_HY0_STAT_RST |
+				NFP_NBI_MACX_MAC_BLOCK_RST_MAC_HY1_STAT_RST;
 
 		if (!nbi[i])
 			continue;
 
 		err = nfp_nbi_mac_regw(nbi[i], NFP_NBI_MACX_CSR,
-				NFP_NBI_MACX_CSR_MAC_BLOCK_RST, mask, mask);
+				       NFP_NBI_MACX_MAC_BLOCK_RST, mask, mask);
 		if (err < 0)
 			goto exit;
 
 		err = nfp_nbi_mac_regw(nbi[i], NFP_NBI_MACX_CSR,
-				NFP_NBI_MACX_CSR_MAC_BLOCK_RST, mask, 0);
+				       NFP_NBI_MACX_MAC_BLOCK_RST, mask, 0);
 		if (err < 0)
 			goto exit;
 	}
@@ -839,7 +843,7 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 					  nfp_resource_size(res));
 	if (!area) {
 		nfp_err(nfp, "Can't acquire area for %s resource\n",
-				NFP_RESOURCE_NFP_NFFW);
+			NFP_RESOURCE_NFP_NFFW);
 		err = -ENOMEM;
 		goto exit;
 	}
@@ -853,7 +857,7 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 
 	if (err < 0) {
 		nfp_err(nfp, "Can't erase area of %s resource\n",
-				NFP_RESOURCE_NFP_NFFW);
+			NFP_RESOURCE_NFP_NFFW);
 		goto exit;
 	}
 

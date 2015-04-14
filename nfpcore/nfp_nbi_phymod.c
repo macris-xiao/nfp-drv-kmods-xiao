@@ -13,7 +13,6 @@
 #include "nfp_spi.h"
 #include "nfp_nbi_phymod.h"
 
-
 struct nfp_phymod;
 struct nfp_phymod_eth;
 
@@ -43,7 +42,7 @@ struct sff_ops {
 	int (*set_lane_dis)(struct nfp_phymod *phy, uint32_t tx, uint32_t rx);
 };
 
-typedef struct {
+struct pin {
 	enum { PIN_NONE, PIN_GPIO, PIN_CPLD } type;
 	union {
 		struct {
@@ -56,7 +55,7 @@ typedef struct {
 			uint16_t addr;
 		} cpld;
 	};
-} pin_t;
+};
 
 struct nfp_key {
 	struct nfp_device *nfp;
@@ -92,8 +91,8 @@ struct nfp_phymod_priv {
 		struct nfp_phymod *phymod;
 		struct {
 			char *label;
-			pin_t force;
-			pin_t active;
+			struct pin force;
+			struct pin active;
 		} fail_to_wire;
 	} eth[48];
 };
@@ -105,15 +104,15 @@ static void _phymod_private_free(void *_priv)
 
 	for (n = 0; n < priv->phymods; n++) {
 		struct nfp_phymod *phy = &priv->phymod[n];
+
 		if (phy->sff.op && phy->sff.op->close)
 			phy->sff.op->close(phy);
-		if (phy->label)
-			kfree(phy->label);
+		kfree(phy->label);
 	}
 	for (n = 0; n < priv->eths; n++) {
 		struct nfp_phymod_eth *eth = &priv->eth[n];
-		if (eth->label)
-			kfree(eth->label);
+
+		kfree(eth->label);
 	}
 }
 
@@ -130,13 +129,15 @@ static const struct {
 static const char *_phymod_get_attr(struct nfp_phymod *phy, const char *attr)
 {
 	char buff[32];
+
 	snprintf(buff, sizeof(buff), "%s.%s", phy->key, attr);
-	buff[sizeof(buff)-1] = 0;
+	buff[sizeof(buff) - 1] = 0;
 
 	return nfp_hwinfo_lookup(phy->priv->nfp, buff);
 }
 
-static int _phymod_get_attr_int(struct nfp_phymod *phy, const char *attr, int *val)
+static int _phymod_get_attr_int(struct nfp_phymod *phy,
+				const char *attr, int *val)
 {
 	const char *ptr;
 
@@ -149,7 +150,7 @@ static int _phymod_get_attr_int(struct nfp_phymod *phy, const char *attr, int *v
 	return kstrtoint(ptr, 0, val);
 }
 
-static int _get_attr_pin(const char *ptr, pin_t *val)
+static int _get_attr_pin(const char *ptr, struct pin *val)
 {
 	int rc, bus, cs, addr, pin;
 
@@ -163,7 +164,7 @@ static int _get_attr_pin(const char *ptr, pin_t *val)
 	}
 
 	rc = sscanf(ptr, "cpld:%i:%i:%i.%i",
-			&bus, &cs, &addr, &pin);
+		    &bus, &cs, &addr, &pin);
 	if (rc == 4) {
 		val->type = PIN_CPLD;
 		val->cpld.bus = bus;
@@ -176,7 +177,8 @@ static int _get_attr_pin(const char *ptr, pin_t *val)
 	return -EINVAL;
 }
 
-static int _phymod_get_attr_pin(struct nfp_phymod *phy, const char *attr, pin_t *val)
+static int _phymod_get_attr_pin(struct nfp_phymod *phy,
+				const char *attr, struct pin *val)
 {
 	const char *ptr;
 
@@ -192,13 +194,15 @@ static int _phymod_get_attr_pin(struct nfp_phymod *phy, const char *attr, pin_t 
 static const char *_eth_get_attr(struct nfp_phymod_eth *eth, const char *attr)
 {
 	char buff[32];
+
 	snprintf(buff, sizeof(buff), "%s.%s", eth->key, attr);
-	buff[sizeof(buff)-1] = 0;
+	buff[sizeof(buff) - 1] = 0;
 
 	return nfp_hwinfo_lookup(eth->priv->nfp, buff);
 }
 
-static int _eth_get_attr_int(struct nfp_phymod_eth *eth, const char *attr, int *val)
+static int _eth_get_attr_int(struct nfp_phymod_eth *eth,
+			     const char *attr, int *val)
 {
 	const char *ptr;
 
@@ -211,7 +215,8 @@ static int _eth_get_attr_int(struct nfp_phymod_eth *eth, const char *attr, int *
 	return kstrtoint(ptr, 0, val);
 }
 
-static int _eth_get_attr_mac(struct nfp_phymod_eth *eth, const char *attr, uint8_t *mac)
+static int _eth_get_attr_mac(struct nfp_phymod_eth *eth,
+			     const char *attr, uint8_t *mac)
 {
 	const char *ptr;
 
@@ -220,8 +225,8 @@ static int _eth_get_attr_mac(struct nfp_phymod_eth *eth, const char *attr, uint8
 		int err;
 
 		err = sscanf(ptr, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
-				&mac[0], &mac[1], &mac[2],
-				&mac[3], &mac[4], &mac[5]);
+			     &mac[0], &mac[1], &mac[2],
+			     &mac[3], &mac[4], &mac[5]);
 		if (err != 6)
 			return -EINVAL;
 	} else {
@@ -231,7 +236,8 @@ static int _eth_get_attr_mac(struct nfp_phymod_eth *eth, const char *attr, uint8
 	return 0;
 }
 
-static int _eth_get_attr_pin(struct nfp_phymod_eth *eth, const char *attr, pin_t *val)
+static int _eth_get_attr_pin(struct nfp_phymod_eth *eth,
+			     const char *attr, struct pin *val)
 {
 	const char *ptr;
 
@@ -243,7 +249,6 @@ static int _eth_get_attr_pin(struct nfp_phymod_eth *eth, const char *attr, pin_t
 
 	return _get_attr_pin(ptr, val);
 }
-
 
 static int _phymod_lookup_type(const char *cp)
 {
@@ -291,27 +296,27 @@ static int bus_i2c_open(struct sff_bus *bus, const char *storage)
 	do {
 		/* ee1:4:0x50:0 */
 		rc = sscanf(storage, "ee1:%i:%i:%i",
-				&i2c_bus, &i2c_addr, &i2c_offset);
+			    &i2c_bus, &i2c_addr, &i2c_offset);
 		if (rc == 3)
 			break;
 
 		/* ee1:4:0x50 */
 		i2c_offset = 0;
 		rc = sscanf(storage, "ee1:%i:%i",
-				&i2c_bus, &i2c_addr);
+			    &i2c_bus, &i2c_addr);
 		if (rc == 2)
 			break;
 
 		/* ee1:1.3:0x50:0 */
 		rc = sscanf(storage, "ee1:%i.%i:%i:%i",
-				&i2c_bus, &i2c_cs, &i2c_addr, &i2c_offset);
+			    &i2c_bus, &i2c_cs, &i2c_addr, &i2c_offset);
 		if (rc == 4)
 			break;
 
 		/* ee1:1.3:0x50 */
 		i2c_offset = 0;
 		rc = sscanf(storage, "ee1:%i.%i:%i",
-				&i2c_bus, &i2c_cs, &i2c_addr);
+			    &i2c_bus, &i2c_cs, &i2c_addr);
 		if (rc == 3)
 			break;
 
@@ -350,7 +355,7 @@ static int bus_i2c_select(struct sff_bus *bus, int is_selected)
 		if (!priv->i2c) {
 			priv->i2c = nfp_i2c_alloc(bus->nfp,
 						  priv->scl, priv->sda);
-			if (priv->i2c == NULL)
+			if (!priv->i2c)
 				return -EINVAL;
 			/* Set to default rate */
 			nfp_i2c_set_speed(priv->i2c, 0);
@@ -360,8 +365,10 @@ static int bus_i2c_select(struct sff_bus *bus, int is_selected)
 				int i;
 
 				for (i = 0; i < 3; i++) {
-					uint8_t cmd = (csmask >> (4*i)) & 0xf;
-					nfp_i2c_write(priv->i2c, 0x71 + i, cmd, 1, NULL, 0);
+					uint8_t cmd = (csmask >> (4 * i)) & 0xf;
+
+					nfp_i2c_write(priv->i2c, 0x71 + i,
+						      cmd, 1, NULL, 0);
 				}
 			}
 		}
@@ -376,7 +383,6 @@ static int bus_i2c_select(struct sff_bus *bus, int is_selected)
 
 static int bus_i2c_read8(struct sff_bus *bus, uint32_t reg, uint8_t *val)
 {
-
 	struct bus_i2c *priv = bus->priv;
 
 	if (!priv->i2c)
@@ -447,9 +453,8 @@ static int cpld_write(struct nfp_spi *spi, int cs, uint8_t addr, uint32_t val)
 	uint8_t data[5] = {};
 	int i;
 
-	for (i = 0; i < 4; i++) {
-		data[i] = (val >> (24 - 8*i)) & 0xff;
-	}
+	for (i = 0; i < 4; i++)
+		data[i] = (val >> (24 - 8 * i)) & 0xff;
 
 	return nfp_spi_write(spi, cs, 1, &addr, 5, data);
 }
@@ -462,19 +467,19 @@ static int cpld_read(struct nfp_spi *spi, int cs, uint8_t addr, uint32_t *val)
 
 	addr |= 0x80;
 	err = nfp_spi_read(spi, cs, 1, &addr, 5, data);
+
 	if (err < 0)
 		return err;
-	
-	for (i = 0; i < 4; i++) {
-		res |= (data[i] << (24 - 8*i));
-	}
+
+	for (i = 0; i < 4; i++)
+		res |= (data[i] << (24 - 8 * i));
 
 	*val = res;
 
 	return 0;
 }
 
-static int pin_direction(struct nfp_device *nfp, pin_t *pin, int dir)
+static int pin_direction(struct nfp_device *nfp, struct pin *pin, int dir)
 {
 	int err;
 
@@ -486,7 +491,7 @@ static int pin_direction(struct nfp_device *nfp, pin_t *pin, int dir)
 	return err;
 }
 
-static int pin_set(struct nfp_device *nfp, pin_t *pin, int out)
+static int pin_set(struct nfp_device *nfp, struct pin *pin, int out)
 {
 	int err;
 
@@ -509,7 +514,8 @@ static int pin_set(struct nfp_device *nfp, pin_t *pin, int out)
 				tmp |=  (1 << pin->cpld.bit);
 			else
 				tmp &= ~(1 << pin->cpld.bit);
-			err = cpld_write(spi, pin->cpld.cs, pin->cpld.addr, tmp);
+			err = cpld_write(spi,
+					 pin->cpld.cs, pin->cpld.addr, tmp);
 		}
 
 		nfp_spi_release(spi);
@@ -520,7 +526,7 @@ static int pin_set(struct nfp_device *nfp, pin_t *pin, int out)
 	return err;
 }
 
-static int pin_get(struct nfp_device *nfp, pin_t *pin)
+static int pin_get(struct nfp_device *nfp, struct pin *pin)
 {
 	int err;
 
@@ -538,9 +544,8 @@ static int pin_get(struct nfp_device *nfp, pin_t *pin)
 		nfp_spi_mode_set(spi, 1);
 
 		err = cpld_read(spi, pin->cpld.cs, pin->cpld.addr, &tmp);
-		if (err >= 0) {
+		if (err >= 0)
 			err = (tmp >> pin->cpld.bit) & 1;
-		}
 
 		nfp_spi_release(spi);
 	} else {
@@ -584,7 +589,7 @@ static void *_phymod_private(struct nfp_device *nfp)
 		phy->index = n;
 
 		snprintf(phy->key, sizeof(phy->key), "phy%d", n);
-		phy->key[sizeof(phy->key)-1] = 0;
+		phy->key[sizeof(phy->key) - 1] = 0;
 
 		err = _phymod_get_attr_int(phy, "nbi", &phy->nbi);
 		if (err < 0)
@@ -636,7 +641,7 @@ static void *_phymod_private(struct nfp_device *nfp)
 		eth->index = n;
 
 		snprintf(eth->key, sizeof(eth->key), "eth%d", n);
-		eth->key[sizeof(eth->key)-1] = 0;
+		eth->key[sizeof(eth->key) - 1] = 0;
 
 		err = _eth_get_attr_int(eth, "phy", &phy);
 		if (err < 0)
@@ -677,10 +682,10 @@ static void *_phymod_private(struct nfp_device *nfp)
 			eth->fail_to_wire.label = kstrdup(cp, GFP_KERNEL);
 			/* (optional) fail-to-wire force */
 			_eth_get_attr_pin(eth, "fail-to-wire.pin.force",
-						&eth->fail_to_wire.force);
+					  &eth->fail_to_wire.force);
 			/* (optional) fail-to-wire status */
 			_eth_get_attr_pin(eth, "fail-to-wire.pin.active",
-						&eth->fail_to_wire.active);
+					  &eth->fail_to_wire.active);
 		}
 
 		priv->eths++;
@@ -693,7 +698,7 @@ static int _phymod_select(struct nfp_phymod *phy)
 {
 	struct nfp_phymod_priv *priv;
 	int i, err = 0;
-	
+
 	priv = phy->priv;
 
 	if (priv->selected == phy->index)
@@ -734,7 +739,7 @@ struct nfp_phymod *nfp_phymod_next(struct nfp_device *nfp, void **ptr)
 	if (!priv)
 		return NULL;
 
-	if (prev == NULL) {
+	if (!prev) {
 		if (priv->phymods > 0)
 			next = &priv->phymod[0];
 	} else {
@@ -779,7 +784,6 @@ int nfp_phymod_get_label(struct nfp_phymod *phymod, const char **label)
 	return 0;
 }
 EXPORT_SYMBOL(nfp_phymod_get_label);
-
 
 /**
  * nfp_phymod_get_nbi() - Get the NBI ID for a phymode
@@ -1221,7 +1225,8 @@ EXPORT_SYMBOL(nfp_phymod_write8);
  *
  * Return: struct nfp_phymod_eth pointer, or NULL
  */
-struct nfp_phymod_eth *nfp_phymod_eth_next(struct nfp_device *nfp, struct nfp_phymod *phy, void **ptr)
+struct nfp_phymod_eth *nfp_phymod_eth_next(struct nfp_device *nfp,
+					   struct nfp_phymod *phy, void **ptr)
 {
 	struct nfp_phymod_priv *priv;
 	int i;
@@ -1290,7 +1295,8 @@ EXPORT_SYMBOL(nfp_phymod_eth_get_index);
  *
  * Return: 0, or -ERRNO
  */
-int nfp_phymod_eth_get_phymod(struct nfp_phymod_eth *eth, struct nfp_phymod **phy, int *lane)
+int nfp_phymod_eth_get_phymod(struct nfp_phymod_eth *eth,
+			      struct nfp_phymod **phy, int *lane)
 {
 	if (phy)
 		*phy = eth->phymod;
@@ -1421,13 +1427,15 @@ EXPORT_SYMBOL(nfp_phymod_eth_get_speed);
  *
  * Return: 0, or -ERRNO
  */
-int nfp_phymod_eth_get_fail_to_wire(struct nfp_phymod_eth *eth, const char **eth_label, int *active)
+int nfp_phymod_eth_get_fail_to_wire(struct nfp_phymod_eth *eth,
+				    const char **eth_label, int *active)
 {
 	if (eth_label)
 		*eth_label = eth->fail_to_wire.label;
 
 	if (active) {
 		int err = pin_get(eth->priv->nfp, &eth->fail_to_wire.active);
+
 		if (err < 0)
 			return err;
 		*active = err;

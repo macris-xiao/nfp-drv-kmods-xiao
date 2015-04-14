@@ -28,7 +28,7 @@
 #include "nfp-bsp/nfp_target.h"
 
 #define NFP_MIP_SIGNATURE	0x0050494d  /* "MIP\0" */
-#define NFP_MIP_MAX_OFFSET   (256*1024)
+#define NFP_MIP_MAX_OFFSET	(256 * 1024)
 
 #define UINT32_MAX	(0xffffffff)
 
@@ -94,7 +94,6 @@ struct nfp_mip_vpci {
 	uint32_t vpci_epconfig_size;
 };
 
-
 static void __mip_update_byteorder(struct nfp_mip *mip)
 {
 	struct nfp_mip_entry *ent;
@@ -118,8 +117,7 @@ static void __mip_update_byteorder(struct nfp_mip *mip)
 	for (offset = mip->first_entry;
 		 (offset + sizeof(*ent)) < mip->mip_size;
 		 offset += ent->offset_next) {
-
-		ent = (struct nfp_mip_entry *) (((char *) mip) + offset);
+		ent = (struct nfp_mip_entry *)(((char *)mip) + offset);
 		ent->type = le32_to_cpu(ent->type);
 		ent->version = le32_to_cpu(ent->version);
 		ent->offset_next = le32_to_cpu(ent->offset_next);
@@ -133,7 +131,7 @@ static void __mip_update_byteorder(struct nfp_mip *mip)
 
 		case NFP_MIP_TYPE_QC:
 		{
-			struct nfp_mip_qc *qc = (struct nfp_mip_qc *) ent;
+			struct nfp_mip_qc *qc = (struct nfp_mip_qc *)ent;
 
 			if (qc->version != NFP_MIP_QC_VERSION)
 				break;
@@ -156,7 +154,7 @@ static void __mip_update_byteorder(struct nfp_mip *mip)
 
 		case NFP_MIP_TYPE_VPCI:
 		{
-			struct nfp_mip_vpci *vpci = (struct nfp_mip_vpci *) ent;
+			struct nfp_mip_vpci *vpci = (struct nfp_mip_vpci *)ent;
 
 			if (vpci->version != NFP_MIP_VPCI_VERSION)
 				break;
@@ -217,7 +215,7 @@ static void *__nfp_mip_con(struct nfp_device *dev)
 const struct nfp_mip *nfp_mip(struct nfp_device *dev)
 {
 	struct nfp_mip_priv *priv = nfp_device_private(dev, __nfp_mip_con);
-        int err;
+	int err;
 
 	if (priv->mip)
 		return priv->mip;
@@ -230,9 +228,9 @@ const struct nfp_mip *nfp_mip(struct nfp_device *dev)
 }
 
 #define   NFP_IMB_TgtAddressModeCfg_Mode_of(_x)      (((_x) >> 13) & 0x7)
-#define   NFP_IMB_TgtAddressModeCfg_AddrMode                 (1 << 12)
-#define     NFP_IMB_TgtAddressModeCfg_AddrMode_32_bit        (0 << 12)
-#define     NFP_IMB_TgtAddressModeCfg_AddrMode_40_bit        (1 << 12)
+#define   NFP_IMB_TgtAddressModeCfg_AddrMode                 BIT(12)
+#define     NFP_IMB_TgtAddressModeCfg_AddrMode_32_bit        0
+#define     NFP_IMB_TgtAddressModeCfg_AddrMode_40_bit        BIT(12)
 
 static int nfp_mip_nfp6000_mu_locality_lsb(struct nfp_device *dev)
 {
@@ -256,8 +254,8 @@ static int nfp_mip_nfp6000_mu_locality_lsb(struct nfp_device *dev)
 }
 
 static int __nfp_mip_location(struct nfp_device *dev,
-		       uint32_t *cppid, uint64_t *addr,
-		       unsigned long *size, unsigned long *load_time)
+			      uint32_t *cppid, uint64_t *addr,
+			      unsigned long *size, unsigned long *load_time)
 {
 	int retval;
 	uint32_t mip_cppid = 0;
@@ -270,13 +268,13 @@ static int __nfp_mip_location(struct nfp_device *dev,
 	if (nfp_nffw_info_acquire(dev) == 0) {
 		int mu_lsb = -1;
 
-		if (NFP_CPP_MODEL_IS_6000(model)) 
+		if (NFP_CPP_MODEL_IS_6000(model))
 			mu_lsb = nfp_mip_nfp6000_mu_locality_lsb(dev);
 		else
 			mu_lsb = 38; /* Assume 40-bit addressing */
 
 		if ((nfp_nffw_info_fw_mip(dev, nfp_nffw_info_fwid_first(dev),
-				&mip_cppid, &mip_off) == 0) &&
+					  &mip_cppid, &mip_off) == 0) &&
 			(mip_cppid != 0) &&
 			(NFP_CPP_ID_TARGET_of(mip_cppid) ==
 						NFP_CPP_TARGET_MU)) {
@@ -296,7 +294,7 @@ static int __nfp_mip_location(struct nfp_device *dev,
 				      mip_off,
 				      &mip, sizeof(mip));
 		if (retval < sizeof(mip) ||
-		    le32_to_cpu(mip.signature) != NFP_MIP_SIGNATURE )
+		    le32_to_cpu(mip.signature) != NFP_MIP_SIGNATURE)
 			mip_cppid = 0;
 	}
 
@@ -348,7 +346,7 @@ err_probe:
  * to nfp_mip() is no longer guaranteed to be present and any
  * references to the old structure is invalid.
  *
- * Return: 1 if MIP has been updated, 0 if no update has occured, or -ERRNO
+ * Return: 1 if MIP has been updated, 0 if no update has occurred, or -ERRNO
  */
 int nfp_mip_probe(struct nfp_device *dev)
 {
@@ -392,7 +390,7 @@ int nfp_mip_probe(struct nfp_device *dev)
 	}
 
 	if ((le32_to_cpu(mip->signature) != NFP_MIP_SIGNATURE) ||
-		(le32_to_cpu(mip->mip_version) != NFP_MIP_VERSION)) {
+	    (le32_to_cpu(mip->mip_version) != NFP_MIP_VERSION)) {
 		kfree(mip);
 		return -EIO;
 	}

@@ -80,5 +80,4 @@ struct nfp_resource_entry {
  */
 #define NFP_RESOURCE_MAC_STATISTICS     "mac.stat"
 
-
 #endif /* NFP_BSP_NFP_RESOURCE_H */

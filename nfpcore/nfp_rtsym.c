@@ -110,7 +110,7 @@ static int __nfp_rtsymtab_probe(struct nfp_device *dev,
 		return err;
 
 	if (symtab_size == 0 || strtab_size == 0 ||
-		(symtab_size % sizeof(*rtsymtab)) != 0)
+	    (symtab_size % sizeof(*rtsymtab)) != 0)
 		return -ENXIO;
 
 	/* Align to 64 bits */
@@ -122,8 +122,9 @@ static int __nfp_rtsymtab_probe(struct nfp_device *dev,
 		return -ENOMEM;
 
 	priv->numrtsyms = symtab_size / sizeof(*rtsymtab);
-	priv->rtsymtab = kmalloc(priv->numrtsyms * sizeof(struct nfp_rtsym),
-				 GFP_KERNEL);
+	priv->rtsymtab = kmalloc_array(priv->numrtsyms,
+				       sizeof(struct nfp_rtsym),
+				       GFP_KERNEL);
 	if (!priv->rtsymtab) {
 		err = -ENOMEM;
 		goto err_symtab;
@@ -147,7 +148,7 @@ static int __nfp_rtsymtab_probe(struct nfp_device *dev,
 			goto err_read_strtab;
 		priv->rtstrtab[strtab_size] = '\0';
 
-		for (wptr = (uint32_t *) rtsymtab, n = 0;
+		for (wptr = (uint32_t *)rtsymtab, n = 0;
 		     n < priv->numrtsyms; n++)
 			wptr[n] = le32_to_cpu(wptr[n]);
 
@@ -155,11 +156,11 @@ static int __nfp_rtsymtab_probe(struct nfp_device *dev,
 			priv->rtsymtab[n].type = rtsymtab[n].type;
 			priv->rtsymtab[n].name = priv->rtstrtab +
 				(rtsymtab[n].name % strtab_size);
-			priv->rtsymtab[n].addr = (((uint64_t)
-						  rtsymtab[n].addr_hi) << 32) +
+			priv->rtsymtab[n].addr =
+				(((uint64_t)rtsymtab[n].addr_hi) << 32) +
 				rtsymtab[n].addr_lo;
-			priv->rtsymtab[n].size = (((uint64_t)
-						  rtsymtab[n].size_hi) << 32) +
+			priv->rtsymtab[n].size =
+				(((uint64_t)rtsymtab[n].size_hi) << 32) +
 				rtsymtab[n].size_lo;
 			switch (rtsymtab[n].target) {
 			case _SYM_TGT_LMEM:
@@ -193,7 +194,7 @@ static int __nfp_rtsymtab_probe(struct nfp_device *dev,
 			goto err_read_strtab;
 		priv->rtstrtab[strtab_size] = '\0';
 
-		for (wptr = (uint32_t *) rtsymtab, n = 0;
+		for (wptr = (uint32_t *)rtsymtab, n = 0;
 		     n < priv->numrtsyms; n++)
 			wptr[n] = le32_to_cpu(wptr[n]);
 

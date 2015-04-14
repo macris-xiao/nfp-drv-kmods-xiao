@@ -512,7 +512,7 @@ static int nfp_err_plat_probe(struct platform_device *pdev)
 	init_timer(&cdev->timer);
 	cdev->timer.function = nfp_err_timer;
 	cdev->timer.data = (unsigned long)cdev;
-	cdev->timer_interval = nfp_mon_err_pollinterval * HZ/1000;
+	cdev->timer_interval = nfp_mon_err_pollinterval * HZ / 1000;
 	if (!cdev->timer_interval)
 		cdev->timer_interval = 1;
 	nfp_err_schedule(cdev);
@@ -585,7 +585,8 @@ int __init nfp_mon_err_init(void)
 	if (err)
 		goto err_plat;
 
-	pr_info("%s: NFP Error Monitor Driver, Copyright (C) 2011,2015 Netronome Systems\n", NFP_MON_ERR_TYPE);
+	pr_info("%s: NFP Error Monitor Driver, Copyright (C) 2011,2015 Netronome Systems\n",
+		NFP_MON_ERR_TYPE);
 
 	return 0;
 

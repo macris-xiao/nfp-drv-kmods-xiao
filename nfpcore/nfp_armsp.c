@@ -37,12 +37,12 @@
 #define   ARMSP_STATUS_CODE(x)          (((x) & 0xffffULL) << 16)
 #define   ARMSP_STATUS_RESULT_of(x)     (((x) >>  8) & 0xff)
 #define   ARMSP_STATUS_RESULT(x)        (((x) & 0xffULL) << 8)
-#define   ARMSP_STATUS_BUSY             (1ULL << 0)
+#define   ARMSP_STATUS_BUSY             BIT_ULL(0)
 
 #define ARMSP_COMMAND           0x08
 #define   ARMSP_COMMAND_CODE(x)         (((x) & 0xffff) << 16)
 #define   ARMSP_COMMAND_CODE_of(x)      (((x) >> 16) & 0xffff)
-#define   ARMSP_COMMAND_START           (1ULL << 0)
+#define   ARMSP_COMMAND_START           BIT_ULL(0)
 
 #define ARMSP_MAGIC             0xab10
 #define ARMSP_MAJOR             0
@@ -146,8 +146,7 @@ int nfp_armsp_command(struct nfp_device *nfp, uint16_t code)
 	}
 
 	err = nfp_cpp_writeq(cpp, arm, arm_command,
-			ARMSP_COMMAND_CODE(code) |
-			ARMSP_COMMAND_START);
+			     ARMSP_COMMAND_CODE(code) | ARMSP_COMMAND_START);
 	if (err < 0)
 		return err;
 
@@ -161,13 +160,15 @@ int nfp_armsp_command(struct nfp_device *nfp, uint16_t code)
 			break;
 
 		if (msleep_interruptible(100) > 0) {
-			nfp_warn(nfp, "ARM SP: Interrupt waiting for code 0x%04x to start\n", code);
+			nfp_warn(nfp, "ARM SP: Interrupt waiting for code 0x%04x to start\n",
+				 code);
 			return -EINTR;
 		}
 	}
 
 	if (timeout < 0) {
-		nfp_warn(nfp, "ARM SP: Timeout waiting for code 0x%04x to start\n", code);
+		nfp_warn(nfp, "ARM SP: Timeout waiting for code 0x%04x to start\n",
+			 code);
 		return -ETIMEDOUT;
 	}
 
@@ -181,13 +182,15 @@ int nfp_armsp_command(struct nfp_device *nfp, uint16_t code)
 			break;
 
 		if (msleep_interruptible(100) > 0) {
-			nfp_warn(nfp, "ARM SP: Interrupt waiting for code 0x%04x to complete\n", code);
+			nfp_warn(nfp, "ARM SP: Interrupt waiting for code 0x%04x to complete\n",
+				 code);
 			return -EINTR;
 		}
 	}
 
 	if (timeout < 0) {
-		nfp_warn(nfp, "ARM SP: Timeout waiting for code 0x%04x to complete\n", code);
+		nfp_warn(nfp, "ARM SP: Timeout waiting for code 0x%04x to complete\n",
+			 code);
 		return -ETIMEDOUT;
 	}
 

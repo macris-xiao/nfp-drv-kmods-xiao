@@ -367,8 +367,8 @@ struct nfp_cpp_explicit_command {
 
 /**
  * struct nfp_cpp_operations - NFP CPP operations structure
- * @model:	Model ID (0 for built-in autodetection) 
- * @interface:	Interface ID - required! 
+ * @model:	Model ID (0 for built-in autodetection)
+ * @interface:	Interface ID - required!
  * @serial:	Serial number, typically the management MAC for the NFP
  * @area_priv_size:	Size of the nfp_cpp_area private data
  * @event_priv_size:	Size of the nfp_cpp_event private data
@@ -446,7 +446,7 @@ struct nfp_cpp *nfp_cpp_from_operations(
 		const struct nfp_cpp_operations *cpp_ops);
 void *nfp_cpp_priv(struct nfp_cpp *priv);
 void *nfp_cpp_area_priv(struct nfp_cpp_area *cpp_area);
- 
+
 void *nfp_cpp_explicit_priv(struct nfp_cpp_explicit *cpp_explicit);
 void *nfp_cpp_event_priv(struct nfp_cpp_event *cpp_event);
 struct device *nfp_cpp_device(struct nfp_cpp *cpp);
@@ -478,14 +478,13 @@ int nfp_cpp_event_as_callback(struct nfp_cpp_event *event,
 
 uint64_t nfp_cpp_island_mask(struct nfp_cpp *cpp);
 
-
 /* Implemented in nfp_explicit.c */
 
 /*
  * Return code masks for nfp_cpp_explicit_do()
  */
-#define NFP_SIGNAL_MASK_A	(1 << 0)	/* Signal A fired */
-#define NFP_SIGNAL_MASK_B	(1 << 1)	/* Signal B fired */
+#define NFP_SIGNAL_MASK_A	BIT(0)	/* Signal A fired */
+#define NFP_SIGNAL_MASK_B	BIT(1)	/* Signal B fired */
 
 enum nfp_cpp_explicit_signal_mode {
 	NFP_SIGNAL_NONE	= 0,

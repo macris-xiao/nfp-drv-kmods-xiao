@@ -34,8 +34,8 @@
  * Return: struct platform_device *, or NULL
  */
 struct platform_device *nfp_platform_device_register_unit(struct nfp_cpp *cpp,
-						     const char *type,
-						     int unit, int units)
+							  const char *type,
+							  int unit, int units)
 {
 	struct device *dev = nfp_cpp_device(cpp);
 	struct platform_device *pdev;
@@ -49,7 +49,7 @@ struct platform_device *nfp_platform_device_register_unit(struct nfp_cpp *cpp,
 	id = nfp_cpp_device_id(cpp) * units + unit;
 
 	pdev = platform_device_alloc(type, id);
-	if (pdev == NULL) {
+	if (!pdev) {
 		dev_err(dev, "Can't create '%s.%d' platform device",
 			type, id);
 		return NULL;

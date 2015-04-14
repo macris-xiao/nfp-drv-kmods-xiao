@@ -79,7 +79,7 @@
 #define NFP_EM_EVENT_TYPE_STATUS_FLAGS	4	/* Status flags event */
 
 #define NFP_EM_EVENT_PIN_ID(pin) \
-	(((((pin) >> 3)&0x7) << 8) | (1 << ((pin) & 0x7)))
+	(((((pin) >> 3) & 0x7) << 8) | (1 << ((pin) & 0x7)))
 #define NFP_EM_EVENT_MATCH(source, pin_id, event_type) \
 	(((source) << 16) | ((pin_id) << 4) | (event_type))
 #define NFP_EM_EVENT_TYPE_of(ev)        ((ev) & 0xf)
@@ -129,7 +129,7 @@ struct nfp_em_manager *nfp_em_manager_create(void __iomem *em, int irq)
 	struct nfp_em_manager *evm;
 
 	evm = kmalloc(sizeof(*evm), GFP_KERNEL);
-	if (evm == NULL)
+	if (!evm)
 		return ERR_PTR(-ENOMEM);
 
 	evm->irq = irq;
@@ -182,7 +182,7 @@ int nfp_em_manager_acquire(struct nfp_em_manager *evm,
 
 	spin_lock_irqsave(&evm->lock, flags);
 	for (i = 0; i < ARRAY_SIZE(evm->filter); i++) {
-		if (evm->filter[i].event == NULL) {
+		if (!evm->filter[i].event) {
 			evm->filter[i].event = event;
 			break;
 		}

@@ -15,12 +15,12 @@ struct sff_8431 {
 	int page;
 	int tx_disable;
 	struct {
-		pin_t present;
-		pin_t rx_los;
-		pin_t tx_fault;
+		struct pin present;
+		struct pin rx_los;
+		struct pin tx_fault;
 	} in;
 	struct {
-		pin_t tx_disable;
+		struct pin tx_disable;
 	} out;
 };
 
@@ -127,10 +127,8 @@ static int sff_8431_read8(struct nfp_phymod *phy, uint32_t reg, uint8_t *val)
 	struct sff_8431 *sff = phy->sff.priv;
 	int page = (reg >> 8);
 
-	if (!sff->selected
-	    || !sff->bus.op
-	    || !sff->bus.op->read8
-	    || !sff->bus.op->write8)
+	if (!sff->selected ||
+	    !sff->bus.op || !sff->bus.op->read8 || !sff->bus.op->write8)
 		return -EINVAL;
 
 	reg &= 0xff;
@@ -148,9 +146,8 @@ static int sff_8431_write8(struct nfp_phymod *phy, uint32_t reg, uint8_t val)
 	struct sff_8431 *sff = phy->sff.priv;
 	int page = (reg >> 8);
 
-	if (!sff->selected
-	    || !sff->bus.op
-	    || !sff->bus.op->write8)
+	if (!sff->selected ||
+	    !sff->bus.op || !sff->bus.op->write8)
 		return -EINVAL;
 
 	reg &= 0xff;
@@ -183,7 +180,7 @@ static int sff_8431_status_los(struct nfp_phymod *phy,
 }
 
 static int sff_8431_status_fault(struct nfp_phymod *phy,
-			       uint32_t *tx_status, uint32_t *rx_status)
+				 uint32_t *tx_status, uint32_t *rx_status)
 {
 	struct sff_8431 *sff = phy->sff.priv;
 	int err;
@@ -202,7 +199,7 @@ static int sff_8431_status_fault(struct nfp_phymod *phy,
 }
 
 static int sff_8431_get_lane_dis(struct nfp_phymod *phy,
-			       uint32_t *tx_status, uint32_t *rx_status)
+				 uint32_t *tx_status, uint32_t *rx_status)
 {
 	struct sff_8431 *sff = phy->sff.priv;
 	uint32_t rxs = 0, txs = 0;
@@ -219,11 +216,11 @@ static int sff_8431_get_lane_dis(struct nfp_phymod *phy,
 }
 
 static int sff_8431_set_lane_dis(struct nfp_phymod *phy,
-			         uint32_t tx_status, uint32_t rx_status)
+				 uint32_t tx_status, uint32_t rx_status)
 {
 	struct sff_8431 *sff = phy->sff.priv;
 	int err;
-	
+
 	err = pin_set(phy->priv->nfp, &sff->out.tx_disable, tx_status & 1);
 	if (err < 0)
 		return err;

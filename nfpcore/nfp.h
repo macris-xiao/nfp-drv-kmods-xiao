@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2010-2011,2014-2015  Netronome Systems, Inc.  All rights reserved.
+ * Copyright (C) 2010-2011,2014-2015  Netronome Systems, Inc.
+ * All rights reserved.
  *
  * @file          nfp.h
  * @brief         Interface for NFP device access and query functions.
@@ -21,17 +22,24 @@
 #endif
 
 #define nfp_err(nfp, fmt, args...) \
-	dev_err(nfp_cpp_device(nfp_device_cpp(nfp))->parent, NFP_SUBSYS fmt, ## args)
+	dev_err(nfp_cpp_device(nfp_device_cpp(nfp))->parent, \
+		NFP_SUBSYS fmt, ## args)
 #define nfp_warn(nfp, fmt, args...) \
-	dev_warn(nfp_cpp_device(nfp_device_cpp(nfp))->parent, NFP_SUBSYS fmt, ## args)
+	dev_warn(nfp_cpp_device(nfp_device_cpp(nfp))->parent, \
+		 NFP_SUBSYS fmt, ## args)
 #define nfp_info(nfp, fmt, args...) \
-	dev_info(nfp_cpp_device(nfp_device_cpp(nfp))->parent, NFP_SUBSYS fmt, ## args)
+	dev_info(nfp_cpp_device(nfp_device_cpp(nfp))->parent, \
+		NFP_SUBSYS fmt, ## args)
 #define nfp_dbg(nfp, fmt, args...) \
-	dev_dbg(nfp_cpp_device(nfp_device_cpp(nfp))->parent, NFP_SUBSYS fmt, ## args)
+	dev_dbg(nfp_cpp_device(nfp_device_cpp(nfp))->parent, \
+		NFP_SUBSYS fmt, ## args)
 #define nfp_trace(nfp, fmt, args...) \
-	trace_printk("%s %s: " NFP_SUBSYS fmt, \
-			dev_driver_string(nfp_cpp_device(nfp_device_cpp(nfp))->parent, \
-			dev_name(nfp_cpp_device(nfp_device_cpp(nfp))->parent, ## args)
+	do { \
+		struct device *_dev; \
+		_dev = nfp_cpp_device(nfp_device_cpp(nfp))->parent; \
+		trace_printk("%s %s: " NFP_SUBSYS fmt, \
+		     dev_driver_string(_dev), dev_name(_dev)); \
+	} while (0)
 
 struct nfp_cpp;
 
@@ -51,9 +59,9 @@ int nfp_device_id(struct nfp_device *nfp);
 struct nfp_cpp *nfp_device_cpp(struct nfp_device *dev);
 
 void *nfp_device_private(struct nfp_device *dev,
-			 void *(*constructor) (struct nfp_device * dev));
+			 void *(*constructor)(struct nfp_device *dev));
 void *nfp_device_private_alloc(struct nfp_device *dev, size_t private_size,
-			       void (*destructor) (void *private_data));
+			       void (*destructor)(void *private_data));
 
 /* Implemented in nfp_hwinfo.c */
 
@@ -111,32 +119,33 @@ const char *nfp_hwinfo_lookup(struct nfp_device *nfp, const char *lookup);
 /*
  * NFP6000 specific subdevice identifiers
  */
-#define NFP6000_DEVICE(island, unit)     ((((island) & 0x3f)<< 8) | ((unit) & 0xf))
-#define NFP6000_DEVICE_ISLAND_of(x)      (((x) >> 8) & 0x3f)
-#define NFP6000_DEVICE_UNIT_of(x)        (((x) >> 0) & 0x0f)
+#define NFP6000_DEVICE(island, unit) \
+	((((island) & 0x3f) << 8) | ((unit) & 0xf))
+#define NFP6000_DEVICE_ISLAND_of(x)	(((x) >> 8) & 0x3f)
+#define NFP6000_DEVICE_UNIT_of(x)	(((x) >> 0) & 0x0f)
 
-#define NFP6000_DEVICE_ARM(dev, unit)   NFP6000_DEVICE((dev)+1, unit)
+#define NFP6000_DEVICE_ARM(dev, unit)   NFP6000_DEVICE((dev) + 1, unit)
 #define     NFP6000_DEVICE_ARM_CORE  0
 #define     NFP6000_DEVICE_ARM_ARM   1
 #define     NFP6000_DEVICE_ARM_GSK   2
 #define     NFP6000_DEVICE_ARM_PRH   3
 #define     NFP6000_DEVICE_ARM_MEG0  4
 #define     NFP6000_DEVICE_ARM_MEG1  5
-#define NFP6000_DEVICE_PCI(dev, unit)    NFP6000_DEVICE((dev)+4, unit)
+#define NFP6000_DEVICE_PCI(dev, unit)    NFP6000_DEVICE((dev) + 4, unit)
 #define     NFP6000_DEVICE_PCI_CORE  0
 #define     NFP6000_DEVICE_PCI_PCI   1
 #define     NFP6000_DEVICE_PCI_MEG0  2
 #define     NFP6000_DEVICE_PCI_MEG1  3
-#define NFP6000_DEVICE_NBI(dev, unit)    NFP6000_DEVICE((dev)+8, unit)
+#define NFP6000_DEVICE_NBI(dev, unit)    NFP6000_DEVICE((dev) + 8, unit)
 #define     NFP6000_DEVICE_NBI_CORE  0
 #define     NFP6000_DEVICE_NBI_MAC4  4
 #define     NFP6000_DEVICE_NBI_MAC5  5
-#define NFP6000_DEVICE_CRP(dev, unit)    NFP6000_DEVICE((dev)+12, unit)
+#define NFP6000_DEVICE_CRP(dev, unit)    NFP6000_DEVICE((dev) + 12, unit)
 #define     NFP6000_DEVICE_CRP_CORE  0
 #define     NFP6000_DEVICE_CRP_CRP   1
 #define     NFP6000_DEVICE_CRP_MEG0  2
 #define     NFP6000_DEVICE_CRP_MEG1  3
-#define NFP6000_DEVICE_EMU(dev, unit)    NFP6000_DEVICE((dev)+24, unit)
+#define NFP6000_DEVICE_EMU(dev, unit)    NFP6000_DEVICE((dev) + 24, unit)
 #define     NFP6000_DEVICE_EMU_CORE  0
 #define     NFP6000_DEVICE_EMU_QUE   1
 #define     NFP6000_DEVICE_EMU_LUP   2
@@ -144,13 +153,13 @@ const char *nfp_hwinfo_lookup(struct nfp_device *nfp, const char *lookup);
 #define     NFP6000_DEVICE_EMU_EXT   4
 #define     NFP6000_DEVICE_EMU_DDR0  5
 #define     NFP6000_DEVICE_EMU_DDR1  6
-#define NFP6000_DEVICE_IMU(dev, unit)    NFP6000_DEVICE((dev)+28, unit)
+#define NFP6000_DEVICE_IMU(dev, unit)    NFP6000_DEVICE((dev) + 28, unit)
 #define     NFP6000_DEVICE_IMU_CORE  0
 #define     NFP6000_DEVICE_IMU_STS   1
 #define     NFP6000_DEVICE_IMU_LBL   2
 #define     NFP6000_DEVICE_IMU_CLU   3
 #define     NFP6000_DEVICE_IMU_NLU   4
-#define NFP6000_DEVICE_FPC(dev, unit)    NFP6000_DEVICE((dev)+32, unit)
+#define NFP6000_DEVICE_FPC(dev, unit)    NFP6000_DEVICE((dev) + 32, unit)
 #define     NFP6000_DEVICE_FPC_CORE  0
 #define     NFP6000_DEVICE_FPC_MEG0  1
 #define     NFP6000_DEVICE_FPC_MEG1  2
@@ -158,7 +167,7 @@ const char *nfp_hwinfo_lookup(struct nfp_device *nfp, const char *lookup);
 #define     NFP6000_DEVICE_FPC_MEG3  4
 #define     NFP6000_DEVICE_FPC_MEG4  5
 #define     NFP6000_DEVICE_FPC_MEG5  6
-#define NFP6000_DEVICE_ILA(dev, unit)    NFP6000_DEVICE((dev)+48, unit)
+#define NFP6000_DEVICE_ILA(dev, unit)    NFP6000_DEVICE((dev) + 48, unit)
 #define     NFP6000_DEVICE_ILA_CORE  0
 #define     NFP6000_DEVICE_ILA_ILA   1
 #define     NFP6000_DEVICE_ILA_MEG0  2

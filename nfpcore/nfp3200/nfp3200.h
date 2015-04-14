@@ -45,7 +45,7 @@
 
 /* CPP Masters */
 
-#define NFP_CPP_MASTER_ME(x)		(((((x)>>3)*16)+8) | ((x) & 7))
+#define NFP_CPP_MASTER_ME(x)		(((((x) >> 3) * 16) + 8) | ((x) & 7))
 #define NFP_CPP_MASTER_MSF0		1
 #define NFP_CPP_MASTER_PCIE		17
 #define NFP_CPP_MASTER_MSF1		33

@@ -42,9 +42,9 @@ struct nfp_net_null {
 	struct net_device *port[48];
 };
 
-#define ETO_PRIV_FLAG_TX_LINK		(1 << 0)
-#define ETO_PRIV_FLAG_RX_LINK		(1 << 1)
-#define ETO_PRIV_FLAG_FAIL_TO_WIRE	(1 << 2)
+#define ETO_PRIV_FLAG_TX_LINK		BIT(0)
+#define ETO_PRIV_FLAG_RX_LINK		BIT(1)
+#define ETO_PRIV_FLAG_FAIL_TO_WIRE	BIT(2)
 
 struct nfp_net_null_dev {
 	struct ethtool_ops ethtool_ops;
@@ -80,9 +80,8 @@ static void nfp_net_null_eto_get_drvinfo(struct net_device *dev,
 	 */
 	strlcpy(di->bus_info, dev_name(dev->dev.parent), sizeof(di->bus_info));
 
-
 	di->n_priv_flags = 0;
-	di->n_stats = sizeof(nm->stats.cache)/sizeof(uint64_t);
+	di->n_stats = sizeof(nm->stats.cache) / sizeof(uint64_t);
 	di->testinfo_len = 0;
 	di->eedump_len = 0;
 	di->regdump_len = 0;
@@ -102,8 +101,7 @@ static const char const *string_priv_flags[] = {
 };
 
 static void nfp_net_null_eto_get_strings(struct net_device *dev,
-					u32 stringset,
-					u8 *buf)
+					 u32 stringset, u8 *buf)
 {
 	int i, count;
 	const char **set;
@@ -118,9 +116,8 @@ static void nfp_net_null_eto_get_strings(struct net_device *dev,
 		break;
 	}
 
-	for (i = 0; i < count; i++, buf += ETH_GSTRING_LEN) {
+	for (i = 0; i < count; i++, buf += ETH_GSTRING_LEN)
 		strncpy(buf, set[i], ETH_GSTRING_LEN);
-	}
 }
 
 static int nfp_net_null_eto_get_sset_count(struct net_device *dev,
@@ -203,6 +200,7 @@ static int nfp_net_null_eto_set_priv_flags(struct net_device *dev, u32 flags)
 
 	if ((flags ^ nm->priv_flags) & ETO_PRIV_FLAG_FAIL_TO_WIRE) {
 		int active = (flags & ETO_PRIV_FLAG_FAIL_TO_WIRE) ? 1 : 0;
+
 		err = nfp_phymod_eth_set_fail_to_wire(nm->eth, active);
 		if (err < 0)
 			return err;
@@ -210,6 +208,7 @@ static int nfp_net_null_eto_set_priv_flags(struct net_device *dev, u32 flags)
 
 	return 0;
 }
+
 static int phy_parse_qsfp(struct nfp_phymod *phy, struct ethtool_cmd *cmd)
 {
 	uint32_t supported = 0, advertise = 0, port = PORT_OTHER;
@@ -235,7 +234,7 @@ static int phy_parse_qsfp(struct nfp_phymod *phy, struct ethtool_cmd *cmd)
 		case 0:
 			supported |= SUPPORTED_Backplane |
 				     SUPPORTED_40000baseKR4_Full;
-			advertise |= ADVERTISED_Backplane | 
+			advertise |= ADVERTISED_Backplane |
 				     ADVERTISED_40000baseKR4_Full;
 			port = PORT_OTHER;
 			break;
@@ -426,7 +425,8 @@ static u32 nfp_net_null_eto_get_link(struct net_device *dev)
 	uint32_t state = 0;
 	int port = nm->port;
 
-	err = nfp_nbi_mac_eth_read_linkstate(nm->nbi, port / 12, port % 12, &state);
+	err = nfp_nbi_mac_eth_read_linkstate(nm->nbi,
+					     port / 12, port % 12, &state);
 	if (err < 1)
 		netif_carrier_off(dev);
 	else
@@ -508,8 +508,8 @@ static int nfp_net_null_create(struct nfp_net_null *np,
 	}
 
 	netdev_info(dev, "nbi%d.%d %d%c\n", mac, port,
-		(speed < 1000) ? speed : (speed / 1000),
-		(speed < 1000) ? 'M' : 'G');
+		    (speed < 1000) ? speed : (speed / 1000),
+		    (speed < 1000) ? 'M' : 'G');
 
 	np->port[np_port] = dev;
 
@@ -634,7 +634,8 @@ int __init nfp_net_null_init(void)
 	if (err)
 		return err;
 
-	pr_info("%s: NFP Null Network Driver, Copyright (C) 2014-2015 Netronome Systems\n", NFP_NET_NULL_TYPE);
+	pr_info("%s: NFP Null Network Driver, Copyright (C) 2014-2015 Netronome Systems\n",
+		NFP_NET_NULL_TYPE);
 
 	return 0;
 }

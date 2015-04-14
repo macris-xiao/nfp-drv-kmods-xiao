@@ -27,7 +27,7 @@ int nfp_nbi_index(struct nfp_nbi_dev *nfpnbidev);
 /* Implemented in nfp_nbi_mac_misc.c */
 
 int nfp_nbi_mac_regr(struct nfp_nbi_dev *nbi, uint32_t base,
-			  uint32_t reg, uint32_t *data);
+		     uint32_t reg, uint32_t *data);
 int nfp_nbi_mac_regw(struct nfp_nbi_dev *nbi, uint32_t base, uint32_t reg,
 		     uint32_t mask, uint32_t data);
 
@@ -215,11 +215,11 @@ int nfp_nbi_mac_stats_read_ilks(struct nfp_nbi_dev *nbi, int core,
 int nfp_nbi_mac_eth_ifdown(struct nfp_nbi_dev *nbi, int core, int port);
 int nfp_nbi_mac_eth_ifup(struct nfp_nbi_dev *nbi, int core, int port);
 int nfp_nbi_mac_eth_read_linkstate(struct nfp_nbi_dev *nbi,
-				   int core, int port, uint32_t * linkstate);
+				   int core, int port, uint32_t *linkstate);
 int nfp_nbi_mac_eth_write_mac_addr(struct nfp_nbi_dev *nbi,
 				   int core, int port, uint64_t hwaddr);
 int nfp_nbi_mac_eth_read_mac_addr(struct nfp_nbi_dev *nbi, int core,
-				  int port, uint64_t * hwaddr);
+				  int port, uint64_t *waddr);
 int nfp_nbi_mac_eth_read_mode(struct nfp_nbi_dev *nbi, int core, int port);
 
 #endif

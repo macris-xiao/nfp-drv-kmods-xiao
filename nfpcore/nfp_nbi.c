@@ -264,12 +264,11 @@ int nfp_nbi_mac_stats_read_ilks(struct nfp_nbi_dev *nbi, int ilk,
  * Return: 0, or -ERRNO
  */
 int nfp_nbi_mac_regr(struct nfp_nbi_dev *nbi, uint32_t base, uint32_t reg,
-		     uint32_t * data)
+		     uint32_t *data)
 {
 	uint32_t r = NFP_XPB_ISLAND(nbi->nbi + 8) + base + reg;
 
 	return nfp_xpb_readl(nbi->cpp, r, data);
-
 }
 
 /**

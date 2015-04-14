@@ -61,7 +61,6 @@
 #define CONFIG_NFP_PCI32
 #endif
 
-
 #define NFP_PCIE_BAR_EXPLICIT_BAR0(_x, _y) \
 	(0x00000080 + (0x40 * ((_x) & 0x3)) + (0x10 * ((_y) & 0x3)))
 #define   NFP_PCIE_BAR_EXPLICIT_BAR0_SignalType(_x) (((_x) & 0x3) << 30)
@@ -177,7 +176,7 @@ struct nfp_bar {
 	struct resource *resource;
 };
 
-#define NFP_PCI_BARS    (PCI_64BIT_BAR_COUNT*8)
+#define NFP_PCI_BARS    (PCI_64BIT_BAR_COUNT * 8)
 
 struct nfp6000_pcie {
 	struct pci_dev *pdev;
@@ -226,7 +225,7 @@ static resource_size_t nfp_bar_resource_len(struct nfp_bar *bar)
 static resource_size_t nfp_bar_resource_start(struct nfp_bar *bar)
 {
 	return pci_resource_start(bar->nfp->pdev, (bar->index / 8) * 2)
-		+ nfp_bar_resource_len(bar)*(bar->index & 7);
+		+ nfp_bar_resource_len(bar) * (bar->index & 7);
 }
 
 #define TARGET_WIDTH_32    4
@@ -263,7 +262,7 @@ static int compute_bar(struct nfp6000_pcie *nfp,
 
 	if (act != NFP_CPP_ACTION_RW && act != 0) {
 		/* Fixed CPP mapping with specific action */
-		uint64_t mask = ~(NFP_PCIE_P2C_FIXED_SIZE(bar)-1);
+		uint64_t mask = ~(NFP_PCIE_P2C_FIXED_SIZE(bar) - 1);
 
 		newcfg |= NFP_PCIE_BAR_PCIE2CPP_MapType(
 			  NFP_PCIE_BAR_PCIE2CPP_MapType_FIXED);
@@ -291,7 +290,7 @@ static int compute_bar(struct nfp6000_pcie *nfp,
 #ifdef ENABLE_GENERAL_MAPPING
 	} else if (offset < NFP_PCIE_P2C_GENERAL_SIZE(bar) &&
 		   (offset + size - 1) < NFP_PCIE_P2C_GENERAL_SIZE(bar)) {
-		uint64_t mask = ~(NFP_PCIE_P2C_GENERAL_SIZE(bar)-1);
+		uint64_t mask = ~(NFP_PCIE_P2C_GENERAL_SIZE(bar) - 1);
 		/* General CPP mapping */
 		newcfg |= NFP_PCIE_BAR_PCIE2CPP_MapType(
 			  NFP_PCIE_BAR_PCIE2CPP_MapType_GENERAL);
@@ -310,7 +309,7 @@ static int compute_bar(struct nfp6000_pcie *nfp,
 		bitsize = 40 - 27;
 #endif
 	} else {
-		uint64_t mask = ~(NFP_PCIE_P2C_BULK_SIZE(bar)-1);
+		uint64_t mask = ~(NFP_PCIE_P2C_BULK_SIZE(bar) - 1);
 		/* Bulk mapping */
 		newcfg |= NFP_PCIE_BAR_PCIE2CPP_MapType(
 			NFP_PCIE_BAR_PCIE2CPP_MapType_BULK);
@@ -400,6 +399,7 @@ static int reconfigure_bar(struct nfp6000_pcie *nfp, struct nfp_bar *bar,
 
 	return nfp6000_bar_write(nfp, bar, newcfg);
 }
+
 /*
  * Check if BAR can be used with the given parameters.
  */
@@ -441,7 +441,7 @@ static int matching_bar(struct nfp_bar *bar,
 		dev_dbg(nfp->dev, "BAR[%d] want: %d:%d:%d:0x%llx-0x%llx (%d bit)\n",
 			bar->index, tgt, act, tok,
 			offset,
-			offset+size-1, width * 8);
+			offset + size - 1, width * 8);
 
 		switch (maptype) {
 		case NFP_PCIE_BAR_PCIE2CPP_MapType_FIXED:
@@ -449,7 +449,7 @@ static int matching_bar(struct nfp_bar *bar,
 				bar->index,
 				bartgt, baract, bartok,
 				bar->base,
-				(bar->base + (1 << bar->bitsize)-1),
+				(bar->base + (1 << bar->bitsize) - 1),
 				barwidth * 8);
 			break;
 		case NFP_PCIE_BAR_PCIE2CPP_MapType_BULK:
@@ -457,7 +457,7 @@ static int matching_bar(struct nfp_bar *bar,
 				bar->index,
 				bartgt, bartok,
 				bar->base,
-				(bar->base + (1 << bar->bitsize)-1),
+				(bar->base + (1 << bar->bitsize) - 1),
 				barwidth * 8);
 			break;
 		case NFP_PCIE_BAR_PCIE2CPP_MapType_TARGET:
@@ -465,19 +465,19 @@ static int matching_bar(struct nfp_bar *bar,
 				bar->index,
 				bartgt,
 				bar->base,
-				(bar->base + (1 << bar->bitsize)-1),
+				(bar->base + (1 << bar->bitsize) - 1),
 				barwidth * 8);
 			break;
 		case NFP_PCIE_BAR_PCIE2CPP_MapType_GENERAL:
 			dev_dbg(nfp->dev, "BAR[%d] have: -:x:-:0x%llx-0x%llx (%d bit)\n",
 				bar->index,
 				bar->base,
-				(bar->base + (1 << bar->bitsize)-1),
+				(bar->base + (1 << bar->bitsize) - 1),
 				barwidth * 8);
 			break;
 		default:
 			dev_dbg(nfp->dev, "BAR[%d] is Explicit Group %d\n",
-				bar->index, maptype&3);
+				bar->index, maptype & 3);
 			break;
 		}
 	}
@@ -525,9 +525,9 @@ static int matching_bar(struct nfp_bar *bar,
 }
 
 static int _find_matching_bar(struct nfp6000_pcie *nfp,
-			     uint32_t tgt, uint32_t act, uint32_t tok,
-		uint64_t offset, size_t size, int width,
-		int prefetchable)
+			      uint32_t tgt, uint32_t act, uint32_t tok,
+			      uint64_t offset, size_t size, int width,
+			      int prefetchable)
 {
 	int n;
 
@@ -816,7 +816,7 @@ static inline int bar_cmp(const void *aptr, const void *bptr)
 	if (a->bitsize == b->bitsize)
 		return a->index - b->index;
 	else
-		return (a->bitsize - b->bitsize);
+		return a->bitsize - b->bitsize;
 }
 
 /*
@@ -848,7 +848,8 @@ static int enable_bars(struct nfp6000_pcie *nfp)
 		NFP_PCIE_BAR_PCIE2CPP_MapType(
 			NFP_PCIE_BAR_PCIE2CPP_MapType_BULK) |
 			NFP_PCIE_BAR_PCIE2CPP_LengthSelect_32BIT |
-			NFP_PCIE_BAR_PCIE2CPP_Target_BaseAddress(NFP_CPP_TARGET_ISLAND_XPB);
+			NFP_PCIE_BAR_PCIE2CPP_Target_BaseAddress(
+					NFP_CPP_TARGET_ISLAND_XPB);
 	const uint32_t barcfg_explicit[4] = {
 		NFP_PCIE_BAR_PCIE2CPP_MapType(
 			NFP_PCIE_BAR_PCIE2CPP_MapType_EXPLICIT0),
@@ -947,7 +948,7 @@ static void disable_bars(struct nfp6000_pcie *nfp)
 	int n;
 
 	for (n = 0; n < ARRAY_SIZE(nfp->bars); n++, bar++) {
-		if (bar->iomem != NULL) {
+		if (bar->iomem) {
 			devm_iounmap(&nfp->pdev->dev, bar->iomem);
 			bar->iomem = NULL;
 		}
@@ -1096,7 +1097,7 @@ static int nfp6000_area_acquire(struct nfp_cpp_area *area)
 	priv->resource.flags = IORESOURCE_MEM;
 
 	/* If the bar is already mapped in, use its mapping */
-	if (priv->bar->iomem != NULL) {
+	if (priv->bar->iomem) {
 		priv->iomem = priv->bar->iomem + priv->bar_offset;
 	} else {
 		/* Must have been too big. Sub-allocate. */
@@ -1106,7 +1107,7 @@ static int nfp6000_area_acquire(struct nfp_cpp_area *area)
 	if (IS_ERR_OR_NULL(priv->iomem)) {
 		dev_err(nfp->dev, "Can't ioremap() a %d byte region of BAR %d\n",
 			(int)priv->size, priv->bar->index);
-		err = (priv->iomem == NULL) ? -ENOMEM : PTR_ERR(priv->iomem);
+		err = !priv->iomem ? -ENOMEM : PTR_ERR(priv->iomem);
 		priv->iomem = NULL;
 		goto err_iomem_remap;
 	}
@@ -1130,7 +1131,7 @@ static void nfp6000_area_release(struct nfp_cpp_area *area)
 	BUG_ON(!priv->iomem);
 
 	if (priv_area_put(area)) {
-		if (priv->bar->iomem == NULL)
+		if (!priv->bar->iomem)
 			devm_iounmap(&nfp->pdev->dev, priv->iomem);
 
 		nfp_bar_put(nfp, priv->bar);
@@ -1186,10 +1187,13 @@ static int nfp6000_area_read(struct nfp_cpp_area *area, void *kernel_vaddr,
 		return -EINVAL;
 
 	/* Unaligned? Translate to an explicit access */
-	if ((priv->offset + offset) & (width-1))
+	if ((priv->offset + offset) & (width - 1))
 		return __nfp_cpp_explicit_read(nfp_cpp_area_cpp(area),
-				NFP_CPP_ID(priv->target, priv->action, priv->token),
-				priv->offset + offset, kernel_vaddr, length, width);
+				NFP_CPP_ID(priv->target,
+					   priv->action,
+					   priv->token),
+				priv->offset + offset,
+				kernel_vaddr, length, width);
 
 	is_64 = (width == TARGET_WIDTH_64) ? 1 : 0;
 
@@ -1240,10 +1244,13 @@ static int nfp6000_area_write(struct nfp_cpp_area *area,
 		return -EINVAL;
 
 	/* Unaligned? Translate to an explicit access */
-	if ((priv->offset + offset) & (width-1))
+	if ((priv->offset + offset) & (width - 1))
 		return __nfp_cpp_explicit_write(nfp_cpp_area_cpp(area),
-				NFP_CPP_ID(priv->target, priv->action, priv->token),
-				priv->offset + offset, kernel_vaddr, length, width);
+				NFP_CPP_ID(priv->target,
+					   priv->action,
+					   priv->token),
+				priv->offset + offset,
+				kernel_vaddr, length, width);
 
 	is_64 = (priv->width.write == TARGET_WIDTH_64) ? 1 : 0;
 
@@ -1441,11 +1448,11 @@ static int nfp6000_explicit_do(struct nfp_cpp_explicit *expl,
 		dev_dbg(nfp->dev, "EXPL%d.%d: Kickoff 0x%llx (@0x%08x)\n",
 			priv->bar.group, priv->bar.area,
 			address,
-			(unsigned)(address & ((1 << priv->bitsize)-1)));
+			(unsigned)(address & ((1 << priv->bitsize) - 1)));
 	}
 
 	/* Issue the 'kickoff' transaction */
-	readb(priv->addr + (address & ((1 << priv->bitsize)-1)));
+	readb(priv->addr + (address & ((1 << priv->bitsize) - 1)));
 
 	return sigmask;
 }
@@ -1528,7 +1535,7 @@ struct nfp_cpp *nfp_cpp_from_nfp6000_pcie(struct pci_dev *pdev, int event_irq)
 		 "Netronome Flow Processor (NFP6000) PCIe Card Probe\n");
 
 	nfp = kzalloc(sizeof(*nfp), GFP_KERNEL);
-	if (nfp == NULL) {
+	if (!nfp) {
 		err = -ENOMEM;
 		goto err_nfpmem_alloc;
 	}

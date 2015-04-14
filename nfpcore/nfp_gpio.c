@@ -17,7 +17,6 @@
 
 #define NFP_ARM_GPIO                                         (0x403000)
 
-
 struct gpio {
 	int pins;
 	int (*read)(struct nfp_cpp *cpp, int csr_offset, uint32_t *val);
@@ -52,7 +51,7 @@ static void *gpio_new(struct nfp_device *nfp)
 	struct gpio *gpio;
 
 	gpio = nfp_device_private_alloc(nfp, sizeof(*gpio), NULL);
-	if (gpio == NULL)
+	if (!gpio)
 		return NULL;
 
 	model = nfp_cpp_model(nfp_device_cpp(nfp));
@@ -86,7 +85,7 @@ int nfp_gpio_pins(struct nfp_device *dev)
 	uint32_t model;
 	int max_pin;
 
-	if (cpp == NULL)
+	if (!cpp)
 		return -ENODEV;
 
 	model = nfp_cpp_model(cpp);
@@ -99,7 +98,6 @@ int nfp_gpio_pins(struct nfp_device *dev)
 
 	return max_pin;
 }
-
 
 /**
  * nfp_gpio_direction() - GPIO Pin Setup
@@ -128,7 +126,6 @@ int nfp_gpio_direction(struct nfp_device *dev, int gpio_pin, int is_output)
 
 	return err < 0 ? err : 0;
 }
-
 
 /**
  * nfp_gpio_get_direction() - GPIO Get Pin Direction

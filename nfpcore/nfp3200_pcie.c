@@ -146,8 +146,8 @@ struct nfp3200_pcie {
 	void __iomem *pcietgt;
 
 	/* Revision specific workarounds */
-#define NFP_A1_WORKAROUND	(1 << 0)
-#define NFP_A_WORKAROUND	(1 << 1)
+#define NFP_A1_WORKAROUND	BIT(0)
+#define NFP_A_WORKAROUND	BIT(1)
 	uint32_t workaround;
 	struct {
 		uint32_t vnic_base;
@@ -244,7 +244,7 @@ static int reconfigure_bar(struct nfp3200_pcie *nfp, int barnum, u32 tgt,
 		newcfg |= NFP_PCIE_BARCFG_P2C_TOKACTSEL(
 			NFP_PCIE_BARCFG_P2C_TOKACTSEL_BARCFG);
 
-		if ((((offset & CPPMAP_MASK) + size-1) & ~CPPMAP_MASK) != 0) {
+		if ((((offset & CPPMAP_MASK) + size - 1) & ~CPPMAP_MASK) != 0) {
 			dev_dbg(nfp->dev, "Failed to create CPP mapping <%#llx,%#llx>, action=%d.  BAR too small.\n",
 				offset, offset + size, act);
 			return -EINVAL;
@@ -266,7 +266,7 @@ static int reconfigure_bar(struct nfp3200_pcie *nfp, int barnum, u32 tgt,
 		newcfg |= NFP_PCIE_BARCFG_P2C_TOKACTSEL(
 			NFP_PCIE_BARCFG_P2C_TOKACTSEL_NONE);
 
-		if ((((offset & CPPMAP_MASK) + size-1) & ~CPPMAP_MASK) != 0) {
+		if ((((offset & CPPMAP_MASK) + size - 1) & ~CPPMAP_MASK) != 0) {
 			dev_dbg(nfp->dev, "Failed to create CPP mapping <%#llx,%#llx>.  BAR too small.\n",
 				offset, offset + size);
 			return -EINVAL;
@@ -286,7 +286,7 @@ static int reconfigure_bar(struct nfp3200_pcie *nfp, int barnum, u32 tgt,
 		newcfg |= NFP_PCIE_BARCFG_P2C_TGTACT(tgt);
 		newcfg |= NFP_PCIE_BARCFG_P2C_TOKACTSEL(tok);
 
-		if ((((offset & bar->mask) + size-1) & ~bar->mask) != 0) {
+		if ((((offset & bar->mask) + size - 1) & ~bar->mask) != 0) {
 			dev_dbg(nfp->dev, "Failed to create bulk mapping <%#llx,%#llx>, [%d]:%d:[%d].  BAR too small.\n",
 				offset, offset + size, tgt, act, tok);
 			return -EINVAL;
@@ -334,14 +334,14 @@ static int matching_bar(struct nfp_bar *bar, u32 tgt, u32 act, u32 tok,
 		dev_dbg(nfp->dev, "BAR[%d] want: %d:%d:%d:0x%llx-0x%llx (%d bit)\n",
 			bar->index, tgt, act, tok,
 			(unsigned long long)offset,
-			(unsigned long long)offset+size-1, width * 8);
+			(unsigned long long)offset + size - 1, width * 8);
 
 		if (maptype == NFP_PCIE_BARCFG_P2C_MAPTYPE_BULK) {
 			dev_dbg(nfp->dev, "BAR[%d] BULK %d:-:%d:0x%llx-0x%llx (%d bit)\n",
 				bar->index, tgtact, tokactsel,
 				(unsigned long long)bar->offset,
 				(unsigned long long)(bar->offset +
-							(1 << bar->bitsize)-1),
+						     (1 << bar->bitsize) - 1),
 				(bar->barcfg & NFP_PCIE_BARCFG_P2C_LEN_64BIT)
 					? 64 : 32);
 		} else {
@@ -425,8 +425,8 @@ static inline int bar_search_order(int n)
 }
 
 static int _find_matching_bar(struct nfp3200_pcie *nfp, u32 tgt, u32 act,
-			     u32 tok, u64 offset, u8 width, size_t size,
-			     int prefetchable)
+			      u32 tok, u64 offset, u8 width, size_t size,
+			      int prefetchable)
 {
 	int n;
 
@@ -473,7 +473,6 @@ static int find_matching_bar(struct nfp3200_pcie *nfp, u32 tgt, u32 act,
 	return err;
 }
 
-
 /* Return -EAGAIN is no slot is available
  */
 static int _find_unused_bar_noblock(struct nfp3200_pcie *nfp, int prefetchable)
@@ -495,7 +494,7 @@ static int _find_unused_bar_noblock(struct nfp3200_pcie *nfp, int prefetchable)
 }
 
 static int find_unused_bar_noblock(struct nfp3200_pcie *nfp,
-				  int tgt, int act, int tok)
+				   int tgt, int act, int tok)
 {
 	int prefetchable;
 	int err = -EAGAIN;
@@ -671,7 +670,7 @@ static int enable_bars(struct nfp3200_pcie *nfp)
 	BUG_ON(!nfp->pdev);
 
 	for (n = 0; n < ARRAY_SIZE(nfp->bars); n++, bar++) {
-		bar->resource = &nfp->pdev->resource[n*2];
+		bar->resource = &nfp->pdev->resource[n * 2];
 		bar->barcfg = read_pcie_csr(nfp, NFP_PCIE_BARCFG_P2C(n));
 
 		bar->nfp = nfp;
@@ -715,7 +714,7 @@ static int enable_bars(struct nfp3200_pcie *nfp)
 		if (IS_ERR_OR_NULL(bar->iomem)) {
 			dev_err(&nfp->pdev->dev,
 				"BAR%d: Can't map in the %uKB area\n",
-				n, (1 << bar->bitsize)/1024);
+				n, (1 << bar->bitsize) / 1024);
 			bar->iomem = NULL;
 		}
 	}
@@ -731,7 +730,7 @@ static int enable_bars(struct nfp3200_pcie *nfp)
 		NFP_PCIE_BARCFG_P2C_TOKACTSEL_of(barcfg) != 0 ||
 		NFP_PCIE_BARCFG_P2C_BASE_of(barcfg) != 0) {
 		dev_err(nfp->dev, "Invalid BAR%d configuration 0x%x\n",
-		        NFP_PCIETGT_BAR_INDEX, barcfg);
+			NFP_PCIETGT_BAR_INDEX, barcfg);
 		retval = -EIO;
 		goto error;
 	}
@@ -749,7 +748,7 @@ static void disable_bars(struct nfp3200_pcie *nfp)
 	int n;
 
 	for (n = 0; n < ARRAY_SIZE(nfp->bars); n++, bar++) {
-		if (bar->iomem != NULL)
+		if (bar->iomem)
 			devm_iounmap(&nfp->pdev->dev, bar->iomem);
 	}
 }
@@ -798,8 +797,8 @@ static int nfp_cpp_pcie_area_init(
 	 * check into the CPP Area implementation that requires it.
 	 */
 	if ((address % sizeof(uint32_t)) != 0 ||
-		(size % sizeof(uint32_t)) != 0)
-			return -EINVAL;
+	    (size % sizeof(uint32_t)) != 0)
+		return -EINVAL;
 
 	/* Special 'Target 0' case */
 	if (target == 0 &&
@@ -829,7 +828,9 @@ static int nfp_cpp_pcie_area_init(
 	 */
 	if (nfp->workaround & NFP_A1_WORKAROUND) {
 		if (target == NFP_CPP_TARGET_MU &&
-		    (action == NFP_CPP_ACTION_RW || action == 0 || action == 1) &&
+		    (action == NFP_CPP_ACTION_RW ||
+		     action == 0 ||
+		     action == 1) &&
 		    (address >= nfp->a1.vnic_base &&
 		     (address + size) <= (nfp->a1.vnic_base + 0x1000))) {
 			if (action == NFP_CPP_ACTION_RW || action == 0)
@@ -945,7 +946,7 @@ static int nfp_cpp_pcie_area_acquire(struct nfp_cpp_area *area)
 	priv->resource.flags = IORESOURCE_MEM;
 
 	/* If the bar is already mapped in, use its mapping */
-	if (priv->bar->iomem != NULL) {
+	if (priv->bar->iomem) {
 		priv->iomem = priv->bar->iomem + priv->bar_offset;
 	} else {
 		/* Must have been too big. Sub-allocate. */
@@ -955,7 +956,7 @@ static int nfp_cpp_pcie_area_acquire(struct nfp_cpp_area *area)
 	if (IS_ERR_OR_NULL(priv->iomem)) {
 		dev_err(nfp->dev, "Can't ioremap() a %d byte region of BAR %d\n",
 			(int)priv->size, barnum);
-		err = (priv->iomem == NULL) ? -ENOMEM : PTR_ERR(priv->iomem);
+		err = !priv->iomem ? -ENOMEM : PTR_ERR(priv->iomem);
 		priv->iomem = NULL;
 		goto err_iomem_remap;
 	}
@@ -979,7 +980,7 @@ static void nfp_cpp_pcie_area_release(struct nfp_cpp_area *area)
 	BUG_ON(!priv->iomem);
 
 	if (priv_area_put(area)) {
-		if (priv->bar->iomem == NULL)
+		if (!priv->bar->iomem)
 			devm_iounmap(&nfp->pdev->dev, priv->iomem);
 
 		nfp_bar_put(nfp, priv->bar);
@@ -1026,7 +1027,7 @@ static struct resource *nfp_cpp_pcie_area_resource(struct nfp_cpp_area *area)
  * all queues are the same as we left them last time.
  */
 
-#define NFP_DMA_MAX	(4096-8)
+#define NFP_DMA_MAX	(4096 - 8)
 
 enum dmaq {
 	DMAQ_TPCI_HI = 0, DMAQ_TPCI_LO, DMAQ_FPCI_HI, DMAQ_FPCI_LO,
@@ -1116,8 +1117,6 @@ static void nfp_dma_abort(struct nfp3200_pcie *nfp, u32 dmaq)
 	control |= NFP_PCIE_DMA_CTRL_QUEUE_STOP_ENABLE;
 	write_pcie_csr(nfp, ctrl, control);
 }
-
-#define NFP_DMA_MAX	(4096-8)
 
 static int nfp_dma_op64(struct nfp_cpp_area *area, u32 dmaq, void *buff,
 			unsigned long offset, size_t size)
@@ -1444,7 +1443,7 @@ struct nfp_cpp *nfp_cpp_from_nfp3200_pcie(struct pci_dev *pdev, int event_irq)
 		 "Netronome Flow Processor (NFP3200) PCIe Card Probe\n");
 
 	nfp = kzalloc(sizeof(*nfp), GFP_KERNEL);
-	if (nfp == NULL) {
+	if (!nfp) {
 		err = -ENOMEM;
 		goto err_nfpmem_alloc;
 	}
@@ -1493,11 +1492,11 @@ struct nfp_cpp *nfp_cpp_from_nfp3200_pcie(struct pci_dev *pdev, int event_irq)
 
 	nfp->pcietgt = devm_ioremap_nocache(
 		&pdev->dev,
-		pci_resource_start(pdev, NFP_PCIETGT_BAR_INDEX*2),
-		pci_resource_len(pdev, NFP_PCIETGT_BAR_INDEX*2));
+		pci_resource_start(pdev, NFP_PCIETGT_BAR_INDEX * 2),
+		pci_resource_len(pdev, NFP_PCIETGT_BAR_INDEX * 2));
 	if (IS_ERR_OR_NULL(nfp->pcietgt)) {
 		dev_err(&pdev->dev, "Failed to map PCIe target registers.\n");
-		err = (nfp->pcietgt == NULL) ? -ENOMEM : PTR_ERR(nfp->pcietgt);
+		err = !nfp->pcietgt ? -ENOMEM : PTR_ERR(nfp->pcietgt);
 		goto err_pcietgt;
 	}
 
@@ -1515,7 +1514,7 @@ struct nfp_cpp *nfp_cpp_from_nfp3200_pcie(struct pci_dev *pdev, int event_irq)
 	nfp->dma_cpu_addr = dma_alloc_coherent(
 		&pdev->dev, NFP_DMA_MAX, &nfp->dma_dev_addr, GFP_KERNEL);
 	if (IS_ERR_OR_NULL(nfp->dma_cpu_addr)) {
-		if (nfp->dma_cpu_addr == NULL)
+		if (!nfp->dma_cpu_addr)
 			err = -ENOMEM;
 		else
 			err = PTR_ERR(nfp->dma_cpu_addr);

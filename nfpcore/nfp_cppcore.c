@@ -295,13 +295,13 @@ static void __release_cpp_area(struct kref *kref)
 
 static void nfp_cpp_area_put(struct nfp_cpp_area *area)
 {
-	BUG_ON(area == NULL);
+	BUG_ON(!area);
 	kref_put(&area->kref, __release_cpp_area);
 }
 
 static struct nfp_cpp_area *nfp_cpp_area_get(struct nfp_cpp_area *area)
 {
-	BUG_ON(area == NULL);
+	BUG_ON(!area);
 	kref_get(&area->kref);
 	return area;
 }
@@ -366,7 +366,7 @@ struct nfp_cpp_area *nfp_cpp_area_alloc_with_name(
 	uint64_t tmp64 = (uint64_t)address;
 	int err, name_len;
 
-	BUG_ON(cpp == NULL);
+	BUG_ON(!cpp);
 
 	/* Remap from cpp_island to cpp_target */
 	err = nfp_target_cpp(dest, tmp64, &dest, &tmp64, cpp->imb_cat_table);
@@ -375,7 +375,7 @@ struct nfp_cpp_area *nfp_cpp_area_alloc_with_name(
 
 	address = (unsigned long long)tmp64;
 
-	if (name == NULL)
+	if (!name)
 		name = "(reserved)";
 
 	name_len = strlen(name) + 1;
@@ -403,7 +403,7 @@ struct nfp_cpp_area *nfp_cpp_area_alloc_with_name(
 	kref_init(&area->kref);
 	mutex_init(&area->mutex);
 
-	if (cpp->op->area_init != NULL) {
+	if (cpp->op->area_init) {
 		int err;
 
 		err = cpp->op->area_init(area, dest, address, size);
@@ -876,7 +876,7 @@ static uint32_t nfp_xpb_to_cpp(struct nfp_cpp *cpp, uint32_t *xpb_addr)
 {
 	uint32_t xpb;
 	int island;
-	int is_arm = NFP_CPP_INTERFACE_TYPE_of(nfp_cpp_interface(cpp)) 
+	int is_arm = NFP_CPP_INTERFACE_TYPE_of(nfp_cpp_interface(cpp))
 		       == NFP_CPP_INTERFACE_TYPE_ARM;
 
 	if (NFP_CPP_MODEL_IS_3200(cpp->model)) {
@@ -897,7 +897,7 @@ static uint32_t nfp_xpb_to_cpp(struct nfp_cpp *cpp, uint32_t *xpb_addr)
 				if (*xpb_addr < 0x60000) {
 					*xpb_addr |= (1 << 30);
 				} else {
-					/* And only non-ARM interfaces use 
+					/* And only non-ARM interfaces use
 					 * the island id = 1
 					 */
 					if (!is_arm)
@@ -971,9 +971,9 @@ EXPORT_SYMBOL(nfp_cpp_explicit_cpp);
 #define NFP_EXPL_OP(err, func, expl, args...) \
 	do { \
 		struct nfp_cpp *cpp = nfp_cpp_explicit_cpp(expl); \
-		if (cpp->op->func != NULL) { \
+		if (cpp->op->func) { \
 			CPP_GET(cpp); \
-			err = cpp->op->func(expl , ##args); \
+			err = cpp->op->func(expl, ##args); \
 			CPP_PUT(cpp); \
 		} \
 	} while (0)
@@ -981,9 +981,9 @@ EXPORT_SYMBOL(nfp_cpp_explicit_cpp);
 #define NFP_EXPL_OP_NR(func, expl, args...) \
 	do { \
 		struct nfp_cpp *cpp = nfp_cpp_explicit_cpp(expl); \
-		if (cpp->op->func != NULL) { \
+		if (cpp->op->func) { \
 			CPP_GET(cpp); \
-			cpp->op->func(expl , ##args); \
+			cpp->op->func(expl, ##args); \
 			CPP_PUT(cpp); \
 		} \
 	} while (0)
@@ -1004,7 +1004,7 @@ struct nfp_cpp_explicit *nfp_cpp_explicit_acquire(struct nfp_cpp *cpp)
 	struct nfp_cpp_explicit *expl;
 
 	expl = kzalloc(sizeof(*expl) + cpp->op->explicit_priv_size, GFP_KERNEL);
-	if (expl != NULL) {
+	if (expl) {
 		int err = -ENODEV;
 
 		expl->cpp = cpp;
@@ -1223,9 +1223,9 @@ struct nfp_cpp_event *nfp_cpp_event_alloc(
 	struct nfp_cpp_event *event;
 	int err;
 
-	BUG_ON(cpp == NULL);
+	BUG_ON(!cpp);
 
-	if (cpp->op->event_acquire == NULL)
+	if (!cpp->op->event_acquire)
 		return ERR_PTR(-ENODEV);
 
 	if (type < 0)
@@ -1312,7 +1312,7 @@ void nfp_cpp_event_free(struct nfp_cpp_event *event)
 {
 	struct nfp_cpp *cpp = nfp_cpp_event_cpp(event);
 
-	if (cpp->op->event_release != NULL)
+	if (cpp->op->event_release)
 		cpp->op->event_release(event);
 
 	CPP_PUT(cpp);
@@ -1344,8 +1344,7 @@ static void *cpp_r_start(struct seq_file *m, loff_t *pos)
 	if (list_empty(&cpp->resource_list))
 		return NULL;
 
-	for (tmp = cpp->resource_list.next;
-	     tmp != NULL && l < *pos;
+	for (tmp = cpp->resource_list.next; tmp && l < *pos;
 	     tmp = cpp_r_next(m, tmp, &l))
 		;
 
@@ -1440,7 +1439,7 @@ struct nfp_cpp *nfp_cpp_from_operations(const struct nfp_cpp_operations *ops)
 	struct proc_dir_entry *pde;
 #endif
 
-	BUG_ON(ops->parent == NULL);
+	BUG_ON(!ops->parent);
 
 	/* Argh. Out of IDs */
 	id = nfp_cpp_id_acquire();
@@ -1504,9 +1503,8 @@ struct nfp_cpp *nfp_cpp_from_operations(const struct nfp_cpp_operations *ops)
 						NFP_CPP_ACTION_RW, 0);
 		uint32_t xpbaddr;
 		size_t tgt;
-		for (tgt = 0;
-		     tgt < ARRAY_SIZE(cpp->imb_cat_table);
-		     tgt++) {
+
+		for (tgt = 0; tgt < ARRAY_SIZE(cpp->imb_cat_table); tgt++) {
 			/* Hardcoded XPB IMB Base, island 0 */
 			xpbaddr = 0x000a0000 + (tgt * 4);
 			err = nfp_xpb_readl(cpp, xpbaddr,
@@ -1524,13 +1522,13 @@ struct nfp_cpp *nfp_cpp_from_operations(const struct nfp_cpp_operations *ops)
 		nfp_cpp_readl(cpp, arm, NFP_ARM_GCSR + NFP_ARM_GCSR_SOFTMODEL3,
 			      &mask[1]);
 
-		cpp->island_mask = (((uint64_t) mask[1] << 32) | mask[0]);
+		cpp->island_mask = (((uint64_t)mask[1] << 32) | mask[0]);
 	}
 
 #ifdef CONFIG_PROC_FS
 	pde = proc_create_data(dev_name(cpp->op->parent), 0, nfp_cpp_dir,
 			       &iocpp_ops, cpp);
-	if (pde == NULL) {
+	if (!pde) {
 		dev_err(cpp->op->parent,
 			"Can't create /proc/" NFP_CPP_DIR_NAME "/%s\n",
 			dev_name(cpp->op->parent));
@@ -1588,7 +1586,7 @@ EXPORT_SYMBOL(nfp_cpp_priv);
  */
 uint64_t nfp_cpp_island_mask(struct nfp_cpp *cpp)
 {
-    return cpp->island_mask;
+	return cpp->island_mask;
 }
 EXPORT_SYMBOL(nfp_cpp_island_mask);
 
@@ -1608,7 +1606,7 @@ int nfp_cppcore_init(void)
 #ifdef CONFIG_PROC_FS
 	nfp_cpp_dir = proc_mkdir(NFP_CPP_DIR_NAME, NULL);
 
-	if (nfp_cpp_dir == NULL)
+	if (!nfp_cpp_dir)
 		return -ENOMEM;
 #endif
 

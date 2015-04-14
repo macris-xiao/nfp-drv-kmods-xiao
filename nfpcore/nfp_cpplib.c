@@ -235,15 +235,17 @@ int __nfp_cpp_model_autodetect(struct nfp_cpp *cpp, uint32_t *model)
 			break;
 		}
 
-		*model |= (mes/10) << 20;
-		*model |= (mes%10) << 16;
+		*model |= (mes / 10) << 20;
+		*model |= (mes % 10) << 16;
 	} else if (NFP_CPP_MODEL_IS_6000(*model)) {
 		uint32_t tmp;
 		int err;
 
 		/* The PL's PluDeviceID revision code is authoratative */
 		*model &= ~0xff;
-		err = nfp_xpb_readl(cpp, NFP_XPB_DEVICE(1, 1, 16) + NFP_PL_DEVICE_ID, &tmp);
+		err = nfp_xpb_readl(cpp,
+				    NFP_XPB_DEVICE(1, 1, 16) + NFP_PL_DEVICE_ID,
+				    &tmp);
 		if (err < 0)
 			return err;
 		*model |= ((NFP_PL_DEVICE_ID_MAJOR_REV_of(tmp) - 1) << 4) |
@@ -326,37 +328,37 @@ static int workaround_resource_table(struct nfp_cpp *cpp,
 	err = nfp_cpp_resource_add(cpp, NFP_RESOURCE_ARM_DIAGNOSTIC,
 				   NFP_CPP_ID(NFP_CPP_TARGET_ARM_SCRATCH,
 					      NFP_CPP_ACTION_RW, 0),
-		0xc000, 0x800, NULL);
+				   0xc000, 0x800, NULL);
 	if (err < 0)
 		return err;
 
 	err = nfp_cpp_resource_add(cpp, NFP_RESOURCE_NFP_NFFW, ddr,
-		0x1000, 0x1000, NULL);
+				   0x1000, 0x1000, NULL);
 	if (err < 0)
 		return err;
 
 	err = nfp_cpp_resource_add(cpp, "msix.tbl", ddr,
-		0x2000, 0x1000, NULL);
+				   0x2000, 0x1000, NULL);
 	if (err < 0)
 		return err;
 
 	err = nfp_cpp_resource_add(cpp, "msix.pba", ddr,
-		0x3000, 0x1000, NULL);
+				   0x3000, 0x1000, NULL);
 	if (err < 0)
 		return err;
 
 	err = nfp_cpp_resource_add(cpp, "arm.tty", ddr,
-		0xb000, 0x3000, NULL);
+				   0xb000, 0x3000, NULL);
 	if (err < 0)
 		return err;
 
 	err = nfp_cpp_resource_add(cpp, NFP_RESOURCE_VNIC_PCI_0, ddr,
-		0xe000, 0x1000, NULL);
+				   0xe000, 0x1000, NULL);
 	if (err < 0)
 		return err;
 
 	err = nfp_cpp_resource_add(cpp, "arm.ctrl", ddr,
-		0xf000, 0x1000, NULL);
+				   0xf000, 0x1000, NULL);
 	if (err < 0)
 		return err;
 
@@ -536,7 +538,7 @@ struct nfp_cpp_mutex *nfp_cpp_mutex_alloc(
 		return NULL;
 
 	mutex = kzalloc(sizeof(*mutex), GFP_KERNEL);
-	if (mutex == NULL)
+	if (!mutex)
 		return NULL;
 
 	mutex->cpp = cpp;
@@ -651,7 +653,7 @@ int nfp_cpp_mutex_trylock(struct nfp_cpp_mutex *mutex)
 	}
 
 	/* Verify that the lock marker is not damaged */
-	err = nfp_cpp_readl(cpp, mur, mutex->address+4, &key);
+	err = nfp_cpp_readl(cpp, mur, mutex->address + 4, &key);
 	if (err < 0)
 		return err;
 
@@ -726,7 +728,6 @@ static inline uint8_t __nfp_bytemask_of(int width, uint64_t addr)
 	return byte_mask;
 }
 
-
 int __nfp_cpp_explicit_read(struct nfp_cpp *cpp, uint32_t cpp_id,
 			    uint64_t addr, void *buff, size_t len,
 			    int width_read)
@@ -745,28 +746,32 @@ int __nfp_cpp_explicit_read(struct nfp_cpp *cpp, uint32_t cpp_id,
 	if (incr > 128)
 		incr = 128;
 
-	if (len & (width_read-1))
+	if (len & (width_read - 1))
 		return -EINVAL;
 
 	/* Translate a NFP_CPP_ACTION_RW to action 0
 	 */
 	if (NFP_CPP_ID_ACTION_of(cpp_id) == NFP_CPP_ACTION_RW)
 		cpp_id = NFP_CPP_ID(NFP_CPP_ID_TARGET_of(cpp_id), 0,
-							NFP_CPP_ID_TOKEN_of(cpp_id));
+				    NFP_CPP_ID_TOKEN_of(cpp_id));
 
 	if (incr > len)
 		incr = len;
 
 	byte_mask = __nfp_bytemask_of(width_read, addr);
 
-	nfp_cpp_explicit_set_target(expl, cpp_id, (incr / width_read)-1, byte_mask);
-	nfp_cpp_explicit_set_posted(expl, 1, 0, NFP_SIGNAL_PUSH, 0, NFP_SIGNAL_NONE);
+	nfp_cpp_explicit_set_target(expl, cpp_id,
+				    (incr / width_read) - 1, byte_mask);
+	nfp_cpp_explicit_set_posted(expl, 1,
+				    0, NFP_SIGNAL_PUSH,
+				    0, NFP_SIGNAL_NONE);
 
 	for (cnt = 0; cnt < len; cnt += incr, addr += incr, tmp += incr) {
 		if ((cnt + incr) > len) {
 			incr = (len - cnt);
 			nfp_cpp_explicit_set_target(expl, cpp_id,
-						    (incr / width_read)-1, 0xff);
+						    (incr / width_read) - 1,
+						    0xff);
 		}
 		err = nfp_cpp_explicit_do(expl, addr);
 		if (err < 0) {
@@ -803,7 +808,7 @@ int __nfp_cpp_explicit_write(struct nfp_cpp *cpp, uint32_t cpp_id,
 	if (incr > 128)
 		incr = 128;
 
-	if (len & (width_write-1))
+	if (len & (width_write - 1))
 		return -EINVAL;
 
 	/* Translate a NFP_CPP_ACTION_RW to action 1
@@ -817,14 +822,18 @@ int __nfp_cpp_explicit_write(struct nfp_cpp *cpp, uint32_t cpp_id,
 
 	byte_mask = __nfp_bytemask_of(width_write, addr);
 
-	nfp_cpp_explicit_set_target(expl, cpp_id, (incr / width_write)-1, byte_mask);
-	nfp_cpp_explicit_set_posted(expl, 1, 0, NFP_SIGNAL_PULL, 0, NFP_SIGNAL_NONE);
+	nfp_cpp_explicit_set_target(expl, cpp_id, (incr / width_write) - 1,
+				    byte_mask);
+	nfp_cpp_explicit_set_posted(expl, 1,
+				    0, NFP_SIGNAL_PULL,
+				    0, NFP_SIGNAL_NONE);
 
 	for (cnt = 0; cnt < len; cnt += incr, addr += incr, tmp += incr) {
 		if ((cnt + incr) > len) {
 			incr = (len - cnt);
 			nfp_cpp_explicit_set_target(expl, cpp_id,
-					(incr / width_write)-1, 0xff);
+						    (incr / width_write) - 1,
+						    0xff);
 		}
 		err = nfp_cpp_explicit_put(expl, tmp, incr);
 		if (err < 0) {

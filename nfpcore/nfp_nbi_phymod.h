@@ -115,7 +115,8 @@ struct nfp_phymod_eth *nfp_phymod_eth_next(struct nfp_device *dev,
 					   struct nfp_phymod *phy, void **ptr);
 
 int nfp_phymod_eth_get_index(struct nfp_phymod_eth *eth, int *index);
-int nfp_phymod_eth_get_phymod(struct nfp_phymod_eth *eth, struct nfp_phymod **phy, int *lane);
+int nfp_phymod_eth_get_phymod(struct nfp_phymod_eth *eth,
+			      struct nfp_phymod **phy, int *lane);
 int nfp_phymod_eth_get_mac(struct nfp_phymod_eth *eth, const uint8_t **mac);
 int nfp_phymod_eth_get_label(struct nfp_phymod_eth *eth, const char **label);
 int nfp_phymod_eth_get_nbi(struct nfp_phymod_eth *eth, int *nbi);

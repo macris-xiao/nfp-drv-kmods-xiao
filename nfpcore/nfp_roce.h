@@ -66,7 +66,7 @@ struct nfp_roce_info {
 	u32 model;
 
 	/* We need the following, don't see a way to get through NFP open */
-	struct pci_dev	*pdev;      
+	struct pci_dev	*pdev;
 	struct net_device *netdev[NETRO_MAX_ROCE_PORTS];
 
 	/*
@@ -84,7 +84,7 @@ struct nfp_roce_info {
 	 * be used to identify the HCA. The default MAC should be unique
 	 * to the NFP NIC device.
 	 */
-	u8	def_mac[ETH_ALEN];   
+	u8 def_mac[ETH_ALEN];
 
 	/*
 	 * Pool of interrupt vectors that RoCE driver can use for
@@ -130,6 +130,7 @@ struct nfp_roce *nfp_roce_add(struct nfp_device *nfp,
 			      struct net_device **netdev, int netdevs,
 			      struct msix_entry *entry, int entries);
 void nfp_roce_remove(struct nfp_roce *roce);
-void nfp_roce_set_devstate(struct nfp_roce *roce, enum nfp_roce_devstate_e state);
+void nfp_roce_set_devstate(struct nfp_roce *roce,
+			   enum nfp_roce_devstate_e state);
 
 #endif /* NFPCORE_NFP_ROCE_H */

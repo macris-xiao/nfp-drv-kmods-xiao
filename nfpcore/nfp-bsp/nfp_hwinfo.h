@@ -104,16 +104,19 @@
 #define NFP_HWINFO_DATA_START(base) \
 	((void *)&(((uint32_t *)base)[4]))
 #define NFP_HWINFO_DATA_END(base) \
-	((void *)(((char *)(base))+NFP_HWINFO_SIZE_in(base)-sizeof(uint32_t)))
+	((void *)(((char *)(base)) + \
+		NFP_HWINFO_SIZE_in(base) - sizeof(uint32_t)))
 
 /* Key/Value Table Version 1.x */
 #define NFP_HWINFO_V1_KEY_in(base, key_id) \
 	((const char *)((char *)(base) + \
 		__le32_to_cpu(((uint32_t *)((base) + \
-			      NFP_HWINFO_V1_TABLE_in(base)))[(key_id)*2 + 0])))
+			      NFP_HWINFO_V1_TABLE_in(base)))[(key_id) * 2 + \
+							     0])))
 #define NFP_HWINFO_V1_VAL_in(base, key_id) \
 	((const char *)((char *)(base) + \
 		__le32_to_cpu(((uint32_t *)((base) + \
-			      NFP_HWINFO_V1_TABLE_in(base)))[(key_id)*2 + 1])))
+			      NFP_HWINFO_V1_TABLE_in(base)))[(key_id) * 2 + \
+							     1])))
 
 #endif /* NFP_BSP_NFP_HWINFO_H */

@@ -85,7 +85,7 @@ static inline uint64_t nffw_fwinfo_mip_offset_get(
 static inline uint32_t nffw_res_flg_init_get(
 	struct nfp_nffw_info *res)
 {
-	return ((res->flags[0] >> 0) & 0x1);
+	return (res->flags[0] >> 0) & 0x1;
 }
 
 static void __nfp_nffw_info_des(void *data)
@@ -146,7 +146,7 @@ int nfp_nffw_info_acquire(struct nfp_device *dev)
 		}
 
 		err = nfp_cpp_read(cpp, cpp_id, addr,
-			&priv->fwinf, sizeof(priv->fwinf));
+				   &priv->fwinf, sizeof(priv->fwinf));
 		if (err < 0) {
 			nfp_resource_release(res);
 			return err;
@@ -219,7 +219,7 @@ int nfp_nffw_info_release(struct nfp_device *dev)
 #endif
 
 		err = nfp_cpp_write(cpp, cpp_id, addr,
-			&priv->fwinf, sizeof(priv->fwinf));
+				    &priv->fwinf, sizeof(priv->fwinf));
 		nfp_resource_release(res);
 		/* Clear the device's nffw_info data to invalidate it */
 		memset(&priv->fwinf, 0, sizeof(priv->fwinf));
@@ -250,14 +250,14 @@ uint8_t nfp_nffw_info_fwid_first(struct nfp_device *dev)
 	for (idx = 0, fwinfo = &fwinf->fwinfo[0];
 		 idx < NFFW_FWINFO_CNT; idx++, fwinfo++) {
 		if (nffw_fwinfo_loaded_get(fwinfo))
-			return (idx + NFFW_FWID_BASE);
+			return idx + NFFW_FWID_BASE;
 	}
 
 	return 0;
 }
 
 /**
- * nfp_nffw_info_fw_mip() - Retrive the location of the MIP of a firmware
+ * nfp_nffw_info_fw_mip() - Retrieve the location of the MIP of a firmware
  * @dev:	NFP Device handle
  * @fwid:	NFFW firmware ID
  * @cpp_id:	Pointer to the CPP ID of the MIP

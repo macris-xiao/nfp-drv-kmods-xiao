@@ -12,16 +12,15 @@
 #include "nfp3200/nfp_xpb.h"
 #include "nfp3200/nfp_pl.h"
 
-#define CTMX_BASE       (0x60000)
-#define NFP_CTMX_CFG    (CTMX_BASE + 0x000000)
+#define CTMX_BASE				(0x60000)
+#define NFP_CTMX_CFG				(CTMX_BASE + 0x000000)
 
-#define NBIX_BASE                       (0xa0000)
-#define NFP_NBIX_CSR                    (NBIX_BASE + 0x2f0000)
-#define NFP_NBIX_CSR_NbiMuXlate         0x00000000
-#define   NFP_NBIX_CSR_NbiMuXlate_Island1(_x)                (((_x) & 0x3f) << 6)
-#define   NFP_NBIX_CSR_NbiMuXlate_AccMode(_x)                (((_x) & 0x7) << 13)
-#define   NFP_NBIX_CSR_NbiMuXlate_Island0(_x)                (((_x) & 0x3f) << 0)
-
+#define NBIX_BASE				(0xa0000)
+#define NFP_NBIX_CSR				(NBIX_BASE + 0x2f0000)
+#define NFP_NBIX_CSR_NbiMuXlate			0x00000000
+#define   NFP_NBIX_CSR_NbiMuXlate_Island1(_x)	(((_x) & 0x3f) << 6)
+#define   NFP_NBIX_CSR_NbiMuXlate_AccMode(_x)	(((_x) & 0x7) << 13)
+#define   NFP_NBIX_CSR_NbiMuXlate_Island0(_x)	(((_x) & 0x3f) << 0)
 
 static const struct {
 	uint32_t reset_mask;
@@ -129,10 +128,10 @@ static int nfp3200_reset_get(struct nfp_cpp *cpp, unsigned int subdevice,
 			return err;
 	}
 
-	if (reset != NULL)
+	if (reset)
 		*reset = (csr & r_mask) ? 1 : 0;
 
-	if (enable != NULL)
+	if (enable)
 		*enable = (csr & e_mask) ? 1 : 0;
 
 	return 0;
@@ -152,8 +151,9 @@ int nfp3200_reset_set(struct nfp_cpp *cpp, unsigned int subdevice, int reset,
 	 * is our interface to the device.
 	 */
 	interface = nfp_cpp_interface(cpp);
-	if ((NFP_CPP_INTERFACE_TYPE_of(interface) == NFP_CPP_INTERFACE_TYPE_PCI)
-	    && (subdevice == NFP3200_DEVICE_PCIE))
+	if ((NFP_CPP_INTERFACE_TYPE_of(interface) ==
+	     NFP_CPP_INTERFACE_TYPE_PCI) &&
+	    (subdevice == NFP3200_DEVICE_PCIE))
 		return -EBUSY;
 
 	r_mask = target_to_mask[subdevice].reset_mask;
@@ -199,7 +199,7 @@ int nfp3200_reset_set(struct nfp_cpp *cpp, unsigned int subdevice, int reset,
  *
  * Funny C syntax:
  *
- * 0xFULL => (unsigned long long)0xf 
+ * 0xFULL => (unsigned long long)0xf
  */
 static const uint64_t imb_island_mask = ~(0 | (0xFULL << 8)	/* NBI */
 					    | (0xFULL << 24)	/* IMU */
@@ -332,6 +332,7 @@ static int nfp6000_island_init(struct nfp_cpp *cpp, int island)
 	 */
 	if (((1ULL << island) & imb_island_mask)) {
 		int i, err;
+
 		for (i = 0; i < 16; i++) {
 			uint32_t xpb_src = 0x000a0000 + (i * 4);
 			uint32_t xpb_dst = (island << 24) | xpb_src;
@@ -436,13 +437,13 @@ int nfp_power_set(struct nfp_device *nfp, unsigned int subdevice, int state)
 			break;
 
 		if (NFP_CPP_MODEL_IS_6000(model)) {
+			int island = NFP6000_DEVICE_ISLAND_of(subdevice);
+
 			/* If transitioned from RESET to ON, load the IMB */
 			if (next_state == NFP_DEVICE_STATE_P0 &&
 			    curr_state == NFP_DEVICE_STATE_P2) {
 				if (NFP6000_DEVICE_UNIT_of(subdevice) == 0)
-					nfp6000_island_init(cpp,
-							    NFP6000_DEVICE_ISLAND_of
-							    (subdevice));
+					nfp6000_island_init(cpp, island);
 			}
 		}
 

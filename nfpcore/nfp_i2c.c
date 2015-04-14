@@ -17,10 +17,10 @@
 #define I2C_BUS_MAX 8		/* Up to 8 I2C busses */
 
 struct i2c_driver {
-	void (*set_scl) (void *priv, int bit);
-	int (*get_scl) (void *priv);
-	void (*set_sda) (void *priv, int bit);	/* -1 = tristate for input */
-	int (*get_sda) (void *priv);
+	void (*set_scl)(void *priv, int bit);
+	int (*get_scl)(void *priv);
+	void (*set_sda)(void *priv, int bit);	/* -1 = tristate for input */
+	int (*get_sda)(void *priv);
 	unsigned delay;
 	long timeout_ms;
 	void *priv;
@@ -203,8 +203,9 @@ static int ms_timeout(struct timeval *tv_epoc, long timeout_ms)
 	return (timeout_ms < ms);
 }
 
-static int i2c_cmd(struct i2c_driver *bus, uint8_t chip, const uint8_t * w_buff,
-	    size_t w_len, uint8_t * r_buff, size_t r_len)
+static int i2c_cmd(struct i2c_driver *bus, uint8_t chip,
+		   const uint8_t *w_buff, size_t w_len,
+		   uint8_t *r_buff, size_t r_len)
 {
 	int i, err;
 	struct timeval tv;
@@ -263,8 +264,9 @@ done:
 	return err;
 }
 
-static int i2c_write(struct i2c_driver *bus, uint8_t chip, unsigned int addr,
-	      size_t alen, const uint8_t * buff, size_t buff_len)
+static int i2c_write(struct i2c_driver *bus, uint8_t chip,
+		     unsigned int addr, size_t alen,
+		     const uint8_t *buff, size_t buff_len)
 {
 	int i, err;
 	struct timeval tv;
@@ -310,8 +312,9 @@ static int i2c_write(struct i2c_driver *bus, uint8_t chip, unsigned int addr,
 	return 0;
 }
 
-static int i2c_read(struct i2c_driver *bus, uint8_t chip, unsigned int addr,
-	     size_t alen, uint8_t * buff, size_t buff_len)
+static int i2c_read(struct i2c_driver *bus, uint8_t chip,
+		    unsigned int addr, size_t alen,
+		    uint8_t *buff, size_t buff_len)
 {
 	int i, err;
 	struct timeval tv;
@@ -484,7 +487,7 @@ struct nfp_i2c *nfp_i2c_alloc(struct nfp_device *nfp,
 
 	i2c = kzalloc(sizeof(*i2c), GFP_KERNEL);
 
-	if (i2c == NULL)
+	if (!i2c)
 		return NULL;
 
 	i2c->gpio.gpio_scl = gpio_scl;
@@ -543,7 +546,6 @@ int nfp_i2c_set_timeout(struct nfp_i2c *i2c, long timeout_ms)
 
 	return 0;
 }
-
 
 /**
  * nfp_i2c_cmd() - NFP I2C Command

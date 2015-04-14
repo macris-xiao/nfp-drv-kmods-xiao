@@ -138,7 +138,8 @@ static int hwinfo_db_validate(struct nfp_device *nfp, void *db, u32 len)
 	return 0;
 }
 
-static int hwinfo_fetch_nowait(struct nfp_device *nfp, void **hwdb, size_t *hwdb_size)
+static int hwinfo_fetch_nowait(struct nfp_device *nfp,
+			       void **hwdb, size_t *hwdb_size)
 {
 	struct nfp_cpp_area *area;
 	int r = 0;
@@ -213,7 +214,7 @@ static int hwinfo_fetch_nowait(struct nfp_device *nfp, void **hwdb, size_t *hwdb
 	}
 
 	tmpdb = kmalloc(cpp_size, GFP_KERNEL);
-	if (tmpdb == NULL) {
+	if (!tmpdb) {
 		r = -ENOMEM;
 		goto exit_area_release;
 	}
@@ -270,6 +271,7 @@ struct hwinfo_priv {
 static void hwinfo_des(void *ptr)
 {
 	struct hwinfo_priv *priv = ptr;
+
 	kfree(priv->db);
 }
 
@@ -291,19 +293,20 @@ static void *hwinfo_con(struct nfp_device *nfp)
 		u32 pl_re;
 		u32 arm_re;
 
-		r = nfp_xpb_readl(cpp, NFP_XPB_PL|NFP_PL_STRAPS, &straps);
+		r = nfp_xpb_readl(cpp, NFP_XPB_PL | NFP_PL_STRAPS, &straps);
 		if (r < 0) {
 			nfp_err(nfp, "nfp_xpb_readl failed().\n");
 			r = -ENODEV;
 			goto err;
 		}
-		r = nfp_xpb_readl(cpp, NFP_XPB_PL|NFP_PL_RE, &pl_re);
+		r = nfp_xpb_readl(cpp, NFP_XPB_PL | NFP_PL_RE, &pl_re);
 		if (r < 0) {
 			nfp_err(nfp, "nfp_xpb_readl failed().\n");
 			r = -ENODEV;
 			goto err;
 		}
-		arm_re = NFP_PL_RE_ARM_GASKET_RESET|NFP_PL_RE_ARM_GASKET_ENABLE;
+		arm_re = NFP_PL_RE_ARM_GASKET_RESET |
+			 NFP_PL_RE_ARM_GASKET_ENABLE;
 		if (((straps & NFP_PL_STRAPS_CFG_PROM_BOOT) == 0) &&
 		    ((pl_re & arm_re) != arm_re)) {
 			nfp_err(nfp, "ARM gasket is disabled.\n");
