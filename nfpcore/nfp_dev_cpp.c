@@ -38,6 +38,7 @@
 
 #include "nfp.h"
 #include "nfp_cpp.h"
+#include "nfp_ioctl.h"
 
 #include "nfp3200/nfp_arm.h"
 

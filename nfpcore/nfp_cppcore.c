@@ -32,6 +32,7 @@
 
 #include "nfp.h"
 #include "nfp_cpp.h"
+#include "nfp_target.h"
 
 #include "nfp3200/nfp3200.h"
 #include "nfp3200/nfp_arm.h"
@@ -39,8 +40,6 @@
 #include "nfp3200/nfp_event.h"
 #include "nfp3200/nfp_em.h"
 #include "nfp3200/nfp_im.h"
-
-#include "nfp-bsp/nfp_target.h"
 
 #define NFP_CPP_DIR_NAME	"nfp_cpp"
 

@@ -34,8 +34,6 @@
 #include "nfpcore/nfp_net_null.h"
 #include "nfpcore/nfp_net_vnic.h"
 
-#include "nfpcore/nfp-bsp/nfp_resource.h"
-
 #include "nfp_main.h"
 
 bool nfp_mon_err;

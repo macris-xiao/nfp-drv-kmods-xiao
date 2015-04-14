@@ -36,8 +36,6 @@
 
 #include "nfp6000/nfp_xpb.h"
 
-#include "nfp-bsp/nfp_resource.h"
-
 /* NFP3200 MU */
 #define NFP_XPB_MU_PCTL0                NFP_XPB_DEST(21, 2)
 #define NFP_XPB_MU_PCTL1                NFP_XPB_DEST(21, 3)

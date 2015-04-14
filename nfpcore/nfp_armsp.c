@@ -21,8 +21,6 @@
 #include "nfp.h"
 #include "nfp_cpp.h"
 
-#include "nfp-bsp/nfp_resource.h"
-
 #define ARMSP_RESOURCE		"arm.sp"
 
 /* Offsets relative to the CSR base */

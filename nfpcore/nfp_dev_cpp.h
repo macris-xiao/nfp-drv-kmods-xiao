@@ -7,8 +7,6 @@
 #ifndef NFP_DEV_CPP_H
 #define NFP_DEV_CPP_H
 
-#include "nfp-bsp/nfp_ioctl.h"
-
 #define NFP_DEV_CPP_TYPE	"nfp-dev-cpp"
 
 #define NFP_DEV_CPP_MAX	128

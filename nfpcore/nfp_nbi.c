@@ -21,8 +21,6 @@
 
 #include "nfp_nbi.h"
 
-#include "nfp-bsp/nfp_resource.h"
-
 #include "nfp6000/nfp_xpb.h"
 
 struct nfp_nbi_dev {

@@ -24,8 +24,7 @@
 #include "nfp.h"
 #include "nfp_cpp.h"
 #include "nfp_nffw.h"
-
-#include "nfp-bsp/nfp_target.h"
+#include "nfp_target.h"
 
 #define NFP_MIP_SIGNATURE	0x0050494d  /* "MIP\0" */
 #define NFP_MIP_MAX_OFFSET	(256 * 1024)

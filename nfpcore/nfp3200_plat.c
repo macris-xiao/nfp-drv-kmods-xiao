@@ -36,8 +36,7 @@
 #include "nfp3200/nfp_arm.h"
 #include "nfp3200/nfp_em.h"
 
-#include "nfp-bsp/nfp_target.h"
-#include "nfp-bsp/nfp_resource.h"
+#include "nfp_target.h"
 
 #include "nfp_mon_err.h"
 #include "nfp_dev_cpp.h"

@@ -8,10 +8,10 @@
 #ifndef NFP_BSP_NFP_TARGET_H
 #define NFP_BSP_NFP_TARGET_H
 
-#include "../nfp_cpp.h"
+#include "nfp_cpp.h"
 
-#include "../nfp3200/nfp3200.h"
-#include "../nfp6000/nfp6000.h"
+#include "nfp3200/nfp3200.h"
+#include "nfp6000/nfp6000.h"
 
 #define P32 1
 #define P64 2
