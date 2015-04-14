@@ -25,28 +25,28 @@
 
 /* Offsets relative to the CSR base */
 #define ARMSP_STATUS            0x00
-#define   ARMSP_STATUS_MAGIC_of(x)      (((x) >> 48) & 0xffff)
+#define   ARMSP_STATUS_MAGIC_OF(x)      (((x) >> 48) & 0xffff)
 #define   ARMSP_STATUS_MAGIC(x)         (((x) & 0xffffULL) << 48)
-#define   ARMSP_STATUS_MAJOR_of(x)      (((x) >> 40) & 0xf)
+#define   ARMSP_STATUS_MAJOR_OF(x)      (((x) >> 40) & 0xf)
 #define   ARMSP_STATUS_MAJOR(x)         (((x) & 0xfULL) << 40)
-#define   ARMSP_STATUS_MINOR_of(x)      (((x) >> 32) & 0xfff)
+#define   ARMSP_STATUS_MINOR_OF(x)      (((x) >> 32) & 0xfff)
 #define   ARMSP_STATUS_MINOR(x)         (((x) & 0xfffULL) << 32)
-#define   ARMSP_STATUS_CODE_of(x)       (((x) >> 16) & 0xffff)
+#define   ARMSP_STATUS_CODE_OF(x)       (((x) >> 16) & 0xffff)
 #define   ARMSP_STATUS_CODE(x)          (((x) & 0xffffULL) << 16)
-#define   ARMSP_STATUS_RESULT_of(x)     (((x) >>  8) & 0xff)
+#define   ARMSP_STATUS_RESULT_OF(x)     (((x) >>  8) & 0xff)
 #define   ARMSP_STATUS_RESULT(x)        (((x) & 0xffULL) << 8)
 #define   ARMSP_STATUS_BUSY             BIT_ULL(0)
 
 #define ARMSP_COMMAND           0x08
 #define   ARMSP_COMMAND_CODE(x)         (((x) & 0xffff) << 16)
-#define   ARMSP_COMMAND_CODE_of(x)      (((x) >> 16) & 0xffff)
+#define   ARMSP_COMMAND_CODE_OF(x)      (((x) >> 16) & 0xffff)
 #define   ARMSP_COMMAND_START           BIT_ULL(0)
 
 #define ARMSP_MAGIC             0xab10
 #define ARMSP_MAJOR             0
 
-#define ARMSP_CODE_MAJOR_of(code)	(((code) >> 12) & 0xf)
-#define ARMSP_CODE_MINOR_of(code)	(((code) >>  0) & 0xfff)
+#define ARMSP_CODE_MAJOR_OF(code)	(((code) >> 12) & 0xf)
+#define ARMSP_CODE_MINOR_OF(code)	(((code) >>  0) & 0xfff)
 
 struct nfp_armsp {
 	struct nfp_resource *res;
@@ -123,18 +123,18 @@ int nfp_armsp_command(struct nfp_device *nfp, uint16_t code)
 	if (err < 0)
 		return err;
 
-	if (ARMSP_MAGIC != ARMSP_STATUS_MAGIC_of(tmp)) {
+	if (ARMSP_MAGIC != ARMSP_STATUS_MAGIC_OF(tmp)) {
 		nfp_err(nfp, "ARM SP: Cannot detect ARM Service Processor\n");
 		return -ENODEV;
 	}
 
-	ok = ARMSP_STATUS_MAJOR_of(tmp) == ARMSP_CODE_MAJOR_of(code) &&
-	     ARMSP_STATUS_MINOR_of(tmp) >= ARMSP_CODE_MINOR_of(code);
+	ok = ARMSP_STATUS_MAJOR_OF(tmp) == ARMSP_CODE_MAJOR_OF(code) &&
+	     ARMSP_STATUS_MINOR_OF(tmp) >= ARMSP_CODE_MINOR_OF(code);
 	if (!ok) {
 		nfp_err(nfp, "ARM SP: Code 0x%04x not supported (ABI %d.%d)\n",
 			code,
-			(int)ARMSP_STATUS_MAJOR_of(tmp),
-			(int)ARMSP_STATUS_MINOR_of(tmp));
+			(int)ARMSP_STATUS_MAJOR_OF(tmp),
+			(int)ARMSP_STATUS_MINOR_OF(tmp));
 		return -EINVAL;
 	}
 
@@ -192,5 +192,5 @@ int nfp_armsp_command(struct nfp_device *nfp, uint16_t code)
 		return -ETIMEDOUT;
 	}
 
-	return (int)ARMSP_STATUS_RESULT_of(tmp);
+	return (int)ARMSP_STATUS_RESULT_OF(tmp);
 }

@@ -40,17 +40,17 @@
 #define NFP_XPB_MU_PCTL0                NFP_XPB_DEST(21, 2)
 #define NFP_XPB_MU_PCTL1                NFP_XPB_DEST(21, 3)
 #define NFP_MU_PCTL_DTUAWDT            0x00b0
-#define   NFP_MU_PCTL_DTUAWDT_NUMBER_RANKS_of(_x)       (((_x) >> 9) & 0x3)
-#define   NFP_MU_PCTL_DTUAWDT_ROW_ADDR_WIDTH_of(_x)     (((_x) >> 6) & 0x3)
-#define   NFP_MU_PCTL_DTUAWDT_BANK_ADDR_WIDTH_of(_x)    (((_x) >> 3) & 0x3)
-#define   NFP_MU_PCTL_DTUAWDT_COLUMN_ADDR_WIDTH_of(_x)  ((_x) & 0x3)
+#define   NFP_MU_PCTL_DTUAWDT_NUMBER_RANKS_OF(_x)       (((_x) >> 9) & 0x3)
+#define   NFP_MU_PCTL_DTUAWDT_ROW_ADDR_WIDTH_OF(_x)     (((_x) >> 6) & 0x3)
+#define   NFP_MU_PCTL_DTUAWDT_BANK_ADDR_WIDTH_OF(_x)    (((_x) >> 3) & 0x3)
+#define   NFP_MU_PCTL_DTUAWDT_COLUMN_ADDR_WIDTH_OF(_x)  ((_x) & 0x3)
 
 /* NFP6000 PL */
 #define NFP_PL_DEVICE_ID                         0x00000004
-#define   NFP_PL_DEVICE_ID_PART_NUM_of(_x)       (((_x) >> 16) & 0xffff)
-#define   NFP_PL_DEVICE_ID_SKU_of(_x)            (((_x) >> 8) & 0xff)
-#define   NFP_PL_DEVICE_ID_MAJOR_REV_of(_x)   (((_x) >> 4) & 0xf)
-#define   NFP_PL_DEVICE_ID_MINOR_REV_of(_x)   (((_x) >> 0) & 0xf)
+#define   NFP_PL_DEVICE_ID_PART_NUM_OF(_x)       (((_x) >> 16) & 0xffff)
+#define   NFP_PL_DEVICE_ID_SKU_OF(_x)            (((_x) >> 8) & 0xff)
+#define   NFP_PL_DEVICE_ID_MAJOR_REV_OF(_x)   (((_x) >> 4) & 0xf)
+#define   NFP_PL_DEVICE_ID_MINOR_REV_OF(_x)   (((_x) >> 0) & 0xf)
 
 /**
  * nfp_xpb_writelm() - Modify bits of a 32-bit value from the XPB bus
@@ -205,14 +205,14 @@ int __nfp_cpp_model_autodetect(struct nfp_cpp *cpp, uint32_t *model)
 				(NFP_XPB_PL + NFP_PL_JTAG_ID_CODE), &tmp);
 		if (err < 0)
 			return -1;
-		*model += NFP_PL_JTAG_ID_CODE_REV_ID_of(tmp);
+		*model += NFP_PL_JTAG_ID_CODE_REV_ID_OF(tmp);
 		/* Get ME count */
 		err = nfp_cpp_readl(cpp, xpb,
 				    0x02000000 | (NFP_XPB_PL + NFP_PL_FUSE),
 				    &tmp);
 		if (err < 0)
 			return err;
-		switch (NFP_PL_FUSE_MECL_ME_ENABLE_of(tmp)) {
+		switch (NFP_PL_FUSE_MECL_ME_ENABLE_OF(tmp)) {
 		case NFP_PL_FUSE_MECL_ME_ENABLE_MES_8:
 			mes = 8;
 			break;
@@ -246,8 +246,8 @@ int __nfp_cpp_model_autodetect(struct nfp_cpp *cpp, uint32_t *model)
 				    &tmp);
 		if (err < 0)
 			return err;
-		*model |= ((NFP_PL_DEVICE_ID_MAJOR_REV_of(tmp) - 1) << 4) |
-			   NFP_PL_DEVICE_ID_MINOR_REV_of(tmp);
+		*model |= ((NFP_PL_DEVICE_ID_MAJOR_REV_OF(tmp) - 1) << 4) |
+			   NFP_PL_DEVICE_ID_MINOR_REV_OF(tmp);
 	}
 
 	return 0;
@@ -280,12 +280,12 @@ static int ddr3200_guess_size(struct nfp_cpp *cpp, int ddr, uint32_t *size)
 	if (err < 0)
 		return err;
 
-	ranks = NFP_MU_PCTL_DTUAWDT_NUMBER_RANKS_of(tmp) + 1;
-	rowb  = NFP_MU_PCTL_DTUAWDT_ROW_ADDR_WIDTH_of(tmp) + 13;
+	ranks = NFP_MU_PCTL_DTUAWDT_NUMBER_RANKS_OF(tmp) + 1;
+	rowb  = NFP_MU_PCTL_DTUAWDT_ROW_ADDR_WIDTH_OF(tmp) + 13;
 	rows  = (1 << rowb);
-	colb  = NFP_MU_PCTL_DTUAWDT_COLUMN_ADDR_WIDTH_of(tmp) + 9;
+	colb  = NFP_MU_PCTL_DTUAWDT_COLUMN_ADDR_WIDTH_OF(tmp) + 9;
 	cols  = (1 << colb);
-	bankb = NFP_MU_PCTL_DTUAWDT_BANK_ADDR_WIDTH_of(tmp) + 2;
+	bankb = NFP_MU_PCTL_DTUAWDT_BANK_ADDR_WIDTH_OF(tmp) + 2;
 	banks = (1 << bankb);
 
 	*size = ranks * (rows * cols * banks / SZ_1M) * sizeof(uint64_t);

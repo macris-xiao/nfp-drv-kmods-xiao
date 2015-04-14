@@ -15,9 +15,9 @@
 	((((cluster) & 0x1f) << 20) | (((device) & 0x3f) << 14))
 #define NFP_XPB_DEST_SIZE	(1 << 14)
 
-#define NFP_XPB_DEST_CLUSTER_of(xpb_dest)	(((xpb_dest) >> 20) & 0x1f)
-#define NFP_XPB_DEST_DEVICE_of(xpb_dest)	(((xpb_dest) >> 14) & 0x3f)
-#define NFP_XPB_DEST_ADDR_of(xpb_addr)		((xpb_addr) & 0x3fff)
+#define NFP_XPB_DEST_CLUSTER_OF(xpb_dest)	(((xpb_dest) >> 20) & 0x1f)
+#define NFP_XPB_DEST_DEVICE_OF(xpb_dest)	(((xpb_dest) >> 14) & 0x3f)
+#define NFP_XPB_DEST_ADDR_OF(xpb_addr)		((xpb_addr) & 0x3fff)
 
 #define NFP_ME_CLUSTER_START(me) \
 	NFP_XPB_DEST(me, 1)	/* Cluster Config */

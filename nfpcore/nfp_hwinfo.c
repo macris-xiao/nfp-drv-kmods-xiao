@@ -116,57 +116,57 @@
 #define NFP_HWINFO_VERSION_UPDATING(ver) \
 	((ver) & 1)
 
-#define NFP_HWINFO_VERSION_in(base) \
+#define NFP_HWINFO_VERSION_IN(base) \
 	__le32_to_cpu(((uint32_t *)(base))[0])
-#define NFP_HWINFO_VERSION_set(base, val) \
+#define NFP_HWINFO_VERSION_SET(base, val) \
 	(((uint32_t *)(base))[0] = __cpu_to_le32(val))
 
 /***************** HWInfo v1 ****************/
 
 /* Hardware Info Table Version 1.x */
-#define NFP_HWINFO_SIZE_in(base) \
+#define NFP_HWINFO_SIZE_IN(base) \
 	__le32_to_cpu(((uint32_t *)(base))[1])
-#define NFP_HWINFO_V1_TABLE_in(base) \
+#define NFP_HWINFO_V1_TABLE_IN(base) \
 	__le32_to_cpu(((uint32_t *)(base))[2])
-#define NFP_HWINFO_V1_KEYS_in(base) \
+#define NFP_HWINFO_V1_KEYS_IN(base) \
 	__le32_to_cpu(((uint32_t *)(base))[3])
-#define NFP_HWINFO_V2_LIMIT_in(base) \
+#define NFP_HWINFO_V2_LIMIT_IN(base) \
 	__le32_to_cpu(((uint32_t *)(base))[2])
-#define NFP_HWINFO_CRC32_in(base) \
+#define NFP_HWINFO_CRC32_IN(base) \
 	__le32_to_cpu(((uint32_t *)NFP_HWINFO_DATA_END(base))[0])
 
-#define NFP_HWINFO_SIZE_set(base, val) \
+#define NFP_HWINFO_SIZE_SET(base, val) \
 		(((uint32_t *)(base))[1] = __cpu_to_le32(val))
 
-#define NFP_HWINFO_V1_TABLE_set(base, val) \
+#define NFP_HWINFO_V1_TABLE_SET(base, val) \
 	(((uint32_t *)(base))[2] = __cpu_to_le32(val))
-#define NFP_HWINFO_V1_KEYS_set(base, val) \
+#define NFP_HWINFO_V1_KEYS_SET(base, val) \
 	(((uint32_t *)(base))[3] = __cpu_to_le32(val))
 
-#define NFP_HWINFO_V2_LIMIT_set(base, val) \
+#define NFP_HWINFO_V2_LIMIT_SET(base, val) \
 	(((uint32_t *)(base))[2] = __cpu_to_le32(val))
-#define NFP_HWINFO_V2_RESERVED_set(base, val) \
+#define NFP_HWINFO_V2_RESERVED_SET(base, val) \
 	(((uint32_t *)(base))[3] = __cpu_to_le32(val))
 
-#define NFP_HWINFO_CRC32_set(base, val) \
+#define NFP_HWINFO_CRC32_SET(base, val) \
 	(((uint32_t *)NFP_HWINFO_DATA_END(base))[0] = __cpu_to_le32(val))
 
 #define NFP_HWINFO_DATA_START(base) \
 	((void *)&(((uint32_t *)base)[4]))
 #define NFP_HWINFO_DATA_END(base) \
 	((void *)(((char *)(base)) + \
-		NFP_HWINFO_SIZE_in(base) - sizeof(uint32_t)))
+		NFP_HWINFO_SIZE_IN(base) - sizeof(uint32_t)))
 
 /* Key/Value Table Version 1.x */
-#define NFP_HWINFO_V1_KEY_in(base, key_id) \
+#define NFP_HWINFO_V1_KEY_IN(base, key_id) \
 	((const char *)((char *)(base) + \
 		__le32_to_cpu(((uint32_t *)((base) + \
-			      NFP_HWINFO_V1_TABLE_in(base)))[(key_id) * 2 + \
+			      NFP_HWINFO_V1_TABLE_IN(base)))[(key_id) * 2 + \
 							     0])))
-#define NFP_HWINFO_V1_VAL_in(base, key_id) \
+#define NFP_HWINFO_V1_VAL_IN(base, key_id) \
 	((const char *)((char *)(base) + \
 		__le32_to_cpu(((uint32_t *)((base) + \
-			      NFP_HWINFO_V1_TABLE_in(base)))[(key_id) * 2 + \
+			      NFP_HWINFO_V1_TABLE_IN(base)))[(key_id) * 2 + \
 							     1])))
 
 
@@ -206,7 +206,7 @@ static void hwinfo_db_parse(struct nfp_device *nfp, void *hwinfo)
 static u32 hwinfo_crc(void *db)
 {
 	u32 crc;
-	u32 len = NFP_HWINFO_SIZE_in(db) - sizeof(u32);
+	u32 len = NFP_HWINFO_SIZE_IN(db) - sizeof(u32);
 
 	crc = crc32_be(0, db, len);
 
@@ -225,24 +225,24 @@ static int hwinfo_db_validate(struct nfp_device *nfp, void *db, u32 len)
 {
 	u32 crc;
 
-	if (NFP_HWINFO_VERSION_in(db) != NFP_HWINFO_VERSION_1 &&
-	    NFP_HWINFO_VERSION_in(db) != NFP_HWINFO_VERSION_2) {
+	if (NFP_HWINFO_VERSION_IN(db) != NFP_HWINFO_VERSION_1 &&
+	    NFP_HWINFO_VERSION_IN(db) != NFP_HWINFO_VERSION_2) {
 		nfp_err(nfp, "Unknown hwinfo version 0x%x, expected 0x%x or 0x%x\n",
-			NFP_HWINFO_VERSION_in(db),
+			NFP_HWINFO_VERSION_IN(db),
 			NFP_HWINFO_VERSION_1, NFP_HWINFO_VERSION_2);
 		return -EINVAL;
 	}
 
-	if (NFP_HWINFO_SIZE_in(db) > len) {
+	if (NFP_HWINFO_SIZE_IN(db) > len) {
 		nfp_err(nfp, "Unsupported hwinfo size %u > %u\n",
-			NFP_HWINFO_SIZE_in(db), len);
+			NFP_HWINFO_SIZE_IN(db), len);
 		return -EINVAL;
 	}
 
 	crc = hwinfo_crc(db);
-	if (crc != NFP_HWINFO_CRC32_in(db)) {
+	if (crc != NFP_HWINFO_CRC32_IN(db)) {
 		nfp_err(nfp, "Corrupt hwinfo table (CRC mismatch), calculated 0x%x, expected 0x%x\n",
-			crc, NFP_HWINFO_CRC32_in(db));
+			crc, NFP_HWINFO_CRC32_IN(db));
 		return -EINVAL;
 	}
 
@@ -311,7 +311,7 @@ static int hwinfo_fetch_nowait(struct nfp_device *nfp,
 		goto exit_area_release;
 	}
 
-	ver = NFP_HWINFO_VERSION_in(header);
+	ver = NFP_HWINFO_VERSION_IN(header);
 
 	if (NFP_HWINFO_VERSION_UPDATING(ver)) {
 		r = -EBUSY;

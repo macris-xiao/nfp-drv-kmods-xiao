@@ -515,18 +515,18 @@ static int explicit_csr_to_cmd(struct nfp_cpp_explicit *expl,
 	expl1 = csr[NFP_IOCTL_CPP_EXPL1_BAR];
 	expl2 = csr[NFP_IOCTL_CPP_EXPL2_BAR];
 
-	cpp_id = NFP_CPP_ID(NFP_ARM_GCSR_EXPL2_BAR_TGT_of(expl2),
-			    NFP_ARM_GCSR_EXPL2_BAR_ACT_of(expl2),
-			NFP_ARM_GCSR_EXPL2_BAR_TOK_of(expl2));
+	cpp_id = NFP_CPP_ID(NFP_ARM_GCSR_EXPL2_BAR_TGT_OF(expl2),
+			    NFP_ARM_GCSR_EXPL2_BAR_ACT_OF(expl2),
+			NFP_ARM_GCSR_EXPL2_BAR_TOK_OF(expl2));
 
 	err = nfp_cpp_explicit_set_target(expl, cpp_id,
-					  NFP_ARM_GCSR_EXPL2_BAR_LEN_of(expl2),
-			NFP_ARM_GCSR_EXPL2_BAR_BYTE_MASK_of(expl2));
+					  NFP_ARM_GCSR_EXPL2_BAR_LEN_OF(expl2),
+			NFP_ARM_GCSR_EXPL2_BAR_BYTE_MASK_OF(expl2));
 	if (err < 0)
 		return err;
 
-	data_master = NFP_ARM_GCSR_EXPL1_BAR_DATA_MASTER_of(expl1);
-	data_ref = NFP_ARM_GCSR_EXPL1_BAR_DATA_REF_of(expl1);
+	data_master = NFP_ARM_GCSR_EXPL1_BAR_DATA_MASTER_OF(expl1);
+	data_ref = NFP_ARM_GCSR_EXPL1_BAR_DATA_REF_OF(expl1);
 
 	if (data_master || data_ref) {
 		err = nfp_cpp_explicit_set_data(expl, data_master, data_ref);
@@ -534,8 +534,8 @@ static int explicit_csr_to_cmd(struct nfp_cpp_explicit *expl,
 			return err;
 	}
 
-	signal_master = NFP_ARM_GCSR_EXPL2_BAR_SIGNAL_MASTER_of(expl2);
-	signal_ref = NFP_ARM_GCSR_EXPL1_BAR_SIGNAL_REF_of(expl1);
+	signal_master = NFP_ARM_GCSR_EXPL2_BAR_SIGNAL_MASTER_OF(expl2);
+	signal_ref = NFP_ARM_GCSR_EXPL1_BAR_SIGNAL_REF_OF(expl1);
 
 	if (signal_master || signal_ref) {
 		err = nfp_cpp_explicit_set_signal(expl, signal_master,
@@ -584,8 +584,8 @@ static int explicit_csr_to_cmd(struct nfp_cpp_explicit *expl,
 					  (expl1 &
 					   NFP_ARM_GCSR_EXPL1_BAR_POSTED) ?
 									1 : 0,
-			NFP_ARM_GCSR_EXPL_POST_SIG_A_of(post), siga_mode,
-			NFP_ARM_GCSR_EXPL_POST_SIG_B_of(post), sigb_mode);
+			NFP_ARM_GCSR_EXPL_POST_SIG_A_OF(post), siga_mode,
+			NFP_ARM_GCSR_EXPL_POST_SIG_B_OF(post), sigb_mode);
 	if (err < 0)
 		return err;
 

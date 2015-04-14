@@ -17,10 +17,10 @@
 
 #define NBIX_BASE				(0xa0000)
 #define NFP_NBIX_CSR				(NBIX_BASE + 0x2f0000)
-#define NFP_NBIX_CSR_NbiMuXlate			0x00000000
-#define   NFP_NBIX_CSR_NbiMuXlate_Island1(_x)	(((_x) & 0x3f) << 6)
-#define   NFP_NBIX_CSR_NbiMuXlate_AccMode(_x)	(((_x) & 0x7) << 13)
-#define   NFP_NBIX_CSR_NbiMuXlate_Island0(_x)	(((_x) & 0x3f) << 0)
+#define NFP_NBIX_CSR_NBIMUXLATE			0x00000000
+#define   NFP_NBIX_CSR_NBIMUXLATE_ISLAND1(_x)	(((_x) & 0x3f) << 6)
+#define   NFP_NBIX_CSR_NBIMUXLATE_ACCMODE(_x)	(((_x) & 0x7) << 13)
+#define   NFP_NBIX_CSR_NBIMUXLATE_ISLAND0(_x)	(((_x) & 0x3f) << 0)
 
 static const struct {
 	uint32_t reset_mask;
@@ -347,16 +347,16 @@ static int nfp6000_island_init(struct nfp_cpp *cpp, int island)
 				return err;
 		}
 
-		/* If we're an NBI, initialize NbiMuXlate */
+		/* If we're an NBI, initialize NBIMUXLATE */
 		if (island >= 8 && island < 12) {
 			err =
 			    nfp_xpb_writel(cpp,
 					   NFP_XPB_ISLAND(island) +
 					   NFP_NBIX_CSR +
-					   NFP_NBIX_CSR_NbiMuXlate,
-					   NFP_NBIX_CSR_NbiMuXlate_AccMode(7) |
-					   NFP_NBIX_CSR_NbiMuXlate_Island1(24) |
-					   NFP_NBIX_CSR_NbiMuXlate_Island0(0));
+					   NFP_NBIX_CSR_NBIMUXLATE,
+					   NFP_NBIX_CSR_NBIMUXLATE_ACCMODE(7) |
+					   NFP_NBIX_CSR_NBIMUXLATE_ISLAND1(24) |
+					   NFP_NBIX_CSR_NBIMUXLATE_ISLAND0(0));
 			if (err < 0)
 				return err;
 		}

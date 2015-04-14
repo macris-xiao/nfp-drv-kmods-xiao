@@ -15,91 +15,91 @@
 #include "nfp_nbi.h"
 
 #define NFP_MAC                                     0x3a0000
-#define NFP_MAC_MacMuxCtrl                          0x0000000c
-#define NFP_MAC_MacSerDesEn                         0x00000010
-#define   NFP_MAC_MacSerDesEn_SerDesEnable(_x)      (((_x) & 0xffffff) << 0)
+#define NFP_MAC_MACMUXCTRL                          0x0000000c
+#define NFP_MAC_MACSERDESEN                         0x00000010
+#define   NFP_MAC_MACSERDESEN_SERDESENABLE(_x)      (((_x) & 0xffffff) << 0)
 #define NFP_MAC_ETH(_x)	\
 	(NFP_MAC + 0x40000 + ((_x) & 0x1) * 0x20000)
-#define NFP_MAC_ETH_MacEthChPcsSeg_BaseRStatus1(_x) \
+#define NFP_MAC_ETH_MACETHCHPCSSEG_BASERSTATUS1(_x) \
 					(0x00004080 + (0x400 * ((_x) & 0xf)))
-#define   NFP_MAC_ETH_MacEthChPcsSeg_BaseRStatus1_BlockLocked \
+#define   NFP_MAC_ETH_MACETHCHPCSSEG_BASERSTATUS1_BLOCKLOCKED \
 					(1 << 0)
-#define   NFP_MAC_ETH_MacEthChPcsSeg_BaseRStatus1_RcvLinkStatus \
+#define   NFP_MAC_ETH_MACETHCHPCSSEG_BASERSTATUS1_RCVLINKSTATUS \
 					(1 << 12)
-#define NFP_MAC_ETH_MacEthChPcsSeg_Ctl1(_x)     \
+#define NFP_MAC_ETH_MACETHCHPCSSEG_CTL1(_x)     \
 					(0x00004000 + (0x400 * ((_x) & 0xf)))
-#define   NFP_MAC_ETH_MacEthChPcsSeg_Ctl1_Loopback \
+#define   NFP_MAC_ETH_MACETHCHPCSSEG_CTL1_LOOPBACK \
 					(1 << 14)
-#define   NFP_MAC_ETH_MacEthChPcsSeg_Ctl1_SpeedSel(_x) \
+#define   NFP_MAC_ETH_MACETHCHPCSSEG_CTL1_SPEED_0(_x) \
 					(((_x) & 0xf) << 2)
-#define   NFP_MAC_ETH_MacEthChPcsSeg_Ctl1_SpeedSelection13 \
+#define   NFP_MAC_ETH_MACETHCHPCSSEG_CTL1_SPEED_13 \
 					(1 << 13)
-#define   NFP_MAC_ETH_MacEthChPcsSeg_Ctl1_SpeedSelection6 \
+#define   NFP_MAC_ETH_MACETHCHPCSSEG_CTL1_SPEED_6 \
 					(1 << 6)
-#define NFP_MAC_ETH_MacEthChPcsSeg_Status1(_x)  \
+#define NFP_MAC_ETH_MACETHCHPCSSEG_STATUS1(_x)  \
 					(0x00004004 + (0x400 * ((_x) & 0xf)))
-#define   NFP_MAC_ETH_MacEthChPcsSeg_Status1_RcvLinkStatus \
+#define   NFP_MAC_ETH_MACETHCHPCSSEG_STATUS1_RCVLINKSTATUS \
 					(1 << 2)
-#define NFP_MAC_ETH_MacEthGlobal_EthActCtlSeg           0x00003000
-#define   NFP_MAC_ETH_MacEthGlobal_EthActCtlSeg_EthActivateSegment(_x) \
+#define NFP_MAC_ETH_MACETHGLOBAL_ETHACTCTLSEG           0x00003000
+#define   NFP_MAC_ETH_MACETHGLOBAL_ETHACTCTLSEG_ETHACTIVATESEGMENT(_x) \
 					(((_x) & 0xfff) << 0)
-#define NFP_MAC_ETH_MacEthSeg_EthCmdConfig(_x)          \
+#define NFP_MAC_ETH_MACETHSEG_ETHCMDCONFIG(_x)          \
 					(0x00000008 + (0x400 * ((_x) & 0xf)))
-#define   NFP_MAC_ETH_MacEthSeg_EthCmdConfig_EthRxEna   \
+#define   NFP_MAC_ETH_MACETHSEG_ETHCMDCONFIG_ETHRXENA   \
 					(1 << 1)
-#define   NFP_MAC_ETH_MacEthSeg_EthCmdConfig_EthTxEna   \
+#define   NFP_MAC_ETH_MACETHSEG_ETHCMDCONFIG_ETHTXENA   \
 					(1 << 0)
-#define NFP_MAC_ETH_MacEthSeg_EthMacAddr0(_x)           \
+#define NFP_MAC_ETH_MACETHSEG_ETHMACADDR0(_x)           \
 					(0x0000000c + (0x400 * ((_x) & 0xf)))
-#define   NFP_MAC_ETH_MacEthSeg_EthMacAddr0_EthMacAddr0(_x) \
+#define   NFP_MAC_ETH_MACETHSEG_ETHMACADDR0_ETHMACADDR0(_x) \
 					(((_x) & 0xffffffff) << 0)
-#define NFP_MAC_ETH_MacEthSeg_EthMacAddr1(_x)           \
+#define NFP_MAC_ETH_MACETHSEG_ETHMACADDR1(_x)           \
 					(0x00000010 + (0x400 * ((_x) & 0xf)))
-#define   NFP_MAC_ETH_MacEthSeg_EthMacAddr1_EthMacAddr1(_x) \
+#define   NFP_MAC_ETH_MACETHSEG_ETHMACADDR1_ETHMACADDR1(_x) \
 					(((_x) & 0xffff) << 0)
-#define NFP_MAC_ETH_EthSgmiiIfMode(_x)        \
+#define NFP_MAC_ETH_ETHSGMIIIFMODE(_x)        \
 					(0x00000350 + (0x400 * ((_x) & 0xf)))
-#define   NFP_MAC_ETH_EthSgmiiIfMode_EthSgmiiEna \
+#define   NFP_MAC_ETH_ETHSGMIIIFMODE_ETHSGMIIENA \
 					(1 << 0)
-#define   NFP_MAC_ETH_EthSgmiiIfMode_EthSgmiiPcsEnable \
+#define   NFP_MAC_ETH_ETHSGMIIIFMODE_ETHSGMIIPCSENABLE \
 					(1 << 5)
-#define     NFP_MAC_ETH_EthSgmiiIfMode_Speed_100Mbps (1)
-#define     NFP_MAC_ETH_EthSgmiiIfMode_Speed_10Mbps (0)
-#define   NFP_MAC_ETH_EthSgmiiIfMode_Speed_of(_x) \
+#define     NFP_MAC_ETH_ETHSGMIIIFMODE_SPEED_100MBPS (1)
+#define     NFP_MAC_ETH_ETHSGMIIIFMODE_SPEED_10MBPS (0)
+#define   NFP_MAC_ETH_ETHSGMIIIFMODE_SPEED_OF(_x) \
 					(((_x) >> 2) & 0x3)
-#define NFP_NBI_MAC_EthChPcsCtl1_Mode_Mask \
-	(NFP_MAC_ETH_MacEthChPcsSeg_Ctl1_SpeedSelection13 | \
-	 NFP_MAC_ETH_MacEthChPcsSeg_Ctl1_SpeedSelection6 | \
-	 NFP_MAC_ETH_MacEthChPcsSeg_Ctl1_SpeedSel(0xf))
-#define NFP_NBI_MAC_EthChPcsCtl1_Mode_10GE \
-	(NFP_MAC_ETH_MacEthChPcsSeg_Ctl1_SpeedSelection13 | \
-	 NFP_MAC_ETH_MacEthChPcsSeg_Ctl1_SpeedSelection6 | \
-	 NFP_MAC_ETH_MacEthChPcsSeg_Ctl1_SpeedSel(0))
-#define NFP_NBI_MAC_EthChPcsCtl1_Mode_10PASSTS \
-	(NFP_MAC_ETH_MacEthChPcsSeg_Ctl1_SpeedSelection13 | \
-	 NFP_MAC_ETH_MacEthChPcsSeg_Ctl1_SpeedSelection6 | \
-	 NFP_MAC_ETH_MacEthChPcsSeg_Ctl1_SpeedSel(0x1))
-#define NFP_NBI_MAC_EthChPcsCtl1_Mode_8023AV \
-	(NFP_MAC_ETH_MacEthChPcsSeg_Ctl1_SpeedSelection13 | \
-	 NFP_MAC_ETH_MacEthChPcsSeg_Ctl1_SpeedSelection6 | \
-	 NFP_MAC_ETH_MacEthChPcsSeg_Ctl1_SpeedSel(0x2))
-#define NFP_NBI_MAC_EthChPcsCtl1_Mode_40GE \
-	(NFP_MAC_ETH_MacEthChPcsSeg_Ctl1_SpeedSelection13 | \
-	 NFP_MAC_ETH_MacEthChPcsSeg_Ctl1_SpeedSelection6 | \
-	 NFP_MAC_ETH_MacEthChPcsSeg_Ctl1_SpeedSel(0x3))
-#define NFP_NBI_MAC_EthChPcsCtl1_Mode_100GE \
-	(NFP_MAC_ETH_MacEthChPcsSeg_Ctl1_SpeedSelection13 | \
-	 NFP_MAC_ETH_MacEthChPcsSeg_Ctl1_SpeedSelection6 | \
-	 NFP_MAC_ETH_MacEthChPcsSeg_Ctl1_SpeedSel(0x4))
-#define NFP_NBI_MAC_MacMuxCtrl_Error 0x1
-#define NFP_NBI_MAC_EthActCtlSeg_Disabled 0x2
-#define NFP_NBI_MAC_EthChPcsStatus1_RcvLinkStatus_Down 0x4
-#define NFP_NBI_MAC_EthChPcsBaseRStatus1_RcvLinkStatus_Down 0x8
-#define NFP_NBI_MAC_EthChPcsBaseRStatus1_BlockLocked_False 0x10
-#define NFP_NBI_MAC_EthCmdConfig_EthTxEna_False 0x20
-#define NFP_NBI_MAC_EthCmdConfig_EthRxEna_False 0x40
-#define NFP_MAC_ILK_LkRxAlignStatus_False 0x80
-#define NFP_MAC_ILK_LkRxStatusMessage_False 0x100
+#define NFP_NBI_MAC_ETHCHPCSCTL1_MODE_MASK \
+	(NFP_MAC_ETH_MACETHCHPCSSEG_CTL1_SPEED_13 | \
+	 NFP_MAC_ETH_MACETHCHPCSSEG_CTL1_SPEED_6 | \
+	 NFP_MAC_ETH_MACETHCHPCSSEG_CTL1_SPEED_0(0xf))
+#define NFP_NBI_MAC_ETHCHPCSCTL1_MODE_10GE \
+	(NFP_MAC_ETH_MACETHCHPCSSEG_CTL1_SPEED_13 | \
+	 NFP_MAC_ETH_MACETHCHPCSSEG_CTL1_SPEED_6 | \
+	 NFP_MAC_ETH_MACETHCHPCSSEG_CTL1_SPEED_0(0))
+#define NFP_NBI_MAC_ETHCHPCSCTL1_MODE_10PASSTS \
+	(NFP_MAC_ETH_MACETHCHPCSSEG_CTL1_SPEED_13 | \
+	 NFP_MAC_ETH_MACETHCHPCSSEG_CTL1_SPEED_6 | \
+	 NFP_MAC_ETH_MACETHCHPCSSEG_CTL1_SPEED_0(0x1))
+#define NFP_NBI_MAC_ETHCHPCSCTL1_MODE_8023AV \
+	(NFP_MAC_ETH_MACETHCHPCSSEG_CTL1_SPEED_13 | \
+	 NFP_MAC_ETH_MACETHCHPCSSEG_CTL1_SPEED_6 | \
+	 NFP_MAC_ETH_MACETHCHPCSSEG_CTL1_SPEED_0(0x2))
+#define NFP_NBI_MAC_ETHCHPCSCTL1_MODE_40GE \
+	(NFP_MAC_ETH_MACETHCHPCSSEG_CTL1_SPEED_13 | \
+	 NFP_MAC_ETH_MACETHCHPCSSEG_CTL1_SPEED_6 | \
+	 NFP_MAC_ETH_MACETHCHPCSSEG_CTL1_SPEED_0(0x3))
+#define NFP_NBI_MAC_ETHCHPCSCTL1_MODE_100GE \
+	(NFP_MAC_ETH_MACETHCHPCSSEG_CTL1_SPEED_13 | \
+	 NFP_MAC_ETH_MACETHCHPCSSEG_CTL1_SPEED_6 | \
+	 NFP_MAC_ETH_MACETHCHPCSSEG_CTL1_SPEED_0(0x4))
+#define NFP_NBI_MAC_MACMUXCTRL_ERROR 0x1
+#define NFP_NBI_MAC_ETHACTCTLSEG_DISABLED 0x2
+#define NFP_NBI_MAC_ETHCHPCSStatus1_RCVLINKSTATUS_DOWN 0x4
+#define NFP_NBI_MAC_ETHCHPCSBASERSTATUS1_RCVLINKSTATUS_DOWN 0x8
+#define NFP_NBI_MAC_ETHCHPCSBASERSTATUS1_BLOCKLOCKED_FALSE 0x10
+#define NFP_NBI_MAC_ETHCMDCONFIG_ETHTXENA_FALSE 0x20
+#define NFP_NBI_MAC_ETHCMDCONFIG_ETHRXENA_FALSE 0x40
+#define NFP_MAC_ILK_LKRXALIGNSTATUS_FALSE 0x80
+#define NFP_MAC_ILK_LKRXSTATUSMESSAGE_FALSE 0x100
 
 /**
  * nfp_nbi_mac_eth_ifdown() - Disable an Ethernet port.
@@ -143,8 +143,8 @@ int nfp_nbi_mac_eth_ifdown(struct nfp_nbi_dev *nbi, int core, int port)
 		m = (0x1 << (port + core * 12));
 		break;
 	}
-	r = NFP_MAC_MacSerDesEn;
-	m = NFP_MAC_MacSerDesEn_SerDesEnable(m);
+	r = NFP_MAC_MACSERDESEN;
+	m = NFP_MAC_MACSERDESEN_SERDESENABLE(m);
 	d = 0;
 
 	return nfp_nbi_mac_regw(nbi, NFP_MAC, r, m, d);
@@ -182,17 +182,17 @@ int nfp_nbi_mac_eth_ifup(struct nfp_nbi_dev *nbi, int core, int port)
 		return -EINVAL;
 
 	/* Activate the segment */
-	r = NFP_MAC_ETH_MacEthGlobal_EthActCtlSeg;
-	d = NFP_MAC_ETH_MacEthGlobal_EthActCtlSeg_EthActivateSegment(port);
+	r = NFP_MAC_ETH_MACETHGLOBAL_ETHACTCTLSEG;
+	d = NFP_MAC_ETH_MACETHGLOBAL_ETHACTCTLSEG_ETHACTIVATESEGMENT(port);
 	m = d;
 	ret = nfp_nbi_mac_regw(nbi, NFP_MAC_ETH(core), r, m, d);
 	if (ret < 0)
 		return ret;
 
 	/* Enable transmit & receive paths */
-	r = NFP_MAC_ETH_MacEthSeg_EthCmdConfig(port);
-	d = NFP_MAC_ETH_MacEthSeg_EthCmdConfig_EthRxEna |
-	    NFP_MAC_ETH_MacEthSeg_EthCmdConfig_EthTxEna;
+	r = NFP_MAC_ETH_MACETHSEG_ETHCMDCONFIG(port);
+	d = NFP_MAC_ETH_MACETHSEG_ETHCMDCONFIG_ETHRXENA |
+	    NFP_MAC_ETH_MACETHSEG_ETHCMDCONFIG_ETHTXENA;
 	m = d;
 	ret = nfp_nbi_mac_regw(nbi, NFP_MAC_ETH(core), r, m, d);
 	if (ret < 0)
@@ -213,8 +213,8 @@ int nfp_nbi_mac_eth_ifup(struct nfp_nbi_dev *nbi, int core, int port)
 		m = (0x1 << (port + core * 12));
 		break;
 	}
-	r = NFP_MAC_MacSerDesEn;
-	m = NFP_MAC_MacSerDesEn_SerDesEnable(m);
+	r = NFP_MAC_MACSERDESEN;
+	m = NFP_MAC_MACSERDESEN_SERDESENABLE(m);
 	d = m;
 
 	return nfp_nbi_mac_regw(nbi, NFP_MAC, r, m, d);
@@ -257,23 +257,23 @@ int nfp_nbi_mac_eth_read_linkstate(struct nfp_nbi_dev *nbi, int core, int port,
 		*linkstate = 0;
 
 	ret = nfp_nbi_mac_regr(nbi, NFP_MAC,
-			       NFP_MAC_MacMuxCtrl, &d);
+			       NFP_MAC_MACMUXCTRL, &d);
 	if (ret < 0)
 		return ret;
 
 	m = 1 << ((core * 12) + port);
 	if ((d & m) > 0)
-		status |= NFP_NBI_MAC_MacMuxCtrl_Error;
+		status |= NFP_NBI_MAC_MACMUXCTRL_ERROR;
 
-	r = NFP_MAC_ETH_MacEthGlobal_EthActCtlSeg;
+	r = NFP_MAC_ETH_MACETHGLOBAL_ETHACTCTLSEG;
 	ret = nfp_nbi_mac_regr(nbi, NFP_MAC_ETH(core), r, &d);
 	if (ret < 0)
 		return ret;
 
 	if (!(d & (0x1 << port)))
-		status |= NFP_NBI_MAC_EthActCtlSeg_Disabled;
+		status |= NFP_NBI_MAC_ETHACTCTLSEG_DISABLED;
 
-	r = NFP_MAC_ETH_MacEthChPcsSeg_Status1(port);
+	r = NFP_MAC_ETH_MACETHCHPCSSEG_STATUS1(port);
 	/* Double read to clear latch low on link down */
 	ret = nfp_nbi_mac_regr(nbi, NFP_MAC_ETH(core), r, &d);
 	if (ret < 0)
@@ -283,32 +283,32 @@ int nfp_nbi_mac_eth_read_linkstate(struct nfp_nbi_dev *nbi, int core, int port,
 	if (ret < 0)
 		return ret;
 
-	if (!(d & NFP_MAC_ETH_MacEthChPcsSeg_Status1_RcvLinkStatus))
-		status |= NFP_NBI_MAC_EthChPcsStatus1_RcvLinkStatus_Down;
+	if (!(d & NFP_MAC_ETH_MACETHCHPCSSEG_STATUS1_RCVLINKSTATUS))
+		status |= NFP_NBI_MAC_ETHCHPCSStatus1_RCVLINKSTATUS_DOWN;
 
-	r = NFP_MAC_ETH_MacEthChPcsSeg_BaseRStatus1(port);
+	r = NFP_MAC_ETH_MACETHCHPCSSEG_BASERSTATUS1(port);
 	ret = nfp_nbi_mac_regr(nbi, NFP_MAC_ETH(core), r, &d);
 	if (ret < 0)
 		return ret;
 
-	if (!(d & NFP_MAC_ETH_MacEthChPcsSeg_BaseRStatus1_RcvLinkStatus))
+	if (!(d & NFP_MAC_ETH_MACETHCHPCSSEG_BASERSTATUS1_RCVLINKSTATUS))
 		status |=
-		    NFP_NBI_MAC_EthChPcsBaseRStatus1_RcvLinkStatus_Down;
+		    NFP_NBI_MAC_ETHCHPCSBASERSTATUS1_RCVLINKSTATUS_DOWN;
 
-	if (!(d & NFP_MAC_ETH_MacEthChPcsSeg_BaseRStatus1_BlockLocked))
+	if (!(d & NFP_MAC_ETH_MACETHCHPCSSEG_BASERSTATUS1_BLOCKLOCKED))
 		status |=
-		    NFP_NBI_MAC_EthChPcsBaseRStatus1_BlockLocked_False;
+		    NFP_NBI_MAC_ETHCHPCSBASERSTATUS1_BLOCKLOCKED_FALSE;
 
-	r = NFP_MAC_ETH_MacEthSeg_EthCmdConfig(port);
+	r = NFP_MAC_ETH_MACETHSEG_ETHCMDCONFIG(port);
 	ret = nfp_nbi_mac_regr(nbi, NFP_MAC_ETH(core), r, &d);
 	if (ret < 0)
 		return ret;
 
-	if (!(d & NFP_MAC_ETH_MacEthSeg_EthCmdConfig_EthTxEna))
-		status |= NFP_NBI_MAC_EthCmdConfig_EthTxEna_False;
+	if (!(d & NFP_MAC_ETH_MACETHSEG_ETHCMDCONFIG_ETHTXENA))
+		status |= NFP_NBI_MAC_ETHCMDCONFIG_ETHTXENA_FALSE;
 
-	if (!(d & NFP_MAC_ETH_MacEthSeg_EthCmdConfig_EthRxEna))
-		status |= NFP_NBI_MAC_EthCmdConfig_EthRxEna_False;
+	if (!(d & NFP_MAC_ETH_MACETHSEG_ETHCMDCONFIG_ETHRXENA))
+		status |= NFP_NBI_MAC_ETHCMDCONFIG_ETHRXENA_FALSE;
 
 	if (linkstate)
 		*linkstate = status;
@@ -358,7 +358,7 @@ int nfp_nbi_mac_eth_read_mode(struct nfp_nbi_dev *nbi, int core, int port)
 
 	/* Check the Serdes lane assignments */
 	ret =
-	    nfp_nbi_mac_regr(nbi, NFP_MAC, NFP_MAC_MacMuxCtrl,
+	    nfp_nbi_mac_regr(nbi, NFP_MAC, NFP_MAC_MACMUXCTRL,
 			     &mux);
 	if (ret < 0)
 		return ret;
@@ -368,13 +368,13 @@ int nfp_nbi_mac_eth_read_mode(struct nfp_nbi_dev *nbi, int core, int port)
 		return NFP_NBI_MAC_ILK;
 
 	/* check port 0 for 100G 0x2050 */
-	r = NFP_MAC_ETH_MacEthChPcsSeg_Ctl1(0);
+	r = NFP_MAC_ETH_MACETHCHPCSSEG_CTL1(0);
 	ret = nfp_nbi_mac_regr(nbi, NFP_MAC_ETH(core), r, &d);
 	if (ret < 0)
 		return ret;
 
-	if ((d & NFP_NBI_MAC_EthChPcsCtl1_Mode_Mask) ==
-	    NFP_NBI_MAC_EthChPcsCtl1_Mode_100GE) {
+	if ((d & NFP_NBI_MAC_ETHCHPCSCTL1_MODE_MASK) ==
+	    NFP_NBI_MAC_ETHCHPCSCTL1_MODE_100GE) {
 		/* port 0-9 = 100G - ports 10, 11 can be 10G */
 		if (port < 10)
 			return NFP_NBI_MAC_ENET_100G;
@@ -382,40 +382,40 @@ int nfp_nbi_mac_eth_read_mode(struct nfp_nbi_dev *nbi, int core, int port)
 
 	/* check ports 0,4,8 for 40G */
 	s = port % 4;
-	r = NFP_MAC_ETH_MacEthChPcsSeg_Ctl1(port - s);
+	r = NFP_MAC_ETH_MACETHCHPCSSEG_CTL1(port - s);
 	ret = nfp_nbi_mac_regr(nbi, NFP_MAC_ETH(core), r, &d);
 	if (ret < 0)
 		return ret;
 
-	if ((d & NFP_NBI_MAC_EthChPcsCtl1_Mode_Mask) ==
-	    NFP_NBI_MAC_EthChPcsCtl1_Mode_40GE)
+	if ((d & NFP_NBI_MAC_ETHCHPCSCTL1_MODE_MASK) ==
+	    NFP_NBI_MAC_ETHCHPCSCTL1_MODE_40GE)
 		return NFP_NBI_MAC_ENET_40G;
 
 	/* All that remains is 10G or less */
-	r = NFP_MAC_ETH_MacEthChPcsSeg_Ctl1(port);
+	r = NFP_MAC_ETH_MACETHCHPCSSEG_CTL1(port);
 	ret = nfp_nbi_mac_regr(nbi, NFP_MAC_ETH(core), r, &d);
 	if (ret < 0)
 		return ret;
 
-	switch (d & NFP_NBI_MAC_EthChPcsCtl1_Mode_Mask) {
-	case (NFP_NBI_MAC_EthChPcsCtl1_Mode_10GE):
+	switch (d & NFP_NBI_MAC_ETHCHPCSCTL1_MODE_MASK) {
+	case (NFP_NBI_MAC_ETHCHPCSCTL1_MODE_10GE):
 		/* check if < 10G AE */
-		r = NFP_MAC_ETH_EthSgmiiIfMode(port);
+		r = NFP_MAC_ETH_ETHSGMIIIFMODE(port);
 		ret = nfp_nbi_mac_regr(nbi, NFP_MAC_ETH(core), r, &d);
 		if (ret < 0)
 			return ret;
 
-		if (d & NFP_MAC_ETH_EthSgmiiIfMode_EthSgmiiPcsEnable) {
-			if (d & NFP_MAC_ETH_EthSgmiiIfMode_EthSgmiiEna) {
+		if (d & NFP_MAC_ETH_ETHSGMIIIFMODE_ETHSGMIIPCSENABLE) {
+			if (d & NFP_MAC_ETH_ETHSGMIIIFMODE_ETHSGMIIENA) {
 				int s;
 
-				s = NFP_MAC_ETH_EthSgmiiIfMode_Speed_of(d);
+				s = NFP_MAC_ETH_ETHSGMIIIFMODE_SPEED_OF(d);
 				/* SGMII */
 				switch (s) {
-				case (NFP_MAC_ETH_EthSgmiiIfMode_Speed_10Mbps):
+				case (NFP_MAC_ETH_ETHSGMIIIFMODE_SPEED_10MBPS):
 					mode = NFP_NBI_MAC_ENET_10M;
 					break;
-				case (NFP_MAC_ETH_EthSgmiiIfMode_Speed_100Mbps):
+				case (NFP_MAC_ETH_ETHSGMIIIFMODE_SPEED_100MBPS):
 					mode = NFP_NBI_MAC_ENET_100M;
 					break;
 				case (0x2):
@@ -436,9 +436,9 @@ int nfp_nbi_mac_eth_read_mode(struct nfp_nbi_dev *nbi, int core, int port)
 		}
 
 		break;
-	case (NFP_NBI_MAC_EthChPcsCtl1_Mode_8023AV):
+	case (NFP_NBI_MAC_ETHCHPCSCTL1_MODE_8023AV):
 		break;
-	case (NFP_NBI_MAC_EthChPcsCtl1_Mode_10PASSTS):
+	case (NFP_NBI_MAC_ETHCHPCSCTL1_MODE_10PASSTS):
 		break;
 	default:
 		break;
@@ -477,17 +477,17 @@ int nfp_nbi_mac_eth_write_mac_addr(struct nfp_nbi_dev *nbi, int core,
 	if ((hwaddr >> 48) > 0)
 		return -EINVAL;
 
-	r = NFP_MAC_ETH_MacEthSeg_EthMacAddr0(port);
-	m = NFP_MAC_ETH_MacEthSeg_EthMacAddr0_EthMacAddr0(0xffffffffffff);
-	d = NFP_MAC_ETH_MacEthSeg_EthMacAddr0_EthMacAddr0(hwaddr);
+	r = NFP_MAC_ETH_MACETHSEG_ETHMACADDR0(port);
+	m = NFP_MAC_ETH_MACETHSEG_ETHMACADDR0_ETHMACADDR0(0xffffffffffff);
+	d = NFP_MAC_ETH_MACETHSEG_ETHMACADDR0_ETHMACADDR0(hwaddr);
 
 	ret = nfp_nbi_mac_regw(nbi, NFP_MAC_ETH(core), r, m, d);
 	if (ret < 0)
 		return ret;
 
-	r = NFP_MAC_ETH_MacEthSeg_EthMacAddr1(port);
-	m = NFP_MAC_ETH_MacEthSeg_EthMacAddr1_EthMacAddr1(0xffff);
-	d = NFP_MAC_ETH_MacEthSeg_EthMacAddr1_EthMacAddr1(hwaddr >> 32);
+	r = NFP_MAC_ETH_MACETHSEG_ETHMACADDR1(port);
+	m = NFP_MAC_ETH_MACETHSEG_ETHMACADDR1_ETHMACADDR1(0xffff);
+	d = NFP_MAC_ETH_MACETHSEG_ETHMACADDR1_ETHMACADDR1(hwaddr >> 32);
 
 	return nfp_nbi_mac_regw(nbi, NFP_MAC_ETH(core), r, m, d);
 }
@@ -522,12 +522,12 @@ int nfp_nbi_mac_eth_read_mac_addr(struct nfp_nbi_dev *nbi, int core,
 	if (!hwaddr)
 		return -EINVAL;
 
-	r = NFP_MAC_ETH_MacEthSeg_EthMacAddr0(port);
+	r = NFP_MAC_ETH_MACETHSEG_ETHMACADDR0(port);
 	ret = nfp_nbi_mac_regr(nbi, NFP_MAC_ETH(core), r, &d);
 	if (ret < 0)
 		return ret;
 
-	r = NFP_MAC_ETH_MacEthSeg_EthMacAddr1(port);
+	r = NFP_MAC_ETH_MACETHSEG_ETHMACADDR1(port);
 	ret = nfp_nbi_mac_regr(nbi, NFP_MAC_ETH(core), r, &m);
 	if (ret < 0)
 		return ret;

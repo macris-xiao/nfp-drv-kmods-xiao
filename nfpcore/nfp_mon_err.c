@@ -210,32 +210,32 @@ static void nfp_err_handle(struct nfp_err_cdev *cdev, u32 trigmask)
 
 	if (trigmask & (1 << F_MULTI_BIT)) {
 		status = nfp_err_ack(cdev, F_MULTI_BIT);
-		cnt += NFP_EVENT_EVENT_CNT2_of(status);
-		lastevent = NFP_EVENT_EVENT_EVENT_of(status);
+		cnt += NFP_EVENT_EVENT_CNT2_OF(status);
+		lastevent = NFP_EVENT_EVENT_EVENT_OF(status);
 	}
 
 	if (trigmask & (1 << F_SINGLE_BIT)) {
 		status = nfp_err_ack(cdev, F_SINGLE_BIT);
-		cnt += NFP_EVENT_EVENT_CNT2_of(status);
-		lastevent = NFP_EVENT_EVENT_EVENT_of(status);
+		cnt += NFP_EVENT_EVENT_CNT2_OF(status);
+		lastevent = NFP_EVENT_EVENT_EVENT_OF(status);
 	}
 
 	if (trigmask & (1 << F_ME_ATTN)) {
 		status = nfp_err_ack(cdev, F_ME_ATTN);
-		cnt += NFP_EVENT_EVENT_CNT2_of(status);
-		lastevent = NFP_EVENT_EVENT_EVENT_of(status);
+		cnt += NFP_EVENT_EVENT_CNT2_OF(status);
+		lastevent = NFP_EVENT_EVENT_EVENT_OF(status);
 	}
 
 	if (trigmask & (1 << F_QDR0)) {
 		status = nfp_err_ack(cdev, F_QDR0);
-		cnt += NFP_EVENT_EVENT_CNT2_of(status);
-		lastevent = NFP_EVENT_EVENT_EVENT_of(status);
+		cnt += NFP_EVENT_EVENT_CNT2_OF(status);
+		lastevent = NFP_EVENT_EVENT_EVENT_OF(status);
 	}
 
 	if (trigmask & (1 << F_QDR1)) {
 		status = nfp_err_ack(cdev, F_QDR1);
-		cnt += NFP_EVENT_EVENT_CNT2_of(status);
-		lastevent = NFP_EVENT_EVENT_EVENT_of(status);
+		cnt += NFP_EVENT_EVENT_CNT2_OF(status);
+		lastevent = NFP_EVENT_EVENT_EVENT_OF(status);
 	}
 
 	if (cnt == 0)

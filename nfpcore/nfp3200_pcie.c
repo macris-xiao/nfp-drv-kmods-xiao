@@ -65,18 +65,18 @@ module_param(nfp3200_debug, int, 0644);
 #define NFP_XPB_PCIE_CSR        NFP_XPB_DEST(17, 1)
 #define NFP_PCIE_BARCFG_P2C(_bar)      (0x30000 + (0x4 * (_bar)))
 #define   NFP_PCIE_BARCFG_P2C_BASE(_x)                  ((_x) & 0x3fffff)
-#define   NFP_PCIE_BARCFG_P2C_BASE_of(_x)               ((_x) & 0x3fffff)
+#define   NFP_PCIE_BARCFG_P2C_BASE_OF(_x)               ((_x) & 0x3fffff)
 #define   NFP_PCIE_BARCFG_P2C_LEN                       (0x1 << 22)
 #define     NFP_PCIE_BARCFG_P2C_LEN_32BIT               (0x0)
 #define     NFP_PCIE_BARCFG_P2C_LEN_64BIT               (0x400000)
 #define   NFP_PCIE_BARCFG_P2C_MAPTYPE(_x)               (((_x) & 0x3) << 30)
-#define   NFP_PCIE_BARCFG_P2C_MAPTYPE_of(_x)            (((_x) >> 30) & 0x3)
+#define   NFP_PCIE_BARCFG_P2C_MAPTYPE_OF(_x)            (((_x) >> 30) & 0x3)
 #define     NFP_PCIE_BARCFG_P2C_MAPTYPE_BULK            (0)
 #define     NFP_PCIE_BARCFG_P2C_MAPTYPE_CPP             (1)
 #define   NFP_PCIE_BARCFG_P2C_TGTACT(_x)                (((_x) & 0x1f) << 25)
-#define   NFP_PCIE_BARCFG_P2C_TGTACT_of(_x)             (((_x) >> 25) & 0x1f)
+#define   NFP_PCIE_BARCFG_P2C_TGTACT_OF(_x)             (((_x) >> 25) & 0x1f)
 #define   NFP_PCIE_BARCFG_P2C_TOKACTSEL(_x)             (((_x) & 0x3) << 23)
-#define   NFP_PCIE_BARCFG_P2C_TOKACTSEL_of(_x)          (((_x) >> 23) & 0x3)
+#define   NFP_PCIE_BARCFG_P2C_TOKACTSEL_OF(_x)          (((_x) >> 23) & 0x3)
 #define     NFP_PCIE_BARCFG_P2C_TOKACTSEL_BARCFG        (2)
 #define     NFP_PCIE_BARCFG_P2C_TOKACTSEL_NONE          (0)
 #define NFP_PCIE_CSR_CFG0              0x0000
@@ -206,7 +206,7 @@ static inline void write_pcie_csr(struct nfp3200_pcie *nfp, u32 off, u32 val)
 
 static inline u32 nfp_bar_maptype(struct nfp_bar *bar)
 {
-	return NFP_PCIE_BARCFG_P2C_MAPTYPE_of(bar->barcfg);
+	return NFP_PCIE_BARCFG_P2C_MAPTYPE_OF(bar->barcfg);
 }
 
 static resource_size_t nfp_bar_resource_start(struct nfp_bar *bar)
@@ -325,9 +325,9 @@ static int matching_bar(struct nfp_bar *bar, u32 tgt, u32 act, u32 tok,
 	u32 maptype, tgtact, tokactsel;
 	struct nfp3200_pcie *nfp = bar->nfp;
 
-	maptype = NFP_PCIE_BARCFG_P2C_MAPTYPE_of(bar->barcfg);
-	tgtact = NFP_PCIE_BARCFG_P2C_TGTACT_of(bar->barcfg);
-	tokactsel = NFP_PCIE_BARCFG_P2C_TOKACTSEL_of(bar->barcfg);
+	maptype = NFP_PCIE_BARCFG_P2C_MAPTYPE_OF(bar->barcfg);
+	tgtact = NFP_PCIE_BARCFG_P2C_TGTACT_OF(bar->barcfg);
+	tokactsel = NFP_PCIE_BARCFG_P2C_TOKACTSEL_OF(bar->barcfg);
 
 	if (NFP_PCIE_VERBOSE_DEBUG) {
 		dev_dbg(nfp->dev, "BAR[%d] want: %d:%d:%d:0x%llx-0x%llx (%d bit)\n",
@@ -615,12 +615,12 @@ static ssize_t show_barcfg(struct device *dev, struct device_attribute *attr,
 
 	BUG_ON(!nfp);
 	for (n = 0; n < ARRAY_SIZE(nfp->bars); n++, bar++) {
-		maptype = NFP_PCIE_BARCFG_P2C_MAPTYPE_of(bar->barcfg) & 0x3;
-		tgtact = NFP_PCIE_BARCFG_P2C_TGTACT_of(bar->barcfg);
-		tokactsel = NFP_PCIE_BARCFG_P2C_TOKACTSEL_of(bar->barcfg);
+		maptype = NFP_PCIE_BARCFG_P2C_MAPTYPE_OF(bar->barcfg) & 0x3;
+		tgtact = NFP_PCIE_BARCFG_P2C_TGTACT_OF(bar->barcfg);
+		tokactsel = NFP_PCIE_BARCFG_P2C_TOKACTSEL_OF(bar->barcfg);
 		length = (bar->barcfg & NFP_PCIE_BARCFG_P2C_LEN_64BIT)
 			? 64 : 32;
-		base = ((u64)NFP_PCIE_BARCFG_P2C_BASE_of(bar->barcfg))	<<
+		base = ((u64)NFP_PCIE_BARCFG_P2C_BASE_OF(bar->barcfg))	<<
 			(40 - 22);
 
 		off += scnprintf(buf + off, PAGE_SIZE - off,
@@ -675,7 +675,7 @@ static int enable_bars(struct nfp3200_pcie *nfp)
 		bar->nfp = nfp;
 		*((int *)&bar->index) = n;
 		*((u64 *)&bar->mask) = nfp_bar_resource_len(bar) - 1;
-		bar->offset = NFP_PCIE_BARCFG_P2C_BASE_of(bar->barcfg)
+		bar->offset = NFP_PCIE_BARCFG_P2C_BASE_OF(bar->barcfg)
 			<< (40 - 22);
 
 		/* The PCIe target BAR must be immutable. */
@@ -693,13 +693,13 @@ static int enable_bars(struct nfp3200_pcie *nfp)
 		}
 
 		/* Mask out unused base address bits. */
-		if (NFP_PCIE_BARCFG_P2C_MAPTYPE_of(bar->barcfg) ==
+		if (NFP_PCIE_BARCFG_P2C_MAPTYPE_OF(bar->barcfg) ==
 			NFP_PCIE_BARCFG_P2C_MAPTYPE_BULK)
 			bar->offset &= ~bar->mask;
-		else if (NFP_PCIE_BARCFG_P2C_MAPTYPE_of(bar->barcfg) ==
+		else if (NFP_PCIE_BARCFG_P2C_MAPTYPE_OF(bar->barcfg) ==
 			 NFP_PCIE_BARCFG_P2C_MAPTYPE_CPP &&
 			 bar->bitsize == 30 &&
-			 NFP_PCIE_BARCFG_P2C_TOKACTSEL_of(bar->barcfg) != 1)
+			 NFP_PCIE_BARCFG_P2C_TOKACTSEL_OF(bar->barcfg) != 1)
 			bar->offset &= ~(0xffffUL << 24);
 
 		/* This is permitted to fail, and is expected
@@ -724,10 +724,10 @@ static int enable_bars(struct nfp3200_pcie *nfp)
 	 * reconfigure the BARs.
 	 */
 	barcfg = nfp->bars[NFP_PCIETGT_BAR_INDEX].barcfg;
-	if (NFP_PCIE_BARCFG_P2C_MAPTYPE_of(barcfg) !=
+	if (NFP_PCIE_BARCFG_P2C_MAPTYPE_OF(barcfg) !=
 		NFP_PCIE_BARCFG_P2C_MAPTYPE_CPP ||
-		NFP_PCIE_BARCFG_P2C_TOKACTSEL_of(barcfg) != 0 ||
-		NFP_PCIE_BARCFG_P2C_BASE_of(barcfg) != 0) {
+		NFP_PCIE_BARCFG_P2C_TOKACTSEL_OF(barcfg) != 0 ||
+		NFP_PCIE_BARCFG_P2C_BASE_OF(barcfg) != 0) {
 		dev_err(nfp->dev, "Invalid BAR%d configuration 0x%x\n",
 			NFP_PCIETGT_BAR_INDEX, barcfg);
 		retval = -EIO;
@@ -1330,7 +1330,7 @@ static int nfp_cpp_pcie_init(struct nfp_cpp *cpp)
 		dev_err(nfp->dev, "nfp_xpb_readl() failed.\n");
 		goto err_pcie_write_create;
 	}
-	tmp = NFP_PL_JTAG_ID_CODE_REV_ID_of(tmp) + 0xA0;
+	tmp = NFP_PL_JTAG_ID_CODE_REV_ID_OF(tmp) + 0xA0;
 	if (tmp == 0xA1) {
 		dev_info(nfp->dev, "Workaround: NFP3200 A1\n");
 		nfp->workaround |= NFP_A1_WORKAROUND;

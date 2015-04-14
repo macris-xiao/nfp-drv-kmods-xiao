@@ -125,10 +125,10 @@
 #define NFP_PCIE_P2C_GENERAL_SIZE(bar) \
 	(1 << ((bar)->bitsize - 4))
 
-#define NFP_PCIE_CFG_BAR_PCIeToCppExpansionBAR(bar, slot) \
+#define NFP_PCIE_CFG_BAR_PCIETOCPPEXPANSIONBAR(bar, slot) \
 	(0x400 + ((bar) * 8 + (slot)) * 4)
 
-#define NFP_PCIE_CPP_BAR_PCIeToCppExpansionBAR(bar, slot) \
+#define NFP_PCIE_CPP_BAR_PCIETOCPPEXPANSIONBAR(bar, slot) \
 	(0x30000 + ((bar) * 8 + (slot)) * 4)
 
 char const nfp6000_pcie_driver_name[] = "nfp6000_pcie";
@@ -370,10 +370,10 @@ static int nfp6000_bar_write(struct nfp6000_pcie *nfp, struct nfp_bar *bar,
 	slot = bar->index & 7;
 
 	if (nfp->iomem.general) {
-		xbar = NFP_PCIE_CPP_BAR_PCIeToCppExpansionBAR(base, slot);
+		xbar = NFP_PCIE_CPP_BAR_PCIETOCPPEXPANSIONBAR(base, slot);
 		writel(newcfg, nfp->iomem.general + xbar);
 	} else {
-		xbar = NFP_PCIE_CFG_BAR_PCIeToCppExpansionBAR(base, slot);
+		xbar = NFP_PCIE_CFG_BAR_PCIETOCPPEXPANSIONBAR(base, slot);
 		pci_write_config_dword(nfp->pdev, xbar, newcfg);
 	}
 
