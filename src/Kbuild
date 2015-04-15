@@ -9,28 +9,30 @@
 
 ## Define our own config variables.
 ## A kernel Kconfig file may define these variables one day.
-CONFIG_MFD_NFP ?= m
+CONFIG_NFP ?= m
+CONFIG_NFP_NET ?= m
+CONFIG_NFP_NETVF ?= m
 
 # un-comment for debug symbols
 # override EXTRA_CFLAGS += -g3
 
 ifneq ($(makecmd),clean)
 ifneq ($(CONFIG_PCI),y)
-  $(error MFD_NFP: The PCI subsystem (CONFIG_PCI) must be enabled)
+  $(error NFP: The PCI subsystem (CONFIG_PCI) must be enabled)
 endif
 
 # FIXME: This should be encoded in Kconfig
-ifneq ($(CONFIG_MDF_NFP),n)
+ifneq ($(CONFIG_NFP),n)
   ifeq ($(CONFIG_X86),y)
     ifneq ($(CONFIG_PCI_MSI),y)
-      $(error MFD_NFP: MSI interrupts (CONFIG_PCI_MSI) must be enabled)
+      $(error NFP: MSI interrupts (CONFIG_PCI_MSI) must be enabled)
     endif
     ifneq ($(CONFIG_X86_LOCAL_APIC),y)
-      $(error MFD_NFP: the local APIC (CONFIG_X86_LOCAL_APIC) must be enabled, to recieve MSI interrupts)
+      $(error NFP: the local APIC (CONFIG_X86_LOCAL_APIC) must be enabled, to recieve MSI interrupts)
     endif
   endif
   ifneq ($(CONFIG_FW_LOADER),y)
-    $(warning MDF_NFP: The firmware loader (CONFIG_FW_LOADER) should be enabled)
+    $(warning NFP: The firmware loader (CONFIG_FW_LOADER) should be enabled)
   endif
 endif
 endif
@@ -40,7 +42,9 @@ override EXTRA_CFLAGS += -DDEBUG
 override EXTRA_CFLAGS += -Werror
 override EXTRA_CFLAGS += -I$(src)
 
-obj-$(CONFIG_MFD_NFP) += nfp.o
+obj-$(CONFIG_NFP)	+= nfp.o
+obj-$(CONFIG_NFP_NET)	+= nfp_net.o
+obj-$(CONFIG_NFP_NETVF)	+= nfp_netvf.o
 
 nfpcore-objs := \
 	    nfpcore/nfp3200_pcie.o \
@@ -77,6 +81,16 @@ nfp-objs := $(nfpcore-objs) \
 	    nfpcore/nfp_export.o \
 	    nfp_main.o
 
+nfp_net-objs := $(nfpcore-objs) \
+	    nfp_net_common.o \
+	    nfp_net_ethtool.o \
+	    nfp_net_main.o
+
+nfp_netvf-objs := \
+	    nfp_net_common.o \
+	    nfp_net_ethtool.o \
+	    nfp_netvf_main.o
+
 ####################
 # Build information
 ####################
@@ -106,3 +120,5 @@ $(obj)/nfp_build_info.h: FORCE
 	@echo "#define NFP_SRC_PATH \"$(nfp_src_dir)\"" >> $@
 
 $(obj)/nfp_main.o: $(obj)/nfp_build_info.h
+$(obj)/nfp_net_main.o: $(obj)/nfp_build_info.h
+$(obj)/nfp_netvf_main.o: $(obj)/nfp_build_info.h
