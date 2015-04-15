@@ -16,9 +16,9 @@ nfp-kmod-absdir      := $(nfp-drv-kmods-absdir-top)
 nfp-kmod-dir         := $(nfp-drv-kmods-dir)
 
 # Following absolute path is used by external linux_kmod_template calls (ie ng-nfd)
-nfp-kmod-src-absdir := $(nfp-kmod-absdir)
+nfp-kmod-src-absdir := $(nfp-kmod-absdir)/src
 # Following relative path is used by linux_kmod_template
-nfp-kmod-src-dir := $(nfp-kmod-dir)
+nfp-kmod-src-dir := $(nfp-kmod-dir)/src
 
 nfp-kmod-srcs = $(nfp-kmod-src-dir)/Kbuild \
   $(subst $(dir_src_top)/,,\
