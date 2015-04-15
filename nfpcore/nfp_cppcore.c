@@ -724,7 +724,8 @@ void __iomem *nfp_cpp_area_iomem(struct nfp_cpp_area *area)
 }
 EXPORT_SYMBOL(nfp_cpp_area_iomem);
 
-/* nfp_cpp_area_readl() - Read a uint32_t word from an area
+/**
+ * nfp_cpp_area_readl() - Read a uint32_t word from an area
  * @area:	CPP Area handle
  * @offset:	Offset into area
  * @value:	Pointer to read buffer
@@ -744,7 +745,8 @@ int nfp_cpp_area_readl(struct nfp_cpp_area *area,
 }
 EXPORT_SYMBOL(nfp_cpp_area_readl);
 
-/* nfp_cpp_area_writel() - Write a uint32_t word to an area
+/**
+ * nfp_cpp_area_writel() - Write a uint32_t word to an area
  * @area:	CPP Area handle
  * @offset:	Offset into area
  * @value:	Value to write
@@ -759,7 +761,8 @@ int nfp_cpp_area_writel(struct nfp_cpp_area *area,
 }
 EXPORT_SYMBOL(nfp_cpp_area_writel);
 
-/* nfp_cpp_area_readq() - Read a uint64_t word from an area
+/**
+ * nfp_cpp_area_readq() - Read a uint64_t word from an area
  * @area:	CPP Area handle
  * @offset:	Offset into area
  * @value:	Pointer to read buffer
@@ -779,7 +782,8 @@ int nfp_cpp_area_readq(struct nfp_cpp_area *area,
 }
 EXPORT_SYMBOL(nfp_cpp_area_readq);
 
-/* nfp_cpp_area_writeq() - Write a uint64_t word to an area
+/**
+ * nfp_cpp_area_writeq() - Write a uint64_t word to an area
  * @area:	CPP Area handle
  * @offset:	Offset into area
  * @value:	Value to write
@@ -794,7 +798,8 @@ int nfp_cpp_area_writeq(struct nfp_cpp_area *area,
 }
 EXPORT_SYMBOL(nfp_cpp_area_writeq);
 
-/* nfp_cpp_readl() - Read a uint32_t word from a CPP location
+/**
+ * nfp_cpp_readl() - Read a uint32_t word from a CPP location
  * @cpp:	CPP device handle
  * @cpp_id:	CPP ID for operation
  * @address:	Address for operation
@@ -815,7 +820,8 @@ int nfp_cpp_readl(struct nfp_cpp *cpp, uint32_t cpp_id,
 }
 EXPORT_SYMBOL(nfp_cpp_readl);
 
-/* nfp_cpp_writel() - Write a uint32_t word to a CPP location
+/**
+ * nfp_cpp_writel() - Write a uint32_t word to a CPP location
  * @cpp:	CPP device handle
  * @cpp_id:	CPP ID for operation
  * @address:	Address for operation
@@ -831,7 +837,8 @@ int nfp_cpp_writel(struct nfp_cpp *cpp, uint32_t cpp_id,
 }
 EXPORT_SYMBOL(nfp_cpp_writel);
 
-/* nfp_cpp_readq() - Read a uint64_t word from a CPP location
+/**
+ * nfp_cpp_readq() - Read a uint64_t word from a CPP location
  * @cpp:	CPP device handle
  * @cpp_id:	CPP ID for operation
  * @address:	Address for operation
@@ -852,7 +859,8 @@ int nfp_cpp_readq(struct nfp_cpp *cpp, uint32_t cpp_id,
 }
 EXPORT_SYMBOL(nfp_cpp_readq);
 
-/* nfp_cpp_writeq() - Write a uint64_t word to a CPP location
+/**
+ * nfp_cpp_writeq() - Write a uint64_t word to a CPP location
  * @cpp:	CPP device handle
  * @cpp_id:	CPP ID for operation
  * @address:	Address for operation
@@ -913,7 +921,8 @@ static uint32_t nfp_xpb_to_cpp(struct nfp_cpp *cpp, uint32_t *xpb_addr)
 	return xpb;
 }
 
-/* nfp_xpb_readl() - Read a uint32_t word from a XPB location
+/**
+ * nfp_xpb_readl() - Read a uint32_t word from a XPB location
  * @cpp:	CPP device handle
  * @xpb_addr:	Address for operation
  * @value:	Pointer to read buffer
@@ -928,7 +937,8 @@ int nfp_xpb_readl(struct nfp_cpp *cpp, uint32_t xpb_addr, uint32_t *value)
 }
 EXPORT_SYMBOL(nfp_xpb_readl);
 
-/* nfp_xpb_writel() - Write a uint32_t word to a XPB location
+/**
+ * nfp_xpb_writel() - Write a uint32_t word to a XPB location
  * @cpp:	CPP device handle
  * @xpb_addr:	Address for operation
  * @value:	Value to write
@@ -1146,7 +1156,7 @@ int nfp_cpp_explicit_do(struct nfp_cpp_explicit *expl, uint64_t address)
 EXPORT_SYMBOL(nfp_cpp_explicit_do);
 
 /**
- * nfp_cpp_explicit() - Get the 'push' (read) data from a NFP CPP explicit access
+ * nfp_cpp_explicit_get() - Get the 'push' (read) data from a NFP CPP explicit access
  * @expl:	NFP CPP Explicit handle
  * @buff:	Data that the target pushed in the transaction
  * @len:	Length of data, in bytes
