@@ -130,7 +130,7 @@ struct nfp_roce *nfp_roce_add(struct nfp_device *nfp,
 			      struct net_device **netdev, int netdevs,
 			      struct msix_entry *entry, int entries);
 void nfp_roce_remove(struct nfp_roce *roce);
-void nfp_roce_set_devstate(struct nfp_roce *roce,
-			   enum nfp_roce_devstate_e state);
+void nfp_roce_port_set_state(struct nfp_roce *roce, int port,
+			     enum nfp_roce_devstate_e state);
 
 #endif /* NFPCORE_NFP_ROCE_H */
