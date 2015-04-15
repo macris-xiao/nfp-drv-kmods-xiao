@@ -67,7 +67,7 @@ struct nfp_rtsym {
 
 void nfp_rtsym_reload(struct nfp_device *nfp);
 int nfp_rtsym_count(struct nfp_device *dev);
-const struct nfp_rtsym *nfp_rtsym_entry(struct nfp_device *nfp, size_t idx);
+const struct nfp_rtsym *nfp_rtsym_get(struct nfp_device *nfp, int idx);
 const struct nfp_rtsym *nfp_rtsym_lookup(struct nfp_device *nfp,
 					 const char *name);
 
