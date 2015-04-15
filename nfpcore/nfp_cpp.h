@@ -478,8 +478,6 @@ int nfp_cpp_event_as_callback(struct nfp_cpp_event *event,
 
 uint64_t nfp_cpp_island_mask(struct nfp_cpp *cpp);
 
-/* Implemented in nfp_explicit.c */
-
 /*
  * Return code masks for nfp_cpp_explicit_do()
  */
