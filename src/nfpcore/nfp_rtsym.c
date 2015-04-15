@@ -276,7 +276,6 @@ int nfp_rtsym_count(struct nfp_device *dev)
 
 	return priv->numrtsyms;
 }
-EXPORT_SYMBOL(nfp_rtsym_count);
 
 /**
  * nfp_rtsym_get() - Get the Nth RTSYM descriptor
@@ -302,7 +301,6 @@ const struct nfp_rtsym *nfp_rtsym_get(struct nfp_device *dev, int idx)
 
 	return &priv->rtsymtab[idx];
 }
-EXPORT_SYMBOL(nfp_rtsym_get);
 
 /**
  * nfp_rtsym_lookup() - Return the RTSYM descriptor for a symbol name
@@ -331,7 +329,6 @@ const struct nfp_rtsym *nfp_rtsym_lookup(struct nfp_device *dev,
 
 	return NULL;
 }
-EXPORT_SYMBOL(nfp_rtsym_lookup);
 
 /**
  * nfp_rtsym_reload() - Force a reload of the RTSYM table
@@ -345,4 +342,3 @@ void nfp_rtsym_reload(struct nfp_device *dev)
 	kfree(priv->rtstrtab);
 	priv->numrtsyms = 0;
 }
-EXPORT_SYMBOL(nfp_rtsym_reload);

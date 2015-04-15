@@ -81,7 +81,6 @@ int nfp_register_roce_driver(struct nfp_roce_drv *drv)
 
 	return 0;
 }
-EXPORT_SYMBOL(nfp_register_roce_driver);
 
 /**
  * nfp_unregister_roce_driver() - Unregister the RoCE driver with NFP core.
@@ -109,7 +108,6 @@ void nfp_unregister_roce_driver(struct nfp_roce_drv *drv)
 	}
 	mutex_unlock(&roce_driver_mutex);
 }
-EXPORT_SYMBOL(nfp_unregister_roce_driver);
 
 /**
  * nfp_roce_attach() - attach a network device set to the RoCE subsystem
@@ -254,7 +252,6 @@ error_check:
 
 	return ERR_PTR(err);
 }
-EXPORT_SYMBOL(nfp_roce_add);
 
 /**
  * nfp_roce_remove() - remove a RoCE device
@@ -281,7 +278,6 @@ void nfp_roce_remove(struct nfp_roce *roce)
 	kfree(roce);
 	mutex_unlock(&roce_driver_mutex);
 }
-EXPORT_SYMBOL(nfp_roce_remove);
 
 /**
  * nfp_roce_state() - Alter the state of the RoCE device
@@ -299,4 +295,3 @@ void nfp_roce_port_set_state(struct nfp_roce *roce, int port,
 		roce_driver->event_notifier(roce->ibdev, port, state);
 	mutex_unlock(&roce_driver_mutex);
 }
-EXPORT_SYMBOL(nfp_roce_port_set_state);

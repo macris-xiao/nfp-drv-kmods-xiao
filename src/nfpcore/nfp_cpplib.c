@@ -77,7 +77,6 @@ int nfp_xpb_writelm(struct nfp_cpp *cpp, uint32_t xpb_tgt,
 	tmp |= (mask & value);
 	return nfp_xpb_writel(cpp, xpb_tgt, tmp);
 }
-EXPORT_SYMBOL(nfp_xpb_writelm);
 
 /**
  * nfp_cpp_read() - read from CPP target
@@ -109,7 +108,6 @@ out:
 	nfp_cpp_area_release_free(area);
 	return err;
 }
-EXPORT_SYMBOL(nfp_cpp_read);
 
 /**
  * nfp_cpp_write() - write to CPP target
@@ -141,7 +139,6 @@ out:
 	nfp_cpp_area_release_free(area);
 	return err;
 }
-EXPORT_SYMBOL(nfp_cpp_write);
 
 /**
  * nfp_cpp_area_fill() - fill a CPP area with a value
@@ -175,7 +172,6 @@ int nfp_cpp_area_fill(struct nfp_cpp_area *area,
 
 	return (int)i;
 }
-EXPORT_SYMBOL(nfp_cpp_area_fill);
 
 /* NFP6000 specific */
 #define NFP6000_ARM_GCSR_SOFTMODEL0	0x00400144

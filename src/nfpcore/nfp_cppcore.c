@@ -190,7 +190,6 @@ struct nfp_cpp *nfp_cpp_from_device_id(int id)
 
 	return cpp;
 }
-EXPORT_SYMBOL(nfp_cpp_from_device_id);
 
 /**
  * nfp_cpp_device_id() - get device ID of CPP handle
@@ -202,7 +201,6 @@ int nfp_cpp_device_id(struct nfp_cpp *cpp)
 {
 	return cpp->id;
 }
-EXPORT_SYMBOL(nfp_cpp_device_id);
 
 /**
  * nfp_cpp_free() - free the CPP handle
@@ -212,7 +210,6 @@ void nfp_cpp_free(struct nfp_cpp *cpp)
 {
 	nfp_cpp_put(cpp);
 }
-EXPORT_SYMBOL(nfp_cpp_free);
 
 /**
  * nfp_cpp_model() - Retrieve the Model ID of the NFP
@@ -225,7 +222,6 @@ uint32_t nfp_cpp_model(struct nfp_cpp *cpp)
 	/* Check the cached model */
 	return cpp->model;
 }
-EXPORT_SYMBOL(nfp_cpp_model);
 
 /**
  * nfp_cpp_interface() - Retrieve the Interface ID of the NFP
@@ -237,7 +233,6 @@ uint16_t nfp_cpp_interface(struct nfp_cpp *cpp)
 {
 	return cpp->op->interface;
 }
-EXPORT_SYMBOL(nfp_cpp_interface);
 
 /**
  * nfp_cpp_serial() - Retrieve the Serial ID of the NFP
@@ -251,7 +246,6 @@ int nfp_cpp_serial(struct nfp_cpp *cpp, const uint8_t **serial)
 	*serial = &cpp->op->serial[0];
 	return sizeof(cpp->op->serial);
 }
-EXPORT_SYMBOL(nfp_cpp_serial);
 
 static void __resource_add(struct list_head *head, struct nfp_cpp_resource *res)
 {
@@ -315,7 +309,6 @@ void *nfp_cpp_area_priv(struct nfp_cpp_area *cpp_area)
 {
 	return &cpp_area[1];
 }
-EXPORT_SYMBOL(nfp_cpp_area_priv);
 
 /**
  * nfp_cpp_area_cpp() - return CPP handle for CPP area
@@ -327,7 +320,6 @@ struct nfp_cpp *nfp_cpp_area_cpp(struct nfp_cpp_area *cpp_area)
 {
 	return cpp_area->cpp;
 }
-EXPORT_SYMBOL(nfp_cpp_area_cpp);
 
 /**
  * nfp_cpp_area_name() - return name of a CPP area
@@ -339,7 +331,6 @@ const char *nfp_cpp_area_name(struct nfp_cpp_area *cpp_area)
 {
 	return cpp_area->resource.name;
 }
-EXPORT_SYMBOL(nfp_cpp_area_name);
 
 /**
  * nfp_cpp_area_alloc_with_name() - allocate a new CPP area
@@ -422,7 +413,6 @@ struct nfp_cpp_area *nfp_cpp_area_alloc_with_name(
 
 	return area;
 }
-EXPORT_SYMBOL(nfp_cpp_area_alloc_with_name);
 
 /**
  * nfp_cpp_area_alloc() - allocate a new CPP area
@@ -444,7 +434,6 @@ struct nfp_cpp_area *nfp_cpp_area_alloc(
 {
 	return nfp_cpp_area_alloc_with_name(cpp, dest, NULL, address, size);
 }
-EXPORT_SYMBOL(nfp_cpp_area_alloc);
 
 /**
  * nfp_cpp_area_alloc_acquire() - allocate a new CPP area and lock it down
@@ -480,7 +469,6 @@ struct nfp_cpp_area *nfp_cpp_area_alloc_acquire(
 
 	return area;
 }
-EXPORT_SYMBOL(nfp_cpp_area_alloc_acquire);
 
 /**
  * nfp_cpp_area_free() - free up the CPP area
@@ -492,7 +480,6 @@ void nfp_cpp_area_free(struct nfp_cpp_area *area)
 {
 	nfp_cpp_area_put(area);
 }
-EXPORT_SYMBOL(nfp_cpp_area_free);
 
 /**
  * nfp_cpp_area_release_free() - release CPP area and free it
@@ -505,7 +492,6 @@ void nfp_cpp_area_release_free(struct nfp_cpp_area *area)
 	nfp_cpp_area_release(area);
 	nfp_cpp_area_free(area);
 }
-EXPORT_SYMBOL(nfp_cpp_area_release_free);
 
 /**
  * nfp_cpp_area_acquire() - lock down a CPP area for access
@@ -540,7 +526,6 @@ int nfp_cpp_area_acquire(struct nfp_cpp_area *area)
 	nfp_cpp_area_get(area);
 	return 0;
 }
-EXPORT_SYMBOL(nfp_cpp_area_acquire);
 
 /**
  * nfp_cpp_area_acquire_nonblocking() - lock down a CPP area for access
@@ -572,7 +557,6 @@ int nfp_cpp_area_acquire_nonblocking(struct nfp_cpp_area *area)
 	nfp_cpp_area_get(area);
 	return 0;
 }
-EXPORT_SYMBOL(nfp_cpp_area_acquire_nonblocking);
 
 /**
  * nfp_cpp_area_release() - release a locked down CPP area
@@ -595,7 +579,6 @@ void nfp_cpp_area_release(struct nfp_cpp_area *area)
 
 	nfp_cpp_area_put(area);
 }
-EXPORT_SYMBOL(nfp_cpp_area_release);
 
 /**
  * nfp_cpp_area_read() - read data from CPP area
@@ -618,7 +601,6 @@ int nfp_cpp_area_read(struct nfp_cpp_area *area,
 {
 	return area->cpp->op->area_read(area, kernel_vaddr, offset, length);
 }
-EXPORT_SYMBOL(nfp_cpp_area_read);
 
 /**
  * nfp_cpp_area_write() - write data to CPP area
@@ -641,7 +623,6 @@ int nfp_cpp_area_write(struct nfp_cpp_area *area,
 {
 	return area->cpp->op->area_write(area, kernel_vaddr, offset, length);
 }
-EXPORT_SYMBOL(nfp_cpp_area_write);
 
 /**
  * nfp_cpp_area_check_range() - check if address range fits in CPP area
@@ -662,7 +643,6 @@ int nfp_cpp_area_check_range(struct nfp_cpp_area *area,
 		return -EFAULT;
 	return 0;
 }
-EXPORT_SYMBOL(nfp_cpp_area_check_range);
 
 /**
  * nfp_cpp_area_resource() - get resource
@@ -681,7 +661,6 @@ struct resource *nfp_cpp_area_resource(struct nfp_cpp_area *area)
 
 	return res;
 }
-EXPORT_SYMBOL(nfp_cpp_area_resource);
 
 /**
  * nfp_cpp_area_phys() - get physical address of CPP area
@@ -700,7 +679,6 @@ phys_addr_t nfp_cpp_area_phys(struct nfp_cpp_area *area)
 
 	return addr;
 }
-EXPORT_SYMBOL(nfp_cpp_area_phys);
 
 /**
  * nfp_cpp_area_iomem() - get IOMEM region for CPP area
@@ -722,7 +700,6 @@ void __iomem *nfp_cpp_area_iomem(struct nfp_cpp_area *area)
 
 	return iomem;
 }
-EXPORT_SYMBOL(nfp_cpp_area_iomem);
 
 /**
  * nfp_cpp_area_readl() - Read a uint32_t word from an area
@@ -743,7 +720,6 @@ int nfp_cpp_area_readl(struct nfp_cpp_area *area,
 
 	return err;
 }
-EXPORT_SYMBOL(nfp_cpp_area_readl);
 
 /**
  * nfp_cpp_area_writel() - Write a uint32_t word to an area
@@ -759,7 +735,6 @@ int nfp_cpp_area_writel(struct nfp_cpp_area *area,
 	value = cpu_to_le32(value);
 	return nfp_cpp_area_write(area, offset, &value, sizeof(value));
 }
-EXPORT_SYMBOL(nfp_cpp_area_writel);
 
 /**
  * nfp_cpp_area_readq() - Read a uint64_t word from an area
@@ -780,7 +755,6 @@ int nfp_cpp_area_readq(struct nfp_cpp_area *area,
 
 	return err;
 }
-EXPORT_SYMBOL(nfp_cpp_area_readq);
 
 /**
  * nfp_cpp_area_writeq() - Write a uint64_t word to an area
@@ -796,7 +770,6 @@ int nfp_cpp_area_writeq(struct nfp_cpp_area *area,
 	value = cpu_to_le64(value);
 	return nfp_cpp_area_write(area, offset, &value, sizeof(value));
 }
-EXPORT_SYMBOL(nfp_cpp_area_writeq);
 
 /**
  * nfp_cpp_readl() - Read a uint32_t word from a CPP location
@@ -818,7 +791,6 @@ int nfp_cpp_readl(struct nfp_cpp *cpp, uint32_t cpp_id,
 
 	return err;
 }
-EXPORT_SYMBOL(nfp_cpp_readl);
 
 /**
  * nfp_cpp_writel() - Write a uint32_t word to a CPP location
@@ -835,7 +807,6 @@ int nfp_cpp_writel(struct nfp_cpp *cpp, uint32_t cpp_id,
 	value = cpu_to_le32(value);
 	return nfp_cpp_write(cpp, cpp_id, address, &value, sizeof(value));
 }
-EXPORT_SYMBOL(nfp_cpp_writel);
 
 /**
  * nfp_cpp_readq() - Read a uint64_t word from a CPP location
@@ -857,7 +828,6 @@ int nfp_cpp_readq(struct nfp_cpp *cpp, uint32_t cpp_id,
 
 	return err;
 }
-EXPORT_SYMBOL(nfp_cpp_readq);
 
 /**
  * nfp_cpp_writeq() - Write a uint64_t word to a CPP location
@@ -874,7 +844,6 @@ int nfp_cpp_writeq(struct nfp_cpp *cpp, uint32_t cpp_id,
 	value = cpu_to_le64(value);
 	return  nfp_cpp_write(cpp, cpp_id, address, &value, sizeof(value));
 }
-EXPORT_SYMBOL(nfp_cpp_writeq);
 
 /* Return the correct CPP address, and fixup xpb_addr as needed,
  * based upon NFP model.
@@ -935,7 +904,6 @@ int nfp_xpb_readl(struct nfp_cpp *cpp, uint32_t xpb_addr, uint32_t *value)
 
 	return nfp_cpp_readl(cpp, cpp_dest, xpb_addr, value);
 }
-EXPORT_SYMBOL(nfp_xpb_readl);
 
 /**
  * nfp_xpb_writel() - Write a uint32_t word to a XPB location
@@ -951,7 +919,6 @@ int nfp_xpb_writel(struct nfp_cpp *cpp, uint32_t xpb_addr, uint32_t value)
 
 	return nfp_cpp_writel(cpp, cpp_dest, xpb_addr, value);
 }
-EXPORT_SYMBOL(nfp_xpb_writel);
 
 /**
  * nfp_cpp_explicit_priv() - return private struct for CPP explicit
@@ -963,7 +930,6 @@ void *nfp_cpp_explicit_priv(struct nfp_cpp_explicit *cpp_explicit)
 {
 	return &cpp_explicit[1];
 }
-EXPORT_SYMBOL(nfp_cpp_explicit_priv);
 
 /**
  * nfp_cpp_explicit_cpp() - return CPP handle for CPP explicit
@@ -975,7 +941,6 @@ struct nfp_cpp *nfp_cpp_explicit_cpp(struct nfp_cpp_explicit *cpp_explicit)
 {
 	return cpp_explicit->cpp;
 }
-EXPORT_SYMBOL(nfp_cpp_explicit_cpp);
 
 #define NFP_EXPL_OP(err, func, expl, args...) \
 	do { \
@@ -1026,7 +991,6 @@ struct nfp_cpp_explicit *nfp_cpp_explicit_acquire(struct nfp_cpp *cpp)
 
 	return expl;
 }
-EXPORT_SYMBOL(nfp_cpp_explicit_acquire);
 
 /**
  * nfp_cpp_explicit_set_target() - Set target fields for explicit
@@ -1046,7 +1010,6 @@ int nfp_cpp_explicit_set_target(struct nfp_cpp_explicit *expl,
 
 	return 0;
 }
-EXPORT_SYMBOL(nfp_cpp_explicit_set_target);
 
 /**
  * nfp_cpp_explicit_set_data() - Set data fields for explicit
@@ -1064,7 +1027,6 @@ int nfp_cpp_explicit_set_data(struct nfp_cpp_explicit *expl,
 
 	return 0;
 }
-EXPORT_SYMBOL(nfp_cpp_explicit_set_data);
 
 /**
  * nfp_cpp_explicit_set_signal() - Set signal fields for explicit
@@ -1082,7 +1044,6 @@ int nfp_cpp_explicit_set_signal(struct nfp_cpp_explicit *expl,
 
 	return 0;
 }
-EXPORT_SYMBOL(nfp_cpp_explicit_set_signal);
 
 /**
  * nfp_cpp_explicit_set_posted() - Set completion fields for explicit
@@ -1109,7 +1070,6 @@ int nfp_cpp_explicit_set_posted(struct nfp_cpp_explicit *expl, int posted,
 
 	return 0;
 }
-EXPORT_SYMBOL(nfp_cpp_explicit_set_posted);
 
 /**
  * nfp_cpp_explicit_put() - Set up the write (pull) data for a NFP CPP explicit access
@@ -1133,7 +1093,6 @@ int nfp_cpp_explicit_put(struct nfp_cpp_explicit *expl,
 
 	return err;
 }
-EXPORT_SYMBOL(nfp_cpp_explicit_put);
 
 /**
  * nfp_cpp_explicit_do() - Execute a transaction, and wait for it to complete
@@ -1153,7 +1112,6 @@ int nfp_cpp_explicit_do(struct nfp_cpp_explicit *expl, uint64_t address)
 
 	return err;
 }
-EXPORT_SYMBOL(nfp_cpp_explicit_do);
 
 /**
  * nfp_cpp_explicit_get() - Get the 'push' (read) data from a NFP CPP explicit access
@@ -1179,7 +1137,6 @@ int nfp_cpp_explicit_get(struct nfp_cpp_explicit *expl, void *buff, size_t len)
 
 	return err;
 }
-EXPORT_SYMBOL(nfp_cpp_explicit_get);
 
 /**
  * nfp_cpp_explicit_release() - Release explicit access handle
@@ -1191,7 +1148,6 @@ void nfp_cpp_explicit_release(struct nfp_cpp_explicit *expl)
 	NFP_EXPL_OP_NR(explicit_release, expl);
 	kfree(expl);
 }
-EXPORT_SYMBOL(nfp_cpp_explicit_release);
 
 /**
  * nfp_cpp_event_priv() - return private struct for CPP event
@@ -1203,7 +1159,6 @@ void *nfp_cpp_event_priv(struct nfp_cpp_event *cpp_event)
 {
 	return &cpp_event[1];
 }
-EXPORT_SYMBOL(nfp_cpp_event_priv);
 
 /**
  * nfp_cpp_event_cpp() - return CPP handle for CPP event
@@ -1215,7 +1170,6 @@ struct nfp_cpp *nfp_cpp_event_cpp(struct nfp_cpp_event *cpp_event)
 {
 	return cpp_event->cpp;
 }
-EXPORT_SYMBOL(nfp_cpp_event_cpp);
 
 /**
  * nfp_cpp_event_alloc() - Allocate an event monitor
@@ -1263,7 +1217,6 @@ struct nfp_cpp_event *nfp_cpp_event_alloc(
 
 	return event;
 }
-EXPORT_SYMBOL(nfp_cpp_event_alloc);
 
 /**
  * nfp_cpp_event_as_callback() - Execute callback when event is triggered
@@ -1285,7 +1238,6 @@ int nfp_cpp_event_as_callback(struct nfp_cpp_event *event,
 
 	return 0;
 }
-EXPORT_SYMBOL(nfp_cpp_event_as_callback);
 
 /**
  * nfp_cpp_event_callback() - Execute the event's callback
@@ -1327,7 +1279,6 @@ void nfp_cpp_event_free(struct nfp_cpp_event *event)
 	CPP_PUT(cpp);
 	kfree(event);
 }
-EXPORT_SYMBOL(nfp_cpp_event_free);
 
 #ifdef CONFIG_PROC_FS
 static void *cpp_r_next(struct seq_file *m, void *v, loff_t *pos)
@@ -1561,7 +1512,6 @@ struct nfp_cpp *nfp_cpp_from_operations(const struct nfp_cpp_operations *ops)
 
 	return cpp;
 }
-EXPORT_SYMBOL(nfp_cpp_from_operations);
 
 /**
  * nfp_cpp_device() - Get the Linux device handle of a CPP handle
@@ -1573,7 +1523,6 @@ struct device *nfp_cpp_device(struct nfp_cpp *cpp)
 {
 	return &cpp->dev;
 }
-EXPORT_SYMBOL(nfp_cpp_device);
 
 /**
  * nfp_cpp_priv() - Get the operations private data of a CPP handle
@@ -1585,7 +1534,6 @@ void *nfp_cpp_priv(struct nfp_cpp *cpp)
 {
 	return cpp->op->priv;
 }
-EXPORT_SYMBOL(nfp_cpp_priv);
 
 /**
  * nfp_cpp_island_mask() - Return the island mask
@@ -1597,7 +1545,6 @@ uint64_t nfp_cpp_island_mask(struct nfp_cpp *cpp)
 {
 	return cpp->island_mask;
 }
-EXPORT_SYMBOL(nfp_cpp_island_mask);
 
 /**
  * nfp_cppcore_init() - Initialize base level NFP CPP API

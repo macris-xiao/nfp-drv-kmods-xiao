@@ -42,7 +42,8 @@ override EXTRA_CFLAGS += -I$(src)
 
 obj-$(CONFIG_MFD_NFP) += nfp.o
 
-nfp-objs := nfpcore/nfp3200_pcie.o \
+nfpcore-objs := \
+	    nfpcore/nfp3200_pcie.o \
 	    nfpcore/nfp3200_plat.o \
 	    nfpcore/nfp6000_pcie.o \
 	    nfpcore/crc32.o \
@@ -70,9 +71,11 @@ nfp-objs := nfpcore/nfp3200_pcie.o \
 	    nfpcore/nfp_resource.o \
 	    nfpcore/nfp_roce.o \
 	    nfpcore/nfp_rtsym.o \
-	    nfpcore/nfp_spi.o \
-	    nfp_main.o
+	    nfpcore/nfp_spi.o
 
+nfp-objs := $(nfpcore-objs) \
+	    nfpcore/nfp_export.o \
+	    nfp_main.o
 
 ####################
 # Build information

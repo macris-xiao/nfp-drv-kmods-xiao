@@ -149,7 +149,6 @@ int nfp_nbi_mac_eth_ifdown(struct nfp_nbi_dev *nbi, int core, int port)
 
 	return nfp_nbi_mac_regw(nbi, NFP_MAC, r, m, d);
 }
-EXPORT_SYMBOL(nfp_nbi_mac_eth_ifdown);
 
 /**
  * nfp_nbi_mac_eth_ifup() - Enable an Ethernet port.
@@ -219,7 +218,6 @@ int nfp_nbi_mac_eth_ifup(struct nfp_nbi_dev *nbi, int core, int port)
 
 	return nfp_nbi_mac_regw(nbi, NFP_MAC, r, m, d);
 }
-EXPORT_SYMBOL(nfp_nbi_mac_eth_ifup);
 
 /**
  * nfp_nbi_mac_eth_read_linkstate() - Check the link state of an Ethernet port
@@ -315,7 +313,6 @@ int nfp_nbi_mac_eth_read_linkstate(struct nfp_nbi_dev *nbi, int core, int port,
 
 	return (status) ? 0 : 1;
 }
-EXPORT_SYMBOL(nfp_nbi_mac_eth_read_linkstate);
 
 /**
  * nfp_nbi_mac_eth_read_mode() - Return the mode for an Ethernet port.
@@ -446,7 +443,6 @@ int nfp_nbi_mac_eth_read_mode(struct nfp_nbi_dev *nbi, int core, int port)
 
 	return -EINVAL;
 }
-EXPORT_SYMBOL(nfp_nbi_mac_eth_read_mode);
 
 /**
  * nfp_nbi_mac_eth_write_mac_addr() - Write the MAC address for a port
@@ -491,7 +487,6 @@ int nfp_nbi_mac_eth_write_mac_addr(struct nfp_nbi_dev *nbi, int core,
 
 	return nfp_nbi_mac_regw(nbi, NFP_MAC_ETH(core), r, m, d);
 }
-EXPORT_SYMBOL(nfp_nbi_mac_eth_write_mac_addr);
 
 /**
  * nfp_nbi_mac_eth_read_mac_addr() - Read the MAC address for a port
@@ -536,4 +531,3 @@ int nfp_nbi_mac_eth_read_mac_addr(struct nfp_nbi_dev *nbi, int core,
 	*hwaddr = (*hwaddr << 32) | d;
 	return 0;
 }
-EXPORT_SYMBOL(nfp_nbi_mac_eth_read_mac_addr);

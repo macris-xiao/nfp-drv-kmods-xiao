@@ -144,7 +144,6 @@ struct nfp_nbi_dev *nfp_nbi_open(struct nfp_device *nfp, int nbi_id)
 
 	return nbi;
 }
-EXPORT_SYMBOL(nfp_nbi_open);
 
 /**
  * nfp_nbi_close() - Release NFP NBI device handle
@@ -154,7 +153,6 @@ void nfp_nbi_close(struct nfp_nbi_dev *nbi)
 {
 	kfree(nbi);
 }
-EXPORT_SYMBOL(nfp_nbi_close);
 
 /**
  * nfp_nbi_index() - Get the NFP NBI index of this NBI handle
@@ -166,7 +164,6 @@ int nfp_nbi_index(struct nfp_nbi_dev *nbi)
 {
 	return nbi->nbi;
 }
-EXPORT_SYMBOL(nfp_nbi_index);
 
 /**
  * nfp_nbi_mac_stats_read_port() - Read the statistics for an active port

@@ -63,7 +63,6 @@ struct nfp_cpp *nfp_device_cpp(struct nfp_device *nfp)
 {
 		return nfp->cpp;
 }
-EXPORT_SYMBOL(nfp_device_cpp);
 
 /**
  * nfp_device_from_cpp() - Construct a NFP device from a CPP handle
@@ -91,7 +90,6 @@ struct nfp_device *nfp_device_from_cpp(struct nfp_cpp *cpp)
 err_nfp_alloc:
 		return NULL;
 }
-EXPORT_SYMBOL(nfp_device_from_cpp);
 
 /**
  * nfp_device_close() - Close a NFP device
@@ -115,7 +113,6 @@ void nfp_device_close(struct nfp_device *nfp)
 			nfp_cpp_free(nfp->cpp);
 		kfree(nfp);
 }
-EXPORT_SYMBOL(nfp_device_close);
 
 /**
  * nfp_device_open() - Open a NFP device by ID
@@ -141,7 +138,6 @@ struct nfp_device *nfp_device_open(unsigned int id)
 		nfp->cpp_free = 1;
 		return nfp;
 }
-EXPORT_SYMBOL(nfp_device_open);
 
 /**
  * nfp_device_id() - Get the device ID from a NFP handle
@@ -153,7 +149,6 @@ int nfp_device_id(struct nfp_device *nfp)
 {
 		return nfp_cpp_device_id(nfp->cpp);
 }
-EXPORT_SYMBOL(nfp_device_id);
 
 /**
  * nfp_device_private() - Allocate private memory for a NFP device
@@ -188,7 +183,6 @@ void *nfp_device_private(struct nfp_device *dev,
 
 	return priv;
 }
-EXPORT_SYMBOL(nfp_device_private);
 
 /**
  * nfp_device_private_alloc() - Constructor allocation method
@@ -217,4 +211,3 @@ void *nfp_device_private_alloc(struct nfp_device *dev,
 	spin_unlock(&dev->private_lock);
 	return &priv[1];
 }
-EXPORT_SYMBOL(nfp_device_private_alloc);

@@ -751,7 +751,6 @@ struct nfp_phymod *nfp_phymod_next(struct nfp_device *nfp, void **ptr)
 	*ptr = next;
 	return next;
 }
-EXPORT_SYMBOL(nfp_phymod_next);
 
 /**
  * nfp_phymod_get_index() - Get the index for a phymode
@@ -767,7 +766,6 @@ int nfp_phymod_get_index(struct nfp_phymod *phymod, int *index)
 
 	return 0;
 }
-EXPORT_SYMBOL(nfp_phymod_get_index);
 
 /**
  * nfp_phymod_get_label() - Get the string (UTF8) label for a phymode
@@ -783,7 +781,6 @@ int nfp_phymod_get_label(struct nfp_phymod *phymod, const char **label)
 
 	return 0;
 }
-EXPORT_SYMBOL(nfp_phymod_get_label);
 
 /**
  * nfp_phymod_get_nbi() - Get the NBI ID for a phymode
@@ -799,7 +796,6 @@ int nfp_phymod_get_nbi(struct nfp_phymod *phymod, int *nbi)
 
 	return 0;
 }
-EXPORT_SYMBOL(nfp_phymod_get_nbi);
 
 /**
  * nfp_phymod_get_port() - Get the base port and/or size
@@ -819,7 +815,6 @@ int nfp_phymod_get_port(struct nfp_phymod *phymod, int *base, int *size)
 
 	return 0;
 }
-EXPORT_SYMBOL(nfp_phymod_get_port);
 
 /**
  * nfp_phymod_get_type() - Get the type ID for the port
@@ -840,7 +835,6 @@ int nfp_phymod_get_type(struct nfp_phymod *phymod, int *type)
 
 	return 0;
 }
-EXPORT_SYMBOL(nfp_phymod_get_type);
 
 /**
  * nfp_phymod_read_status() - Report status for a PHY module.
@@ -899,7 +893,6 @@ int nfp_phymod_read_status(struct nfp_phymod *phymod, uint32_t *txstatus,
 
 	return 0;
 }
-EXPORT_SYMBOL(nfp_phymod_read_status);
 
 /**
  * nfp_phymod_read_status_los() - Report Loss Of Signal status
@@ -929,7 +922,6 @@ int nfp_phymod_read_status_los(struct nfp_phymod *phymod, uint32_t *txstatus,
 
 	return -EINVAL;
 }
-EXPORT_SYMBOL(nfp_phymod_read_status_los);
 
 /**
  * nfp_phymod_read_status_fault() - Report Fault status
@@ -958,7 +950,6 @@ int nfp_phymod_read_status_fault(struct nfp_phymod *phymod, uint32_t *txstatus,
 
 	return -EINVAL;
 }
-EXPORT_SYMBOL(nfp_phymod_read_status_fault);
 
 /**
  * nfp_phymod_read_status_optpower() - Report Optical Power status
@@ -992,7 +983,6 @@ int nfp_phymod_read_status_optpower(struct nfp_phymod *phymod,
 
 	return -EINVAL;
 }
-EXPORT_SYMBOL(nfp_phymod_read_status_optpower);
 
 /**
  * nfp_phymod_read_status_optbias() - Report Optical Bias status
@@ -1019,7 +1009,6 @@ int nfp_phymod_read_status_optbias(struct nfp_phymod *phymod,
 
 	return -EINVAL;
 }
-EXPORT_SYMBOL(nfp_phymod_read_status_optbias);
 
 /**
  * nfp_phymod_read_status_voltage() - Report High/Low Voltage status
@@ -1061,7 +1050,6 @@ int nfp_phymod_read_status_voltage(struct nfp_phymod *phymod,
 
 	return -EINVAL;
 }
-EXPORT_SYMBOL(nfp_phymod_read_status_voltage);
 
 /**
  * nfp_phymod_read_status_temp() - Report High/Low Temperature status
@@ -1096,7 +1084,6 @@ int nfp_phymod_read_status_temp(struct nfp_phymod *phymod, uint32_t *txstatus,
 
 	return -EINVAL;
 }
-EXPORT_SYMBOL(nfp_phymod_read_status_temp);
 
 /**
  * nfp_phymod_read_lanedisable() - Read Lane Disable state for a PHY module.
@@ -1134,7 +1121,6 @@ int nfp_phymod_read_lanedisable(struct nfp_phymod *phymod, uint32_t *txstatus,
 
 	return -EINVAL;
 }
-EXPORT_SYMBOL(nfp_phymod_read_lanedisable);
 
 /**
  * nfp_phymod_write_lanedisable() - Write Lane Disable state for a PHY module.
@@ -1171,7 +1157,6 @@ int nfp_phymod_write_lanedisable(struct nfp_phymod *phymod, uint32_t txstate,
 
 	return -EINVAL;
 }
-EXPORT_SYMBOL(nfp_phymod_write_lanedisable);
 
 /**
  * nfp_phymod_read8() - Read a PHY module address (8-bit).
@@ -1191,7 +1176,6 @@ int nfp_phymod_read8(struct nfp_phymod *phymod, uint32_t addr,
 
 	return -EINVAL;
 }
-EXPORT_SYMBOL(nfp_phymod_read8);
 
 /**
  * nfp_phymod_write8() - Write a PHY module address (8-bit).
@@ -1212,7 +1196,6 @@ int nfp_phymod_write8(struct nfp_phymod *phymod, uint32_t addr,
 
 	return -EINVAL;
 }
-EXPORT_SYMBOL(nfp_phymod_write8);
 
 /**
  * nfp_phymod_eth_next() - PHY Module Ethernet port enumeration
@@ -1269,7 +1252,6 @@ struct nfp_phymod_eth *nfp_phymod_eth_next(struct nfp_device *nfp,
 
 	return NULL;
 }
-EXPORT_SYMBOL(nfp_phymod_eth_next);
 
 /**
  * nfp_phymod_eth_get_index() - Get the index for a phymod's eth interface
@@ -1285,7 +1267,6 @@ int nfp_phymod_eth_get_index(struct nfp_phymod_eth *eth, int *index)
 
 	return 0;
 }
-EXPORT_SYMBOL(nfp_phymod_eth_get_index);
 
 /**
  * nfp_phymod_eth_get_phymod() - Get the phymod and base lane
@@ -1306,7 +1287,6 @@ int nfp_phymod_eth_get_phymod(struct nfp_phymod_eth *eth,
 
 	return 0;
 }
-EXPORT_SYMBOL(nfp_phymod_eth_get_phymod);
 
 /**
  * nfp_phymod_eth_get_mac() - Get the MAC address of an ethernet port
@@ -1322,7 +1302,6 @@ int nfp_phymod_eth_get_mac(struct nfp_phymod_eth *eth, const uint8_t **mac)
 
 	return 0;
 }
-EXPORT_SYMBOL(nfp_phymod_eth_get_mac);
 
 /**
  * nfp_phymod_eth_get_label() - Get the string (UTF8) label
@@ -1338,7 +1317,6 @@ int nfp_phymod_eth_get_label(struct nfp_phymod_eth *eth, const char **label)
 
 	return 0;
 }
-EXPORT_SYMBOL(nfp_phymod_eth_get_label);
 
 /**
  * nfp_phymod_eth_get_nbi() - Get the NBI ID for a phymod's Ethernet interface
@@ -1354,7 +1332,6 @@ int nfp_phymod_eth_get_nbi(struct nfp_phymod_eth *eth, int *nbi)
 
 	return 0;
 }
-EXPORT_SYMBOL(nfp_phymod_eth_get_nbi);
 
 /**
  * nfp_phymod_eth_get_port() - Get the base port and/or lanes
@@ -1374,7 +1351,6 @@ int nfp_phymod_eth_get_port(struct nfp_phymod_eth *eth, int *base, int *lanes)
 
 	return 0;
 }
-EXPORT_SYMBOL(nfp_phymod_eth_get_port);
 
 /**
  * nfp_phymod_eth_get_speed() - Get the speed of the Ethernet port
@@ -1407,7 +1383,6 @@ int nfp_phymod_eth_get_speed(struct nfp_phymod_eth *eth, int *speed)
 	*speed = per_lane * eth->lanes;
 	return 0;
 }
-EXPORT_SYMBOL(nfp_phymod_eth_get_speed);
 
 /**
  * nfp_phymod_eth_get_fail_to_wire() - Retrieve the fail-to-wire TX partner
@@ -1443,7 +1418,6 @@ int nfp_phymod_eth_get_fail_to_wire(struct nfp_phymod_eth *eth,
 
 	return 0;
 }
-EXPORT_SYMBOL(nfp_phymod_eth_get_fail_to_wire);
 
 /**
  * nfp_phymod_eth_set_fail_to_wire() - Force fail-to-wire mode, if available.
@@ -1456,7 +1430,6 @@ int nfp_phymod_eth_set_fail_to_wire(struct nfp_phymod_eth *eth, int force)
 {
 	return pin_set(eth->priv->nfp, &eth->fail_to_wire.force, force);
 }
-EXPORT_SYMBOL(nfp_phymod_eth_set_fail_to_wire);
 
 /**
  * nfp_phymod_eth_read_disable() - Read PHY Disable state for an eth port
@@ -1490,7 +1463,6 @@ int nfp_phymod_eth_read_disable(struct nfp_phymod_eth *eth, uint32_t *txstatus,
 
 	return 0;
 }
-EXPORT_SYMBOL(nfp_phymod_eth_read_disable);
 
 /**
  * nfp_phymod_eth_write_disable() - Write PHY Disable state for an eth port
@@ -1529,4 +1501,3 @@ int nfp_phymod_eth_write_disable(struct nfp_phymod_eth *eth, uint32_t txstate,
 
 	return 0;
 }
-EXPORT_SYMBOL(nfp_phymod_eth_write_disable);
