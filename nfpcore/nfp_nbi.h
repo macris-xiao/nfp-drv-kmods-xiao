@@ -24,14 +24,10 @@ void nfp_nbi_close(struct nfp_nbi_dev *nfpnbidev);
 
 int nfp_nbi_index(struct nfp_nbi_dev *nfpnbidev);
 
-/* Implemented in nfp_nbi_mac_misc.c */
-
 int nfp_nbi_mac_regr(struct nfp_nbi_dev *nbi, uint32_t base,
 		     uint32_t reg, uint32_t *data);
 int nfp_nbi_mac_regw(struct nfp_nbi_dev *nbi, uint32_t base, uint32_t reg,
 		     uint32_t mask, uint32_t data);
-
-/* Implemented in nfp_nbi.c */
 
 /* Offset into CTM */
 #define NFP_NBI_MAC_STATS_OFFSET          0xed000
