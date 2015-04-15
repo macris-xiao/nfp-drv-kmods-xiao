@@ -53,11 +53,11 @@ static int nfp3200_reset_soft(struct nfp_device *nfp)
 #define  NFP_NBI_MACX_MAC_BLOCK_RST_MAC_TX_RST_CORE		BIT(19)
 #define  NFP_NBI_MACX_MAC_BLOCK_RST_MAC_RX_RST_CORE		BIT(18)
 #define NFP_NBI_MACX_EG_BCP_COUNT	0x00000098
-#define   NFP_NBI_MACX_EG_BCP_COUNT_EG_BCC1_OF(_x) (((_x) >> 16) & 0x3fff)
-#define   NFP_NBI_MACX_EG_BCP_COUNT_EG_BCC_OF(_x) (((_x) >> 0) & 0x3fff)
+#define   NFP_NBI_MACX_EG_BCP_COUNT_EG_BCC1_of(_x) (((_x) >> 16) & 0x3fff)
+#define   NFP_NBI_MACX_EG_BCP_COUNT_EG_BCC_of(_x) (((_x) >> 0) & 0x3fff)
 #define NFP_NBI_MACX_IG_BCP_COUNT	0x000000a0
-#define   NFP_NBI_MACX_IG_BCP_COUNT_IG_BCC1_OF(_x) (((_x) >> 16) & 0x3fff)
-#define   NFP_NBI_MACX_IG_BCP_COUNT_IG_BCC_OF(_x) (((_x) >> 0) & 0x3fff)
+#define   NFP_NBI_MACX_IG_BCP_COUNT_IG_BCC1_of(_x) (((_x) >> 16) & 0x3fff)
+#define   NFP_NBI_MACX_IG_BCP_COUNT_IG_BCC_of(_x) (((_x) >> 0) & 0x3fff)
 #define NFP_NBI_MACX_ETH(_x)  (NFP_NBI_MACX + 0x40000 + ((_x) & 0x1) * 0x20000)
 #define  NFP_NBI_MACX_ETH_SEG_CMD_CONFIG(_x)	\
 					(0x00000008 + (0x400 * ((_x) & 0xf)))
@@ -69,27 +69,27 @@ static int nfp3200_reset_soft(struct nfp_device *nfp)
 #define NFP_NBI_DMAX_CSR				(NFP_NBI_DMAX + 0x00000)
 #define NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG(_x) \
 					(0x00000040 + (0x4 * ((_x) & 0x1f)))
-#define   NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_BPENUM_OF(_x) (((_x) >> 27) & 0x1f)
-#define   NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_CTM_OF(_x)	(((_x) >> 21) & 0x3f)
-#define   NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_PKT_CREDIT_OF(_x) \
+#define   NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_BPENUM_of(_x) (((_x) >> 27) & 0x1f)
+#define   NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_CTM_of(_x)	(((_x) >> 21) & 0x3f)
+#define   NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_PKT_CREDIT_of(_x) \
 							(((_x) >> 10) & 0x7ff)
-#define   NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_BUF_CREDIT_OF(_x) \
+#define   NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_BUF_CREDIT_of(_x) \
 							(((_x) >> 0) & 0x3ff)
 
 #define CTMX_BASE                                      (0x60000)
 #define NFP_CTMX_CFG                                   (CTMX_BASE + 0x000000)
 #define NFP_CTMX_PKT                                   (CTMX_BASE + 0x010000)
 #define NFP_CTMX_PKT_MU_PE_ACTIVE_PACKET_COUNT         0x00000400
-#define   NFP_CTMX_PKT_MUPESTATS_MU_PE_STAT_OF(_x)     (((_x) >> 0) & 0x3ff)
+#define   NFP_CTMX_PKT_MUPESTATS_MU_PE_STAT_of(_x)     (((_x) >> 0) & 0x3ff)
 
 #define NFP_PCIE_DMA					(0x040000)
 #define NFP_PCIE_DMA_QSTS0_TOPCI			0x000000e0
-#define   NFP_PCIE_DMA_DMAQUEUESTATUS0_DMA_LO_AVAIL_OF(_x) \
+#define   NFP_PCIE_DMA_DMAQUEUESTATUS0_DMA_LO_AVAIL_of(_x) \
 							(((_x) >> 24) & 0xff)
 #define NFP_PCIE_DMA_QSTS1_TOPCI                        0x000000e4
-#define   NFP_PCIE_DMA_DMAQUEUESTATUS1_DMA_HI_AVAIL_OF(_x) \
+#define   NFP_PCIE_DMA_DMAQUEUESTATUS1_DMA_HI_AVAIL_of(_x) \
 							(((_x) >> 24) & 0xff)
-#define   NFP_PCIE_DMA_DMAQUEUESTATUS1_DMA_MED_AVAIL_OF(_x) \
+#define   NFP_PCIE_DMA_DMAQUEUESTATUS1_DMA_MED_AVAIL_of(_x) \
 							(((_x) >> 8) & 0xff)
 
 #define NFP_PCIE_Q(_x)			(0x080000 + ((_x) & 0xff) * 0x10)
@@ -346,16 +346,16 @@ static int nfp6000_nbi_mac_check_freebufs(struct nfp_device *nfp,
 		if (err < 0)
 			return err;
 
-		igcount = NFP_NBI_MACX_IG_BCP_COUNT_IG_BCC_OF(tmp);
-		igcount1 = NFP_NBI_MACX_IG_BCP_COUNT_IG_BCC1_OF(tmp);
+		igcount = NFP_NBI_MACX_IG_BCP_COUNT_IG_BCC_of(tmp);
+		igcount1 = NFP_NBI_MACX_IG_BCP_COUNT_IG_BCC1_of(tmp);
 
 		err = nfp_nbi_mac_regr(nbi, NFP_NBI_MACX_CSR,
 				       NFP_NBI_MACX_EG_BCP_COUNT, &tmp);
 		if (err < 0)
 			return err;
 
-		egcount = NFP_NBI_MACX_EG_BCP_COUNT_EG_BCC_OF(tmp);
-		egcount1 = NFP_NBI_MACX_EG_BCP_COUNT_EG_BCC1_OF(tmp);
+		egcount = NFP_NBI_MACX_EG_BCP_COUNT_EG_BCC_of(tmp);
+		egcount1 = NFP_NBI_MACX_EG_BCP_COUNT_EG_BCC1_of(tmp);
 
 		if (split) {
 			ok &= (igcount >= igsplit);
@@ -411,16 +411,16 @@ static int nfp6000_nbi_check_dma_credits(struct nfp_device *nfp,
 		if (err < 0)
 			return err;
 
-		bp = NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_BPENUM_OF(tmp);
+		bp = NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_BPENUM_of(tmp);
 
-		ctm = NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_CTM_OF(tmp);
-		ctmb = NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_CTM_OF(bpe[bp]);
+		ctm = NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_CTM_of(tmp);
+		ctmb = NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_CTM_of(bpe[bp]);
 
-		pkt = NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_PKT_CREDIT_OF(tmp);
-		pktb = NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_PKT_CREDIT_OF(bpe[bp]);
+		pkt = NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_PKT_CREDIT_of(tmp);
+		pktb = NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_PKT_CREDIT_of(bpe[bp]);
 
-		buf = NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_BUF_CREDIT_OF(tmp);
-		bufb = NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_BUF_CREDIT_OF(bpe[bp]);
+		buf = NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_BUF_CREDIT_of(tmp);
+		bufb = NFP_NBI_DMAX_CSR_NBI_DMA_BPE_CFG_BUF_CREDIT_of(bpe[bp]);
 
 		if (ctm != ctmb) {
 			nfp_err(nfp, "NBI%d DMA BPE%d targets CTM%d, expected CTM%d\n",
@@ -522,15 +522,15 @@ static int nfp6000_check_empty_pcie_dma_queues(struct nfp_device *nfp,
 	if (err < 0)
 		return err;
 
-	low = NFP_PCIE_DMA_DMAQUEUESTATUS0_DMA_LO_AVAIL_OF(tmp);
+	low = NFP_PCIE_DMA_DMAQUEUESTATUS0_DMA_LO_AVAIL_of(tmp);
 
 	err = nfp_cpp_readl(cpp, pci, NFP_PCIE_DMA +
 		NFP_PCIE_DMA_QSTS1_TOPCI, &tmp);
 	if (err < 0)
 		return err;
 
-	med = NFP_PCIE_DMA_DMAQUEUESTATUS1_DMA_MED_AVAIL_OF(tmp);
-	hi  = NFP_PCIE_DMA_DMAQUEUESTATUS1_DMA_HI_AVAIL_OF(tmp);
+	med = NFP_PCIE_DMA_DMAQUEUESTATUS1_DMA_MED_AVAIL_of(tmp);
+	hi  = NFP_PCIE_DMA_DMAQUEUESTATUS1_DMA_HI_AVAIL_of(tmp);
 
 	ok &= low == dma_low;
 	ok &= med == dma_med;

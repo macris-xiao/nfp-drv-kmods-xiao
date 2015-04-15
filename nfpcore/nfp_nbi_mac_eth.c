@@ -65,7 +65,7 @@
 					(1 << 5)
 #define     NFP_MAC_ETH_ETHSGMIIIFMODE_SPEED_100MBPS (1)
 #define     NFP_MAC_ETH_ETHSGMIIIFMODE_SPEED_10MBPS (0)
-#define   NFP_MAC_ETH_ETHSGMIIIFMODE_SPEED_OF(_x) \
+#define   NFP_MAC_ETH_ETHSGMIIIFMODE_SPEED_of(_x) \
 					(((_x) >> 2) & 0x3)
 #define NFP_NBI_MAC_ETHCHPCSCTL1_MODE_MASK \
 	(NFP_MAC_ETH_MACETHCHPCSSEG_CTL1_SPEED_13 | \
@@ -409,7 +409,7 @@ int nfp_nbi_mac_eth_read_mode(struct nfp_nbi_dev *nbi, int core, int port)
 			if (d & NFP_MAC_ETH_ETHSGMIIIFMODE_ETHSGMIIENA) {
 				int s;
 
-				s = NFP_MAC_ETH_ETHSGMIIIFMODE_SPEED_OF(d);
+				s = NFP_MAC_ETH_ETHSGMIIIFMODE_SPEED_of(d);
 				/* SGMII */
 				switch (s) {
 				case (NFP_MAC_ETH_ETHSGMIIIFMODE_SPEED_10MBPS):

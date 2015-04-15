@@ -226,7 +226,7 @@ const struct nfp_mip *nfp_mip(struct nfp_device *dev)
 	return priv->mip;
 }
 
-#define   NFP_IMB_TGTADDRESSMODECFG_MODE_OF(_x)      (((_x) >> 13) & 0x7)
+#define   NFP_IMB_TGTADDRESSMODECFG_MODE_of(_x)      (((_x) >> 13) & 0x7)
 #define   NFP_IMB_TGTADDRESSMODECFG_ADDRMODE                 BIT(12)
 #define     NFP_IMB_TGTADDRESSMODECFG_ADDRMODE_32_BIT        0
 #define     NFP_IMB_TGTADDRESSMODECFG_ADDRMODE_40_BIT        BIT(12)
@@ -247,7 +247,7 @@ static int nfp_mip_nfp6000_mu_locality_lsb(struct nfp_device *dev)
 		return err;
 
 	return _nfp6000_cppat_mu_locality_lsb(
-		NFP_IMB_TGTADDRESSMODECFG_MODE_OF(imbcppat),
+		NFP_IMB_TGTADDRESSMODECFG_MODE_of(imbcppat),
 		(imbcppat & NFP_IMB_TGTADDRESSMODECFG_ADDRMODE) ==
 		NFP_IMB_TGTADDRESSMODECFG_ADDRMODE_40_BIT);
 }

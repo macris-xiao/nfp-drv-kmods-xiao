@@ -14,7 +14,7 @@
 
 #define NFP_XPB_ISLAND(island)   (NFP_XPB_OVERLAY(island) + 0x60000)
 
-#define NFP_XPB_ISLAND_OF(offset) (((offset) >> 24) & 0x3F)
+#define NFP_XPB_ISLAND_of(offset) (((offset) >> 24) & 0x3F)
 
 /*
  * For use with NFP6000 Databook "XPB Island and Device IDs" chapter

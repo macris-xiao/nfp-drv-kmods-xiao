@@ -741,9 +741,9 @@ static int nfp3200_plat_explicit_do(struct nfp_cpp_explicit *expl,
 		| NFP_ARM_GCSR_EXPL1_BAR_DATA_REF(data_ref)
 		| NFP_ARM_GCSR_EXPL1_BAR_SIGNAL_REF(signal_ref);
 
-	expl2 = NFP_ARM_GCSR_EXPL2_BAR_TGT(NFP_CPP_ID_TARGET_OF(cmd->cpp_id))
-		| NFP_ARM_GCSR_EXPL2_BAR_ACT(NFP_CPP_ID_ACTION_OF(cmd->cpp_id))
-		| NFP_ARM_GCSR_EXPL2_BAR_TOK(NFP_CPP_ID_TOKEN_OF(cmd->cpp_id))
+	expl2 = NFP_ARM_GCSR_EXPL2_BAR_TGT(NFP_CPP_ID_TARGET_of(cmd->cpp_id))
+		| NFP_ARM_GCSR_EXPL2_BAR_ACT(NFP_CPP_ID_ACTION_of(cmd->cpp_id))
+		| NFP_ARM_GCSR_EXPL2_BAR_TOK(NFP_CPP_ID_TOKEN_of(cmd->cpp_id))
 		| NFP_ARM_GCSR_EXPL2_BAR_LEN(cmd->len)
 		| NFP_ARM_GCSR_EXPL2_BAR_BYTE_MASK(cmd->byte_mask)
 		| NFP_ARM_GCSR_EXPL2_BAR_SIGNAL_MASTER(signal_master);
