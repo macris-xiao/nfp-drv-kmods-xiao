@@ -46,6 +46,8 @@
 #include "nfp_net_ctrl.h"
 #include "nfp_net.h"
 
+#include "nfp_modinfo.h"
+
 static bool nfp_dev_cpp = 1;
 module_param(nfp_dev_cpp, bool, 0444);
 MODULE_PARM_DESC(nfp_dev_cpp,
@@ -803,6 +805,7 @@ static int __init nfp_net_init(void)
 
 	pr_info("%s: NFP Network driver, Copyright (C) 2014-2015 Netronome Systems\n",
 		nfp_net_driver_name);
+	pr_info(NFP_BUILD_DESCRIPTION(nfp));
 
 	err = nfp_cppcore_init();
 	if (err < 0)
