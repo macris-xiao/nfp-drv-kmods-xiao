@@ -1175,9 +1175,12 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
 		}
 
 		if (rxd->rxd.data_len > nn->fl_bufsz) {
-			nn_err(nn, "Odd packet len (%u) on %d:%u rxd[0]=%#x rxd[1]=%#x\n",
-			       rxd->rxd.data_len, rx_ring->idx, idx,
-			       rxd->vals[0], rxd->vals[1]);
+			nn_err(nn, "RX data larger than freelist buffer (%u > %u) on %d:%u rxd[0]=%#x rxd[1]=%#x\n",
+			       rxd->rxd.data_len, nn->fl_bufsz, 
+			       rx_ring->idx, idx, rxd->vals[0], rxd->vals[1]);
+			/* Halt here. The device may have DMAed beyond the end
+			 * of the freelist buffer and all bets are off. */
+			BUG();
 			break;
 		}
 
