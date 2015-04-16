@@ -192,6 +192,15 @@ struct nfp_cpp *nfp_cpp_from_device_id(int id)
 }
 
 /**
+ * nfp_cpp_free() - free the CPP handle
+ * @cpp:	CPP handle
+ */
+void nfp_cpp_free(struct nfp_cpp *cpp)
+{
+	nfp_cpp_put(cpp);
+}
+
+/**
  * nfp_cpp_device_id() - get device ID of CPP handle
  * @cpp:	CPP handle
  *
@@ -200,15 +209,6 @@ struct nfp_cpp *nfp_cpp_from_device_id(int id)
 int nfp_cpp_device_id(struct nfp_cpp *cpp)
 {
 	return cpp->id;
-}
-
-/**
- * nfp_cpp_free() - free the CPP handle
- * @cpp:	CPP handle
- */
-void nfp_cpp_free(struct nfp_cpp *cpp)
-{
-	nfp_cpp_put(cpp);
 }
 
 /**
@@ -297,39 +297,6 @@ static struct nfp_cpp_area *nfp_cpp_area_get(struct nfp_cpp_area *area)
 	BUG_ON(!area);
 	kref_get(&area->kref);
 	return area;
-}
-
-/**
- * nfp_cpp_area_priv() - return private struct for CPP area
- * @cpp_area:	CPP area handle
- *
- * Return: Private data for the CPP area
- */
-void *nfp_cpp_area_priv(struct nfp_cpp_area *cpp_area)
-{
-	return &cpp_area[1];
-}
-
-/**
- * nfp_cpp_area_cpp() - return CPP handle for CPP area
- * @cpp_area:	CPP area handle
- *
- * Return: NFP CPP handle
- */
-struct nfp_cpp *nfp_cpp_area_cpp(struct nfp_cpp_area *cpp_area)
-{
-	return cpp_area->cpp;
-}
-
-/**
- * nfp_cpp_area_name() - return name of a CPP area
- * @cpp_area:	CPP area handle
- *
- * Return: Name of the area, or NULL
- */
-const char *nfp_cpp_area_name(struct nfp_cpp_area *cpp_area)
-{
-	return cpp_area->resource.name;
 }
 
 /**
@@ -482,18 +449,6 @@ void nfp_cpp_area_free(struct nfp_cpp_area *area)
 }
 
 /**
- * nfp_cpp_area_release_free() - release CPP area and free it
- * @area:	CPP area handle
- *
- * Releases CPP area and frees up memory resources held by the it.
- */
-void nfp_cpp_area_release_free(struct nfp_cpp_area *area)
-{
-	nfp_cpp_area_release(area);
-	nfp_cpp_area_free(area);
-}
-
-/**
  * nfp_cpp_area_acquire() - lock down a CPP area for access
  * @area:	CPP area handle
  *
@@ -581,6 +536,18 @@ void nfp_cpp_area_release(struct nfp_cpp_area *area)
 }
 
 /**
+ * nfp_cpp_area_release_free() - release CPP area and free it
+ * @area:	CPP area handle
+ *
+ * Releases CPP area and frees up memory resources held by the it.
+ */
+void nfp_cpp_area_release_free(struct nfp_cpp_area *area)
+{
+	nfp_cpp_area_release(area);
+	nfp_cpp_area_free(area);
+}
+
+/**
  * nfp_cpp_area_read() - read data from CPP area
  * @area:		CPP area handle
  * @offset:		offset into CPP area
@@ -642,6 +609,39 @@ int nfp_cpp_area_check_range(struct nfp_cpp_area *area,
 	    ((offset + length) > (area->offset + area->size)))
 		return -EFAULT;
 	return 0;
+}
+
+/**
+ * nfp_cpp_area_name() - return name of a CPP area
+ * @cpp_area:	CPP area handle
+ *
+ * Return: Name of the area, or NULL
+ */
+const char *nfp_cpp_area_name(struct nfp_cpp_area *cpp_area)
+{
+	return cpp_area->resource.name;
+}
+
+/**
+ * nfp_cpp_area_priv() - return private struct for CPP area
+ * @cpp_area:	CPP area handle
+ *
+ * Return: Private data for the CPP area
+ */
+void *nfp_cpp_area_priv(struct nfp_cpp_area *cpp_area)
+{
+	return &cpp_area[1];
+}
+
+/**
+ * nfp_cpp_area_cpp() - return CPP handle for CPP area
+ * @cpp_area:	CPP area handle
+ *
+ * Return: NFP CPP handle
+ */
+struct nfp_cpp *nfp_cpp_area_cpp(struct nfp_cpp_area *cpp_area)
+{
+	return cpp_area->cpp;
 }
 
 /**
@@ -772,77 +772,36 @@ int nfp_cpp_area_writeq(struct nfp_cpp_area *area,
 }
 
 /**
- * nfp_cpp_readl() - Read a uint32_t word from a CPP location
- * @cpp:	CPP device handle
- * @cpp_id:	CPP ID for operation
- * @address:	Address for operation
- * @value:	Pointer to read buffer
+ * nfp_cpp_area_fill() - fill a CPP area with a value
+ * @area:       CPP area
+ * @offset:     offset into CPP area
+ * @value:      value to fill with
+ * @length:     length of area to fill
  *
- * Return: length of the io, or -ERRNO
- */
-int nfp_cpp_readl(struct nfp_cpp *cpp, uint32_t cpp_id,
-		  unsigned long long address, uint32_t *value)
-{
-	int err;
-	uint32_t tmp;
-
-	err = nfp_cpp_read(cpp, cpp_id, address, &tmp, sizeof(tmp));
-	*value = le32_to_cpu(tmp);
-
-	return err;
-}
-
-/**
- * nfp_cpp_writel() - Write a uint32_t word to a CPP location
- * @cpp:	CPP device handle
- * @cpp_id:	CPP ID for operation
- * @address:	Address for operation
- * @value:	Value to write
+ * Fill indicated area with given value.  Return number of bytes
+ * actually writtent, or negative on error.
  *
- * Return: length of the io, or -ERRNO
+ * Return: length of io, or -ERRNO
  */
-int nfp_cpp_writel(struct nfp_cpp *cpp, uint32_t cpp_id,
-		   unsigned long long address, uint32_t value)
+int nfp_cpp_area_fill(struct nfp_cpp_area *area,
+		      unsigned long offset, uint32_t value,
+		      size_t length)
 {
+	size_t i, k;
+
 	value = cpu_to_le32(value);
-	return nfp_cpp_write(cpp, cpp_id, address, &value, sizeof(value));
-}
 
-/**
- * nfp_cpp_readq() - Read a uint64_t word from a CPP location
- * @cpp:	CPP device handle
- * @cpp_id:	CPP ID for operation
- * @address:	Address for operation
- * @value:	Pointer to read buffer
- *
- * Return: length of the io, or -ERRNO
- */
-int nfp_cpp_readq(struct nfp_cpp *cpp, uint32_t cpp_id,
-		  unsigned long long address, uint64_t *value)
-{
-	int err;
-	uint64_t tmp;
+	if ((offset % sizeof(uint32_t)) != 0 ||
+	    (length % sizeof(uint32_t)) != 0)
+		return -EINVAL;
 
-	err = nfp_cpp_read(cpp, cpp_id, address, &tmp, sizeof(tmp));
-	*value = le64_to_cpu(tmp);
+	for (i = 0; i < length; i += sizeof(value)) {
+		k = nfp_cpp_area_write(area, offset + i, &value, sizeof(value));
+		if (k < 0)
+			return (int)k;
+	}
 
-	return err;
-}
-
-/**
- * nfp_cpp_writeq() - Write a uint64_t word to a CPP location
- * @cpp:	CPP device handle
- * @cpp_id:	CPP ID for operation
- * @address:	Address for operation
- * @value:	Value to write
- *
- * Return: length of the io, or -ERRNO
- */
-int nfp_cpp_writeq(struct nfp_cpp *cpp, uint32_t cpp_id,
-		   unsigned long long address, uint64_t value)
-{
-	value = cpu_to_le64(value);
-	return  nfp_cpp_write(cpp, cpp_id, address, &value, sizeof(value));
+	return (int)i;
 }
 
 /* Return the correct CPP address, and fixup xpb_addr as needed,
@@ -918,6 +877,32 @@ int nfp_xpb_writel(struct nfp_cpp *cpp, uint32_t xpb_addr, uint32_t value)
 	uint32_t cpp_dest = nfp_xpb_to_cpp(cpp, &xpb_addr);
 
 	return nfp_cpp_writel(cpp, cpp_dest, xpb_addr, value);
+}
+
+/**
+ * nfp_xpb_writelm() - Modify bits of a 32-bit value from the XPB bus
+ * @cpp:	NFP CPP device handle
+ * @xpb_tgt:	XPB target and address
+ * @mask:	mask of bits to alter
+ * @value:	value to modify
+ *
+ * KERNEL: This operation is safe to call in interrupt or softirq context.
+ *
+ * Return: length of the io, or -ERRNO
+ */
+int nfp_xpb_writelm(struct nfp_cpp *cpp, uint32_t xpb_tgt,
+		    uint32_t mask, uint32_t value)
+{
+	int err;
+	uint32_t tmp;
+
+	err = nfp_xpb_readl(cpp, xpb_tgt, &tmp);
+	if (err < 0)
+		return err;
+
+	tmp &= ~mask;
+	tmp |= (mask & value);
+	return nfp_xpb_writel(cpp, xpb_tgt, tmp);
 }
 
 /**

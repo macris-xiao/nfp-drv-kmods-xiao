@@ -53,32 +53,6 @@
 #define   NFP_PL_DEVICE_ID_MINOR_REV_of(_x)   (((_x) >> 0) & 0xf)
 
 /**
- * nfp_xpb_writelm() - Modify bits of a 32-bit value from the XPB bus
- * @cpp:	NFP CPP device handle
- * @xpb_tgt:	XPB target and address
- * @mask:	mask of bits to alter
- * @value:	value to modify
- *
- * KERNEL: This operation is safe to call in interrupt or softirq context.
- *
- * Return: 0 on success, or -1 on failure (and set errno accordingly).
- */
-int nfp_xpb_writelm(struct nfp_cpp *cpp, uint32_t xpb_tgt,
-		    uint32_t mask, uint32_t value)
-{
-	int err;
-	uint32_t tmp;
-
-	err = nfp_xpb_readl(cpp, xpb_tgt, &tmp);
-	if (err < 0)
-		return err;
-
-	tmp &= ~mask;
-	tmp |= (mask & value);
-	return nfp_xpb_writel(cpp, xpb_tgt, tmp);
-}
-
-/**
  * nfp_cpp_read() - read from CPP target
  * @cpp:		CPP handle
  * @destination:	CPP id
@@ -141,36 +115,77 @@ out:
 }
 
 /**
- * nfp_cpp_area_fill() - fill a CPP area with a value
- * @area:       CPP area
- * @offset:     offset into CPP area
- * @value:      value to fill with
- * @length:     length of area to fill
+ * nfp_cpp_readl() - Read a uint32_t word from a CPP location
+ * @cpp:	CPP device handle
+ * @cpp_id:	CPP ID for operation
+ * @address:	Address for operation
+ * @value:	Pointer to read buffer
  *
- * Fill indicated area with given value.  Return number of bytes
- * actually writtent, or negative on error.
- *
- * Return: length of io, or -ERRNO
+ * Return: length of the io, or -ERRNO
  */
-int nfp_cpp_area_fill(struct nfp_cpp_area *area,
-		      unsigned long offset, uint32_t value,
-		      size_t length)
+int nfp_cpp_readl(struct nfp_cpp *cpp, uint32_t cpp_id,
+		  unsigned long long address, uint32_t *value)
 {
-	size_t i, k;
+	int err;
+	uint32_t tmp;
 
+	err = nfp_cpp_read(cpp, cpp_id, address, &tmp, sizeof(tmp));
+	*value = le32_to_cpu(tmp);
+
+	return err;
+}
+
+/**
+ * nfp_cpp_writel() - Write a uint32_t word to a CPP location
+ * @cpp:	CPP device handle
+ * @cpp_id:	CPP ID for operation
+ * @address:	Address for operation
+ * @value:	Value to write
+ *
+ * Return: length of the io, or -ERRNO
+ */
+int nfp_cpp_writel(struct nfp_cpp *cpp, uint32_t cpp_id,
+		   unsigned long long address, uint32_t value)
+{
 	value = cpu_to_le32(value);
+	return nfp_cpp_write(cpp, cpp_id, address, &value, sizeof(value));
+}
 
-	if ((offset % sizeof(uint32_t)) != 0 ||
-	    (length % sizeof(uint32_t)) != 0)
-		return -EINVAL;
+/**
+ * nfp_cpp_readq() - Read a uint64_t word from a CPP location
+ * @cpp:	CPP device handle
+ * @cpp_id:	CPP ID for operation
+ * @address:	Address for operation
+ * @value:	Pointer to read buffer
+ *
+ * Return: length of the io, or -ERRNO
+ */
+int nfp_cpp_readq(struct nfp_cpp *cpp, uint32_t cpp_id,
+		  unsigned long long address, uint64_t *value)
+{
+	int err;
+	uint64_t tmp;
 
-	for (i = 0; i < length; i += sizeof(value)) {
-		k = nfp_cpp_area_write(area, offset + i, &value, sizeof(value));
-		if (k < 0)
-			return (int)k;
-	}
+	err = nfp_cpp_read(cpp, cpp_id, address, &tmp, sizeof(tmp));
+	*value = le64_to_cpu(tmp);
 
-	return (int)i;
+	return err;
+}
+
+/**
+ * nfp_cpp_writeq() - Write a uint64_t word to a CPP location
+ * @cpp:	CPP device handle
+ * @cpp_id:	CPP ID for operation
+ * @address:	Address for operation
+ * @value:	Value to write
+ *
+ * Return: length of the io, or -ERRNO
+ */
+int nfp_cpp_writeq(struct nfp_cpp *cpp, uint32_t cpp_id,
+		   unsigned long long address, uint64_t value)
+{
+	value = cpu_to_le64(value);
+	return  nfp_cpp_write(cpp, cpp_id, address, &value, sizeof(value));
 }
 
 /* NFP6000 specific */
@@ -419,7 +434,7 @@ int __nfp_cpp_model_fixup(struct nfp_cpp *cpp)
 
 struct nfp_cpp_mutex {
 	struct nfp_cpp *cpp;
-	uint8_t target;
+	int target;
 	uint16_t depth;
 	unsigned long long address;
 	uint32_t key;

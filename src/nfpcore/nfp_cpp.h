@@ -35,6 +35,11 @@ struct nfp_cpp_area;
 struct nfp_cpp;
 
 /*
+ * NFP Resource handle
+ */
+struct resource;
+
+/*
  * Wildcard indicating a CPP read or write action
  *
  * The action used will be either read or write depending on whether a
@@ -126,9 +131,6 @@ static inline uint8_t NFP_CPP_ID_ISLAND_of(uint32_t id)
 	return (id >> 0) & 0xff;
 }
 
-struct nfp_cpp *nfp_cpp_from_device_id(int id);
-void nfp_cpp_free(struct nfp_cpp *cpp);
-
 /*
  * NFP_CPP_MODEL_INVALID - invalid model id
  */
@@ -205,8 +207,6 @@ static inline int NFP_CPP_STEPPING_decode(const char *_str_major_minor)
 	((0x6000 <= NFP_CPP_MODEL_CHIP_of(model)) && \
 	 (NFP_CPP_MODEL_CHIP_of(model) < 0x7000))
 
-uint32_t nfp_cpp_model(struct nfp_cpp *cpp);
-
 /*
  * NFP Interface types - logical interface for this CPP connection
  * 4 bits are reserved for interface type.
@@ -260,43 +260,43 @@ uint32_t nfp_cpp_model(struct nfp_cpp *cpp);
 #define NFP_CPP_INTERFACE_CHANNEL_of(interface)	(((interface) >>  0) & 0xff)
 
 /* Implemented in nfp_cppcore.c */
-
+struct nfp_cpp *nfp_cpp_from_device_id(int id);
+void nfp_cpp_free(struct nfp_cpp *cpp);
+int nfp_cpp_device_id(struct nfp_cpp *cpp);
+uint32_t nfp_cpp_model(struct nfp_cpp *cpp);
 uint16_t nfp_cpp_interface(struct nfp_cpp *cpp);
 int nfp_cpp_serial(struct nfp_cpp *cpp, const uint8_t **serial);
 
-struct nfp_cpp_area *nfp_cpp_area_alloc(struct nfp_cpp *cpp, uint32_t cpp_id,
-					unsigned long long address,
-					unsigned long size);
 struct nfp_cpp_area *nfp_cpp_area_alloc_with_name(struct nfp_cpp *cpp,
 						  uint32_t cpp_id,
 						  const char *name,
 						  unsigned long long address,
 						  unsigned long size);
-void nfp_cpp_area_free(struct nfp_cpp_area *area);
-int nfp_cpp_area_acquire(struct nfp_cpp_area *area);
-void nfp_cpp_area_release(struct nfp_cpp_area *area);
+struct nfp_cpp_area *nfp_cpp_area_alloc(struct nfp_cpp *cpp, uint32_t cpp_id,
+					unsigned long long address,
+					unsigned long size);
 struct nfp_cpp_area *nfp_cpp_area_alloc_acquire(struct nfp_cpp *cpp,
 						uint32_t cpp_id,
 						unsigned long long address,
 						unsigned long size);
+void nfp_cpp_area_free(struct nfp_cpp_area *area);
+int nfp_cpp_area_acquire(struct nfp_cpp_area *area);
+int nfp_cpp_area_acquire_nonblocking(struct nfp_cpp_area *area);
+void nfp_cpp_area_release(struct nfp_cpp_area *area);
 void nfp_cpp_area_release_free(struct nfp_cpp_area *area);
-void *nfp_cpp_area_mapped(struct nfp_cpp_area *area);
 int nfp_cpp_area_read(struct nfp_cpp_area *area, unsigned long offset,
 		      void *buffer, size_t length);
 int nfp_cpp_area_write(struct nfp_cpp_area *area, unsigned long offset,
 		       const void *buffer, size_t length);
 int nfp_cpp_area_check_range(struct nfp_cpp_area *area,
 			     unsigned long long offset, unsigned long size);
-struct nfp_cpp *nfp_cpp_area_cpp(struct nfp_cpp_area *cpp_area);
 const char *nfp_cpp_area_name(struct nfp_cpp_area *cpp_area);
+void *nfp_cpp_area_priv(struct nfp_cpp_area *cpp_area);
+struct nfp_cpp *nfp_cpp_area_cpp(struct nfp_cpp_area *cpp_area);
+struct resource *nfp_cpp_area_resource(struct nfp_cpp_area *area);
+phys_addr_t nfp_cpp_area_phys(struct nfp_cpp_area *area);
+void __iomem *nfp_cpp_area_iomem(struct nfp_cpp_area *area);
 
-int nfp_cpp_read(struct nfp_cpp *cpp, uint32_t cpp_id,
-		 unsigned long long address, void *kernel_vaddr, size_t length);
-int nfp_cpp_write(struct nfp_cpp *cpp, uint32_t cpp_id,
-		  unsigned long long address, const void *kernel_vaddr,
-		  size_t length);
-int nfp_cpp_area_fill(struct nfp_cpp_area *area, unsigned long offset,
-		      uint32_t value, size_t length);
 int nfp_cpp_area_readl(struct nfp_cpp_area *area, unsigned long offset,
 		       uint32_t *value);
 int nfp_cpp_area_writel(struct nfp_cpp_area *area, unsigned long offset,
@@ -305,14 +305,20 @@ int nfp_cpp_area_readq(struct nfp_cpp_area *area, unsigned long offset,
 		       uint64_t *value);
 int nfp_cpp_area_writeq(struct nfp_cpp_area *area, unsigned long offset,
 			uint64_t value);
+int nfp_cpp_area_fill(struct nfp_cpp_area *area, unsigned long offset,
+		      uint32_t value, size_t length);
 
-int nfp_xpb_writel(struct nfp_cpp *cpp, uint32_t xpb_tgt, uint32_t value);
 int nfp_xpb_readl(struct nfp_cpp *cpp, uint32_t xpb_tgt, uint32_t *value);
+int nfp_xpb_writel(struct nfp_cpp *cpp, uint32_t xpb_tgt, uint32_t value);
 int nfp_xpb_writelm(struct nfp_cpp *cpp, uint32_t xpb_tgt, uint32_t mask,
 		    uint32_t value);
-int nfp_xpb_waitlm(struct nfp_cpp *cpp, uint32_t xpb_tgt, uint32_t mask,
-		   uint32_t value, int timeout_us);
 
+/* Implemented in nfp_cpplib.c */
+int nfp_cpp_read(struct nfp_cpp *cpp, uint32_t cpp_id,
+		 unsigned long long address, void *kernel_vaddr, size_t length);
+int nfp_cpp_write(struct nfp_cpp *cpp, uint32_t cpp_id,
+		  unsigned long long address, const void *kernel_vaddr,
+		  size_t length);
 int nfp_cpp_readl(struct nfp_cpp *cpp, uint32_t cpp_id,
 		  unsigned long long address, uint32_t *value);
 int nfp_cpp_writel(struct nfp_cpp *cpp, uint32_t cpp_id,
@@ -329,10 +335,7 @@ int nfp_cpp_mutex_init(struct nfp_cpp *cpp, int target,
 struct nfp_cpp_mutex *nfp_cpp_mutex_alloc(struct nfp_cpp *cpp, int target,
 					  unsigned long long address,
 					  uint32_t key_id);
-struct nfp_cpp *nfp_cpp_mutex_cpp(struct nfp_cpp_mutex *mutex);
-uint32_t nfp_cpp_mutex_key(struct nfp_cpp_mutex *mutex);
 void nfp_cpp_mutex_free(struct nfp_cpp_mutex *mutex);
-
 int nfp_cpp_mutex_lock(struct nfp_cpp_mutex *mutex);
 int nfp_cpp_mutex_unlock(struct nfp_cpp_mutex *mutex);
 int nfp_cpp_mutex_trylock(struct nfp_cpp_mutex *mutex);
@@ -397,7 +400,7 @@ struct nfp_cpp_explicit_command {
  */
 struct nfp_cpp_operations {
 	uint32_t model;
-	uint32_t interface;
+	uint16_t interface;
 	uint8_t serial[6];
 
 	size_t area_priv_size;
@@ -445,7 +448,6 @@ struct nfp_cpp_operations {
 struct nfp_cpp *nfp_cpp_from_operations(
 		const struct nfp_cpp_operations *cpp_ops);
 void *nfp_cpp_priv(struct nfp_cpp *priv);
-void *nfp_cpp_area_priv(struct nfp_cpp_area *cpp_area);
 
 void *nfp_cpp_explicit_priv(struct nfp_cpp_explicit *cpp_explicit);
 void *nfp_cpp_event_priv(struct nfp_cpp_event *cpp_event);
@@ -462,15 +464,8 @@ struct device *nfp_cpp_device(struct nfp_cpp *cpp);
  */
 #define NFP_CPP_INTERFACE_CHANNEL_PEROPENER	255
 
-int nfp_cpp_area_acquire_nonblocking(struct nfp_cpp_area *area);
 struct device *nfp_cpp_device(struct nfp_cpp *cpp);
-int nfp_cpp_device_id(struct nfp_cpp *cpp);
 
-struct resource;
-
-struct resource *nfp_cpp_area_resource(struct nfp_cpp_area *area);
-phys_addr_t nfp_cpp_area_phys(struct nfp_cpp_area *area);
-void __iomem *nfp_cpp_area_iomem(struct nfp_cpp_area *area);
 
 void nfp_cpp_event_callback(struct nfp_cpp_event *event);
 int nfp_cpp_event_as_callback(struct nfp_cpp_event *event,
