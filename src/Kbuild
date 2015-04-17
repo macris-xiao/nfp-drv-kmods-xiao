@@ -48,7 +48,6 @@ obj-$(CONFIG_NFP_NETVF)	+= nfp_netvf.o
 
 nfpcore-objs := \
 	    nfpcore/nfp3200_pcie.o \
-	    nfpcore/nfp3200_plat.o \
 	    nfpcore/nfp6000_pcie.o \
 	    nfpcore/crc32.o \
 	    nfpcore/nfp_armsp.o \
@@ -78,6 +77,7 @@ nfpcore-objs := \
 	    nfpcore/nfp_spi.o
 
 nfp-objs := $(nfpcore-objs) \
+	    nfpcore/nfp3200_plat.o \
 	    nfpcore/nfp_export.o \
 	    nfp_main.o
 
