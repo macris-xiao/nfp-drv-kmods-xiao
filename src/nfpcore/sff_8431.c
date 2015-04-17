@@ -10,9 +10,9 @@
 
 /* SFF-8431 operations - built off of the SFF-8431 operations */
 struct sff_8431 {
-	struct sff_bus bus;
-	int selected;
+	struct sff_bus bus[2];
 	int page;
+	int selected;
 	int tx_disable;
 	struct {
 		struct pin present;
@@ -35,7 +35,6 @@ static int sff_8431_open(struct nfp_phymod *phy)
 		return -ENOMEM;
 
 	sff->selected = 0;
-	sff->page = -1;
 
 	err = _phymod_get_attr_pin(phy, "pin.present", &sff->in.present);
 	if (err < 0)
@@ -69,9 +68,16 @@ static int sff_8431_open(struct nfp_phymod *phy)
 	if (err < 0)
 		goto exit;
 
-	err = _phymod_get_attr_bus(phy, "SFF-8431", &sff->bus);
+	err = _phymod_get_attr_bus(phy, "SFF-8431", &sff->bus[0]);
 	if (err < 0)
 		goto exit;
+
+	err = _phymod_get_attr_bus(phy, "SFF-8472", &sff->bus[1]);
+	/* Optional, so err is not checked */
+	if (err < 0) {
+		err = 0;
+		sff->bus[1].op = NULL;
+	}
 
 	phy->sff.priv = sff;
 
@@ -85,10 +91,15 @@ exit:
 static void sff_8431_close(struct nfp_phymod *phy)
 {
 	struct sff_8431 *sff = phy->sff.priv;
+	int i;
 
 	phy->sff.op->select(phy, 0);
-	if (sff->bus.op && sff->bus.op->close)
-		sff->bus.op->close(&sff->bus);
+	for (i = 0; i < ARRAY_SIZE(sff->bus); i++) {
+		struct sff_bus *bus = &sff->bus[i];
+
+		if (bus->op && bus->op->close)
+			bus->op->close(bus);
+	}
 
 	kfree(sff);
 }
@@ -109,10 +120,11 @@ static int sff_8431_poll_present(struct nfp_phymod *phy)
 static int sff_8431_select(struct nfp_phymod *phy, int is_selected)
 {
 	struct sff_8431 *sff = phy->sff.priv;
+	struct sff_bus *bus = &sff->bus[sff->page];
 	int err;
 
-	if (sff->bus.op && sff->bus.op->select) {
-		err = sff->bus.op->select(&sff->bus, is_selected);
+	if (bus->op && bus->op->select) {
+		err = bus->op->select(bus, is_selected);
 		if (err < 0)
 			return err;
 	}
@@ -126,38 +138,54 @@ static int sff_8431_read8(struct nfp_phymod *phy, uint32_t reg, uint8_t *val)
 {
 	struct sff_8431 *sff = phy->sff.priv;
 	int page = (reg >> 8);
+	struct sff_bus *bus;
 
-	if (!sff->selected ||
-	    !sff->bus.op || !sff->bus.op->read8 || !sff->bus.op->write8)
+	if (page > ARRAY_SIZE(sff->bus))
+		return -EINVAL;
+
+	bus = &sff->bus[page];
+
+	if (sff->selected && page != sff->page) {
+		sff_8431_select(phy, 0);
+		sff->page = page;
+		sff_8431_select(phy, 1);
+	}
+
+	if (!sff->selected
+	    || !bus->op
+	    || !bus->op->read8)
 		return -EINVAL;
 
 	reg &= 0xff;
 
-	if (page != sff->page) {
-		sff->bus.op->write8(&sff->bus, reg, page);
-		sff->page = page;
-	}
-
-	return sff->bus.op->read8(&sff->bus, reg, val);
+	return bus->op->read8(bus, reg, val);
 }
 
 static int sff_8431_write8(struct nfp_phymod *phy, uint32_t reg, uint8_t val)
 {
 	struct sff_8431 *sff = phy->sff.priv;
 	int page = (reg >> 8);
+	struct sff_bus *bus;
 
-	if (!sff->selected ||
-	    !sff->bus.op || !sff->bus.op->write8)
+	if (page > ARRAY_SIZE(sff->bus))
+		return -EINVAL;
+
+	bus = &sff->bus[page];
+
+	if (sff->selected && page != sff->page) {
+		sff_8431_select(phy, 0);
+		sff->page = page;
+		sff_8431_select(phy, 1);
+	}
+
+	if (!sff->selected
+	    || !bus->op
+	    || !bus->op->write8)
 		return -EINVAL;
 
 	reg &= 0xff;
 
-	if (page != sff->page) {
-		sff->bus.op->write8(&sff->bus, reg, page);
-		sff->page = page;
-	}
-
-	return sff->bus.op->write8(&sff->bus, reg, val);
+	return bus->op->write8(bus, reg, val);
 }
 
 static int sff_8431_status_los(struct nfp_phymod *phy,
