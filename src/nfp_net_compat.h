@@ -89,19 +89,27 @@ static inline int netif_set_xps_queue(struct net_device *dev,
 }
 #endif
 
-/* FIXME: Unbuntu 14.04 has this in their 3.13 kernel,
+/* FIXME: Ubuntu 14.04 has this in their 3.13 kernel,
  *        should be < KERNEL_VERSION(3, 14, 0)
+ *
+ * FIXME: Centos 7 has this in their 3.10 kernel.
  */
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 13, 0))
 enum compat_pkt_hash_types {
-	PKT_HASH_TYPE_NONE,     /* Undefined type */
-	PKT_HASH_TYPE_L2,       /* Input: src_MAC, dest_MAC */
-	PKT_HASH_TYPE_L3,       /* Input: src_IP, dst_IP */
-	PKT_HASH_TYPE_L4,       /* Input: src_IP, dst_IP, src_port, dst_port */
+	compat_PKT_HASH_TYPE_NONE,     /* Undefined type */
+	compat_PKT_HASH_TYPE_L2,       /* Input: src_MAC, dest_MAC */
+	compat_PKT_HASH_TYPE_L3,       /* Input: src_IP, dst_IP */
+	compat_PKT_HASH_TYPE_L4,       /* Input: src_IP, dst_IP,
+						 src_port, dst_port */
 };
 
-static inline void
-skb_set_hash(struct sk_buff *skb, __u32 hash, enum compat_pkt_hash_types type)
+#define PKT_HASH_TYPE_NONE	compat_PKT_HASH_TYPE_NONE
+#define PKT_HASH_TYPE_L2	compat_PKT_HASH_TYPE_L2
+#define PKT_HASH_TYPE_L3	compat_PKT_HASH_TYPE_L3
+#define PKT_HASH_TYPE_L4	compat_PKT_HASH_TYPE_L4
+
+static inline void compat_skb_set_hash(struct sk_buff *skb, __u32 hash,
+				       enum compat_pkt_hash_types type)
 {
 /* XXX RN: Not entirely sure if this hasn't changed more before */
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 15, 0))
@@ -113,6 +121,7 @@ skb_set_hash(struct sk_buff *skb, __u32 hash, enum compat_pkt_hash_types type)
 	skb->hash = hash;
 #endif
 }
+#define skb_set_hash(s, h, t)	compat_skb_set_hash(s, h, t)
 #endif
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0))
