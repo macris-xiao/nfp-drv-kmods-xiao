@@ -89,12 +89,11 @@ static inline int netif_set_xps_queue(struct net_device *dev,
 }
 #endif
 
-/* FIXME: Ubuntu 14.04 has this in their 3.13 kernel,
- *        should be < KERNEL_VERSION(3, 14, 0)
+/* FIXME: Ubuntu 14.04 has this in some of their 3.13 kernels
  *
  * FIXME: Centos 7 has this in their 3.10 kernel.
  */
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 13, 0))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0))
 enum compat_pkt_hash_types {
 	compat_PKT_HASH_TYPE_NONE,     /* Undefined type */
 	compat_PKT_HASH_TYPE_L2,       /* Input: src_MAC, dest_MAC */
