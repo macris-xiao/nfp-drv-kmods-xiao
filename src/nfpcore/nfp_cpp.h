@@ -17,12 +17,12 @@
 /*
  * NFP hardware vendor/device ids.  Should be added to Linux.
  */
-#define PCI_VENDOR_ID_NETRONOME		0x19ee
-#define PCI_DEVICE_NFP3200		0x3200
-#define PCI_DEVICE_NFP3240		0x3240
-#define PCI_DEVICE_NFP6000		0x6000
+#define PCI_VENDOR_ID_NETRONOME         0x19ee
+#define PCI_DEVICE_NFP3200              0x3200
+#define PCI_DEVICE_NFP3240              0x3240
+#define PCI_DEVICE_NFP6000              0x6000
 
-#define NFP_CPP_NUM_TARGETS		16
+#define NFP_CPP_NUM_TARGETS             16
 
 /*
  * NFP CPP device area handle
@@ -49,22 +49,22 @@ struct resource;
  * Doing so will in many cases save NFP CPP internal software
  * resources.
  */
-#define NFP_CPP_ACTION_RW		32
+#define NFP_CPP_ACTION_RW               32
 
-#define NFP_CPP_TARGET_ID_MASK		0x1f
+#define NFP_CPP_TARGET_ID_MASK          0x1f
 
 /*
  * NFP_CPP_ID() - pack target, token, and action into a CPP ID.
- * @target:	NFP CPP target id
- * @action:	NFP CPP action id
- * @token:	NFP CPP token id
+ * @target:     NFP CPP target id
+ * @action:     NFP CPP action id
+ * @token:      NFP CPP token id
  *
  * Create a 32-bit CPP identifier representing the access to be made.
  * These identifiers are used as parameters to other NFP CPP
  * functions.  Some CPP devices may allow wildcard identifiers to be
  * specified.
  *
- * Return:		NFP CPP ID
+ * Return:      NFP CPP ID
  */
 #define NFP_CPP_ID(target, action, token) \
 	((((target) & 0x7f) << 24) | (((token)  & 0xff) << 16) | \
@@ -72,17 +72,17 @@ struct resource;
 
 /*
  * NFP_CPP_ISLAND_ID() - pack target, token, action, and island into a CPP ID.
- * @target:	NFP CPP target id
- * @action:	NFP CPP action id
- * @token:	NFP CPP token id
- * @island:	NFP CPP island id
+ * @target:     NFP CPP target id
+ * @action:     NFP CPP action id
+ * @token:      NFP CPP token id
+ * @island:     NFP CPP island id
  *
  * Create a 32-bit CPP identifier representing the access to be made.
  * These identifiers are used as parameters to other NFP CPP
  * functions.  Some CPP devices may allow wildcard identifiers to be
  * specified.
  *
- * Return:		NFP CPP ID
+ * Return:      NFP CPP ID
  */
 #define NFP_CPP_ISLAND_ID(target, action, token, island) \
 	((((target) & 0x7f) << 24) | (((token)  & 0xff) << 16) | \
@@ -90,9 +90,9 @@ struct resource;
 
 /**
  * NFP_CPP_ID_TARGET_of() - Return the NFP CPP target of a NFP CPP ID
- * @id:	NFP CPP ID
+ * @id:         NFP CPP ID
  *
- * Return:	NFP CPP target
+ * Return:      NFP CPP target
  */
 static inline uint8_t NFP_CPP_ID_TARGET_of(uint32_t id)
 {
@@ -101,8 +101,8 @@ static inline uint8_t NFP_CPP_ID_TARGET_of(uint32_t id)
 
 /**
  * NFP_CPP_ID_TOKEN_of() - Return the NFP CPP token of a NFP CPP ID
- * @id:	NFP CPP ID
- * Return:	NFP CPP token
+ * @id:         NFP CPP ID
+ * Return:      NFP CPP token
  */
 static inline uint8_t NFP_CPP_ID_TOKEN_of(uint32_t id)
 {
@@ -111,9 +111,9 @@ static inline uint8_t NFP_CPP_ID_TOKEN_of(uint32_t id)
 
 /**
  * NFP_CPP_ID_ACTION_of() - Return the NFP CPP action of a NFP CPP ID
- * @id:	NFP CPP ID
+ * @id:         NFP CPP ID
  *
- * Return:	NFP CPP action
+ * Return:      NFP CPP action
  */
 static inline uint8_t NFP_CPP_ID_ACTION_of(uint32_t id)
 {
@@ -124,7 +124,7 @@ static inline uint8_t NFP_CPP_ID_ACTION_of(uint32_t id)
  * NFP_CPP_ID_ISLAND_of() - Return the NFP CPP island of a NFP CPP ID
  * @id: NFP CPP ID
  *
- * Return:	NFP CPP island
+ * Return:      NFP CPP island
  */
 static inline uint8_t NFP_CPP_ID_ISLAND_of(uint32_t id)
 {
@@ -162,25 +162,25 @@ static inline uint8_t NFP_CPP_ID_ISLAND_of(uint32_t id)
 
 /**
  * NFP_CPP_MODEL_STEPPING_of() - retrieve the revision ID from the model ID
- * @model:	NFP CPP model id
+ * @model:      NFP CPP model id
  *
  * The revison ID is a 8-bit encoding of the chip revision.
  * Model A0 is 0x00, B4 is 0x14, G2 is 0x12 etc.
  *
- * Return:		NFP CPP stepping id
+ * Return:      NFP CPP stepping id
  */
-#define NFP_CPP_MODEL_STEPPING_of(model)	(((model) >>  0) & 0x00ff)
+#define NFP_CPP_MODEL_STEPPING_of(model)    (((model) >>  0) & 0x00ff)
 
 /**
  * NFP_CPP_STEPPING() - Generate a NFP CPP stepping code
- * @major_minor:	NFP CPP stepping major minor
+ * @major_minor: NFP CPP stepping major minor
  *
  * The revison ID is a 8-bit encoding of the chip revision.
  * Stepping A0 is 0x00, B4 is 0x14, G9 is 0xA9 etc.
  *
- * Return:		NFP CPP stepping
+ * Return:      NFP CPP stepping
  */
-#define NFP_CPP_STEPPING(major_minor)	NFP_CPP_STEPPING_decode(#major_minor)
+#define NFP_CPP_STEPPING(major_minor)   NFP_CPP_STEPPING_decode(#major_minor)
 
 static inline int NFP_CPP_STEPPING_decode(const char *_str_major_minor)
 {
@@ -190,20 +190,20 @@ static inline int NFP_CPP_STEPPING_decode(const char *_str_major_minor)
 
 /**
  * NFP_CPP_MODEL_IS_3200() - Check for the NFP3200 family of devices
- * @model:	NFP CPP model id
+ * @model:      NFP CPP model id
  *
- * Return:		true if model is in the NFP3200 family, false otherwise.
+ * Return:      true if model is in the NFP3200 family, false otherwise.
  */
 #define NFP_CPP_MODEL_IS_3200(model) \
 	((0x3200 <= NFP_CPP_MODEL_CHIP_of(model)) && \
 	 (NFP_CPP_MODEL_CHIP_of(model) < 0x3300))
 /**
  * NFP_CPP_MODEL_IS_6000() - Check for the NFP6000 family of devices
- * @model:	NFP CPP model id
+ * @model:      NFP CPP model id
  *
  * Note that the NFP4000 family is considered as a NFP6000 variant.
  *
- * Return:		true if model is in the NFP6000 family, false otherwise.
+ * Return:      true if model is in the NFP6000 family, false otherwise.
  */
 #define NFP_CPP_MODEL_IS_6000(model) \
 	((0x4000 <= NFP_CPP_MODEL_CHIP_of(model)) && \
@@ -213,17 +213,17 @@ static inline int NFP_CPP_STEPPING_decode(const char *_str_major_minor)
  * NFP Interface types - logical interface for this CPP connection
  * 4 bits are reserved for interface type.
  */
-#define NFP_CPP_INTERFACE_TYPE_INVALID		0x0
-#define NFP_CPP_INTERFACE_TYPE_PCI		0x1
-#define NFP_CPP_INTERFACE_TYPE_ARM		0x2
-#define NFP_CPP_INTERFACE_TYPE_RPC		0x3
-#define NFP_CPP_INTERFACE_TYPE_ILA		0x4
+#define NFP_CPP_INTERFACE_TYPE_INVALID      0x0
+#define NFP_CPP_INTERFACE_TYPE_PCI          0x1
+#define NFP_CPP_INTERFACE_TYPE_ARM          0x2
+#define NFP_CPP_INTERFACE_TYPE_RPC          0x3
+#define NFP_CPP_INTERFACE_TYPE_ILA          0x4
 
 /**
  * NFP_CPP_INTERFACE() - Construct a 16-bit NFP Interface ID
- * @type:	NFP Interface Type
- * @unit:	Unit identifier for the interface type
- * @channel:	Channel identifier for the interface unit
+ * @type:       NFP Interface Type
+ * @unit:       Unit identifier for the interface type
+ * @channel:    Channel identifier for the interface unit
  *
  * Interface IDs consists of 4 bits of interface type,
  * 4 bits of unit identifier, and 8 bits of channel identifier.
@@ -233,7 +233,7 @@ static inline int NFP_CPP_STEPPING_decode(const char *_str_major_minor)
  * operation - hence the limit to 16 bits to be able to
  * use the NFP Interface ID as a lock owner.
  *
- * Return:		Interface ID
+ * Return:      Interface ID
  */
 #define NFP_CPP_INTERFACE(type, unit, channel)	\
 	((((type) & 0xf) << 12) | \
@@ -242,24 +242,24 @@ static inline int NFP_CPP_STEPPING_decode(const char *_str_major_minor)
 
 /**
  * NFP_CPP_INTERFACE_TYPE_of() - Get the interface type
- * @interface:		NFP Interface ID
- * Return:		NFP Interface ID's type
+ * @interface:  NFP Interface ID
+ * Return:      NFP Interface ID's type
  */
-#define NFP_CPP_INTERFACE_TYPE_of(interface)	(((interface) >> 12) & 0xf)
+#define NFP_CPP_INTERFACE_TYPE_of(interface)   (((interface) >> 12) & 0xf)
 
 /**
  * NFP_CPP_INTERFACE_UNIT_of() - Get the interface unit
- * @interface:		NFP Interface ID
- * Return:		NFP Interface ID's unit
+ * @interface:  NFP Interface ID
+ * Return:      NFP Interface ID's unit
  */
-#define NFP_CPP_INTERFACE_UNIT_of(interface)	(((interface) >>  8) & 0xf)
+#define NFP_CPP_INTERFACE_UNIT_of(interface)   (((interface) >>  8) & 0xf)
 
 /**
  * NFP_CPP_INTERFACE_CHANNEL_of() - Get the interface channel
- * @interface:		NFP Interface ID
- * Return:		NFP Interface ID's channel
+ * @interface:  NFP Interface ID
+ * Return:      NFP Interface ID's channel
  */
-#define NFP_CPP_INTERFACE_CHANNEL_of(interface)	(((interface) >>  0) & 0xff)
+#define NFP_CPP_INTERFACE_CHANNEL_of(interface)   (((interface) >>  0) & 0xff)
 
 /* Implemented in nfp_cppcore.c */
 struct nfp_cpp *nfp_cpp_from_device_id(int id);
@@ -372,33 +372,33 @@ struct nfp_cpp_explicit_command {
 
 /**
  * struct nfp_cpp_operations - NFP CPP operations structure
- * @model:	Model ID (0 for built-in autodetection)
- * @interface:	Interface ID - required!
- * @serial:	Serial number, typically the management MAC for the NFP
- * @area_priv_size:	Size of the nfp_cpp_area private data
- * @event_priv_size:	Size of the nfp_cpp_event private data
- * @owner:	Owner module
- * @parent:	Parent device
- * @priv:	Private data
- * @init:	Initialize the NFP CPP bus, called by nfp_cpp_register()
- * @free:	Free the bus, called during nfp_cpp_unregister()
- * @area_init:	Initialize a new NFP CPP area (not serialized)
- * @area_cleanup:	Clean up a NFP CPP area (not serialized)
- * @area_acquire:	Acquire the NFP CPP area (serialized)
- * @area_release:	Release area (serialized)
- * @area_resource:	Get resource range of area (not serialized)
- * @area_phys:		Get physical address of area (not serialized)
- * @area_iomem:		Get iomem of area (not serialized)
- * @area_read:		Perform a read from a NFP CPP area (serialized)
- * @area_write:		Perform a write to a NFP CPP area (serialized)
- * @event_acquire:	Create an event filter entry
- * @event_release:	Release an event filter entry
- * @explicit_priv_size:	Size of an explicit's private area
- * @explicit_acquire:	Acquire an explicit area
- * @explicit_release:	Release an explicit area
- * @explicit_put:	Write data to send
- * @explicit_get:	Read data received
- * @explicit_do:	Perform the transaction
+ * @model:              Model ID (0 for built-in autodetection)
+ * @interface:          Interface ID - required!
+ * @serial:             Serial number, typically the management MAC for the NFP
+ * @area_priv_size:     Size of the nfp_cpp_area private data
+ * @event_priv_size:    Size of the nfp_cpp_event private data
+ * @owner:              Owner module
+ * @parent:             Parent device
+ * @priv:               Private data
+ * @init:               Initialize the NFP CPP bus
+ * @free:               Free the bus
+ * @area_init:          Initialize a new NFP CPP area (not serialized)
+ * @area_cleanup:       Clean up a NFP CPP area (not serialized)
+ * @area_acquire:       Acquire the NFP CPP area (serialized)
+ * @area_release:       Release area (serialized)
+ * @area_resource:      Get resource range of area (not serialized)
+ * @area_phys:          Get physical address of area (not serialized)
+ * @area_iomem:         Get iomem of area (not serialized)
+ * @area_read:          Perform a read from a NFP CPP area (serialized)
+ * @area_write:         Perform a write to a NFP CPP area (serialized)
+ * @event_acquire:      Create an event filter entry
+ * @event_release:      Release an event filter entry
+ * @explicit_priv_size: Size of an explicit's private area
+ * @explicit_acquire:   Acquire an explicit area
+ * @explicit_release:   Release an explicit area
+ * @explicit_put:       Write data to send
+ * @explicit_get:       Read data received
+ * @explicit_do:        Perform the transaction
  */
 struct nfp_cpp_operations {
 	uint32_t model;
@@ -412,7 +412,7 @@ struct nfp_cpp_operations {
 	void *priv;		/* Private data */
 
 	int (*init)(struct nfp_cpp *cpp);
-	void		(*free)(struct nfp_cpp *cpp);
+	void (*free)(struct nfp_cpp *cpp);
 
 	int (*area_init)(struct nfp_cpp_area *area,
 			 uint32_t dest, unsigned long long address,
@@ -451,10 +451,6 @@ struct nfp_cpp *nfp_cpp_from_operations(
 		const struct nfp_cpp_operations *cpp_ops);
 void *nfp_cpp_priv(struct nfp_cpp *priv);
 
-void *nfp_cpp_explicit_priv(struct nfp_cpp_explicit *cpp_explicit);
-void *nfp_cpp_event_priv(struct nfp_cpp_event *cpp_event);
-struct device *nfp_cpp_device(struct nfp_cpp *cpp);
-
 /*
  * The following section contains extensions to the
  * NFP CPP API, to be used in a Linux kernel-space context.
@@ -465,13 +461,12 @@ struct device *nfp_cpp_device(struct nfp_cpp *cpp);
  * (ie ARM and PCIe) when setting up the nfp_cpp_ops.interface field.
  */
 #define NFP_CPP_INTERFACE_CHANNEL_PEROPENER	255
-
 struct device *nfp_cpp_device(struct nfp_cpp *cpp);
-
 
 void nfp_cpp_event_callback(struct nfp_cpp_event *event);
 int nfp_cpp_event_as_callback(struct nfp_cpp_event *event,
 			      void (*callback)(void *), void *priv);
+void *nfp_cpp_event_priv(struct nfp_cpp_event *cpp_event);
 
 uint64_t nfp_cpp_island_mask(struct nfp_cpp *cpp);
 
@@ -482,8 +477,8 @@ uint64_t nfp_cpp_island_mask(struct nfp_cpp *cpp);
 #define NFP_SIGNAL_MASK_B	BIT(1)	/* Signal B fired */
 
 enum nfp_cpp_explicit_signal_mode {
-	NFP_SIGNAL_NONE	= 0,
-	NFP_SIGNAL_PUSH	= 1,
+	NFP_SIGNAL_NONE = 0,
+	NFP_SIGNAL_PUSH = 1,
 	NFP_SIGNAL_PUSH_OPTIONAL = -1,
 	NFP_SIGNAL_PULL = 2,
 	NFP_SIGNAL_PULL_OPTIONAL = -2,
@@ -507,6 +502,7 @@ int nfp_cpp_explicit_do(struct nfp_cpp_explicit *expl, uint64_t address);
 int nfp_cpp_explicit_get(struct nfp_cpp_explicit *expl, void *buff, size_t len);
 void nfp_cpp_explicit_release(struct nfp_cpp_explicit *expl);
 struct nfp_cpp *nfp_cpp_explicit_cpp(struct nfp_cpp_explicit *expl);
+void *nfp_cpp_explicit_priv(struct nfp_cpp_explicit *cpp_explicit);
 
 /* Implemented in nfp_em_manager.c */
 
