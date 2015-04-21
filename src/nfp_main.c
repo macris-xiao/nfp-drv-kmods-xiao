@@ -45,7 +45,7 @@ MODULE_PARM_DESC(nfp_dev_cpp, "NFP CPP /dev interface (default = enabled)");
 bool nfp_net_null;
 module_param(nfp_net_null, bool, 0444);
 MODULE_PARM_DESC(nfp_net_null, "Null net devices (default = disabled)");
-bool nfp_net_vnic = 1;
+bool nfp_net_vnic = 0;
 module_param(nfp_net_vnic, bool, 0444);
 MODULE_PARM_DESC(nfp_net_vnic, "vNIC net devices (default = enabled)");
 bool nfp_mon_event = 1;
