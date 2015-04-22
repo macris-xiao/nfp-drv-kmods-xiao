@@ -129,7 +129,7 @@ static int nfp_ca_cpp(struct nfp_cpp *cpp, enum nfp_ca_action action,
 	uint32_t tmp32;
 	uint64_t tmp64;
 	static unsigned int cnt;
-	int timeout = 10;
+	int timeout = 100; /* 100 ms */
 	int poll_action = 0;
 	int bit_len = 0;
 	int err;
@@ -137,7 +137,7 @@ static int nfp_ca_cpp(struct nfp_cpp *cpp, enum nfp_ca_action action,
 	switch (action) {
 	case NFP_CA_ACTION_POLL32:
 	case NFP_CA_ACTION_POLL64:
-		timeout = 200; /* Allow 2 seconds for a poll before failing. */
+		timeout = 2000; /* Allow 2 seconds for a poll before failing. */
 		poll_action = 1;
 		/* Fall through */
 
@@ -162,12 +162,12 @@ static int nfp_ca_cpp(struct nfp_cpp *cpp, enum nfp_ca_action action,
 				break;
 
 			if (val != (tmp64 & mask)) {
-				/* 'about 10ms' - see
+				/* 'about 1ms' - see
 				 * Documentation/timers/timers-howto.txt
 				 * for why it is poor practice to use
 				 * msleep() for < 20ms sleeps.
 				 */
-				usleep_range(8000, 12000);
+				usleep_range(800, 1200);
 				timeout--;
 			} else {
 				break;
