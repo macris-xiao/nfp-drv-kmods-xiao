@@ -2176,9 +2176,9 @@ static int nfp_net_set_features(struct net_device *netdev,
 	nn_dbg(nn, "Feature change 0x%llx -> 0x%llx (changed=0x%llx)\n",
 	       (long long)netdev->features, (long long)features,
 	       (long long)changed);
-	nn_dbg(nn, "NIC ctrl: 0x%x -> 0x%x", nn->ctrl, new_ctrl);
 
 	if (new_ctrl != nn->ctrl) {
+		nn_dbg(nn, "NIC ctrl: 0x%x -> 0x%x", nn->ctrl, new_ctrl);
 		update = NFP_NET_CFG_UPDATE_GEN;
 		nn_writel(nn->ctrl_bar, NFP_NET_CFG_CTRL, new_ctrl);
 		err = nfp_net_reconfig(nn, update);
