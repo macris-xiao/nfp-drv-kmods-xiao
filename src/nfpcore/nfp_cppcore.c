@@ -1156,7 +1156,6 @@ struct nfp_cpp *nfp_cpp_from_operations(const struct nfp_cpp_operations *ops)
 
 	BUG_ON(!ops->parent);
 
-	/* Argh. Out of IDs */
 	id = nfp_cpp_id_acquire();
 	if (id < 0) {
 		dev_err(ops->parent, "Out of NFP CPP API slots.\n");
@@ -1164,6 +1163,11 @@ struct nfp_cpp *nfp_cpp_from_operations(const struct nfp_cpp_operations *ops)
 	}
 
 	cpp = kzalloc(sizeof(*cpp), GFP_KERNEL);
+	if (!cpp) {
+		err = -ENOMEM;
+		goto err_malloc;
+	}
+
 	cpp->id = id;
 	cpp->op = ops;
 	kref_init(&cpp->kref);
@@ -1179,8 +1183,7 @@ struct nfp_cpp *nfp_cpp_from_operations(const struct nfp_cpp_operations *ops)
 	err = device_register(&cpp->dev);
 	if (err < 0) {
 		put_device(&cpp->dev);
-		kfree(cpp);
-		return ERR_PTR(err);
+		goto err_dev;
 	}
 
 	dev_set_drvdata(&cpp->dev, cpp);
@@ -1194,10 +1197,9 @@ struct nfp_cpp *nfp_cpp_from_operations(const struct nfp_cpp_operations *ops)
 	if (cpp->op->init) {
 		err = cpp->op->init(cpp);
 		if (err < 0) {
-			dev_err(ops->parent, "NFP interface initialization failed\n");
-			device_unregister(&cpp->dev);
-			kfree(cpp);
-			return ERR_PTR(err);
+			dev_err(ops->parent,
+				"NFP interface initialization failed\n");
+			goto err_out;
 		}
 	}
 
@@ -1206,9 +1208,7 @@ struct nfp_cpp *nfp_cpp_from_operations(const struct nfp_cpp_operations *ops)
 		err = __nfp_cpp_model_autodetect(cpp, &cpp->model);
 		if (err < 0) {
 			dev_err(ops->parent, "NFP model detection failed\n");
-			device_unregister(&cpp->dev);
-			kfree(cpp);
-			return ERR_PTR(err);
+			goto err_out;
 		}
 	}
 
@@ -1225,10 +1225,9 @@ struct nfp_cpp *nfp_cpp_from_operations(const struct nfp_cpp_operations *ops)
 			err = nfp_xpb_readl(cpp, xpbaddr,
 					    &cpp->imb_cat_table[tgt]);
 			if (err < 0) {
-				dev_err(ops->parent, "Can't read CPP mapping from device\n");
-				device_unregister(&cpp->dev);
-				kfree(cpp);
-				return ERR_PTR(err);
+				dev_err(ops->parent,
+					"Can't read CPP mapping from device\n");
+				goto err_out;
 			}
 		}
 
@@ -1255,7 +1254,7 @@ struct nfp_cpp *nfp_cpp_from_operations(const struct nfp_cpp_operations *ops)
 	if (err < 0) {
 		dev_err(ops->parent, "NFP model fixup failed\n");
 		nfp_cpp_free(cpp);
-		return ERR_PTR(err);
+		goto err_out;
 	}
 
 	write_lock(&nfp_cpp_list_lock);
@@ -1266,6 +1265,14 @@ struct nfp_cpp *nfp_cpp_from_operations(const struct nfp_cpp_operations *ops)
 		 nfp_cpp_model(cpp), nfp_cpp_interface(cpp));
 
 	return cpp;
+
+err_out:
+	device_unregister(&cpp->dev);
+err_dev:
+	kfree(cpp);
+err_malloc:
+	nfp_cpp_id_release(id);
+	return ERR_PTR(err);
 }
 
 /**
