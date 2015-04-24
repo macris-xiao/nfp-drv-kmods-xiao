@@ -127,9 +127,9 @@ struct nfp_bar {
 	struct nfp3200_pcie *nfp;
 	u32 barcfg;
 	u64 offset;
-	const u64 mask;
-	const u32 bitsize;
-	const int index;
+	u64 mask;
+	u32 bitsize;
+	int index;
 	atomic_t refcnt;
 
 	void __iomem *iomem;
@@ -302,7 +302,8 @@ static int reconfigure_bar(struct nfp3200_pcie *nfp, int barnum, u32 tgt,
 	bar->offset = offset;
 	newcfg |= NFP_PCIE_BARCFG_P2C_BASE(offset >> (40 - 22));
 
-	BUG_ON(barnum == 1);
+	BUG_ON(barnum == NFP_PCIETGT_BAR_INDEX);
+
 	write_pcie_csr(nfp, NFP_PCIE_BARCFG_P2C(barnum), newcfg);
 	if (nfp->workaround & NFP_A1_WORKAROUND) {
 		bar->barcfg = newcfg;
@@ -388,7 +389,7 @@ static int matching_bar(struct nfp_bar *bar, u32 tgt, u32 act, u32 tok,
 	    tgtact == tgt && tokactsel == tok &&
 	    bar->offset <= offset &&
 	    (act == NFP_CPP_ACTION_RW || act == 0) &&
-	    (bar->offset + (1 << bar->bitsize)) >= (offset + size))
+	    (bar->offset + (1ull << bar->bitsize)) >= (offset + size))
 		return 1;
 
 	/* Special case for 'Target 0' access to the PCIe interface */
@@ -673,8 +674,8 @@ static int enable_bars(struct nfp3200_pcie *nfp)
 		bar->barcfg = read_pcie_csr(nfp, NFP_PCIE_BARCFG_P2C(n));
 
 		bar->nfp = nfp;
-		*((int *)&bar->index) = n;
-		*((u64 *)&bar->mask) = nfp_bar_resource_len(bar) - 1;
+		bar->index = n;
+		bar->mask = nfp_bar_resource_len(bar) - 1;
 		bar->offset = NFP_PCIE_BARCFG_P2C_BASE_of(bar->barcfg)
 			<< (40 - 22);
 
@@ -682,9 +683,9 @@ static int enable_bars(struct nfp3200_pcie *nfp)
 		atomic_set(&bar->refcnt, (n == NFP_PCIETGT_BAR_INDEX) ? 1 : 0);
 
 		if (bar->mask == ((1 << 24) - 1)) {
-			*((u32 *)&bar->bitsize) = 24;
+			bar->bitsize = 24;
 		} else if (bar->mask == ((1 << 30) - 1)) {
-			*((u32 *)&bar->bitsize) = 30;
+			bar->bitsize = 30;
 		} else {
 			dev_err(nfp->dev, "Invalid BAR%d size: %#x\n",
 				n, (u32)bar->mask + 1);
