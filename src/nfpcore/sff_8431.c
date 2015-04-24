@@ -151,9 +151,7 @@ static int sff_8431_read8(struct nfp_phymod *phy, uint32_t reg, uint8_t *val)
 		sff_8431_select(phy, 1);
 	}
 
-	if (!sff->selected
-	    || !bus->op
-	    || !bus->op->read8)
+	if (!sff->selected || !bus->op || !bus->op->read8)
 		return -EINVAL;
 
 	reg &= 0xff;

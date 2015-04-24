@@ -261,7 +261,6 @@ struct nfp_resource_entry {
  */
 #define NFP_RESOURCE_MAC_STATISTICS     "mac.stat"
 
-
 int nfp_cpp_resource_init(struct nfp_cpp *cpp,
 			  struct nfp_cpp_mutex **resource_mutex);
 
