@@ -46,12 +46,6 @@
 
 #include "nfp6000_pcie.h"
 
-/* Although technically we can do 256, we don't
- * want to exhaust the IRQ table on systems
- * limited to 255 virtual IRQs, when 4 NFP6000s
- * are attached.
- */
-#define NFP6000_MAX_MSIX_COUNT	32
 
 /* Add your architecture here if it cannot
  * perform atomic readq()/writeq() transactions over
@@ -63,67 +57,64 @@
 
 #define NFP_PCIE_BAR_EXPLICIT_BAR0(_x, _y) \
 	(0x00000080 + (0x40 * ((_x) & 0x3)) + (0x10 * ((_y) & 0x3)))
-#define   NFP_PCIE_BAR_EXPLICIT_BAR0_SignalType(_x) (((_x) & 0x3) << 30)
-#define   NFP_PCIE_BAR_EXPLICIT_BAR0_SignalType_of(_x) (((_x) >> 30) & 0x3)
-#define   NFP_PCIE_BAR_EXPLICIT_BAR0_Token(_x) (((_x) & 0x3) << 28)
-#define   NFP_PCIE_BAR_EXPLICIT_BAR0_Token_of(_x) (((_x) >> 28) & 0x3)
-#define   NFP_PCIE_BAR_EXPLICIT_BAR0_Address(_x) (((_x) & 0xffffff) << 0)
-#define   NFP_PCIE_BAR_EXPLICIT_BAR0_Address_of(_x) (((_x) >> 0) & 0xffffff)
+#define   NFP_PCIE_BAR_EXPLICIT_BAR0_SignalType(_x)     (((_x) & 0x3) << 30)
+#define   NFP_PCIE_BAR_EXPLICIT_BAR0_SignalType_of(_x)  (((_x) >> 30) & 0x3)
+#define   NFP_PCIE_BAR_EXPLICIT_BAR0_Token(_x)          (((_x) & 0x3) << 28)
+#define   NFP_PCIE_BAR_EXPLICIT_BAR0_Token_of(_x)       (((_x) >> 28) & 0x3)
+#define   NFP_PCIE_BAR_EXPLICIT_BAR0_Address(_x)        (((_x) & 0xffffff) << 0)
+#define   NFP_PCIE_BAR_EXPLICIT_BAR0_Address_of(_x)     (((_x) >> 0) & 0xffffff)
 #define NFP_PCIE_BAR_EXPLICIT_BAR1(_x, _y) \
 	(0x00000084 + (0x40 * ((_x) & 0x3)) + (0x10 * ((_y) & 0x3)))
-#define   NFP_PCIE_BAR_EXPLICIT_BAR1_SignalRef(_x) (((_x) & 0x7f) << 24)
-#define   NFP_PCIE_BAR_EXPLICIT_BAR1_SignalRef_of(_x) (((_x) >> 24) & 0x7f)
-#define   NFP_PCIE_BAR_EXPLICIT_BAR1_DataMaster(_x) (((_x) & 0x3ff) << 14)
-#define   NFP_PCIE_BAR_EXPLICIT_BAR1_DataMaster_of(_x) (((_x) >> 14) & 0x3ff)
-#define   NFP_PCIE_BAR_EXPLICIT_BAR1_DataRef(_x) (((_x) & 0x3fff) << 0)
-#define   NFP_PCIE_BAR_EXPLICIT_BAR1_DataRef_of(_x) (((_x) >> 0) & 0x3fff)
+#define   NFP_PCIE_BAR_EXPLICIT_BAR1_SignalRef(_x)      (((_x) & 0x7f) << 24)
+#define   NFP_PCIE_BAR_EXPLICIT_BAR1_SignalRef_of(_x)   (((_x) >> 24) & 0x7f)
+#define   NFP_PCIE_BAR_EXPLICIT_BAR1_DataMaster(_x)     (((_x) & 0x3ff) << 14)
+#define   NFP_PCIE_BAR_EXPLICIT_BAR1_DataMaster_of(_x)  (((_x) >> 14) & 0x3ff)
+#define   NFP_PCIE_BAR_EXPLICIT_BAR1_DataRef(_x)        (((_x) & 0x3fff) << 0)
+#define   NFP_PCIE_BAR_EXPLICIT_BAR1_DataRef_of(_x)     (((_x) >> 0) & 0x3fff)
 #define NFP_PCIE_BAR_EXPLICIT_BAR2(_x, _y) \
 	(0x00000088 + (0x40 * ((_x) & 0x3)) + (0x10 * ((_y) & 0x3)))
-#define   NFP_PCIE_BAR_EXPLICIT_BAR2_Target(_x) (((_x) & 0xf) << 28)
-#define   NFP_PCIE_BAR_EXPLICIT_BAR2_Target_of(_x) (((_x) >> 28) & 0xf)
-#define   NFP_PCIE_BAR_EXPLICIT_BAR2_Action(_x) (((_x) & 0x1f) << 23)
-#define   NFP_PCIE_BAR_EXPLICIT_BAR2_Action_of(_x) (((_x) >> 23) & 0x1f)
-#define   NFP_PCIE_BAR_EXPLICIT_BAR2_Length(_x) (((_x) & 0x1f) << 18)
-#define   NFP_PCIE_BAR_EXPLICIT_BAR2_Length_of(_x) (((_x) >> 18) & 0x1f)
-#define   NFP_PCIE_BAR_EXPLICIT_BAR2_ByteMask(_x) (((_x) & 0xff) << 10)
-#define   NFP_PCIE_BAR_EXPLICIT_BAR2_ByteMask_of(_x) (((_x) >> 10) & 0xff)
-#define   NFP_PCIE_BAR_EXPLICIT_BAR2_SignalMaster(_x) (((_x) & 0x3ff) << 0)
+#define   NFP_PCIE_BAR_EXPLICIT_BAR2_Target(_x)         (((_x) & 0xf) << 28)
+#define   NFP_PCIE_BAR_EXPLICIT_BAR2_Target_of(_x)      (((_x) >> 28) & 0xf)
+#define   NFP_PCIE_BAR_EXPLICIT_BAR2_Action(_x)         (((_x) & 0x1f) << 23)
+#define   NFP_PCIE_BAR_EXPLICIT_BAR2_Action_of(_x)      (((_x) >> 23) & 0x1f)
+#define   NFP_PCIE_BAR_EXPLICIT_BAR2_Length(_x)         (((_x) & 0x1f) << 18)
+#define   NFP_PCIE_BAR_EXPLICIT_BAR2_Length_of(_x)      (((_x) >> 18) & 0x1f)
+#define   NFP_PCIE_BAR_EXPLICIT_BAR2_ByteMask(_x)       (((_x) & 0xff) << 10)
+#define   NFP_PCIE_BAR_EXPLICIT_BAR2_ByteMask_of(_x)    (((_x) >> 10) & 0xff)
+#define   NFP_PCIE_BAR_EXPLICIT_BAR2_SignalMaster(_x)   (((_x) & 0x3ff) << 0)
 #define   NFP_PCIE_BAR_EXPLICIT_BAR2_SignalMaster_of(_x) (((_x) >> 0) & 0x3ff)
 
-#define   NFP_PCIE_BAR_PCIE2CPP_Action_BaseAddress(_x) (((_x) & 0x1f) << 16)
+#define   NFP_PCIE_BAR_PCIE2CPP_Action_BaseAddress(_x)  (((_x) & 0x1f) << 16)
 #define   NFP_PCIE_BAR_PCIE2CPP_Action_BaseAddress_of(_x) (((_x) >> 16) & 0x1f)
-#define   NFP_PCIE_BAR_PCIE2CPP_BaseAddress(_x) (((_x) & 0xffff) << 0)
-#define   NFP_PCIE_BAR_PCIE2CPP_BaseAddress_of(_x) (((_x) >> 0) & 0xffff)
-#define   NFP_PCIE_BAR_PCIE2CPP_LengthSelect(_x) (((_x) & 0x3) << 27)
-#define   NFP_PCIE_BAR_PCIE2CPP_LengthSelect_of(_x) (((_x) >> 27) & 0x3)
-#define     NFP_PCIE_BAR_PCIE2CPP_LengthSelect_32BIT (0)
-#define     NFP_PCIE_BAR_PCIE2CPP_LengthSelect_64BIT (1)
-#define     NFP_PCIE_BAR_PCIE2CPP_LengthSelect_0BYTE (3)
-#define   NFP_PCIE_BAR_PCIE2CPP_MapType(_x)     (((_x) & 0x7) << 29)
-#define   NFP_PCIE_BAR_PCIE2CPP_MapType_of(_x)  (((_x) >> 29) & 0x7)
-#define     NFP_PCIE_BAR_PCIE2CPP_MapType_FIXED (0)
-#define     NFP_PCIE_BAR_PCIE2CPP_MapType_BULK  (1)
-#define     NFP_PCIE_BAR_PCIE2CPP_MapType_TARGET (2)
-#define     NFP_PCIE_BAR_PCIE2CPP_MapType_GENERAL (3)
-#define     NFP_PCIE_BAR_PCIE2CPP_MapType_EXPLICIT0 (4)
-#define     NFP_PCIE_BAR_PCIE2CPP_MapType_EXPLICIT1 (5)
-#define     NFP_PCIE_BAR_PCIE2CPP_MapType_EXPLICIT2 (6)
-#define     NFP_PCIE_BAR_PCIE2CPP_MapType_EXPLICIT3 (7)
-#define   NFP_PCIE_BAR_PCIE2CPP_Target_BaseAddress(_x) (((_x) & 0xf) << 23)
+#define   NFP_PCIE_BAR_PCIE2CPP_BaseAddress(_x)         (((_x) & 0xffff) << 0)
+#define   NFP_PCIE_BAR_PCIE2CPP_BaseAddress_of(_x)      (((_x) >> 0) & 0xffff)
+#define   NFP_PCIE_BAR_PCIE2CPP_LengthSelect(_x)        (((_x) & 0x3) << 27)
+#define   NFP_PCIE_BAR_PCIE2CPP_LengthSelect_of(_x)     (((_x) >> 27) & 0x3)
+#define     NFP_PCIE_BAR_PCIE2CPP_LengthSelect_32BIT    0
+#define     NFP_PCIE_BAR_PCIE2CPP_LengthSelect_64BIT    1
+#define     NFP_PCIE_BAR_PCIE2CPP_LengthSelect_0BYTE    3
+#define   NFP_PCIE_BAR_PCIE2CPP_MapType(_x)             (((_x) & 0x7) << 29)
+#define   NFP_PCIE_BAR_PCIE2CPP_MapType_of(_x)          (((_x) >> 29) & 0x7)
+#define     NFP_PCIE_BAR_PCIE2CPP_MapType_FIXED         0
+#define     NFP_PCIE_BAR_PCIE2CPP_MapType_BULK          1
+#define     NFP_PCIE_BAR_PCIE2CPP_MapType_TARGET        2
+#define     NFP_PCIE_BAR_PCIE2CPP_MapType_GENERAL       3
+#define     NFP_PCIE_BAR_PCIE2CPP_MapType_EXPLICIT0     4
+#define     NFP_PCIE_BAR_PCIE2CPP_MapType_EXPLICIT1     5
+#define     NFP_PCIE_BAR_PCIE2CPP_MapType_EXPLICIT2     6
+#define     NFP_PCIE_BAR_PCIE2CPP_MapType_EXPLICIT3     7
+#define   NFP_PCIE_BAR_PCIE2CPP_Target_BaseAddress(_x)  (((_x) & 0xf) << 23)
 #define   NFP_PCIE_BAR_PCIE2CPP_Target_BaseAddress_of(_x) (((_x) >> 23) & 0xf)
-#define   NFP_PCIE_BAR_PCIE2CPP_Token_BaseAddress(_x) (((_x) & 0x3) << 21)
+#define   NFP_PCIE_BAR_PCIE2CPP_Token_BaseAddress(_x)   (((_x) & 0x3) << 21)
 #define   NFP_PCIE_BAR_PCIE2CPP_Token_BaseAddress_of(_x) (((_x) >> 21) & 0x3)
-#define NFP_PCIE_EM                                           (0x020000)
-#define NFP_PCIE_SRAM                                         (0x000000)
+#define NFP_PCIE_EM                                     0x020000
+#define NFP_PCIE_SRAM                                   0x000000
 
-#define NFP_PCIE_P2C_FIXED_SIZE(bar)                (1 << (bar)->bitsize)
-#define NFP_PCIE_P2C_BULK_SIZE(bar)                 (1 << (bar)->bitsize)
-#define NFP_PCIE_P2C_GENERAL_TARGET_OFFSET(bar, x) \
-	((x) << ((bar)->bitsize - 2))
-#define NFP_PCIE_P2C_GENERAL_TOKEN_OFFSET(bar, x) \
-	((x) << ((bar)->bitsize - 4))
-#define NFP_PCIE_P2C_GENERAL_SIZE(bar) \
-	(1 << ((bar)->bitsize - 4))
+#define NFP_PCIE_P2C_FIXED_SIZE(bar)               (1 << (bar)->bitsize)
+#define NFP_PCIE_P2C_BULK_SIZE(bar)                (1 << (bar)->bitsize)
+#define NFP_PCIE_P2C_GENERAL_TARGET_OFFSET(bar, x) ((x) << ((bar)->bitsize - 2))
+#define NFP_PCIE_P2C_GENERAL_TOKEN_OFFSET(bar, x) ((x) << ((bar)->bitsize - 4))
+#define NFP_PCIE_P2C_GENERAL_SIZE(bar)             (1 << ((bar)->bitsize - 4))
 
 #define NFP_PCIE_CFG_BAR_PCIETOCPPEXPANSIONBAR(bar, slot) \
 	(0x400 + ((bar) * 8 + (slot)) * 4)
