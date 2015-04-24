@@ -1937,6 +1937,28 @@ static int nfp_net_netdev_open(struct net_device *netdev)
 		nfp_net_print_link(nn, false);
 	}
 
+	/* If the firmware is receiving traffic, the RX rings
+	 * can become full in the time between the configuration
+	 * update and the NAPI initialization.
+	 *
+	 * If the RX ring is full, the firmware will drop packets,
+	 * and we will not get an interrupt to trigger a NAPI
+	 * schedule.
+	 *
+	 * Therefore, we call napi_schedule() explictly here
+	 * to kick all the RX rings so that they will start
+	 * generating interrupts on RXed packets.
+	 *
+	 * Even though we are calling napi_schedule() on a
+	 * single CPU here, this will only be done on device
+	 * open time - NAPI processing will migrate to multiple
+	 * CPUs after this scheduled NAPI poll.
+	 */
+	for (r = 0; r < nn->num_r_vecs; r++) {
+		r_vec = &nn->r_vecs[r];
+		napi_schedule(&r_vec->napi);
+	}
+
 	return 0;
 
 err_reconfig:
