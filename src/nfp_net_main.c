@@ -453,6 +453,26 @@ static void nfp_sriov_attr_remove(struct device *dev)
 #endif /* CONFIG_PCI_IOV */
 #endif /* Linux kernel version */
 
+static int nfp_is_ready(struct nfp_device *nfp)
+{
+	const char *cp;
+	long state;
+	int err;
+
+	cp = nfp_hwinfo_lookup(nfp, "board.state");
+	if (!cp)
+		return 0;
+
+	err = kstrtol(cp, 0, &state);
+	if (err < 0)
+		return 0;
+
+	if (state != 15)
+		return 0;
+
+	return 1;
+}
+
 /*
  * PCI device functions
  */
@@ -551,12 +571,23 @@ static int nfp_net_pci_probe(struct pci_dev *pdev,
 	interface = nfp_cpp_interface(cpp);
 	pcie_pf = NFP_CPP_INTERFACE_UNIT_of(interface);
 
-	snprintf(pf_symbol, sizeof(pf_symbol), "_pf%d_net_bar0", pcie_pf);
+	/* Verify that the board has completed initialization */
+	if (nfp_is_ready(nfp_dev)) {
+		snprintf(pf_symbol, sizeof(pf_symbol),
+			 "_pf%d_net_bar0", pcie_pf);
 
-	ctrl_sym = nfp_rtsym_lookup(nfp_dev, pf_symbol);
-	if (!ctrl_sym) {
+		ctrl_sym = nfp_rtsym_lookup(nfp_dev, pf_symbol);
+		if (!ctrl_sym)
+			dev_err(&pdev->dev,
+				"Failed to find PF BAR0 symbol %s\n",
+				pf_symbol);
+	} else {
 		dev_err(&pdev->dev,
-			"Failed to find PF BAR0 symbol %s\n", pf_symbol);
+			"NFP is not ready for operation.\n");
+		ctrl_sym = NULL;
+	}
+
+	if (!ctrl_sym) {
 		if (!nfp_fallback) {
 			err = -ENOENT;
 			goto err_ctrl_lookup;
