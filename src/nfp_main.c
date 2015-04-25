@@ -505,6 +505,12 @@ static int __init nfp_main_init(void)
 {
 	int err;
 
+	if (find_module("nfp_net")) {
+		pr_err("%s: Cannot be loaded while nfp_net is loaded\n",
+			nfp_driver_name);
+		return -EBUSY;
+	}
+
 	pr_info(
 	       "%s: NFP PCIe Driver, Copyright (C) 2014-2015 Netronome Systems\n",
 	       nfp_driver_name);

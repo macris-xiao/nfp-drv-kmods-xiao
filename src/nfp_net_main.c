@@ -803,6 +803,12 @@ static int __init nfp_net_init(void)
 {
 	int err;
 
+	if (find_module("nfp")) {
+		pr_err("%s: Cannot be loaded while nfp is loaded\n",
+			nfp_net_driver_name);
+		return -EBUSY;
+	}
+
 	pr_info("%s: NFP Network driver, Copyright (C) 2014-2015 Netronome Systems\n",
 		nfp_net_driver_name);
 	pr_info(NFP_BUILD_DESCRIPTION(nfp));
