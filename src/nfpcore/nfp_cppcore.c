@@ -49,7 +49,7 @@
 struct nfp_cpp_resource {
 	struct list_head list;
 	const char *name;
-	unsigned int target;
+	uint32_t cpp_id;
 	uint64_t start;
 	uint64_t end;
 };
@@ -110,6 +110,46 @@ static struct mutex nfp_cpp_id_lock;
 static struct list_head nfp_cpp_list;
 static rwlock_t nfp_cpp_list_lock;
 
+static ssize_t show_area(struct device *dev, struct device_attribute *attr,
+			 char *buf)
+{
+	struct nfp_cpp *cpp = dev_get_drvdata(dev);
+	struct nfp_cpp_resource *r;
+	int left = PAGE_SIZE;
+
+	read_lock(&cpp->resource_lock);
+
+	list_for_each_entry(r, &cpp->resource_list, list) {
+		struct nfp_cpp_area *area =
+			container_of(r, struct nfp_cpp_area, resource);
+		int count = atomic_read(&area->refcount);
+		int len;
+
+		len = snprintf(buf, left, "%d %d:%d:%d:0x%0llx-0x%0llx%s%s\n",
+				count,
+				NFP_CPP_ID_TARGET_of(r->cpp_id),
+				NFP_CPP_ID_ACTION_of(r->cpp_id),
+				NFP_CPP_ID_TOKEN_of(r->cpp_id),
+				r->start, r->end,
+				r->name ? " " : "",
+				r->name ? r->name : "");
+		if (len > left) {
+			*buf = 0;
+			break;
+		}
+
+		buf += len;
+		left -= len;
+	}
+
+	read_unlock(&cpp->resource_lock);
+
+	return PAGE_SIZE - left;
+}
+
+static DEVICE_ATTR(area, S_IRUGO, show_area, NULL);
+
+
 static inline int nfp_cpp_id_acquire(void)
 {
 	int id;
@@ -129,17 +169,11 @@ static inline void nfp_cpp_id_release(int id)
 	mutex_unlock(&nfp_cpp_id_lock);
 }
 
-#ifdef CONFIG_PROC_FS
-static struct proc_dir_entry *nfp_cpp_dir;
-#endif
-
 static void __nfp_cpp_release(struct kref *kref)
 {
 	struct nfp_cpp *cpp = container_of(kref, struct nfp_cpp, kref);
 
-#ifdef CONFIG_PROC_FS
-	remove_proc_entry(dev_name(cpp->op->parent), nfp_cpp_dir);
-#endif
+	device_remove_file(&cpp->dev, &dev_attr_area);
 
 	if (cpp->op->free)
 		cpp->op->free(cpp);
@@ -254,10 +288,11 @@ static void __resource_add(struct list_head *head, struct nfp_cpp_resource *res)
 
 	list_for_each(pos, head) {
 		tmp = container_of(pos, struct nfp_cpp_resource, list);
-		if (tmp->target > res->target)
+
+		if (tmp->cpp_id > res->cpp_id)
 			break;
 
-		if (tmp->target == res->target &&
+		if (tmp->cpp_id == res->cpp_id &&
 		    tmp->start > res->start)
 			break;
 	}
@@ -351,7 +386,7 @@ struct nfp_cpp_area *nfp_cpp_area_alloc_with_name(
 				cpp->op->area_priv_size;
 	memcpy((char *)(area->resource.name), name, name_len);
 
-	area->resource.target = NFP_CPP_ID_TARGET_of(dest);
+	area->resource.cpp_id = dest;
 	area->resource.start = address;
 	area->resource.end = area->resource.start + size - 1;
 	INIT_LIST_HEAD(&area->resource.list);
@@ -1035,98 +1070,6 @@ void nfp_cpp_event_free(struct nfp_cpp_event *event)
 	kfree(event);
 }
 
-#ifdef CONFIG_PROC_FS
-static void *cpp_r_next(struct seq_file *m, void *v, loff_t *pos)
-{
-	struct nfp_cpp *cpp = m->private;
-	struct list_head *p = v;
-
-	(*pos)++;
-	if (p->next == &cpp->resource_list)
-		return NULL;
-
-	return p->next;
-}
-
-static void *cpp_r_start(struct seq_file *m, loff_t *pos)
-{
-	struct nfp_cpp *cpp = m->private;
-	struct list_head  *tmp;
-	loff_t l = 0;
-
-	read_lock(&cpp->resource_lock);
-
-	if (list_empty(&cpp->resource_list))
-		return NULL;
-
-	for (tmp = cpp->resource_list.next; tmp && l < *pos;
-	     tmp = cpp_r_next(m, tmp, &l))
-		;
-
-	return tmp;
-}
-
-static void cpp_r_stop(struct seq_file *m, void *v)
-{
-	struct nfp_cpp *cpp = m->private;
-
-	read_unlock(&cpp->resource_lock);
-}
-
-static const char * const cpp_target_name[] = {
-	"tgt0", "msf0", "qdr", "msf1",
-	"hash", "tgt5", "tgt6", "ddr",
-	"gs", "pcie", "arm", "tgt11",
-	"crypto", "cap", "ct", "cls",
-};
-
-static int cpp_r_show(struct seq_file *m, void *v)
-{
-	struct nfp_cpp_resource *r =
-		container_of(v, struct nfp_cpp_resource, list);
-	struct nfp_cpp_area *area =
-		container_of(r, struct nfp_cpp_area, resource);
-	const char *inactive = (atomic_read(&area->refcount) == 0) ?
-		" [inactive]" : "";
-
-	if (r->target >= ARRAY_SIZE(cpp_target_name))
-		seq_printf(m, "tgt%d : %#llx-%#llx : %s%s\n",
-			   r->target, r->start, r->end, r->name, inactive);
-	else
-		seq_printf(m, "%s : %#llx-%#llx : %s%s\n",
-			   cpp_target_name[r->target],
-			   r->start, r->end, r->name, inactive);
-
-	return 0;
-}
-
-static const struct seq_operations cpp_resource_op = {
-	.start = cpp_r_start,
-	.next  = cpp_r_next,
-	.stop  = cpp_r_stop,
-	.show  = cpp_r_show,
-};
-
-static int iocpp_open(struct inode *inode, struct file *file)
-{
-	int res = seq_open(file, &cpp_resource_op);
-
-	if (!res) {
-		struct seq_file *m = file->private_data;
-
-		m->private = PDE_DATA(inode);
-	}
-	return res;
-}
-
-static const struct file_operations iocpp_ops = {
-	.open		= iocpp_open,
-	.read		= seq_read,
-	.llseek		= seq_lseek,
-	.release	= seq_release,
-};
-#endif /* CONFIG_PROC_FS */
-
 #ifdef CONFIG_LOCKDEP
 /* Lockdep markers */
 static struct lock_class_key nfp_cpp_resource_lock_key;
@@ -1150,9 +1093,6 @@ struct nfp_cpp *nfp_cpp_from_operations(const struct nfp_cpp_operations *ops)
 {
 	int id, err;
 	struct nfp_cpp *cpp;
-#ifdef CONFIG_PROC_FS
-	struct proc_dir_entry *pde;
-#endif
 
 	BUG_ON(!ops->parent);
 
@@ -1187,6 +1127,10 @@ struct nfp_cpp *nfp_cpp_from_operations(const struct nfp_cpp_operations *ops)
 	}
 
 	dev_set_drvdata(&cpp->dev, cpp);
+
+	err = device_create_file(&cpp->dev, &dev_attr_area);
+	if (err < 0)
+		goto err_attr;
 
 	if (cpp->op->model)
 		cpp->model = cpp->op->model;
@@ -1239,16 +1183,6 @@ struct nfp_cpp *nfp_cpp_from_operations(const struct nfp_cpp_operations *ops)
 		cpp->island_mask = (((uint64_t)mask[1] << 32) | mask[0]);
 	}
 
-#ifdef CONFIG_PROC_FS
-	pde = proc_create_data(dev_name(cpp->op->parent), 0, nfp_cpp_dir,
-			       &iocpp_ops, cpp);
-	if (!pde) {
-		dev_err(cpp->op->parent,
-			"Can't create /proc/" NFP_CPP_DIR_NAME "/%s\n",
-			dev_name(cpp->op->parent));
-	}
-#endif
-
 	/* After initialization, do any model specific fixups */
 	err = __nfp_cpp_model_fixup(cpp);
 	if (err < 0) {
@@ -1267,6 +1201,8 @@ struct nfp_cpp *nfp_cpp_from_operations(const struct nfp_cpp_operations *ops)
 	return cpp;
 
 err_out:
+	device_remove_file(&cpp->dev, &dev_attr_area);
+err_attr:
 	device_unregister(&cpp->dev);
 err_dev:
 	kfree(cpp);
@@ -1550,13 +1486,6 @@ int nfp_cppcore_init(void)
 	INIT_LIST_HEAD(&nfp_cpp_list);
 	rwlock_init(&nfp_cpp_list_lock);
 
-#ifdef CONFIG_PROC_FS
-	nfp_cpp_dir = proc_mkdir(NFP_CPP_DIR_NAME, NULL);
-
-	if (!nfp_cpp_dir)
-		return -ENOMEM;
-#endif
-
 	return 0;
 }
 
@@ -1566,7 +1495,4 @@ int nfp_cppcore_init(void)
 void nfp_cppcore_exit(void)
 {
 	BUG_ON(!list_empty(&nfp_cpp_list));
-#ifdef CONFIG_PROC_FS
-	remove_proc_entry(NFP_CPP_DIR_NAME, NULL);
-#endif
 }
