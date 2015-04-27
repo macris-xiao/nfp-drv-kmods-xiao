@@ -265,10 +265,12 @@ static int compute_bar(struct nfp6000_pcie *nfp,
 				tok);
 
 		if ((offset & mask) != ((offset + size - 1) & mask)) {
-			dev_dbg(nfp->dev, "BAR%d: Failed to create Fixed mapping <%#llx,%#llx>, action=%d.  BAR too small (0x%llx).\n",
-				bar->index, offset, offset + size, act,
-				(unsigned long long)mask);
-			return -EINVAL;
+			if (NFP_PCIE_VERBOSE_DEBUG) {
+				dev_dbg(nfp->dev, "BAR%d: Won't use for Fixed mapping <%#llx,%#llx>, action=%d.  BAR too small (0x%llx).\n",
+					bar->index, offset, offset + size, act,
+					(unsigned long long)mask);
+				return -EINVAL;
+			}
 		}
 		offset &= mask;
 
@@ -287,9 +289,11 @@ static int compute_bar(struct nfp6000_pcie *nfp,
 			  NFP_PCIE_BAR_PCIE2CPP_MapType_GENERAL);
 
 		if ((offset & mask) != ((offset + size - 1) & mask)) {
-			dev_dbg(nfp->dev, "BAR%d: Failed to create CPP mapping <%#llx,%#llx>.  BAR too small.\n",
-				bar->index, offset, offset + size);
-			return -EINVAL;
+			if (NFP_PCIE_VERBOSE_DEBUG) {
+				dev_dbg(nfp->dev, "BAR%d: Won't use for CPP mapping <%#llx,%#llx>.  BAR too small.\n",
+					bar->index, offset, offset + size);
+				return -EINVAL;
+			}
 		}
 		offset &= mask;
 
@@ -310,11 +314,13 @@ static int compute_bar(struct nfp6000_pcie *nfp,
 				tok);
 
 		if ((offset & mask) != ((offset + size - 1) & mask)) {
-			dev_dbg(nfp->dev, "BAR%d: Failed to create bulk mapping <%#llx,%#llx>, target=%d, token=%d. BAR too small (%#llx) - (%#llx != %#llx).\n",
-				bar->index, offset, offset + size,
-				tgt, tok, mask, offset & mask,
-				(offset + size - 1) & mask
-				);
+			if (NFP_PCIE_VERBOSE_DEBUG) {
+				dev_dbg(nfp->dev, "BAR%d: Won't use for bulk mapping <%#llx,%#llx>, target=%d, token=%d. BAR too small (%#llx) - (%#llx != %#llx).\n",
+					bar->index, offset, offset + size,
+					tgt, tok, mask, offset & mask,
+					(offset + size - 1) & mask
+					);
+			}
 			return -EINVAL;
 		}
 
