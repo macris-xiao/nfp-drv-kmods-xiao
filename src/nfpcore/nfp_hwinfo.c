@@ -113,25 +113,19 @@
 /* Hardware Info Version 2.0 */
 #define NFP_HWINFO_VERSION_2 \
 	(('H' << 24) | ('I' << 16) | (2 << 8) | (0 << 1) | 0)
-#define NFP_HWINFO_VERSION_UPDATING(ver) \
-	((ver) & 1)
+#define NFP_HWINFO_VERSION_UPDATING(ver)   ((ver) & 1)
 
-#define NFP_HWINFO_VERSION_IN(base) \
-	__le32_to_cpu(((uint32_t *)(base))[0])
+#define NFP_HWINFO_VERSION_IN(base) __le32_to_cpu(((uint32_t *)(base))[0])
 #define NFP_HWINFO_VERSION_SET(base, val) \
 	(((uint32_t *)(base))[0] = __cpu_to_le32(val))
 
 /***************** HWInfo v1 ****************/
 
 /* Hardware Info Table Version 1.x */
-#define NFP_HWINFO_SIZE_IN(base) \
-	__le32_to_cpu(((uint32_t *)(base))[1])
-#define NFP_HWINFO_V1_TABLE_IN(base) \
-	__le32_to_cpu(((uint32_t *)(base))[2])
-#define NFP_HWINFO_V1_KEYS_IN(base) \
-	__le32_to_cpu(((uint32_t *)(base))[3])
-#define NFP_HWINFO_V2_LIMIT_IN(base) \
-	__le32_to_cpu(((uint32_t *)(base))[2])
+#define NFP_HWINFO_SIZE_IN(base)      __le32_to_cpu(((uint32_t *)(base))[1])
+#define NFP_HWINFO_V1_TABLE_IN(base)  __le32_to_cpu(((uint32_t *)(base))[2])
+#define NFP_HWINFO_V1_KEYS_IN(base)   __le32_to_cpu(((uint32_t *)(base))[3])
+#define NFP_HWINFO_V2_LIMIT_IN(base)  __le32_to_cpu(((uint32_t *)(base))[2])
 #define NFP_HWINFO_CRC32_IN(base) \
 	__le32_to_cpu(((uint32_t *)NFP_HWINFO_DATA_END(base))[0])
 
@@ -151,8 +145,7 @@
 #define NFP_HWINFO_CRC32_SET(base, val) \
 	(((uint32_t *)NFP_HWINFO_DATA_END(base))[0] = __cpu_to_le32(val))
 
-#define NFP_HWINFO_DATA_START(base) \
-	((void *)&(((uint32_t *)base)[4]))
+#define NFP_HWINFO_DATA_START(base) ((void *)&(((uint32_t *)base)[4]))
 #define NFP_HWINFO_DATA_END(base) \
 	((void *)(((char *)(base)) + \
 		NFP_HWINFO_SIZE_IN(base) - sizeof(uint32_t)))
@@ -168,7 +161,6 @@
 		__le32_to_cpu(((uint32_t *)((base) + \
 			      NFP_HWINFO_V1_TABLE_IN(base)))[(key_id) * 2 + \
 							     1])))
-
 
 #undef NFP_SUBSYS
 #define NFP_SUBSYS "[HWINFO] "
