@@ -53,37 +53,32 @@ struct nfp_nffw_info_priv {
  * into the table plus this base */
 
 /* loaded = loaded__mu_da__mip_off_hi<31:31> */
-static inline uint32_t nffw_fwinfo_loaded_get(
-	struct nffw_fwinfo *fi)
+static inline uint32_t nffw_fwinfo_loaded_get(struct nffw_fwinfo *fi)
 {
 	return (fi->loaded__mu_da__mip_off_hi >> 31) & 1;
 }
 
 /* mip_cppid = mip_cppid */
-static inline uint32_t nffw_fwinfo_mip_cppid_get(
-	struct nffw_fwinfo *fi)
+static inline uint32_t nffw_fwinfo_mip_cppid_get(struct nffw_fwinfo *fi)
 {
 	return fi->mip_cppid;
 }
 
 /* loaded = loaded__mu_da__mip_off_hi<8:8> */
-static inline uint32_t nffw_fwinfo_mip_mu_da_get(
-	struct nffw_fwinfo *fi)
+static inline uint32_t nffw_fwinfo_mip_mu_da_get(struct nffw_fwinfo *fi)
 {
 	return (fi->loaded__mu_da__mip_off_hi >> 8) & 1;
 }
 
 /* mip_offset = (loaded__mu_da__mip_off_hi<7:0> << 8) | mip_offset_lo */
-static inline uint64_t nffw_fwinfo_mip_offset_get(
-	struct nffw_fwinfo *fi)
+static inline uint64_t nffw_fwinfo_mip_offset_get(struct nffw_fwinfo *fi)
 {
 	return (((uint64_t)fi->loaded__mu_da__mip_off_hi & 0xFF) << 32) |
 		fi->mip_offset_lo;
 }
 
 /* flg_init = flags[0]<0> */
-static inline uint32_t nffw_res_flg_init_get(
-	struct nfp_nffw_info *res)
+static inline uint32_t nffw_res_flg_init_get(struct nfp_nffw_info *res)
 {
 	return (res->flags[0] >> 0) & 0x1;
 }
@@ -100,18 +95,14 @@ static void *__nfp_nffw_info_con(struct nfp_device *dev)
 			__nfp_nffw_info_des);
 }
 
-/********/
-
-static inline struct nfp_nffw_info_priv *_nfp_nffw_priv(
-	struct nfp_device *dev)
+static inline struct nfp_nffw_info_priv *_nfp_nffw_priv(struct nfp_device *dev)
 {
 	if (!dev)
 		return NULL;
 	return nfp_device_private(dev, __nfp_nffw_info_con);
 }
 
-static inline struct nfp_nffw_info *_nfp_nffw_info(
-	struct nfp_device *dev)
+static inline struct nfp_nffw_info *_nfp_nffw_info(struct nfp_device *dev)
 {
 	struct nfp_nffw_info_priv *priv = _nfp_nffw_priv(dev);
 
@@ -122,7 +113,7 @@ static inline struct nfp_nffw_info *_nfp_nffw_info(
 }
 
 /**
- * nfp_nffw_info_release() - Acquire the lock on the NFFW table
+ * nfp_nffw_info_acquire() - Acquire the lock on the NFFW table
  * @dev:	NFP Device handle
  *
  * Return: 0, or -ERRNO
@@ -159,7 +150,7 @@ int nfp_nffw_info_acquire(struct nfp_device *dev)
 			size_t i;
 
 			for (i = 0, v = (uint32_t *)&priv->fwinf;
-			     i < sizeof(priv->fwinfo);
+			     i < sizeof(priv->fwinf);
 			     i += sizeof(*v), v++) {
 				*v = le32_to_cpu(*v);
 			}
@@ -211,7 +202,7 @@ int nfp_nffw_info_release(struct nfp_device *dev)
 			size_t i;
 
 			for (i = 0, v = (uint32_t *)&priv->fwinf;
-			     i < sizeof(priv->fwinfo);
+			     i < sizeof(priv->fwinf);
 			     i += sizeof(*v), v++) {
 				*v = cpu_to_le32(*v);
 			}
@@ -227,30 +218,6 @@ int nfp_nffw_info_release(struct nfp_device *dev)
 		priv->res = NULL;
 		if (err < 0)
 			return err;
-	}
-
-	return 0;
-}
-
-/**
- * nfp_nffw_info_fwid_first() - Return the first firmware ID in the NFFW
- * @dev:	NFP Device handle
- *
- * Return: First NFFW firmware ID
- */
-uint8_t nfp_nffw_info_fwid_first(struct nfp_device *dev)
-{
-	size_t idx;
-	struct nffw_fwinfo *fwinfo;
-	struct nfp_nffw_info *fwinf = _nfp_nffw_info(dev);
-
-	if (!fwinf)
-		return 0;
-
-	for (idx = 0, fwinfo = &fwinf->fwinfo[0];
-		 idx < NFFW_FWINFO_CNT; idx++, fwinfo++) {
-		if (nffw_fwinfo_loaded_get(fwinfo))
-			return idx + NFFW_FWID_BASE;
 	}
 
 	return 0;
@@ -289,6 +256,30 @@ int nfp_nffw_info_fw_mip(struct nfp_device *dev, uint8_t fwid,
 
 	if (nffw_fwinfo_mip_mu_da_get(fwinfo))
 		*off |= (1ULL << 63);
+
+	return 0;
+}
+
+/**
+ * nfp_nffw_info_fwid_first() - Return the first firmware ID in the NFFW
+ * @dev:	NFP Device handle
+ *
+ * Return: First NFFW firmware ID
+ */
+uint8_t nfp_nffw_info_fwid_first(struct nfp_device *dev)
+{
+	size_t idx;
+	struct nffw_fwinfo *fwinfo;
+	struct nfp_nffw_info *fwinf = _nfp_nffw_info(dev);
+
+	if (!fwinf)
+		return 0;
+
+	for (idx = 0, fwinfo = &fwinf->fwinfo[0];
+		 idx < NFFW_FWINFO_CNT; idx++, fwinfo++) {
+		if (nffw_fwinfo_loaded_get(fwinfo))
+			return idx + NFFW_FWID_BASE;
+	}
 
 	return 0;
 }
