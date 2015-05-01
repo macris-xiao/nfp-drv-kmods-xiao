@@ -165,12 +165,14 @@ static int nfp_net_fw_load(struct pci_dev *pdev,
 			goto err_armsp;
 	}
 
+	dev_info(&pdev->dev, "Loading FW image: %s\n", fw_name);
+
 	err = nfp_ca_replay(cpp, fw->data, fw->size);
 	release_firmware(fw);
 	if (err < 0)
 		goto err_replay;
 
-	dev_info(&pdev->dev, "Loaded FW image: %s\n", fw_name);
+	dev_info(&pdev->dev, "Finished loading FW image: %s\n", fw_name);
 	return 1;
 
 err_armsp:
