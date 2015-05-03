@@ -304,7 +304,16 @@ static int nfp_ca_parse(struct nfp_cpp *cpp, const void *buff, size_t bytes,
 	case NFP_CA_ZSTART_MAGIC:
 		/* Decompress first... */
 		usize = ca32_to_cpu(&byte[5]);
-		zbuff = kmalloc(usize, GFP_KERNEL);
+
+		/* We use vmalloc() since kmalloc() requests contigous pages,
+		 * and this gets increasingly unlikely as the size of the
+		 * area to allocate increases.
+		 *
+		 * As uncompressed NFP firmwares can exceed 32M in size,
+		 * we will use vmalloc() to allocate the firmware's
+		 * uncompressed buffer.
+		 */
+		zbuff = vmalloc(usize);
 		if (!zbuff)
 			return -ENOMEM;
 
@@ -313,7 +322,7 @@ static int nfp_ca_parse(struct nfp_cpp *cpp, const void *buff, size_t bytes,
 				 usize, &byte[NFP_CA_SZ(NFP_CA_START)],
 				 bytes - NFP_CA_SZ(NFP_CA_START));
 		if (err < 0) {
-			kfree(zbuff);
+			vfree(zbuff);
 			/* Uncompression error */
 			return err;
 		}
@@ -459,7 +468,7 @@ static int nfp_ca_parse(struct nfp_cpp *cpp, const void *buff, size_t bytes,
 	}
 
 exit:
-	kfree(zbuff);
+	vfree(zbuff);
 
 	return err;
 }
