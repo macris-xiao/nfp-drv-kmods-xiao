@@ -17,6 +17,7 @@
 #include <linux/delay.h>
 #include <linux/zlib.h>
 #include <linux/slab.h>
+#include <linux/vmalloc.h>
 
 #include "nfp.h"
 #include "nfp_cpp.h"
