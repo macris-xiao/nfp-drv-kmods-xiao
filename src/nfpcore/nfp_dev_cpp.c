@@ -35,6 +35,7 @@
 #include <linux/interrupt.h>
 #include <linux/firmware.h>
 #include <linux/platform_device.h>
+#include <linux/wait.h>
 
 #include "nfp.h"
 #include "nfp_cpp.h"
@@ -63,6 +64,7 @@ struct nfp_dev_cpp {
 	struct cdev cdev;
 	struct device *dev;
 	struct nfp_cpp *cpp;
+	wait_queue_head_t channel_wait;
 	unsigned long channel_bitmap[BITS_TO_LONGS(NFP_DEV_CPP_CHANNELS)];
 	struct {
 		struct list_head list; /* protected by event.lock */
@@ -330,6 +332,7 @@ static int nfp_dev_cpp_open(struct inode *inode, struct file *file)
 	chan = kmalloc(sizeof(*chan), GFP_KERNEL);
 	if (!chan) {
 		clear_bit(channel, cdev->channel_bitmap);
+		wake_up(&cdev->channel_wait);
 		return -ENOMEM;
 	}
 
@@ -372,6 +375,8 @@ static int nfp_dev_cpp_release(struct inode *inode, struct file *file)
 
 	kfree(file->private_data);
 	file->private_data = NULL;
+
+	wake_up(&cdev->channel_wait);
 	return 0;
 }
 
@@ -1157,6 +1162,8 @@ static int nfp_dev_cpp_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&cdev->req.list);
 	mutex_init(&cdev->req.lock);
 
+	init_waitqueue_head(&cdev->channel_wait);
+
 	cdev_init(&cdev->cdev, &nfp_cpp_fops);
 	cdev->cdev.owner = THIS_MODULE;
 	err = cdev_add(&cdev->cdev, MKDEV(nfp_dev_cpp_major, id), 1);
@@ -1201,11 +1208,16 @@ static int nfp_dev_cpp_remove(struct platform_device *pdev)
 	struct nfp_dev_cpp *cdev = platform_get_drvdata(pdev);
 	unsigned int minor = MINOR(cdev->cdev.dev);
 
-	platform_set_drvdata(pdev, NULL);
+	if (!bitmap_empty(cdev->channel_bitmap, NFP_DEV_CPP_CHANNELS)) {
+		dev_err(&pdev->dev, "Unexpected device removal while busy - waiting...\n");
+		wait_event(cdev->channel_wait, bitmap_empty(cdev->channel_bitmap, NFP_DEV_CPP_CHANNELS));
+	}
 
 	BUG_ON(!list_empty(&cdev->event.list));
 	BUG_ON(!list_empty(&cdev->area.list));
 	BUG_ON(!list_empty(&cdev->req.list));
+
+	platform_set_drvdata(pdev, NULL);
 
 	device_remove_file(cdev->dev, &dev_attr_firmware);
 
