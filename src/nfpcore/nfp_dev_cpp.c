@@ -936,14 +936,15 @@ static int nfp_cpp_mmap_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 		err = nfp_dev_cpp_vma_acquire(cvma);
 		if (err < 0) {
 			err = nfp_dev_cpp_vma_evict(cdev, cvma);
-			if (err == 0) {
+			if (err == 0)
 				err = nfp_dev_cpp_vma_acquire(cvma);
-			} else {
-				/* We'll try again later... */
-				schedule();
-			}
 		}
 	}
+	mutex_unlock(&cdev->area.lock);
+
+	if (err < 0)
+		/* We'll try again later... */
+		schedule();
 
 	trace_cdev_vma(cvma, offset,
 		       (err < 0) ?
@@ -962,7 +963,6 @@ static int nfp_cpp_mmap_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 			      io >> PAGE_SHIFT);
 		err = 0;
 	}
-	mutex_unlock(&cdev->area.lock);
 
 	switch (err) {
 	case 0:
