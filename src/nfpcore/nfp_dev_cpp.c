@@ -98,7 +98,8 @@ struct nfp_dev_cpp_vma {
 
 /* Acquired areas */
 struct nfp_dev_cpp_area {
-	struct nfp_dev_cpp_channel *chan;
+	struct nfp_dev_cpp *cdev;
+	uint16_t interface;
 	struct nfp_cpp_area_request req;
 	struct list_head req_list; /* protected by cdev->req.lock */
 	struct nfp_cpp_area *area;
@@ -110,7 +111,7 @@ struct nfp_dev_cpp_area {
 
 /* Allocated events */
 struct nfp_dev_cpp_event {
-	struct nfp_dev_cpp_channel *chan;
+	uint16_t interface;
 	struct nfp_cpp_event_request req;
 	struct nfp_cpp_event *cpp_event;
 	struct task_struct *task;
@@ -123,7 +124,7 @@ static inline void trace_cdev_vma(struct nfp_dev_cpp_vma *cvma,
 {
 #if NFP_DEV_CPP_DEBUG
 	struct nfp_dev_cpp_area *area = cvma->area;
-	struct device *dev = area->chan->cdev->dev;
+	struct device *dev = area->cdev->dev;
 
 	dev_err(dev, "%p: %c %p:%p @0x%lx(0x%lx)+0x%08llx %d:0x%llx\n",
 		current->mm, c, cvma->vma->vm_mm, cvma,
@@ -148,7 +149,7 @@ static void nfp_dev_cpp_event_cb(void *opaque)
 	send_sig_info(ev->signal, &info, ev->task);
 }
 
-static int nfp_dev_cpp_area_alloc(struct nfp_dev_cpp_channel *chan,
+static int nfp_dev_cpp_area_alloc(struct nfp_dev_cpp *cdev, uint16_t interface,
 				  struct nfp_cpp_area_request *area_req)
 {
 	struct nfp_dev_cpp_area *area;
@@ -162,17 +163,18 @@ static int nfp_dev_cpp_area_alloc(struct nfp_dev_cpp_channel *chan,
 	/* Can we allocate the area? */
 	snprintf(buff, sizeof(buff), "cdev@0x%lx", area_req->offset);
 	cpp_area = nfp_cpp_area_alloc_with_name(
-		chan->cdev->cpp, area_req->cpp_id, buff,
+		cdev->cpp, area_req->cpp_id, buff,
 		area_req->cpp_addr, area_req->size);
 	if (!cpp_area) {
 		kfree(area);
 		return -EINVAL;
 	}
 
-	area->chan = chan;
+	area->cdev = cdev;
+	area->interface = interface;
 	area->area = cpp_area;
 	area->req = *area_req;
-	list_add_tail(&area->req_list, &chan->cdev->req.list);
+	list_add_tail(&area->req_list, &cdev->req.list);
 
 	INIT_LIST_HEAD(&area->vma.list);
 
@@ -202,7 +204,7 @@ static void nfp_dev_cpp_area_free(struct nfp_dev_cpp_area *area)
 static int nfp_dev_cpp_vma_acquire(struct nfp_dev_cpp_vma *cvma)
 {
 	struct nfp_dev_cpp_area *area = cvma->area;
-	struct nfp_dev_cpp *cdev = area->chan->cdev;
+	struct nfp_dev_cpp *cdev = area->cdev;
 	int err;
 
 	if (!list_empty(&cvma->vma_list))
@@ -348,12 +350,13 @@ static int nfp_dev_cpp_release(struct inode *inode, struct file *file)
 {
 	struct nfp_dev_cpp_channel *chan = file->private_data;
 	struct nfp_dev_cpp *cdev = chan->cdev;
+	uint16_t interface = chan->interface;
 	struct nfp_dev_cpp_area *req, *rtmp;
 	struct nfp_dev_cpp_event *ev, *etmp;
 
 	mutex_lock(&cdev->event.lock);
 	list_for_each_entry_safe(ev, etmp, &cdev->event.list, list) {
-		if (ev->chan == chan) {
+		if (ev->interface == interface) {
 			nfp_cpp_event_free(ev->cpp_event);
 			list_del(&ev->list);
 			kfree(ev);
@@ -363,15 +366,15 @@ static int nfp_dev_cpp_release(struct inode *inode, struct file *file)
 
 	mutex_lock(&cdev->req.lock);
 	list_for_each_entry_safe(req, rtmp, &cdev->req.list, req_list) {
-		if (req->chan == chan) {
+		if (req->interface == interface) {
 			BUG_ON(!list_empty(&req->vma.list));
 			nfp_dev_cpp_area_free(req);
 		}
 	}
 	mutex_unlock(&cdev->req.lock);
 
-	clear_bit(NFP_CPP_INTERFACE_CHANNEL_of(chan->interface),
-		  chan->cdev->channel_bitmap);
+	clear_bit(NFP_CPP_INTERFACE_CHANNEL_of(interface),
+		  cdev->channel_bitmap);
 
 	kfree(file->private_data);
 	file->private_data = NULL;
@@ -385,7 +388,8 @@ static ssize_t nfp_dev_cpp_op(struct file *file,
 			   size_t count, loff_t *offp, int write)
 {
 	struct nfp_dev_cpp_channel *chan = file->private_data;
-	struct nfp_cpp *cpp = chan->cdev->cpp;
+	struct nfp_dev_cpp *cdev = chan->cdev;
+	struct nfp_cpp *cpp = cdev->cpp;
 	uint32_t tmpbuf[16];
 	struct nfp_cpp_area *area;
 	uint32_t __user *udata;
@@ -408,9 +412,9 @@ static ssize_t nfp_dev_cpp_op(struct file *file,
 		err = nfp_cpp_area_acquire_nonblocking(area);
 		if (err == -EAGAIN) {
 			/* Try evicting all VMAs... */
-			mutex_lock(&chan->cdev->area.lock);
-			nfp_dev_cpp_vma_evict(chan->cdev, NULL);
-			mutex_unlock(&chan->cdev->area.lock);
+			mutex_lock(&cdev->area.lock);
+			nfp_dev_cpp_vma_evict(cdev, NULL);
+			mutex_unlock(&cdev->area.lock);
 			/* Wait for an available area.. */
 			err = nfp_cpp_area_acquire(area);
 		}
@@ -597,12 +601,11 @@ static int explicit_csr_to_cmd(struct nfp_cpp_explicit *expl,
 	return 0;
 }
 
-static int do_cpp_event_acquire(struct nfp_dev_cpp_channel *chan,
+static int do_cpp_event_acquire(struct nfp_dev_cpp *cdev, uint16_t interface,
 				struct nfp_cpp_event_request *event_req)
 {
 	int err;
 	struct nfp_dev_cpp_event *event;
-	struct nfp_dev_cpp *cdev = chan->cdev;
 
 	if (event_req->signal <= 0 || event_req->signal >= _NSIG)
 		return -EINVAL;
@@ -612,7 +615,7 @@ static int do_cpp_event_acquire(struct nfp_dev_cpp_channel *chan,
 		return -ENOMEM;
 
 	event->signal = event_req->signal;
-	event->cpp_event = nfp_cpp_event_alloc(chan->cdev->cpp,
+	event->cpp_event = nfp_cpp_event_alloc(cdev->cpp,
 			event_req->match, event_req->mask, event_req->type);
 	if (IS_ERR(event->cpp_event)) {
 		err = PTR_ERR(event->cpp_event);
@@ -628,11 +631,37 @@ static int do_cpp_event_acquire(struct nfp_dev_cpp_channel *chan,
 		return err;
 	}
 
-	event->chan = chan;
+	event->interface = interface;
 	event->task = current;
 	event->req = *event_req;
 	mutex_lock(&cdev->event.lock);
 	list_add_tail(&event->list, &cdev->event.list);
+	mutex_unlock(&cdev->event.lock);
+
+	return 0;
+}
+
+static int do_cpp_event_release(struct nfp_dev_cpp *cdev, uint16_t interface,
+				struct nfp_cpp_event_request *event_req)
+{
+	struct nfp_dev_cpp_event *event, *etmp;
+	int err = -ENOENT;
+
+	mutex_lock(&cdev->event.lock);
+	list_for_each_entry_safe(event, etmp,
+				 &cdev->event.list, list) {
+		/* Ignore entries we don't own */
+		if (event->interface != interface)
+			continue;
+
+		if (memcmp(&event_req, &event->req,
+			   sizeof(event_req)) == 0) {
+			nfp_cpp_event_free(event->cpp_event);
+			list_del(&event->list);
+			kfree(event);
+			err = 0;
+		}
+	}
 	mutex_unlock(&cdev->event.lock);
 
 	return 0;
@@ -716,10 +745,9 @@ static int do_cpp_identification(struct nfp_dev_cpp_channel *chan,
 	return 0;
 }
 
-static int do_cpp_area_request(struct nfp_dev_cpp_channel *chan,
+static int do_cpp_area_request(struct nfp_dev_cpp *cdev, uint16_t interface,
 			       struct nfp_cpp_area_request *area_req)
 {
-	struct nfp_dev_cpp *cdev = chan->cdev;
 	int err = 0;
 
 	if ((area_req->size & ~PAGE_MASK) != 0)
@@ -752,7 +780,32 @@ static int do_cpp_area_request(struct nfp_dev_cpp_channel *chan,
 		/* Look for colliding offsets */
 		err = nfp_dev_cpp_range_check(&cdev->req.list, area_req);
 		if (err >= 0)
-			err = nfp_dev_cpp_area_alloc(chan, area_req);
+			err = nfp_dev_cpp_area_alloc(cdev, interface, area_req);
+	}
+
+	mutex_unlock(&cdev->req.lock);
+
+	return err;
+}
+
+static int do_cpp_area_release(struct nfp_dev_cpp *cdev, uint16_t interface,
+			       struct nfp_cpp_area_request *area_req)
+{
+	int err = -ENOENT;
+	struct nfp_dev_cpp_area *area, *atmp;
+
+	mutex_lock(&cdev->req.lock);
+
+	list_for_each_entry_safe(area, atmp,
+				 &cdev->req.list, req_list) {
+		if (area->req.offset == area_req->offset) {
+			mutex_lock(&cdev->area.lock);
+			err = list_empty(&area->vma.list) ? 0 : -EBUSY;
+			mutex_unlock(&cdev->area.lock);
+			if (err == 0)
+				nfp_dev_cpp_area_free(area);
+			break;
+		}
 	}
 
 	mutex_unlock(&cdev->req.lock);
@@ -772,10 +825,8 @@ static int nfp_dev_cpp_ioctl(struct inode *inode, struct file *filp,
 {
 	struct nfp_dev_cpp_channel *chan = filp->private_data;
 	struct nfp_dev_cpp *cdev = chan->cdev;
-	struct nfp_dev_cpp_area *area, *atmp;
 	struct nfp_cpp_area_request area_req;
 	struct nfp_cpp_event_request event_req;
-	struct nfp_dev_cpp_event *event;
 	struct nfp_cpp_explicit_request explicit_req;
 	struct nfp_cpp_identification ident;
 	int err;
@@ -818,7 +869,8 @@ static int nfp_dev_cpp_ioctl(struct inode *inode, struct file *filp,
 	case NFP_IOCTL_CPP_AREA_REQUEST:
 		err = copy_from_user(&area_req, (void *)arg, sizeof(area_req));
 		if (err >= 0)
-			err = do_cpp_area_request(chan, &area_req);
+			err = do_cpp_area_request(chan->cdev, chan->interface,
+						  &area_req);
 
 		if (err >= 0)
 			/* Write back the found slot */
@@ -839,22 +891,8 @@ static int nfp_dev_cpp_ioctl(struct inode *inode, struct file *filp,
 		if (err < 0)
 			break;
 
-		mutex_lock(&cdev->req.lock);
+		err = do_cpp_area_release(cdev, chan->interface, &area_req);
 
-		err = -ENOENT;
-		list_for_each_entry_safe(area, atmp,
-					 &cdev->req.list, req_list) {
-			if (area->req.offset == area_req.offset) {
-				mutex_lock(&cdev->area.lock);
-				err = list_empty(&area->vma.list) ? 0 : -EBUSY;
-				mutex_unlock(&cdev->area.lock);
-				if (err == 0)
-					nfp_dev_cpp_area_free(area);
-				break;
-			}
-		}
-
-		mutex_unlock(&cdev->req.lock);
 		break;
 	case NFP_IOCTL_CPP_EXPL_REQUEST:
 		err = copy_from_user(&explicit_req, (void *)arg,
@@ -871,33 +909,16 @@ static int nfp_dev_cpp_ioctl(struct inode *inode, struct file *filp,
 		err = copy_from_user(&event_req, (void *)arg,
 				     sizeof(event_req));
 		if (err >= 0)
-			err = do_cpp_event_acquire(chan, &event_req);
+			err = do_cpp_event_acquire(chan->cdev, chan->interface,
+						   &event_req);
 		break;
 	case NFP_IOCTL_CPP_EVENT_RELEASE:
 		err = copy_from_user(&event_req, (void *)arg,
 				     sizeof(event_req));
-		if (err >= 0) {
-			struct nfp_dev_cpp_event *etmp;
+		if (err >= 0)
+			err = do_cpp_event_release(chan->cdev, chan->interface,
+						   &event_req);
 
-			err = -ENOENT;
-
-			mutex_lock(&cdev->event.lock);
-			list_for_each_entry_safe(event, etmp,
-						 &cdev->event.list, list) {
-				/* Ignore entries we don't own */
-				if (event->chan != chan)
-					continue;
-
-				if (memcmp(&event_req, &event->req,
-					   sizeof(event_req)) == 0) {
-					nfp_cpp_event_free(event->cpp_event);
-					list_del(&event->list);
-					kfree(event);
-					err = 0;
-				}
-			}
-			mutex_unlock(&cdev->event.lock);
-		}
 		break;
 	default:
 		err = -EINVAL;
@@ -919,7 +940,7 @@ static int nfp_cpp_mmap_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 		return VM_FAULT_SIGBUS;
 
 	area = cvma->area;
-	cdev = area->chan->cdev;
+	cdev = area->cdev;
 
 	/* We don't use vmf->pgoff since that has the fake offset */
 	offset = ((unsigned long)vmf->virtual_address - vma->vm_start);
@@ -1002,7 +1023,7 @@ static void nfp_cpp_mmap_close(struct vm_area_struct *vma)
 	struct nfp_dev_cpp_vma *cvma = vma->vm_private_data;
 
 	if (cvma) {
-		struct nfp_dev_cpp *cdev = cvma->area->chan->cdev;
+		struct nfp_dev_cpp *cdev = cvma->area->cdev;
 
 		mutex_lock(&cdev->area.lock);
 		trace_cdev_vma(cvma, 0, 'c');
