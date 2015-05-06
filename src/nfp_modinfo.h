@@ -29,7 +29,7 @@
 	MODULE_INFO(nfp_build_user_id, NFP_BUILD_USER_ID); \
 	MODULE_INFO(nfp_build_user, NFP_BUILD_USER); \
 	MODULE_INFO(nfp_build_host, NFP_BUILD_HOST); \
-	MODULE_INFO(nfp_build_path, NFP_BUILD_PATH);
+	MODULE_INFO(nfp_build_path, NFP_BUILD_PATH)
 
 #define NFP_BUILD_DESCRIPTION(drvname)				\
 	#drvname " src version: " NFP_SRC_VERSION "\n"		\

@@ -120,6 +120,7 @@ static inline void compat_skb_set_hash(struct sk_buff *skb, __u32 hash,
 	skb->hash = hash;
 #endif
 }
+
 #define skb_set_hash(s, h, t)	compat_skb_set_hash(s, h, t)
 #endif
 

@@ -1177,7 +1177,7 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
 
 		if (rxd->rxd.data_len > nn->fl_bufsz) {
 			nn_err(nn, "RX data larger than freelist buffer (%u > %u) on %d:%u rxd[0]=%#x rxd[1]=%#x\n",
-			       rxd->rxd.data_len, nn->fl_bufsz, 
+			       rxd->rxd.data_len, nn->fl_bufsz,
 			       rx_ring->idx, idx, rxd->vals[0], rxd->vals[1]);
 			/* Halt here. The device may have DMAed beyond the end
 			 * of the freelist buffer and all bets are off. */
@@ -1945,7 +1945,7 @@ static int nfp_net_netdev_open(struct net_device *netdev)
 	 * and we will not get an interrupt to trigger a NAPI
 	 * schedule.
 	 *
-	 * Therefore, we call napi_schedule() explictly here
+	 * Therefore, we call napi_schedule() explicitly here
 	 * to kick all the RX rings so that they will start
 	 * generating interrupts on RXed packets.
 	 *

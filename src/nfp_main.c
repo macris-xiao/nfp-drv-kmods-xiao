@@ -507,7 +507,7 @@ static int __init nfp_main_init(void)
 
 	if (find_module("nfp_net")) {
 		pr_err("%s: Cannot be loaded while nfp_net is loaded\n",
-			nfp_driver_name);
+		       nfp_driver_name);
 		return -EBUSY;
 	}
 

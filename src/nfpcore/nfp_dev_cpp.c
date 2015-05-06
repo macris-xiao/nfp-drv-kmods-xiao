@@ -1231,7 +1231,9 @@ static int nfp_dev_cpp_remove(struct platform_device *pdev)
 
 	if (!bitmap_empty(cdev->channel_bitmap, NFP_DEV_CPP_CHANNELS)) {
 		dev_err(&pdev->dev, "Unexpected device removal while busy - waiting...\n");
-		wait_event(cdev->channel_wait, bitmap_empty(cdev->channel_bitmap, NFP_DEV_CPP_CHANNELS));
+		wait_event(cdev->channel_wait,
+			   bitmap_empty(cdev->channel_bitmap,
+					NFP_DEV_CPP_CHANNELS));
 	}
 
 	BUG_ON(!list_empty(&cdev->event.list));

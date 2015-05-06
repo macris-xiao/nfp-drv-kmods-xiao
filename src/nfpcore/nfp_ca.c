@@ -194,14 +194,14 @@ static int nfp_ca_cpp(struct nfp_cpp *cpp, enum nfp_ca_action action,
 		} else if (pcount > 0) {
 			dev_warn(nfp_cpp_device(cpp),
 				 "MATCH[%u] in %dms: %c%d 0x%08x 0x%010llx 0x%0*llx == 0x%0*llx\n",
-				 cnt,pcount,
+				 cnt, pcount,
 				 (poll_action) ? 'P' : 'R',
 				 bit_len, cpp_id, (unsigned long long)cpp_addr,
 				 (bit_len == 32) ? 8 : 16,
 				 (unsigned long long)val,
 				 (bit_len == 32) ? 8 : 16,
 				 (unsigned long long)tmp64);
-        }
+		}
 		break;
 
 	case NFP_CA_ACTION_READ_IGNV32:

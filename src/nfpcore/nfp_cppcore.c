@@ -126,13 +126,13 @@ static ssize_t show_area(struct device *dev, struct device_attribute *attr,
 		int len;
 
 		len = snprintf(buf, left, "%d %d:%d:%d:0x%0llx-0x%0llx%s%s\n",
-				count,
-				NFP_CPP_ID_TARGET_of(r->cpp_id),
-				NFP_CPP_ID_ACTION_of(r->cpp_id),
-				NFP_CPP_ID_TOKEN_of(r->cpp_id),
-				r->start, r->end,
-				r->name ? " " : "",
-				r->name ? r->name : "");
+			       count,
+			       NFP_CPP_ID_TARGET_of(r->cpp_id),
+			       NFP_CPP_ID_ACTION_of(r->cpp_id),
+			       NFP_CPP_ID_TOKEN_of(r->cpp_id),
+			       r->start, r->end,
+			       r->name ? " " : "",
+			       r->name ? r->name : "");
 		if (len > left) {
 			*buf = 0;
 			break;
@@ -148,7 +148,6 @@ static ssize_t show_area(struct device *dev, struct device_attribute *attr,
 }
 
 static DEVICE_ATTR(area, S_IRUGO, show_area, NULL);
-
 
 static inline int nfp_cpp_id_acquire(void)
 {
