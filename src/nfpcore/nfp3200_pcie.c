@@ -1211,6 +1211,11 @@ static int nfp_cpp_pcie_area_read(struct nfp_cpp_area *area, void *kernel_vaddr,
 
 	is_64 = (priv->width.read == 8) ? 1 : 0;
 
+	/* MU reads via a PCIe2CPP BAR supports 32bit (and others) lengths */
+	if ((priv->target == (NFP_CPP_TARGET_ID_MASK & NFP_CPP_TARGET_MU)) &&
+	    (priv->action == NFP_CPP_ACTION_RW))
+		is_64 = 0;
+
 	if ((offset + length) > priv->size)
 		return -EFAULT;
 
@@ -1261,6 +1266,11 @@ static int nfp_cpp_pcie_area_write(struct nfp_cpp_area *area,
 		return -EINVAL;
 
 	is_64 = (priv->width.write == 8) ? 1 : 0;
+
+	/* MU writes via a PCIe2CPP BAR supports 32bit (and other) lengths */
+	if ((priv->target == (NFP_CPP_TARGET_ID_MASK & NFP_CPP_TARGET_MU)) &&
+	    (priv->action == NFP_CPP_ACTION_RW))
+		is_64 = 0;
 
 	if (is_64) {
 		if (((offset % sizeof(u64)) != 0) ||

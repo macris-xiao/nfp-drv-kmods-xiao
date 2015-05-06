@@ -46,7 +46,6 @@
 
 #include "nfp6000_pcie.h"
 
-
 /* Add your architecture here if it cannot
  * perform atomic readq()/writeq() transactions over
  * the PCI bus.
@@ -1194,6 +1193,11 @@ static int nfp6000_area_read(struct nfp_cpp_area *area, void *kernel_vaddr,
 
 	is_64 = (width == TARGET_WIDTH_64) ? 1 : 0;
 
+	/* MU reads via a PCIe2CPP BAR supports 32bit (and other) lengths */
+	if ((priv->target == (NFP_CPP_TARGET_ID_MASK & NFP_CPP_TARGET_MU)) &&
+	    (priv->action == NFP_CPP_ACTION_RW))
+		is_64 = 0;
+
 	if (is_64) {
 		if (((offset % sizeof(uint64_t)) != 0) ||
 		    ((length % sizeof(uint64_t)) != 0))
@@ -1250,6 +1254,11 @@ static int nfp6000_area_write(struct nfp_cpp_area *area,
 				kernel_vaddr, length, width);
 
 	is_64 = (priv->width.write == TARGET_WIDTH_64) ? 1 : 0;
+
+	/* MU writes via a PCIe2CPP BAR supports 32bit (and other) lengths */
+	if ((priv->target == (NFP_CPP_TARGET_ID_MASK & NFP_CPP_TARGET_MU)) &&
+	    (priv->action == NFP_CPP_ACTION_RW))
+		is_64 = 0;
 
 	if (is_64) {
 		if (((offset % sizeof(uint64_t)) != 0) ||
