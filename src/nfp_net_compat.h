@@ -191,6 +191,20 @@ static inline void pci_msi_unmask_irq(struct irq_data *data)
 }
 #endif
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 13, 0))
+static inline
+int compat_dma_set_mask_and_coherent(struct device *dev, u64 mask)
+{
+	int rc = dma_set_mask(dev, mask);
+	if (rc == 0)
+		dma_set_coherent_mask(dev, mask);
+	return rc;
+}
+#define dma_set_mask_and_coherent(dev, mask) \
+	compat_dma_set_mask_and_coherent(dev, mask)
+#endif
+
+
 #endif /* _NFP_NET_COMPAT_H_ */
 
 /*
