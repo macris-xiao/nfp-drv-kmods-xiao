@@ -153,7 +153,7 @@ static int nfp_net_fw_load(struct pci_dev *pdev,
 	if (NFP_CPP_MODEL_IS_6000(nfp_cpp_model(cpp))) {
 		/* Make sure we have the ARM service processor */
 		for (; timeout > 0; timeout--) {
-			err = nfp_armsp_command(nfp, SPCODE_NOOP);
+			err = nfp_nsp_command(nfp, SPCODE_NOOP, 0, 0, 0);
 			if (err != -EAGAIN)
 				break;
 			if (msleep_interruptible(1000) > 0) {

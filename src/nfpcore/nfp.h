@@ -188,7 +188,8 @@ int nfp_reset_soft(struct nfp_device *nfp);
 #define SPCODE_MAC_INIT         4       /* Initialize the MAC */
 #define SPCODE_PHY_RXADAPT      5       /* Re-run PHY RX Adaptation */
 
-int nfp_armsp_command(struct nfp_device *nfp, uint16_t spcode);
+int nfp_nsp_command(struct nfp_device *nfp, uint16_t spcode, uint32_t option,
+		    uint32_t buff_cpp, uint64_t buff_addr);
 
 /* Implemented in nfp_resource.c */
 

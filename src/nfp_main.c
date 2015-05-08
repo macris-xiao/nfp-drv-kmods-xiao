@@ -195,7 +195,7 @@ static int nfp_pcie_fw_load(struct pci_dev *pdev, struct nfp_cpp *cpp)
 			return 0;
 
 		for (; timeout > 0; timeout--) {
-			err = nfp_armsp_command(nfp, SPCODE_NOOP);
+			err = nfp_nsp_command(nfp, SPCODE_NOOP, 0, 0, 0);
 			if (err != -EAGAIN)
 				break;
 			if (msleep_interruptible(1000) > 0) {
