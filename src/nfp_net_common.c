@@ -2213,13 +2213,6 @@ static struct net_device_stats *nfp_net_stats(struct net_device *netdev)
 	return &nn->stats;
 }
 
-static netdev_features_t nfp_net_fix_features(struct net_device *netdev,
-					      netdev_features_t features)
-{
-	/* Fix-up any conflicting feature setting here. None for now */
-	return features;
-}
-
 static int nfp_net_set_features(struct net_device *netdev,
 				netdev_features_t features)
 {
@@ -2369,7 +2362,6 @@ static struct net_device_ops nfp_net_netdev_ops = {
 	.ndo_change_mtu		= nfp_net_change_mtu,
 	.ndo_set_mac_address	= eth_mac_addr,
 	.ndo_set_features	= nfp_net_set_features,
-	.ndo_fix_features	= nfp_net_fix_features,
 
 #ifdef NFP_NET_NDO_SRIOV
 #ifdef IFLA_VF_MAX
