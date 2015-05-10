@@ -522,7 +522,7 @@ static int nfp_net_pci_probe(struct pci_dev *pdev,
 	err = pci_request_regions(pdev, nfp_net_driver_name);
 	if (err < 0) {
 		dev_err(&pdev->dev, "Unable to reserve pci resources.\n");
-		goto err_request_regions;
+		goto err_dma_mask;
 	}
 
 	switch (pdev->device) {
@@ -597,12 +597,12 @@ static int nfp_net_pci_probe(struct pci_dev *pdev,
 	if (!ctrl_sym) {
 		if (!nfp_fallback) {
 			err = -ENOENT;
-			goto err_ctrl_lookup;
+			goto err_ctrl;
 		} else {
 			nn = nfp_net_fallback_alloc(pdev);
 			if (IS_ERR(nn)) {
 				err = PTR_ERR(nn);
-				goto err_nfp_fallback;
+				goto err_ctrl;
 			}
 
 			nn->nfp_dev_cpp = dev_cpp;
@@ -622,7 +622,7 @@ static int nfp_net_pci_probe(struct pci_dev *pdev,
 	if (IS_ERR_OR_NULL(ctrl_bar)) {
 		dev_err(&pdev->dev, "Failed to map PF BAR0\n");
 		err = PTR_ERR(ctrl_bar);
-		goto err_map_ctrl;
+		goto err_ctrl;
 	}
 
 	/* Find how many rings are supported */
@@ -721,9 +721,7 @@ err_map_tx:
 	nfp_net_netdev_free(nn);
 err_nn_init:
 	nfp_cpp_area_release_free(ctrl_area);
-err_map_ctrl:
-err_nfp_fallback:
-err_ctrl_lookup:
+err_ctrl:
 	if (fw_loaded) {
 		if (nfp_reset) {
 			err = nfp_reset_soft(nfp_dev);
@@ -751,7 +749,6 @@ err_sriov:
 	nfp_cpp_free(cpp);
 err_nfp_cpp:
 	pci_release_regions(pdev);
-err_request_regions:
 err_dma_mask:
 	pci_disable_device(pdev);
 

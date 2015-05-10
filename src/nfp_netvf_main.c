@@ -98,7 +98,7 @@ static int nfp_netvf_pci_probe(struct pci_dev *pdev,
 		dev_err(&pdev->dev,
 			"Failed to map resource %d\n", NFP_NET_CRTL_BAR);
 		err = -EIO;
-		goto err_barmap_ctrl;
+		goto err_dma_mask;
 	}
 
 	/* Find out how many rings are supported.  Note, for the VF we
@@ -143,7 +143,7 @@ static int nfp_netvf_pci_probe(struct pci_dev *pdev,
 		break;
 	default:
 		err = -ENODEV;
-		goto err_unknown_dev;
+		goto err_nn_init;
 	}
 
 	/* Allocate and initialise the netdev */
@@ -223,10 +223,8 @@ err_barmap_rx:
 err_barmap_tx:
 	pci_set_drvdata(pdev, NULL);
 	nfp_net_netdev_free(nn);
-err_unknown_dev:
 err_nn_init:
 	devm_iounmap(&pdev->dev, ctrl_bar);
-err_barmap_ctrl:
 err_dma_mask:
 	pci_release_regions(pdev);
 err_pci_regions:

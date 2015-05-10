@@ -780,7 +780,7 @@ static int nfp_net_tx(struct sk_buff *skb, struct net_device *netdev)
 				nn->stats.tx_errors++;
 				nn_warn(nn,
 					"Failed to map DMA TX gather buffer\n");
-				goto gather_unmap_out;
+				goto err_map;
 			}
 
 			wr_idx = (wr_idx + 1) % tx_ring->cnt;
@@ -821,7 +821,7 @@ static int nfp_net_tx(struct sk_buff *skb, struct net_device *netdev)
 
 	return NETDEV_TX_OK;
 
-gather_unmap_out:
+err_map:
 	--f;
 	while (f >= 0) {
 		frag = &skb_shinfo(skb)->frags[f];
@@ -1104,7 +1104,7 @@ static void nfp_net_rx_csum(struct nfp_net *nn,
 	/* If IPv4 and IP checksum error, fail */
 	if ((rxd->rxd.flags & PCIE_DESC_RX_IP4_CSUM) &&
 	    !(rxd->rxd.flags & PCIE_DESC_RX_IP4_CSUM_OK))
-		goto csum_fail;
+		goto err_csum;
 
 	/* If neither UDP nor TCP return */
 	if (!(rxd->rxd.flags & PCIE_DESC_RX_TCP_CSUM) &&
@@ -1113,11 +1113,11 @@ static void nfp_net_rx_csum(struct nfp_net *nn,
 
 	if ((rxd->rxd.flags & PCIE_DESC_RX_TCP_CSUM) &&
 	    !(rxd->rxd.flags & PCIE_DESC_RX_TCP_CSUM_OK))
-		goto csum_fail;
+		goto err_csum;
 
 	if ((rxd->rxd.flags & PCIE_DESC_RX_UDP_CSUM) &&
 	    !(rxd->rxd.flags & PCIE_DESC_RX_UDP_CSUM_OK))
-		goto csum_fail;
+		goto err_csum;
 
 	skb->ip_summed = CHECKSUM_UNNECESSARY;
 
@@ -1125,7 +1125,7 @@ static void nfp_net_rx_csum(struct nfp_net *nn,
 	skb->ip_summed = CHECKSUM_UNNECESSARY;
 	return;
 
-csum_fail:
+err_csum:
 	skb->ip_summed = CHECKSUM_NONE;
 	nn->hw_csum_rx_error++;
 }
@@ -1585,7 +1585,7 @@ static int nfp_net_tx_ring_alloc(struct nfp_net_tx_ring *tx_ring)
 	tx_ring->txbufs = kzalloc(sz, GFP_KERNEL);
 	if (!tx_ring->txbufs) {
 		err = -ENOMEM;
-		goto err_txbufs;
+		goto err_alloc;
 	}
 
 	/* Write the DMA address, size and MSI-X info to the device */
@@ -1604,7 +1604,6 @@ static int nfp_net_tx_ring_alloc(struct nfp_net_tx_ring *tx_ring)
 
 	return 0;
 
-err_txbufs:
 err_alloc:
 	nfp_net_tx_ring_free(tx_ring);
 	return err;
@@ -1667,7 +1666,7 @@ static int nfp_net_rx_ring_alloc(struct nfp_net_rx_ring *rx_ring)
 	rx_ring->rxbufs = kzalloc(sz, GFP_KERNEL);
 	if (!rx_ring->rxbufs) {
 		err = -ENOMEM;
-		goto err_rxbufs;
+		goto err_alloc;
 	}
 
 	/* Write the DMA address, size and MSI-X info to the device */
@@ -1684,7 +1683,6 @@ static int nfp_net_rx_ring_alloc(struct nfp_net_rx_ring *rx_ring)
 
 	return 0;
 
-err_rxbufs:
 err_alloc:
 	nfp_net_rx_ring_free(rx_ring);
 	return err;
@@ -1779,7 +1777,7 @@ static int nfp_net_alloc_resources(struct nfp_net *nn)
 			if (err) {
 				nn_dbg(nn, "Error requesting IRQ %d\n",
 				       entry->vector);
-				goto err_irq;
+				goto err_alloc;
 			}
 
 			r_vec->requested = 1;
@@ -1795,14 +1793,14 @@ static int nfp_net_alloc_resources(struct nfp_net *nn)
 		if (r_vec->tx_ring) {
 			err = nfp_net_tx_ring_alloc(r_vec->tx_ring);
 			if (err)
-				goto err_tx_ring;
+				goto err_alloc;
 		}
 
 		/* Allocate RX ring resources */
 		if (r_vec->rx_ring) {
 			err = nfp_net_rx_ring_alloc(r_vec->rx_ring);
 			if (err)
-				goto err_rx_ring;
+				goto err_alloc;
 		}
 
 		r_vec->tx_pkts = 0;
@@ -1822,9 +1820,7 @@ static int nfp_net_alloc_resources(struct nfp_net *nn)
 
 	return 0;
 
-err_irq:
-err_tx_ring:
-err_rx_ring:
+err_alloc:
 	while (r--) {
 		r_vec =  &nn->r_vecs[r];
 
