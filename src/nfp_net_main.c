@@ -95,10 +95,6 @@ static const struct pci_device_id nfp_net_pci_device_ids[] = {
 };
 MODULE_DEVICE_TABLE(pci, nfp_net_pci_device_ids);
 
-MODULE_AUTHOR("Netronome Systems <support@netronome.com>");
-MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("NFP network device driver");
-
 /* Firmware loading functions */
 
 /**
@@ -887,6 +883,11 @@ static void __exit nfp_net_exit(void)
 
 module_init(nfp_net_init);
 module_exit(nfp_net_exit);
+
+MODULE_AUTHOR("Netronome Systems <support@netronome.com>");
+MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("NFP network device driver");
+MODULE_INFO_NFP();
 
 /*
  * Local variables:

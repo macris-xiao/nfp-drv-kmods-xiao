@@ -29,6 +29,8 @@
 #include "nfp_net_ctrl.h"
 #include "nfp_net.h"
 
+#include "nfp_modinfo.h"
+
 /* Enable workaround for THB-350 */
 #define NFP_NET_THB350
 
@@ -44,10 +46,6 @@ static const struct pci_device_id nfp_netvf_pci_device_ids[] = {
 	{ 0, } /* Required last entry. */
 };
 MODULE_DEVICE_TABLE(pci, nfp_netvf_pci_device_ids);
-
-MODULE_AUTHOR("Netronome Systems <support@netronome.com>");
-MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("NFP VF network device driver");
 
 static int nfp_netvf_pci_probe(struct pci_dev *pdev,
 			       const struct pci_device_id *pci_id)
@@ -288,6 +286,11 @@ static void __exit nfp_netvf_exit(void)
 
 module_init(nfp_netvf_init);
 module_exit(nfp_netvf_exit);
+
+MODULE_AUTHOR("Netronome Systems <support@netronome.com>");
+MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("NFP VF network device driver");
+MODULE_INFO_NFP();
 
 /*
  * Local variables:
