@@ -105,6 +105,8 @@ int nfp_net_reconfig(struct nfp_net *nn, u32 update)
  * @pdev:       PCI Device structure
  * @nr_entries: Number of entries in table to map
  *
+ * If successful, the table must be un-mapped using iounmap(). 
+ *
  * Return: Pointer to mapped table or PTR_ERR
  */
 void __iomem *nfp_net_msix_map(struct pci_dev *pdev, unsigned nr_entries)
@@ -129,16 +131,6 @@ void __iomem *nfp_net_msix_map(struct pci_dev *pdev, unsigned nr_entries)
 	phys_addr = pci_resource_start(pdev, bir) + table_offset;
 
 	return ioremap_nocache(phys_addr, nr_entries * PCI_MSIX_ENTRY_SIZE);
-}
-
-/**
- * nfp_net_msix_unmap() - Undo nfp_net_msix_map()
- * @addr:       Address of the MSI-X table
- */
-void nfp_net_msix_unmap(void __iomem *addr)
-{
-	if (addr)
-		iounmap(addr);
 }
 
 /*

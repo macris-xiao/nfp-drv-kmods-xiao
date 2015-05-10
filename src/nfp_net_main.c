@@ -706,7 +706,8 @@ static int nfp_net_pci_probe(struct pci_dev *pdev,
 	return 0;
 
 err_netdev_init:
-	nfp_net_msix_unmap(nn->msix_table);
+	if (nn->msix_table)
+		iounmap(nn->msix_table);
 err_map_msix_table:
 	nfp_net_irqs_disable(nn);
 err_vec:
@@ -780,7 +781,8 @@ static void nfp_net_pci_remove(struct pci_dev *pdev)
 	if (!nn->nfp_fallback) {
 		nfp_net_netdev_clean(nn->netdev);
 
-		nfp_net_msix_unmap(nn->msix_table);
+		if (nn->msix_table)
+			iounmap(nn->msix_table);
 		nfp_net_irqs_disable(nn);
 
 		nfp_cpp_area_release_free(nn->rx_area);

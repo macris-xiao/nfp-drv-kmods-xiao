@@ -652,7 +652,6 @@ void nfp_net_rss_write_itbl(struct nfp_net *nn);
 int nfp_net_irqs_alloc(struct nfp_net *nn);
 void nfp_net_irqs_disable(struct nfp_net *nn);
 void __iomem *nfp_net_msix_map(struct pci_dev *pdev, unsigned nr_entries);
-void nfp_net_msix_unmap(void __iomem *addr);
 #endif /* _NFP_NET_H_ */
 
 /*
