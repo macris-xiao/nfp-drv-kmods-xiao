@@ -512,8 +512,8 @@ static void nfp_net_irqs_assign(struct net_device *netdev)
  */
 static void nfp_net_irqs_request(struct net_device *netdev)
 {
-	struct nfp_net *nn = netdev_priv(netdev);
 	struct msix_entry *entry, *lsc_entry, *exn_entry;
+	struct nfp_net *nn = netdev_priv(netdev);
 	int err;
 
 	if (nn->hrtimer)
@@ -703,16 +703,16 @@ static void nfp_net_tx_csum(struct nfp_net *nn,
 static int nfp_net_tx(struct sk_buff *skb, struct net_device *netdev)
 {
 	struct nfp_net *nn = netdev_priv(netdev);
-	struct nfp_net_tx_ring *tx_ring;
+	const struct skb_frag_struct *frag;
 	struct nfp_net_tx_desc *txd, txdg;
+	struct nfp_net_tx_ring *tx_ring;
 	struct netdev_queue *nd_q;
 	dma_addr_t dma_addr;
-	u16 qidx;
-	int wr_idx;
-	int nr_frags;
-	int f;
-	const struct skb_frag_struct *frag;
 	unsigned int fsize;
+	int nr_frags;
+	int wr_idx;
+	u16 qidx;
+	int f;
 
 	qidx = skb_get_queue_mapping(skb);
 	tx_ring = &nn->tx_rings[qidx];
@@ -855,13 +855,13 @@ static int nfp_net_tx_complete(struct nfp_net_tx_ring *tx_ring)
 {
 	struct nfp_net_r_vector *r_vec = tx_ring->r_vec;
 	struct nfp_net *nn = r_vec->nfp_net;
-	u32 qcp_rd_p;
-	int idx;
+	const struct skb_frag_struct *frag;
 	int todo, completed = 0;
 	struct sk_buff *skb;
-	const struct skb_frag_struct *frag;
-	int fidx;
 	int nr_frags;
+	u32 qcp_rd_p;
+	int fidx;
+	int idx;
 
 	nn_assert((tx_ring->wr_p - tx_ring->rd_p) <= tx_ring->cnt,
 		  "rd_p=%u wr_p=%u cnt=%u\n",
@@ -939,10 +939,10 @@ static void nfp_net_tx_flush(struct nfp_net_tx_ring *tx_ring)
 	struct nfp_net_r_vector *r_vec = tx_ring->r_vec;
 	struct nfp_net *nn = r_vec->nfp_net;
 	struct pci_dev *pdev = nn->pdev;
-	struct sk_buff *skb;
 	const struct skb_frag_struct *frag;
-	int fidx;
+	struct sk_buff *skb;
 	int nr_frags;
+	int fidx;
 	int idx;
 #ifdef NFP_NET_HRTIMER_6000
 	unsigned long flags;
@@ -1024,8 +1024,8 @@ static void nfp_net_tx_timeout(struct net_device *netdev)
 int nfp_net_tx_dump(struct nfp_net_tx_ring *tx_ring, char *p)
 {
 	struct nfp_net_tx_desc *txd;
-	struct sk_buff *skb;
 	int d_rd_p, d_wr_p, txd_cnt;
+	struct sk_buff *skb;
 	int off = 0;
 	int i;
 
@@ -1140,8 +1140,7 @@ err_csum:
  */
 static void nfp_net_set_hash(struct sk_buff *skb, struct nfp_net_rx_desc *rxd)
 {
-	u32 hash;
-	u32 hash_type;
+	u32 hash, hash_type;
 
 	if (!(rxd->rxd.flags & PCIE_DESC_RX_RSS)) {
 		skb_set_hash(skb, 0, PKT_HASH_TYPE_NONE);
@@ -1191,12 +1190,11 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
 {
 	struct nfp_net_r_vector *r_vec = rx_ring->r_vec;
 	struct nfp_net *nn = r_vec->nfp_net;
-	struct sk_buff *skb;
-	struct nfp_net_rx_desc *rxd;
 	unsigned int data_len, meta_len;
-	u32 qcp_wr_p;
-
 	int avail = 0, pkts_polled = 0;
+	struct nfp_net_rx_desc *rxd;
+	struct sk_buff *skb;
+	u32 qcp_wr_p;
 	int idx;
 
 	if (nn->is_nfp3200) {
@@ -1417,9 +1415,9 @@ static void nfp_net_rx_flush(struct nfp_net_rx_ring *rx_ring)
  */
 int nfp_net_rx_dump(struct nfp_net_rx_ring *rx_ring, char *p)
 {
+	int fl_rd_p, fl_wr_p, rx_rd_p, rx_wr_p, rxd_cnt;
 	struct nfp_net_rx_desc *rxd;
 	struct sk_buff *skb;
-	int fl_rd_p, fl_wr_p, rx_rd_p, rx_wr_p, rxd_cnt;
 	int off = 0;
 	int i;
 
@@ -1483,12 +1481,10 @@ static int nfp_net_poll(struct napi_struct *napi, int budget)
 	struct nfp_net_rx_ring *rx_ring = r_vec->rx_ring;
 	struct nfp_net_tx_ring *tx_ring = r_vec->tx_ring;
 	struct nfp_net *nn = r_vec->nfp_net;
-
 	struct netdev_queue *txq;
-
 	bool complete = true;
-	int pkts_polled;
 	int pkts_completed;
+	int pkts_polled;
 
 	/* Handle completed TX. If the TX queue was stopped, re-enable it */
 	tx_ring = &nn->tx_rings[rx_ring->idx];
@@ -1899,12 +1895,11 @@ static int nfp_net_netdev_open(struct net_device *netdev)
 {
 	struct nfp_net *nn = netdev_priv(netdev);
 	struct nfp_net_r_vector *r_vec;
+	int err, n, i, r;
 	u32 update = 0;
 	u32 new_ctrl;
 	u32 rss_cfg;
 	u32 sts;
-	int err, n, i;
-	int r;
 
 	if (nn->ctrl & NFP_NET_CFG_CTRL_ENABLE) {
 		nn_err(nn, "Dev is already enabled: 0x%08x\n", nn->ctrl);
@@ -2076,8 +2071,7 @@ static int nfp_net_netdev_close(struct net_device *netdev)
 {
 	struct nfp_net *nn = netdev_priv(netdev);
 	unsigned int new_ctrl, update;
-	int err;
-	int r, i;
+	int err, r, i;
 
 	if (!(nn->ctrl & NFP_NET_CFG_CTRL_ENABLE)) {
 		nn_err(nn, "Dev is not up: 0x%08x\n", nn->ctrl);
@@ -2229,9 +2223,8 @@ static netdev_features_t nfp_net_fix_features(struct net_device *netdev,
 static int nfp_net_set_features(struct net_device *netdev,
 				netdev_features_t features)
 {
-	struct nfp_net *nn = netdev_priv(netdev);
 	netdev_features_t changed = netdev->features ^ features;
-
+	struct nfp_net *nn = netdev_priv(netdev);
 	u32 new_ctrl, update;
 	int err;
 

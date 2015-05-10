@@ -278,8 +278,8 @@ err_area:
  */
 static void nfp_net_get_mac_addr(struct nfp_net *nn, struct nfp_device *nfp_dev)
 {
-	const char *mac_str;
 	u8 mac_addr[ETH_ALEN];
+	const char *mac_str;
 
 	mac_str = nfp_hwinfo_lookup(nfp_dev, "eth0.mac");
 	if (mac_str) {
@@ -398,8 +398,8 @@ static ssize_t store_sriov_numvfs(struct device *dev,
 {
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct nfp_net *nn = pci_get_drvdata(pdev);
-	int ret;
 	unsigned long num_vfs;
+	int ret;
 
 	ret = kstrtoul(buf, 0, &num_vfs);
 	if (ret < 0)
@@ -486,25 +486,21 @@ static int nfp_is_ready(struct nfp_device *nfp)
 static int nfp_net_pci_probe(struct pci_dev *pdev,
 			     const struct pci_device_id *pci_id)
 {
+	struct platform_device *dev_cpp = NULL;
+	const struct nfp_rtsym *ctrl_sym;
+	uint32_t tx_area_sz, rx_area_sz;
+	int max_tx_rings, max_rx_rings;
+	struct nfp_cpp_area *ctrl_area;
+	struct nfp_device *nfp_dev;
+	u8 __iomem *ctrl_bar;
+	struct nfp_cpp *cpp;
+	char pf_symbol[256];
+	uint16_t interface;
 	struct nfp_net *nn;
+	uint32_t start_q;
 	int is_nfp3200;
 	int fw_loaded;
-	struct nfp_cpp *cpp;
-	struct platform_device *dev_cpp = NULL;
-	struct nfp_device *nfp_dev;
-
-	uint16_t interface;
 	int pcie_pf;
-	char pf_symbol[256];
-
-	const struct nfp_rtsym *ctrl_sym;
-	struct nfp_cpp_area *ctrl_area;
-	u8 __iomem *ctrl_bar;
-
-	int max_tx_rings, max_rx_rings;
-	uint32_t tx_area_sz, rx_area_sz;
-	uint32_t start_q;
-
 	int err;
 
 	err = pci_enable_device(pdev);

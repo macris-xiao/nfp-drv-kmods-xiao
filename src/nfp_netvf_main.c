@@ -50,14 +50,14 @@ MODULE_DEVICE_TABLE(pci, nfp_netvf_pci_device_ids);
 static int nfp_netvf_pci_probe(struct pci_dev *pdev,
 			       const struct pci_device_id *pci_id)
 {
-	struct nfp_net *nn;
-	u8 __iomem *ctrl_bar;
 	int max_tx_rings, max_rx_rings;
 	uint32_t tx_bar_off, rx_bar_off;
 	uint32_t tx_bar_sz, rx_bar_sz;
-	int err;
-	int is_nfp3200;
+	u8 __iomem *ctrl_bar;
+	struct nfp_net *nn;
 	uint32_t startq;
+	int is_nfp3200;
+	int err;
 
 	err = pci_enable_device_mem(pdev);
 	if (err)
