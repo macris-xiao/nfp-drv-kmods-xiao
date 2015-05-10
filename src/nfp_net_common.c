@@ -17,14 +17,13 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
- * vim:shiftwidth=8:noexpandtab
- *
  * Netronome network device driver: Common functions between PF and VF
  */
 
 /* This file is used by multiple drivers, in which case Kbuild does
  * not set @KBUILD_MODNAME. Unfortunately, this is required to be set
- * by a number of kernel components, used by this file. */
+ * by a number of kernel components, used by this file.
+ */
 #ifndef KBUILD_MODNAME
 #define KBUILD_MODNAME "nfp_net_common"
 #endif
@@ -63,13 +62,15 @@ static unsigned int pollinterval = 500;
 #endif
 
 /**
- * Reconfigure the firmware
+ * nfp_net_reconfigure() - Reconfigure the firmware
  * @nn:      NFP Net device to reconfigure
  * @update:  The value for the update field in the BAR config
  *
  * Write the update word to the BAR and ping the reconfig queue.  The
  * poll until the firmware has acknowledged the update by zeroing the
  * update word.
+ *
+ * Return: Negative errno on error, 0 on success
  */
 int nfp_net_reconfig(struct nfp_net *nn, u32 update)
 {
@@ -99,6 +100,13 @@ int nfp_net_reconfig(struct nfp_net *nn, u32 update)
 	return 0;
 }
 
+/**
+ * nfp_net_msix_map() - Map the MSI-X table
+ * @pdev:       PCI Device structure
+ * @nr_entries: Number of entries in table to map
+ *
+ * Return: Pointer to mapped table or PTR_ERR
+ */
 void __iomem *nfp_net_msix_map(struct pci_dev *pdev, unsigned nr_entries)
 {
 	resource_size_t phys_addr;
@@ -123,6 +131,10 @@ void __iomem *nfp_net_msix_map(struct pci_dev *pdev, unsigned nr_entries)
 	return ioremap_nocache(phys_addr, nr_entries * PCI_MSIX_ENTRY_SIZE);
 }
 
+/**
+ * nfp_net_msix_unmap() - Undo nfp_net_msix_map()
+ * @addr:       Address of the MSI-X table
+ */
 void nfp_net_msix_unmap(void __iomem *addr)
 {
 	if (addr)
@@ -134,7 +146,9 @@ void nfp_net_msix_unmap(void __iomem *addr)
  */
 
 /**
- * nfp_net_irq_unmask - Unmask an interrupt
+ * nfp_net_irq_unmask() - Unmask an interrupt
+ * @nn:       NFP Network structure
+ * @entry_nr: MSI-X table entry
  *
  * If MSI-X auto-masking is enabled clear the mask bit, otherwise
  * clear the ICR for the entry.
@@ -163,7 +177,9 @@ static void nfp_net_irq_unmask(struct nfp_net *nn, unsigned int entry_nr)
 }
 
 /**
- * nfp_net_msix_alloc - Try to allocate MSI-X irqs
+ * nfp_net_msix_alloc() - Try to allocate MSI-X irqs
+ * @nn:       NFP Network structure
+ * @nr_vecs:  Number of MSI-X vectors to allocate
  *
  * For MSI-X we want at least NFP_NET_NON_Q_VECTORS + 1 vectors.
  *
@@ -192,10 +208,13 @@ static int nfp_net_msix_alloc(struct nfp_net *nn, int nr_vecs)
 }
 
 /**
- * nfp_net_irqs_wanted - Work out how many interrupt vectors we want
+ * nfp_net_irqs_wanted() - Work out how many interrupt vectors we want
+ * @nn:       NFP Network structure
  *
  * We want a vector per CPU (or ring), whatever is smaller plus
  * NFP_NET_NON_Q_VECTORS for LSC etc.
+ *
+ * Return: Number of interrupts wanted
  */
 static int nfp_net_irqs_wanted(struct nfp_net *nn)
 {
@@ -211,7 +230,8 @@ static int nfp_net_irqs_wanted(struct nfp_net *nn)
 }
 
 /**
- * nfp_net_irqs_alloc - allocates MSI-X irqs
+ * nfp_net_irqs_alloc() - allocates MSI-X irqs
+ * @nn:       NFP Network structure
  *
  * Return: Number of irqs obtained or 0 on error.
  */
@@ -251,7 +271,8 @@ int nfp_net_irqs_alloc(struct nfp_net *nn)
 }
 
 /**
- * nfp_net_irqs_disable - Disable interrupts
+ * nfp_net_irqs_disable() - Disable interrupts
+ * @nn:       NFP Network structure
  *
  * Undoes what @nfp_net_irqs_alloc() does.
  */
@@ -262,10 +283,11 @@ void nfp_net_irqs_disable(struct nfp_net *nn)
 }
 
 /**
- * nfp_net_rxtx_irq - Interrupt service routine for RX/TX rings.
+ * nfp_net_rxtx_irq() - Interrupt service routine for RX/TX rings.
+ * @irq:      Interrupt
+ * @data:     Opaque data structure
  *
- * We assume here that the device auto-masks the vector. Ie we
- * don't need to do nothing, just ping NAPI.
+ * Return: Indicate if the interrupt has been handled.
  */
 static irqreturn_t nfp_net_irq_rxtx(int irq, void *data)
 {
@@ -277,7 +299,8 @@ static irqreturn_t nfp_net_irq_rxtx(int irq, void *data)
 
 	/* The FW auto-masks any interrupt, either via the MASK bit in
 	 * the MSI-X table or via the per entry ICR field.  So there
-	 * is no need to disable interrupts here. */
+	 * is no need to disable interrupts here.
+	 */
 
 	/* There is a short period between enabling interrupts and
 	 * enabling NAPI.  If a interrupt gets delivered during this
@@ -304,7 +327,11 @@ static void nfp_net_print_link(struct nfp_net *nn, bool isup)
 }
 
 /**
- * nfp_net_lsc_irq - Interrupt service routine for link state changes
+ * nfp_net_lsc_irq() - Interrupt service routine for link state changes
+ * @irq:      Interrupt
+ * @data:     Opaque data structure
+ *
+ * Return: Indicate if the interrupt has been handled.
  */
 static irqreturn_t nfp_net_irq_lsc(int irq, void *data)
 {
@@ -334,7 +361,11 @@ static irqreturn_t nfp_net_irq_lsc(int irq, void *data)
 }
 
 /**
- * nfp_net_exn_irq - Interrupt service routine for exceptions
+ * nfp_net_exn_irq() - Interrupt service routine for exceptions
+ * @irq:      Interrupt
+ * @data:     Opaque data structure
+ *
+ * Return: Indicate if the interrupt has been handled.
  */
 static irqreturn_t nfp_net_irq_exn(int irq, void *data)
 {
@@ -347,7 +378,11 @@ static irqreturn_t nfp_net_irq_exn(int irq, void *data)
 }
 
 /**
- * nfp_net_intr - Shared interrupt service routing for exceptions
+ * nfp_net_intr() - Shared interrupt service routing for exceptions
+ * @irq:      Interrupt
+ * @data:     Opaque data structure
+ *
+ * Return: Indicate if the interrupt has been handled.
  */
 static irqreturn_t nfp_net_intr(int irq, void *data)
 {
@@ -369,7 +404,8 @@ static irqreturn_t nfp_net_intr(int irq, void *data)
 }
 
 /**
- * nfp_net_tx_rings_init - Fill in the boilerplate for a TX ring
+ * nfp_net_tx_rings_init() - Fill in the boilerplate for a TX ring
+ * @tx_ring:  TX ring structure
  */
 static void nfp_net_tx_ring_init(struct nfp_net_tx_ring *tx_ring)
 {
@@ -381,7 +417,8 @@ static void nfp_net_tx_ring_init(struct nfp_net_tx_ring *tx_ring)
 }
 
 /**
- * nfp_net_rx_rings_init - Fill in the boilerplate for a RX ring
+ * nfp_net_rx_rings_init() - Fill in the boilerplate for a RX ring
+ * @rx_ring:  RX ring structure
  */
 static void nfp_net_rx_ring_init(struct nfp_net_rx_ring *rx_ring)
 {
@@ -396,7 +433,8 @@ static void nfp_net_rx_ring_init(struct nfp_net_rx_ring *rx_ring)
 }
 
 /**
- * nfp_net_irqs_assign - Assign IRQs and setup rvecs.
+ * nfp_net_irqs_assign() - Assign IRQs and setup rvecs.
+ * @netdev:   netdev structure
  */
 static void nfp_net_irqs_assign(struct net_device *netdev)
 {
@@ -467,7 +505,8 @@ static void nfp_net_irqs_assign(struct net_device *netdev)
 }
 
 /**
- * nfp_net_irq_request - Request the common interrupts
+ * nfp_net_irq_request() - Request the common interrupts
+ * @netdev:   netdev structure
  *
  * Interrupts for LSC and EXN (ring vectors are requested elsewhere)
  */
@@ -536,7 +575,8 @@ err_lsc:
 }
 
 /**
- * nfp_net_irq_free - Free the requested common interrupts
+ * nfp_net_irq_free() - Free the requested common interrupts
+ * @netdev:   netdev structure
  *
  * This frees the general interrupt (not the ring interrupts). It
  * undoes what @nfp_net_irqs_request set-up.
@@ -582,13 +622,15 @@ static void nfp_net_irqs_free(struct net_device *netdev)
  */
 
 /**
- * nfp_net_tx_full - Check if the TX ring is full
+ * nfp_net_tx_full() - Check if the TX ring is full
  * @tx_ring: TX ring to check
- * @dcnt: Number of descriptors that need to be enqueued (must be >= 1)
+ * @dcnt:    Number of descriptors that need to be enqueued (must be >= 1)
  *
  * This function checks, based on the *host copy* of read/write
  * pointer if a given TX ring is full.  The real TX queue may have
  * some newly made available slots.
+ *
+ * Return: True if the ring is full.
  */
 static inline int nfp_net_tx_full(struct nfp_net_tx_ring *tx_ring, int dcnt)
 {
@@ -596,7 +638,7 @@ static inline int nfp_net_tx_full(struct nfp_net_tx_ring *tx_ring, int dcnt)
 }
 
 /**
- * nfp_net_tx_csum - Set TX CSUM offload flags in TX descriptor
+ * nfp_net_tx_csum() - Set TX CSUM offload flags in TX descriptor
  * @nn:  NFP Net device
  * @txd: Pointer to TX descriptor
  * @skb: Pointer to SKB
@@ -652,7 +694,11 @@ static void nfp_net_tx_csum(struct nfp_net *nn,
 }
 
 /**
- * nfp_net_tx - Main transmit entry point
+ * nfp_net_tx() - Main transmit entry point
+ * @skb:    SKB to transmit
+ * @netdev: netdev structure
+ *
+ * Return: NETDEV_TX_OK on success.
  */
 static int nfp_net_tx(struct sk_buff *skb, struct net_device *netdev)
 {
@@ -752,7 +798,8 @@ static int nfp_net_tx(struct sk_buff *skb, struct net_device *netdev)
 			/* On the 6k the FW currently only supports transfer
 			 * lengths *per* TX descriptor of up to 4k. We have not
 			 * seen this happening but use an assert here to flag
-			 * it, if it does. */
+			 * it, if it does.
+			 */
 			nn_assert(txd->dma_len <= 4096,
 				  "TX desc DMA len larger than a page: %d\n",
 				  txd->dma_len);
@@ -799,7 +846,10 @@ gather_unmap_out:
 }
 
 /**
- * nfp_net_tx_complete - Handled completed TX packets
+ * nfp_net_tx_complete() - Handled completed TX packets
+ * @tx_ring:   TX ring structure
+ *
+ * Return: Number of completed TX descriptors
  */
 static int nfp_net_tx_complete(struct nfp_net_tx_ring *tx_ring)
 {
@@ -879,7 +929,8 @@ static int nfp_net_tx_complete(struct nfp_net_tx_ring *tx_ring)
 }
 
 /**
- * nfp_net_tx_flush - Free any un-transmitted buffers currently on the TX ring
+ * nfp_net_tx_flush() - Free any untransmitted buffers currently on the TX ring
+ * @tx_ring:     TX ring structure
  *
  * Assumes that the device is stopped
  */
@@ -962,9 +1013,13 @@ static void nfp_net_tx_timeout(struct net_device *netdev)
 }
 
 /**
- * nfp_net_tx_dump - Print the ring contents into the buffer
+ * nfp_net_tx_dump() - Print the ring contents into the buffer
+ * @tx_ring:   TX ring to print
+ * @p:         Buffer to print into
  *
  * Assumes that the buffer pointed to by @p is big enough.
+ *
+ * Return: Number of characters added
  */
 int nfp_net_tx_dump(struct nfp_net_tx_ring *tx_ring, char *p)
 {
@@ -1016,13 +1071,16 @@ int nfp_net_tx_dump(struct nfp_net_tx_ring *tx_ring, char *p)
 }
 
 /*
- * Receive
+ * Receive processing
  */
 
 /**
- * nfp_net_rx_space - return the number of free slots on the RX ring
+ * nfp_net_rx_space() - return the number of free slots on the RX ring
+ * @rx_ring:   RX ring structure
  *
  * Make sure we leave at least one slot free.
+ *
+ * Return: True if there is space on the RX ring
  */
 static inline int nfp_net_rx_space(struct nfp_net_rx_ring *rx_ring)
 {
@@ -1030,7 +1088,7 @@ static inline int nfp_net_rx_space(struct nfp_net_rx_ring *rx_ring)
 }
 
 /**
- * nfp_net_rx_csum - set SKB checksum field based on RX descriptor flags
+ * nfp_net_rx_csum() - set SKB checksum field based on RX descriptor flags
  * @nn:  NFP Net device
  * @rxd: Pointer to RX descriptor
  * @skb: Pointer to SKB
@@ -1073,7 +1131,9 @@ csum_fail:
 }
 
 /**
- * nfp_net_set_hash - Set SKB hash data
+ * nfp_net_set_hash() - Set SKB hash data
+ * @skb:   SKB to set the hash data on
+ * @rxd:   RX descriptor
  *
  * The RSS hash and hash-type are pre-pended to the packet data.
  * Extract and decode it and set the skb fields.
@@ -1103,8 +1163,9 @@ static void nfp_net_set_hash(struct sk_buff *skb, struct nfp_net_rx_desc *rxd)
 }
 
 /**
- * nfp_net_rx - receive up to @budget packets on @rx_ring
- * return number of packets received
+ * nfp_net_rx() - receive up to @budget packets on @rx_ring
+ * @rx_ring:   RX ring to receive from
+ * @budget:    NAPI budget
  *
  * Note, this function is separated out from the napi poll function to
  * more cleanly separate packet receive code from other bookkeeping
@@ -1123,6 +1184,8 @@ static void nfp_net_set_hash(struct sk_buff *skb, struct nfp_net_rx_desc *rxd)
  * below to handle the differences.  We may, in the future update the
  * NFP-3200 firmware to behave the same as the firmware on the
  * NFP-6000.
+ *
+ * Return: Number of packets received.
  */
 static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
 {
@@ -1164,7 +1227,8 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
 		}
 
 		/* Memory barrier to ensure that we won't do other reads
-		 * before the DD bit. */
+		 * before the DD bit.
+		 */
 		rmb();
 		rxd = &rx_ring->rxds[idx];
 		if (!rxd->rxd.dd) {
@@ -1180,7 +1244,8 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
 			       rxd->rxd.data_len, nn->fl_bufsz,
 			       rx_ring->idx, idx, rxd->vals[0], rxd->vals[1]);
 			/* Halt here. The device may have DMAed beyond the end
-			 * of the freelist buffer and all bets are off. */
+			 * of the freelist buffer and all bets are off.
+			 */
 			BUG();
 			break;
 		}
@@ -1242,11 +1307,13 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
 }
 
 /**
- * nfp_net_rx_fill_freelist - Attempt filling freelist with RX buffers
+ * nfp_net_rx_fill_freelist() - Attempt filling freelist with RX buffers
  * @rx_ring: RX ring to fill
  *
  * Try to fill as many buffers as possible into freelist.  Return
  * number of buffers added.
+ *
+ * Return: Number of freelist buffers added.
  */
 static int nfp_net_rx_fill_freelist(struct nfp_net_rx_ring *rx_ring)
 {
@@ -1293,7 +1360,8 @@ static int nfp_net_rx_fill_freelist(struct nfp_net_rx_ring *rx_ring)
 		}
 
 		/* Update write pointer of the freelist queue. Make
-		 * sure all writes are flushed before telling the hardware. */
+		 * sure all writes are flushed before telling the hardware.
+		 */
 		wmb();
 		nfp_qcp_wr_ptr_add(rx_ring->qcp_fl, i);
 		added += i;
@@ -1307,7 +1375,8 @@ static int nfp_net_rx_fill_freelist(struct nfp_net_rx_ring *rx_ring)
 }
 
 /**
- * nfp_net_rx_flush - Free any buffers currently on the RX ring
+ * nfp_net_rx_flush() - Free any buffers currently on the RX ring
+ * @rx_ring:  RX ring to remove buffers from
  *
  * Assumes that the device is stopped
  */
@@ -1338,9 +1407,13 @@ static void nfp_net_rx_flush(struct nfp_net_rx_ring *rx_ring)
 }
 
 /**
- * nfp_net_rx_dump - Print the ring contents into the buffer
+ * nfp_net_rx_dump() - Print the ring contents into the buffer
+ * @rx_ring:   RX ring to print
+ * @p:         Buffer to print into
  *
  * Assumes that the buffer pointed to by @p is big enough.
+ *
+ * Return: Number of characters added
  */
 int nfp_net_rx_dump(struct nfp_net_rx_ring *rx_ring, char *p)
 {
@@ -1397,7 +1470,11 @@ int nfp_net_rx_dump(struct nfp_net_rx_ring *rx_ring, char *p)
 }
 
 /**
- * nfp_net_poll - napi poll function
+ * nfp_net_poll() - napi poll function
+ * @napi:    NAPI structure
+ * @budget:  NAPI budget
+ *
+ * Return: 0 if done with polling.
  */
 static int nfp_net_poll(struct napi_struct *napi, int budget)
 {
@@ -1437,7 +1514,8 @@ static int nfp_net_poll(struct napi_struct *napi, int budget)
 
 	/* If there are no more packets to receive and no more TX
 	 * descriptors to be cleaned, unmask the MSI-X vector and
-	 * switch NAPI back into interrupt mode. */
+	 * switch NAPI back into interrupt mode.
+	 */
 	napi_complete(napi);
 
 	nfp_net_irq_unmask(nn, r_vec->irq_idx);
@@ -1450,7 +1528,8 @@ static int nfp_net_poll(struct napi_struct *napi, int budget)
  */
 
 /**
- * nfp_net_tx_ring_free - Free resources allocated to a TX ring
+ * nfp_net_tx_ring_free() - Free resources allocated to a TX ring
+ * @tx_ring:   TX ring to free
  */
 static void nfp_net_tx_ring_free(struct nfp_net_tx_ring *tx_ring)
 {
@@ -1480,7 +1559,10 @@ static void nfp_net_tx_ring_free(struct nfp_net_tx_ring *tx_ring)
 }
 
 /**
- * nfp_net_tx_ring_alloc - Allocate resource for a TX ring
+ * nfp_net_tx_ring_alloc() - Allocate resource for a TX ring
+ * *tx_ring:   TX Ring structure to allocate
+ *
+ * Return: 0 on success, negative errno otherwise.
  */
 static int nfp_net_tx_ring_alloc(struct nfp_net_tx_ring *tx_ring)
 {
@@ -1529,7 +1611,8 @@ err_alloc:
 }
 
 /**
- * nfp_net_rx_ring_free - Free resources allocated to a RX ring
+ * nfp_net_rx_ring_free() - Free resources allocated to a RX ring
+ * @rx_ring:  RX ring to free
  */
 static void nfp_net_rx_ring_free(struct nfp_net_rx_ring *rx_ring)
 {
@@ -1558,7 +1641,10 @@ static void nfp_net_rx_ring_free(struct nfp_net_rx_ring *rx_ring)
 }
 
 /**
- * nfp_net_rx_ring_alloc - Allocate resource for a RX ring
+ * nfp_net_rx_ring_alloc() - Allocate resource for a RX ring
+ * @rx_ring:  RX ring to allocate
+ *
+ * Return: 0 on success, negative errno otherwise.
  */
 static int nfp_net_rx_ring_alloc(struct nfp_net_rx_ring *rx_ring)
 {
@@ -1606,11 +1692,13 @@ err_alloc:
 
 #ifdef NFP_NET_HRTIMER_6000
 /**
- * nfp_net_timer - Handler for nfp_net timer interrupts
- * @data:	opaque data (vnic pointer)
+ * nfp_net_timer() - Handler for nfp_net timer interrupts
+ * @hrtimer:  HRTimer structure
  *
  * Handler invoked upon timer ticks. If we currently have napi
  * polling enabled we only do the TX completion polling here.
+ *
+ * @Return: HRTIMER_RESTAR to restart the timer.
  */
 static enum hrtimer_restart nfp_net_timer(struct hrtimer *hrtimer)
 {
@@ -1659,7 +1747,10 @@ static enum hrtimer_restart nfp_net_timer(struct hrtimer *hrtimer)
 #endif
 
 /**
- * nfp_net_alloc_resources - Allocate resources for RX and TX rings
+ * nfp_net_alloc_resources() - Allocate resources for RX and TX rings
+ * @nn:      NFP Net device to reconfigure
+ *
+ * Return: 0 on success or negative errno on error.
  */
 static int nfp_net_alloc_resources(struct nfp_net *nn)
 {
@@ -1754,7 +1845,8 @@ err_rx_ring:
 }
 
 /**
- * nfp_net_free_resources - Free all resources
+ * nfp_net_free_resources() - Free all resources
+ * @nn:      NFP Net device to reconfigure
  */
 static void nfp_net_free_resources(struct nfp_net *nn)
 {
@@ -1783,7 +1875,8 @@ static void nfp_net_free_resources(struct nfp_net *nn)
 }
 
 /**
- * nfp_net_rss_write_itbl - Write RSS indirection table to device
+ * nfp_net_rss_write_itbl() - Write RSS indirection table to device
+ * @nn:      NFP Net device to reconfigure
  */
 void nfp_net_rss_write_itbl(struct nfp_net *nn)
 {
@@ -1801,7 +1894,10 @@ void nfp_net_rss_write_itbl(struct nfp_net *nn)
 }
 
 /**
- * nfp_net_netdev_open - Called when the device is upped
+ * nfp_net_netdev_open() - Called when the device is upped
+ * @netdev:      netdev structure
+ *
+ * Return: 0 on success or negative errno on error.
  */
 static int nfp_net_netdev_open(struct net_device *netdev)
 {
@@ -1977,7 +2073,8 @@ err_alloc_rings:
 }
 
 /**
- * nfp_net_netdev_close - Called when the device is downed
+ * nfp_net_netdev_close() - Called when the device is downed
+ * @netdev:      netdev structure
  */
 static int nfp_net_netdev_close(struct net_device *netdev)
 {
@@ -2301,7 +2398,8 @@ static struct net_device_ops nfp_net_netdev_ops = {
 };
 
 /**
- * nft_net_info - Print general info about the NIC
+ * nfp_net_info() - Print general info about the NIC
+ * @nn:      NFP Net device to reconfigure
  */
 void nfp_net_info(struct nfp_net *nn)
 {
@@ -2332,13 +2430,15 @@ void nfp_net_info(struct nfp_net *nn)
 }
 
 /**
- * nfp_net_netdev_alloc - Allocate netdev and related structure
+ * nfp_net_netdev_alloc() - Allocate netdev and related structure
  * @pdev:         PCI device
  * @max_tx_rings: Maximum number of TX rings supported by device
  * @max_rx_rings: Maximum number of RX rings supported by device
  *
  * This function allocates a netdev device and fills in the initial
  * part of the @struct nfp_net structure.
+ *
+ * Return: NFP Net device structure, or ERR_PTR on error.
  */
 struct nfp_net *nfp_net_netdev_alloc(struct pci_dev *pdev,
 				     int max_tx_rings, int max_rx_rings)
@@ -2375,7 +2475,8 @@ struct nfp_net *nfp_net_netdev_alloc(struct pci_dev *pdev,
 }
 
 /**
- * nfp_net_netdev_free - Undo what @nfp_net_netdev_alloc() did
+ * nfp_net_netdev_free() - Undo what @nfp_net_netdev_alloc() did
+ * @nn:      NFP Net device to reconfigure
  */
 void nfp_net_netdev_free(struct nfp_net *nn)
 {
@@ -2383,7 +2484,10 @@ void nfp_net_netdev_free(struct nfp_net *nn)
 }
 
 /**
- * nfp_net_netdev_init - Initialise/finalise the netdev structure
+ * nfp_net_netdev_init() - Initialise/finalise the netdev structure
+ * @netdev:      netdev structure
+ *
+ * Return: 0 on success or negative errno on error.
  */
 int nfp_net_netdev_init(struct net_device *netdev)
 {
@@ -2459,7 +2563,8 @@ int nfp_net_netdev_init(struct net_device *netdev)
 		nn->ctrl |= NFP_NET_CFG_CTRL_L2BC;
 
 	/* On NFP-3200 enable MSI-X auto-masking, if supported and the
-	 * interrupts are not shared.*/
+	 * interrupts are not shared.
+	 */
 	if (nn->is_nfp3200 && nn->cap & NFP_NET_CFG_CTRL_MSIXAUTO &&
 	    nn->num_vecs > 1 && nn->per_vector_masking)
 		nn->ctrl |= NFP_NET_CFG_CTRL_MSIXAUTO;
@@ -2513,7 +2618,8 @@ err_reconfig:
 }
 
 /**
- * nfp_net_netdev_clean - Undo what nfp_net_netdev_init() did.
+ * nfp_net_netdev_clean() - Undo what nfp_net_netdev_init() did.
+ * @netdev:      netdev structure
  */
 void nfp_net_netdev_clean(struct net_device *netdev)
 {

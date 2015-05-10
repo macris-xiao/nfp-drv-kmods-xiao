@@ -17,8 +17,6 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
- * vim:shiftwidth=8:noexpandtab
- *
  * Netronome virtual function network device driver: Main entry point
  */
 
@@ -108,7 +106,8 @@ static int nfp_netvf_pci_probe(struct pci_dev *pdev,
 	/* Find out how many rings are supported.  Note, for the VF we
 	 * could derive this from the BAR size (except for THB-350),
 	 * but to keep the code simple so we just read it from the
-	 * control BAR. */
+	 * control BAR.
+	 */
 	max_tx_rings = nn_readl(ctrl_bar, NFP_NET_CFG_MAX_TXRINGS);
 	max_rx_rings = nn_readl(ctrl_bar, NFP_NET_CFG_MAX_RXRINGS);
 
@@ -242,8 +241,8 @@ static void nfp_netvf_pci_remove(struct pci_dev *pdev)
 	struct nfp_net *nn = pci_get_drvdata(pdev);
 
 	/* Note, the order is slightly different from above as we need
-	 * to keep the nn pointer around till we have freed everything. */
-
+	 * to keep the nn pointer around till we have freed everything.
+	 */
 	BUG_ON(!nn);
 
 	nn->removing_pdev = 1;

@@ -16,10 +16,6 @@
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- *
- * vim:shiftwidth=8:noexpandtab
- *
- * Netronome network device driver
  */
 
 #ifndef _NFP_NET_H_
@@ -85,14 +81,12 @@ struct nfp_net;
 #define NFP_NET_IRQ_LSC_IDX		0
 #define NFP_NET_IRQ_EXN_IDX		1
 
-/*
- * Queue definitions
- */
+/* Queue/Ring definitions */
 #define NFP_NET_MAX_TX_RINGS	64	/* Max. # of Tx rings per device */
 #define NFP_NET_MAX_RX_RINGS	64	/* Max. # of Rx rings per device */
 
 #define NFP_NET_MIN_TX_DESCS	256	/* Min. # of Tx descs per ring */
-#define NFP_NET_MIN_RX_DESCS	256   /* Min. # of Rx descs per ring */
+#define NFP_NET_MIN_RX_DESCS	256	/* Min. # of Rx descs per ring */
 #define NFP_NET_MAX_TX_DESCS	(256 * 1024) /* Max. # of Tx descs per ring */
 #define NFP_NET_MAX_RX_DESCS	(256 * 1024) /* Max. # of Rx descs per ring */
 
@@ -101,9 +95,7 @@ struct nfp_net;
 
 #define NFP_NET_FL_BATCH	16	/* Add freelist in this Batch size */
 
-/*
- * Debug support
- */
+/* Debug support */
 #define NFP_NET_DUMP_TX_MIN	1000
 #define NFP_NET_DUMP_TX_MAX	(NFP_NET_DUMP_TX_MIN + NFP_NET_MAX_TX_RINGS - 1)
 #define NFP_NET_DUMP_RX_MIN	2000
@@ -164,39 +156,40 @@ struct nfp_net_tx_desc {
 	};
 };
 
-struct nfp_net_tx_ring {
-	struct nfp_net_r_vector *r_vec;	/* Backpointer to ring vector */
 
-	/* Ring/Queue information: @idx is the ring index from Linux's
-	 * perspective.  @qcidx is the index of the Queue Controller
-	 * Peripheral queue relative to the TX queue BAR.  @qcp_q is a
-	 * pointer to the base of the queue structure on the NFP */
+/**
+ * struct nfp_net_tx_ring - TX ring structure
+ * @r_vec:      Back pointer to ring vector structure
+ * @idx:        Ring index from Linux's perspective
+ * @qcidx:      Queue Controller Peripheral (QCP) queue index for the TX queue
+ * @qcp_p:      Pointer to base of the QCP TX queue
+ * @cnt:        Size of the queue in number of descriptors
+ * @wr_p:       TX ring write pointer (free running)
+ * @rd_p:       TX ring read pointer (free running)
+ * @qcp_rd_p:   Local copy of QCP TX queue read pointer
+ * @txbufs:     Array of transmitted TX buffers, to free on transmit
+ * @txds:       Virtual address of TX ring in host memory
+ * @dma:        DMA address of the TX ring
+ * @size:       Size, in bytes, of the TX ring (needed to free)
+ */
+struct nfp_net_tx_ring {
+	struct nfp_net_r_vector *r_vec;
+
 	int idx;
 	int qcidx;
 	u8 __iomem *qcp_q;
 
-	/* Read and Write pointers.  @wr_p and @rd_p are host side
-	 * pointer, they are free running and have little relation to
-	 * the QCP pointers. @qcp_rd_p is a local copy queue
-	 * controller peripheral read pointer. @cnt is the
-	 * size of the queue in number of descriptors. */
 	int cnt;
 	u32 wr_p;
 	u32 rd_p;
 	u32 qcp_rd_p;
 
-	/* For each transmitted SKB keep a reference to the SKB and
-	 * DMA address used until completion is signaled. */
 	struct {
 		struct sk_buff *skb;
 		dma_addr_t dma_addr;
 		int fidx;
 	} *txbufs;
 
-	/* Information about the host side ring location. @txds is
-	 * the virtual address for the queue, @dma is the DMA address
-	 * of the queue and @size is the size in bytes for the queue
-	 * (needed for free) */
 	struct nfp_net_tx_desc *txds;
 	dma_addr_t dma;
 	unsigned int size;
@@ -205,6 +198,7 @@ struct nfp_net_tx_ring {
 /*
  * RX and freelist descriptor format
  */
+
 /* Flags in the RX descriptor */
 #define PCIE_DESC_RX_RSS		(1 << 15)
 #define PCIE_DESC_RX_I_IP4_CSUM		(1 << 14)
@@ -265,55 +259,61 @@ struct nfp_net_rx_desc {
 	};
 };
 
+/**
+ * struct nfp_net_rx_ring - RX ring structure
+ * @r_vec:      Back pointer to ring vector structure
+ * @idx:        Ring index from Linux's perspective
+ * @fl_qcidx:   Queue Controller Peripheral (QCP) queue index for the freelist
+ * @rx_qcidx:   Queue Controller Peripheral (QCP) queue index for the RX queue
+ * @qcp_fl:     Pointer to base of the QCP freelist queue
+ * @qcp_rx:     Pointer to base of the QCP RX queue
+ * @cnt:        Size of the queue in number of descriptors
+ * @wr_p:       FL/RX ring write pointer (free running)
+ * @rd_p:       FL/RX ring read pointer (free running)
+ * @rxbufs:     Array of transmitted FL/RX buffers
+ * @rxds:       Virtual address of FL/RX ring in host memory
+ * @dma:        DMA address of the FL/RX ring
+ * @size:       Size, in bytes, of the FL/RX ring (needed to free)
+ */
 struct nfp_net_rx_ring {
-	struct nfp_net_r_vector *r_vec;	/* Backpointer to ring vector */
+	struct nfp_net_r_vector *r_vec;
 
-	/* Ring/Queue information: @idx is the ring index from Linux's
-	 * perspective.  @fl_qcidx is the index of the Queue
-	 * Controller peripheral queue relative to the RX queue BAR
-	 * used for the freelist and @rx_qcidx is the Queue Controller
-	 * Peripheral index for the RX queue.  @qcp_fl and @qcp_rx are
-	 * pointers to the base addresses of the freelist and RX queue
-	 * controller peripheral queue structures on the NFP.
-	 */
 	int idx;
 	int fl_qcidx;
 	int rx_qcidx;
 	u8 __iomem *qcp_fl;
 	u8 __iomem *qcp_rx;
 
-	/* Read and Write pointers.  @wr_p and @rd_p are host side
-	 * pointer, they are free running and have little relation to
-	 * the QCP pointers. @wr_p is where the driver adds new
-	 * freelist descriptors and @rd_p is where the driver starts
-	 * reading descriptors for newly arrive packets from. @cnt is
-	 * the size of the queue in number of descriptors. */
 	int cnt;
 	u32 wr_p;
 	u32 rd_p;
 
-	/* For each buffer placed on the freelist, record the
-	 * associated SKB and the DMA address it is mapped to. */
 	struct {
 		struct sk_buff *skb;
 		dma_addr_t dma_addr;
 	} *rxbufs;
 
-	/* Information about the host side ring location.  @rxds is
-	 * the virtual address for the queue, @dma is the DMA address
-	 * of the queue and @size is the size in bytes for the queue
-	 * (needed for free) */
 	struct nfp_net_rx_desc *rxds;
 	dma_addr_t dma;
 	unsigned int size;
 } ____cacheline_aligned;
 
-/*
- * Interrupt vector info
- */
-
-/*
- * Per ring interrupt vector configuration
+/**
+ * struct nfp_net_r_vector - Per ring interrupt vector configuration
+ * @nfp_net:        Backpointer to nfp_net structure
+ * @napi:           NAPI structure for this ring vec
+ * @flags:          Flags
+ * @idx:            Index of this ring vector
+ * @tx_ring:        Pointer to TX ring
+ * @rx_ring:        Pointer to RX ring
+ * @handler:        Interrupt handler for this ring vector
+ * @irq_idx:        Index into MSI-X table
+ * @requested:      Has this vector been requested?
+ * @name:           Name of the interrupt vector
+ * @affinity_mask:  SMP affinity mask for this vector
+ * @tx_pkts:        Number of Transmitted packets
+ * @rx_pkts:        Number of received packets
+ * @tx_busy:        How often was TX busy (no space)?
  *
  * This structure ties RX and TX rings to interrupt vectors and a NAPI
  * context. This currently only supports one RX and TX ring per
@@ -321,9 +321,8 @@ struct nfp_net_rx_ring {
  * association of multiple rings per vector.
  */
 struct nfp_net_r_vector {
-	struct nfp_net *nfp_net;	/* Backpointer to nfp_net structure */
-	struct napi_struct napi;	/* NAPI structure for this ring vec */
-
+	struct nfp_net *nfp_net;
+	struct napi_struct napi;
 	unsigned long flags;
 #define NFP_NET_RVEC_NAPI_STARTED	BIT(0)
 
@@ -335,27 +334,77 @@ struct nfp_net_r_vector {
 #endif
 
 	int idx;
-
-	/* Pointer to associated rings */
 	struct nfp_net_tx_ring *tx_ring;
 	struct nfp_net_rx_ring *rx_ring;
 
-	irq_handler_t handler;		/* Interrupt handler */
-	int irq_idx;			/* Index to MSI-X entries */
-	int requested;			/* Has this vector been requested */
-	char name[IFNAMSIZ + 8];	/* Name */
+	irq_handler_t handler;
+	int irq_idx;
+	int requested;
+	char name[IFNAMSIZ + 8];
 
 	cpumask_t affinity_mask;
 
-	/* Packets handled by the ring vector */
 	u64 tx_pkts;
 	u64 rx_pkts;
-	/* How often was the TX ring associated with this r vector full */
 	u64 tx_busy;
 };
 
-/*
- * Device structure
+/**
+ * struct nfp_net - NFP network device structure
+ * @pdev:               Backpointer to PCI device
+ * @netdev:             Backpointer to net_device structure
+ * @nfp_fallback:       Is the driver used in fallback mode?
+ * @is_vf:              Is the driver attached to a VF?
+ * @is_nfp3200:         Is the driver for a NFP-3200 card?
+ * @removing_pdev:      Are we in the process of removing the device driver
+ * @link_up:            Is the link up?
+ * @hrtimer:            Are we using HRTIMER (instead of interrupts)?
+ * @fw_loaded:          Is the firmware loaded?
+ * @cpp:                Pointer to the CPP handle
+ * @nfp_dev_cpp:        Pointer to the NFP Device handle
+ * @ctrl_area:          Pointer to the CPP area for the control BAR
+ * @tx_area:            Pointer to the CPP area for the TX queues
+ * @rx_area:            Pointer to the CPP area for the FL/RX queues
+ * @stats:              Standard netdev statistics
+ * @hw_csum_rx_ok:      Counter of packets where the HW checksum was OK
+ * @hw_csum_rx_error:   Counter of packets with bad checksums
+ * @hw_csum_tx:         Counter of packets with TX checksum offload requested
+ * @tx_gather:          Counter of packets with Gather DMA
+ * @et_dump_flag:       Flag used to dump RX/TX ring information (via ethtool)
+ * @ver:                Firmware version
+ * @cap:                Capabilities advertised by the Firmware
+ * @max_mtu:            Maximum support MTU advertised by the Firmware
+ * @rss_cfg:            RSS configuration
+ * @rss_key:            RSS secret key
+ * @rss_itbl:           RSS indirection table
+ * @ctrl:               Local copy of the control register/word.
+ * @fl_bufsz:           Currently configured size of the freelist buffers
+ * @max_tx_rings:       Maximum number of TX rings supported by the Firmware
+ * @max_rx_rings:       Maximum number of RX rings supported by the Firmware
+ * @num_tx_rings:       Currently configured number of TX rings
+ * @num_rx_rings:       Currently configured number of RX rings
+ * @txd_cnt:            Size of the TX ring in number of descriptors
+ * @rxd_cnt:            Size of the RX ring in number of descriptors
+ * @tx_rings:           Array of pre-allocated TX ring structures
+ * @rx_rings:           Array of pre-allocated RX ring structures
+ * @per_vector_masking: Are we using per vector masking?
+ * @msix_table:         Pointer to mapped MSI-X table
+ * @num_vecs:           Number of allocated vectors
+ * @num_r_vecs:         Number of used ring vectors
+ * @r_vecs:             Pre-allocated array of ring vectors
+ * @irq_entries:        Pre-allocated array of MSI-X entries
+ * @lsc_handler:        Handler for Link State Change interrupt
+ * @lsc_name:           Name for Link State Change interrupt
+ * @exn_handler:        Handler for Exception interrupt
+ * @exn_name:           Name for Exception interrupt
+ * @shared_handler:     Handler for shared interrupts
+ * @shared_name:        Name for shared interrupt
+ * @qcp_cfg:            Pointer to QCP queue used for configuration notification
+ * @ctrl_bar:           Pointer to mapped control BAR
+ * @tx_bar:             Pointer to mapped TX queues
+ * @rx_bar:             Pointer to mapped FL/RX queues
+ * @spare_va:           Pointer to a spare mapped area to be used by the NFP
+ * @spare_dma:          DMA address for spare area
  */
 struct nfp_net {
 	struct pci_dev *pdev;
@@ -389,39 +438,29 @@ struct nfp_net {
 
 	u32 et_dump_flag;
 
-	/* Info from the firmware */
 	u32 ver;
 	u32 cap;
 	u32 max_mtu;
 
-	/* RSS config */
 	u32 rss_cfg;
 	u32 rss_key[NFP_NET_CFG_RSS_KEY_SZ / sizeof(u32)];
 	u8 rss_itbl[NFP_NET_CFG_RSS_ITBL_SZ];
 
-	/* Current values for control and freelist buffer size */
 	u32 ctrl;
 	u32 fl_bufsz;
 
-	/* Max number of RX/TX Qs support by the device.  The number
-	 * is determined based on the BAR sizes */
 	int max_tx_rings;
 	int max_rx_rings;
 
-	/* Configured number of RX/TX Qs.  By default this is set to
-	 * the minimum of max_txqs|max_rxqs and the number of CPUs. */
 	int num_tx_rings;
 	int num_rx_rings;
 
-	/* Size of the RX/TX queues in number of descriptors they can hold */
 	int txd_cnt;
 	int rxd_cnt;
 
-	/* Array of queues */
 	struct nfp_net_tx_ring tx_rings[NFP_NET_MAX_TX_RINGS];
 	struct nfp_net_rx_ring rx_rings[NFP_NET_MAX_RX_RINGS];
 
-	/* Interrupt configuration */
 	unsigned per_vector_masking:1;
 	u8 __iomem *msix_table;
 	u8 num_vecs;
@@ -430,24 +469,21 @@ struct nfp_net {
 	struct msix_entry irq_entries[NFP_NET_NON_Q_VECTORS +
 				      NFP_NET_MAX_TX_RINGS];
 
-	irq_handler_t lsc_handler;	/* Interrupt handler */
-	char lsc_name[IFNAMSIZ + 8];	/* Name */
+	irq_handler_t lsc_handler;
+	char lsc_name[IFNAMSIZ + 8];
 
-	irq_handler_t exn_handler;	/* Interrupt handler */
-	char exn_name[IFNAMSIZ + 8];	/* Name */
+	irq_handler_t exn_handler;
+	char exn_name[IFNAMSIZ + 8];
 
-	irq_handler_t shared_handler;	/* Shared interrupt handler */
-	char shared_name[IFNAMSIZ + 8];	/* Shared interrupt Name */
+	irq_handler_t shared_handler;
+	char shared_name[IFNAMSIZ + 8];
 
-	/* Re Configuration queue */
 	u8 __iomem *qcp_cfg;
 
-	/* 3 BARs: Control, TX queues, and RX queues */
 	u8 __iomem *ctrl_bar;
 	u8 __iomem *tx_bar;
 	u8 __iomem *rx_bar;
 
-	/* DMA address for spare area to be sued by the NFP */
 	void *spare_va;
 	dma_addr_t spare_dma;
 };
@@ -513,15 +549,6 @@ enum nfp_qcp_ptr {
  */
 #define NFP_QCP_MAX_ADD				0x3f
 
-/**
- * nfp_qcp_rd_ptr_add - Add the value to the read pointer of a queue
- * nfp_qcp_wr_ptr_add - Add the value to the write pointer of a queue
- *
- * @q: Base address for queue structure
- * @val: Value to add to the queue pointer
- *
- * If @val is greater than @NFP_QCP_MAX_ADD multiple writes are performed.
- */
 static inline void _nfp_qcp_ptr_add(u8 __iomem *q,
 				    enum nfp_qcp_ptr ptr, u32 val)
 {
@@ -540,22 +567,32 @@ static inline void _nfp_qcp_ptr_add(u8 __iomem *q,
 	nn_writel(q, off, val);
 }
 
+/**
+ * nfp_qcp_rd_ptr_add() - Add the value to the read pointer of a queue
+ *
+ * @q:   Base address for queue structure
+ * @val: Value to add to the queue pointer
+ *
+ * If @val is greater than @NFP_QCP_MAX_ADD multiple writes are performed.
+ */
 static inline void nfp_qcp_rd_ptr_add(u8 __iomem *q, u32 val)
 {
 	_nfp_qcp_ptr_add(q, NFP_QCP_READ_PTR, val);
 }
 
+/**
+ * nfp_qcp_wr_ptr_add() - Add the value to the write pointer of a queue
+ *
+ * @q:   Base address for queue structure
+ * @val: Value to add to the queue pointer
+ *
+ * If @val is greater than @NFP_QCP_MAX_ADD multiple writes are performed.
+ */
 static inline void nfp_qcp_wr_ptr_add(u8 __iomem *q, u32 val)
 {
 	_nfp_qcp_ptr_add(q, NFP_QCP_WRITE_PTR, val);
 }
 
-/**
- * nfp_qcp_rd_ptr_read - Read the current read pointer value for a queue
- * nfp_qcp_wr_ptr_read - Read the current read pointer value for a queue
- * @q:  Base address for queue structure
- * @return value read.
- */
 static inline u32 _nfp_qcp_read(u8 __iomem *q, enum nfp_qcp_ptr ptr)
 {
 	u32 off;
@@ -574,11 +611,23 @@ static inline u32 _nfp_qcp_read(u8 __iomem *q, enum nfp_qcp_ptr ptr)
 		return val & NFP_QCP_QUEUE_STS_HI_WRITEPTR_mask;
 }
 
+/**
+ * nfp_qcp_rd_ptr_read() - Read the current read pointer value for a queue
+ * @q:  Base address for queue structure
+ *
+ * Return: Value read.
+ */
 static inline u32 nfp_qcp_rd_ptr_read(u8 __iomem *q)
 {
 	return _nfp_qcp_read(q, NFP_QCP_READ_PTR);
 }
 
+/**
+ * nfp_qcp_wr_ptr_read() - Read the current write pointer value for a queue
+ * @q:  Base address for queue structure
+ *
+ * Return: Value read.
+ */
 static inline u32 nfp_qcp_wr_ptr_read(u8 __iomem *q)
 {
 	return _nfp_qcp_read(q, NFP_QCP_WRITE_PTR);

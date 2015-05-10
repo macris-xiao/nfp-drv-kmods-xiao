@@ -13,15 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * vim:shiftwidth=8:noexpandtab
- *
  * Netronome network device driver: Control BAR layout
  */
 #ifndef _NFP_NET_CTRL_H_
 #define _NFP_NET_CTRL_H_
 
-/**
- * Configuration BAR size.
+/* Configuration BAR size.
  *
  * The configuration BAR is 8K in size, but on the NFP6000, due to
  * THB-350, 32k needs to be reserved.
@@ -32,14 +29,10 @@
 #define NFP_NET_CFG_BAR_SZ              (8 * 1024)
 #endif
 
-/**
- * Offset in Freelist buffer where packet starts on RX
- */
+/* Offset in Freelist buffer where packet starts on RX */
 #define NFP_NET_RX_OFFSET               32
 
-/**
- * Hash type pre-pended when a RSS hash was computed
- */
+/* Hash type pre-pended when a RSS hash was computed */
 #define NFP_NET_RSS_NONE                0
 #define NFP_NET_RSS_IPV4                1
 #define NFP_NET_RSS_IPV6                2

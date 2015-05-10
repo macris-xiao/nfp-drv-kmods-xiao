@@ -17,8 +17,6 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
- * vim:shiftwidth=8:noexpandtab
- *
  * Netronome network device driver: Main entry point
  */
 
@@ -101,12 +99,13 @@ MODULE_AUTHOR("Netronome Systems <support@netronome.com>");
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("NFP network device driver");
 
-/*
- * Firmware loading functions
- */
+/* Firmware loading functions */
 
 /**
- * nfp_net_fw_select - Select a FW image for a given device
+ * nfp_net_fw_select() - Select a FW image for a given device
+ * @pdev:       PCI Device structure
+ *
+ * Return: Name of the firmware image to load
  */
 static const char *nfp_net_fw_select(struct pci_dev *pdev)
 {
@@ -125,7 +124,9 @@ static const char *nfp_net_fw_select(struct pci_dev *pdev)
 }
 
 /**
- * nfp_net_fw_load - Load the firmware image
+ * nfp_net_fw_load() - Load the firmware image
+ * @pdev:       PCI Device structure
+ * @nfp:        NFP Device structure
  *
  * Return: -ERRNO, 0 for no firmware loaded, 1 for firmware loaded
  */
@@ -191,15 +192,17 @@ err_replay:
 }
 
 /**
- * nfp_net_fallback_alloc - allocate a structure if netdev init is not possible
+ * nfp_net_fallback_alloc() - Allocate dummy nfp_net structure
+ * @pdev:       PCI Device structure
  *
  * If the main probe function fails to load the FW or if the FW is not
  * appropriate then there is the option for the driver to fall back to
  * standard nfp.ko functionality, ie, just being a shell driver which
  * provides user space access to the NFP.  This behaviour is
- * controlled by the @nfp_fallback module option.
+ * controlled by the @nfp_fallback module option. The cleanup is done
+ * in @nfp_net_pci_remove().
  *
- * The cleanup is done in @nfp_net_pci_remove().
+ * Return: Dummy struct nfp_net or ERR_PTR
  */
 static struct nfp_net *nfp_net_fallback_alloc(struct pci_dev *pdev)
 {
@@ -219,7 +222,7 @@ static struct nfp_net *nfp_net_fallback_alloc(struct pci_dev *pdev)
  */
 
 /**
- * nfp_net_map_area - Help function to map an area
+ * nfp_net_map_area() - Help function to map an area
  * @cpp:    NFP CPP handler
  * @name:   Name for the area
  * @target: CPP target
@@ -230,6 +233,8 @@ static struct nfp_net *nfp_net_fallback_alloc(struct pci_dev *pdev)
  * This function is primarily to simplify the code in the main probe
  * function. To undo the effect of this functions call
  * @nfp_cpp_area_release_free(*area);
+ *
+ * Return: Pointer to memory mapped area or ERR_PTR
  */
 static u8 __iomem *nfp_net_map_area(struct nfp_cpp *cpp,
 				    const char *name, int isl, int target,
@@ -268,7 +273,10 @@ err_area:
 }
 
 /**
- * nfp_net_get_mac_addr - Get the MAC address.
+ * nfp_net_get_mac_addr() - Get the MAC address.
+ * @nn:       NFP Network structure
+ * @nfp_dev:  NFP Device structure
+ *
  * First try to look up the MAC address in the HWINFO table. If that
  * fails generate a random address.
  */
@@ -360,7 +368,8 @@ static int nfp_pcie_sriov_configure(struct pci_dev *pdev, int num_vfs)
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 8, 0))
 #ifdef CONFIG_PCI_IOV
 /* Kernel version 3.8 introduced a standard, sysfs based interface for
- * managing VFs.  Here we implement that interface for older kernels. */
+ * managing VFs.  Here we implement that interface for older kernels.
+ */
 static ssize_t show_sriov_totalvfs(struct device *dev,
 				   struct device_attribute *attr,
 				   char *buf)
@@ -767,7 +776,8 @@ static void nfp_net_pci_remove(struct pci_dev *pdev)
 #ifdef CONFIG_PCI_IOV
 	/* TODO Need to better handle the case where the PF netdev
 	 * gets disabled but the VFs are still around, because they
-	 * are assigned. */
+	 * are assigned.
+	 */
 	if (!nn->is_nfp3200)
 		(void)nfp_pcie_sriov_disable(pdev);
 
