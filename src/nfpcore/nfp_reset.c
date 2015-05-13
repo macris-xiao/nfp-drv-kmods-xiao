@@ -642,15 +642,15 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 		}
 	}
 
-    /* Wait for packets to drain from NBI to NFD or to be freed.
-     * Worst case guess is:
-     *      512 pkts per CTM, 12 MEs per CTM, 800MHz clock rate
-     *      ~1000 cycles to sink a single packet.
-     *      512/12 = 42 pkts per ME, therefore 1000*42=42,000 cycles
-     *      42K cycles at 800Mhz = 52.5us. Round up to 60us.
-     *
-     * TODO: Account for cut-through traffic.
-     */
+	/* Wait for packets to drain from NBI to NFD or to be freed.
+	 * Worst case guess is:
+	 *      512 pkts per CTM, 12 MEs per CTM, 800MHz clock rate
+	 *      ~1000 cycles to sink a single packet.
+	 *      512/12 = 42 pkts per ME, therefore 1000*42=42,000 cycles
+	 *      42K cycles at 800Mhz = 52.5us. Round up to 60us.
+	 *
+	 * TODO: Account for cut-through traffic.
+	 */
 	usleep_range(60, 100);
 
 	/* Verify all NBI MAC packet buffers have returned */
@@ -664,22 +664,26 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 	}
 
 	/* Wait for PCIE DMA Queues to empty.
-     *
-     *  How we calculate the wait time for DMA Queues to be empty:
-     *
-     *  Max CTM buffers that could be enqueued to one island: 512 x (7 ME
-     *  islands + 2 other islands) = 4608 CTM buffers
-     *
-     *  The minimum rate at which NFD would process that ring would occur if
-     *  NFD records the queues as "up" so that it DMAs the whole packet to the
-     *  host, and if the CTM buffers in the ring are all associated with jumbo
-     *  frames. Jumbo frames are <10kB, and NFD 3.0 processes ToPCI jumbo
-     *  frames at ±35Gbps (measured on star fighter card).  35e9 / 10 x 1024 x
-     *  8 = 427kpps.
-     *
-     *  The time to empty a ring holding 4608 packets at 427kpps is 10.79ms To
-     *  be conservative we round up to nearest whole number, i.e. 11ms.
-     */
+	 *
+	 *  How we calculate the wait time for DMA Queues to be empty:
+	 *
+	 *  Max CTM buffers that could be enqueued to one island:
+	 *  512 x (7 ME islands + 2 other islands) = 4608 CTM buffers
+	 *
+	 *  The minimum rate at which NFD would process that ring would
+	 *  occur if NFD records the queues as "up" so that it DMAs the
+	 *  whole packet to the host, and if the CTM buffers in the ring
+	 *  are all associated with jumbo frames.
+	 *
+	 *  Jumbo frames are <10kB, and NFD 3.0 processes ToPCI jumbo
+	 *  frames at ±35Gbps (measured on star fighter card).
+	 *  35e9 / 10 x 1024 x 8 = 427kpps.
+	 *
+	 *  The time to empty a ring holding 4608 packets at 427kpps
+	 *  is 10.79ms.
+	 *
+	 *  To be conservative we round up to nearest whole number, i.e. 11ms.
+	 */
 	mdelay(11);
 
 	/* Check all PCIE DMA Queues are empty. */
@@ -717,7 +721,7 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 			goto exit;
 	}
 
-    /* Verify again that PCIe DMA Queues are now empty */
+	/* Verify again that PCIe DMA Queues are now empty */
 	for (i = 0; i < 4; i++) {
 		int state;
 	int empty;
