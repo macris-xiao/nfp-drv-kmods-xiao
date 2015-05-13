@@ -691,7 +691,7 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 		int state;
 	int empty;
 		unsigned int subdev = NFP6000_DEVICE_PCI(i,
-					NFP6000_DEVICE_PCI_CORE);
+					NFP6000_DEVICE_PCI_PCI);
 
 		err = nfp_power_get(nfp, subdev, &state);
 		if (err < 0) {
@@ -726,7 +726,7 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 		int state;
 	int empty;
 		unsigned int subdev = NFP6000_DEVICE_PCI(i,
-					NFP6000_DEVICE_PCI_CORE);
+					NFP6000_DEVICE_PCI_PCI);
 
 		err = nfp_power_get(nfp, subdev, &state);
 		if (err < 0) {
@@ -752,7 +752,7 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 	/* Clear all PCIe DMA Queues */
 	for (i = 0; i < 4; i++) {
 		unsigned int subdev = NFP6000_DEVICE_PCI(i,
-					NFP6000_DEVICE_PCI_CORE);
+					NFP6000_DEVICE_PCI_PCI);
 		int state;
 		const uint32_t pci = NFP_CPP_ISLAND_ID(NFP_CPP_TARGET_PCIE,
 						       3, 0, i + 4);
