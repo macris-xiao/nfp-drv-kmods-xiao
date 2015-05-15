@@ -92,7 +92,7 @@ static int nfp3200_reset_soft(struct nfp_device *nfp)
 #define   NFP_PCIE_DMA_DMAQUEUESTATUS1_DMA_MED_AVAIL_of(_x) \
 							(((_x) >> 8) & 0xff)
 
-#define NFP_PCIE_Q(_x)			(0x080000 + ((_x) & 0xff) * 0x10)
+#define NFP_PCIE_Q(_x)			(0x080000 + ((_x) & 0xff) * 0x800)
 #define NFP_QCTLR_STS_LO                                     0x00000008
 #define   NFP_QCTLR_STS_LO_RPTR_ENABLE				BIT(31)
 #define NFP_QCTLR_STS_HI                                     0x0000000c
