@@ -1759,7 +1759,7 @@ static int nfp_net_alloc_resources(struct nfp_net *nn)
 			entry = &nn->irq_entries[r_vec->irq_idx];
 
 			snprintf(r_vec->name, sizeof(r_vec->name),
-				 "%s-rxtx-%02d", nn->netdev->name, r);
+				 "%s-rxtx-%d", nn->netdev->name, r);
 			err = request_irq(entry->vector, r_vec->handler, 0,
 					  r_vec->name, r_vec);
 			if (err) {
