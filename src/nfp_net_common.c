@@ -336,7 +336,7 @@ static irqreturn_t nfp_net_irq_lsc(int irq, void *data)
 	link_up = !!(sts & NFP_NET_CFG_STS_LINK);
 
 	if (nn->link_up == link_up)
-		return IRQ_HANDLED;
+		goto unmask_lsc_irq;
 
 	nn->link_up = link_up;
 
@@ -347,6 +347,7 @@ static irqreturn_t nfp_net_irq_lsc(int irq, void *data)
 
 	nfp_net_print_link(nn, sts & NFP_NET_CFG_STS_LINK);
 
+unmask_lsc_irq:
 	nfp_net_irq_unmask(nn, NFP_NET_IRQ_LSC_IDX);
 
 	return IRQ_HANDLED;
