@@ -24,6 +24,10 @@
 
 #include "crc32.h"
 
+/* Define to 1 to dump CPP CA Replay statistics
+ */
+#define DEBUG_CA_CPP_STATS  0
+
 /* up to 32 IDs, and up to 7 words of control information */
 #define NFP_CA_(id)         ((id) << 3)
 #define NFP_CA(id, type)    (NFP_CA_(id) | (sizeof(type) / sizeof(uint32_t)))
@@ -106,27 +110,130 @@ enum nfp_ca_action {
 	NFP_CA_ACTION_POLL64        = 8
 };
 
-typedef int (*nfp_ca_callback)(struct nfp_cpp *cpp, enum nfp_ca_action action,
+typedef int (*nfp_ca_callback)(void *priv, enum nfp_ca_action action,
 			       uint32_t cpp_id, uint64_t cpp_addr,
 			       uint64_t val, uint64_t mask);
 
 /*
  * nfp_ca_null() - Null callback used for CRC calculation
  */
-static int nfp_ca_null(struct nfp_cpp *cpp, enum nfp_ca_action action,
+static int nfp_ca_null(void *priv, enum nfp_ca_action action,
 		       uint32_t cpp_id, uint64_t cpp_addr,
 		       uint64_t val, uint64_t mask)
 {
 	return 0;
 }
 
-/*
- * nfp_ca_cpp() - Replay CPP transactions
- */
-static int nfp_ca_cpp(struct nfp_cpp *cpp, enum nfp_ca_action action,
-		      uint32_t cpp_id, uint64_t cpp_addr,
-		      uint64_t val, uint64_t mask)
+#define CA_CPP_AREA_SIZE   ((uint64_t)(64*1024))
+
+struct ca_cpp {
+	struct nfp_cpp *cpp;
+
+	uint32_t cpp_id;
+	uint64_t cpp_addr_min, cpp_addr_max;
+	struct nfp_cpp_area *area;
+
+	uint8_t buff[128];
+	size_t buff_size;
+	uint64_t buff_offset;
+
+#if DEBUG_CA_CPP_STATS
+	struct {
+		uint32_t actions;
+		uint32_t flushes;
+		uint32_t remaps;
+	} stats;
+#endif
+};
+
+static int ca_cpp_flush(struct ca_cpp *ca, uint32_t id, uint64_t addr, size_t len)
 {
+	int err = 0;
+
+	if (ca->area) {
+		if (ca->buff_size) {
+#if DEBUG_CA_CPP_STATS
+			ca->stats.flushes++;
+#endif
+			err = nfp_cpp_area_write(ca->area, ca->buff_offset,
+						 ca->buff, ca->buff_size);
+			if (err < 0)
+			    return err;
+		}
+
+		/* New address still in bounds? */
+		if (ca->cpp_id == id &&
+			addr >= ca->cpp_addr_min &&
+			(addr + len) < ca->cpp_addr_max) {
+			ca->buff_offset = addr - ca->cpp_addr_min;
+			ca->buff_size = 0;
+			return err;
+		}
+
+		nfp_cpp_area_release_free(ca->area);
+		ca->area = NULL;
+	}
+
+	if (!id && !addr && !len)
+		return 0;
+
+	/* Allocate a new area */
+	ca->cpp_id = id;
+	ca->cpp_addr_min = addr & ~(CA_CPP_AREA_SIZE - 1);
+	ca->cpp_addr_max = ca->cpp_addr_min + CA_CPP_AREA_SIZE;
+	ca->area = nfp_cpp_area_alloc_acquire(ca->cpp, id, ca->cpp_addr_min,
+					      CA_CPP_AREA_SIZE);
+	if (!ca->area)
+		return -1;
+
+	ca->buff_offset = addr & (CA_CPP_AREA_SIZE - 1);
+	ca->buff_size = 0;
+
+#if DEBUG_CA_CPP_STATS
+	ca->stats.remaps++;
+#endif
+
+	return err;
+}
+
+static int ca_cpp_write(struct ca_cpp *ca, uint32_t id, uint64_t addr,
+			void *ptr, size_t len)
+{
+	int err = 0;
+
+	if (!ca->area ||
+		(len + ca->buff_size) > sizeof(ca->buff) ||
+		id != ca->cpp_id ||
+		addr != (ca->cpp_addr_min + ca->buff_offset + ca->buff_size)) {
+		err = ca_cpp_flush(ca, id, addr, len);
+		if (err < 0)
+			return err;
+	}
+
+	memcpy(&ca->buff[ca->buff_size], ptr, len);
+	ca->buff_size += len;
+
+	return err + len;
+}
+
+static int ca_cpp_read(struct ca_cpp *ca, uint32_t id, uint64_t addr,
+	                   void *ptr, size_t len)
+{
+	int err;
+
+	err = ca_cpp_flush(ca, id, addr, len);
+	if (err < 0)
+		return err;
+
+	return nfp_cpp_area_read(ca->area, ca->buff_offset, ptr, len);
+}
+
+static int nfp_ca_cb_cpp(void *priv, enum nfp_ca_action action,
+				  uint32_t cpp_id, uint64_t cpp_addr,
+				  uint64_t val, uint64_t mask)
+{
+	struct ca_cpp *ca = priv;
+	struct nfp_cpp *cpp = ca->cpp;
 	uint32_t tmp32;
 	uint64_t tmp64;
 	static unsigned int cnt;
@@ -135,6 +242,11 @@ static int nfp_ca_cpp(struct nfp_cpp *cpp, enum nfp_ca_action action,
 	int poll_action = 0;
 	int bit_len = 0;
 	int err;
+
+#if DEBUG_CA_CPP_STATS
+	ca->stats.actions++;
+#endif
+	cnt++;
 
 	switch (action) {
 	case NFP_CA_ACTION_POLL32:
@@ -153,12 +265,12 @@ static int nfp_ca_cpp(struct nfp_cpp *cpp, enum nfp_ca_action action,
 				bit_len = 64;
 
 			if (bit_len == 32) {
-				err = nfp_cpp_readl(cpp, cpp_id,
-						    cpp_addr, &tmp32);
+				err = ca_cpp_read(ca, cpp_id, cpp_addr,
+						  &tmp32, sizeof(tmp32));
 				tmp64 = tmp32;
 			} else {
-				err = nfp_cpp_readq(cpp, cpp_id,
-						    cpp_addr, &tmp64);
+				err = ca_cpp_read(ca, cpp_id, cpp_addr,
+						  &tmp64, sizeof(tmp64));
 			}
 			if (err < 0)
 				break;
@@ -205,35 +317,43 @@ static int nfp_ca_cpp(struct nfp_cpp *cpp, enum nfp_ca_action action,
 		break;
 
 	case NFP_CA_ACTION_READ_IGNV32:
-		err = nfp_cpp_readl(cpp, cpp_id, cpp_addr, &tmp32);
+		err = ca_cpp_read(ca, cpp_id, cpp_addr,
+				  &tmp32, sizeof(tmp32));
 		break;
 	case NFP_CA_ACTION_READ_IGNV64:
-		err = nfp_cpp_readq(cpp, cpp_id, cpp_addr, &tmp64);
+		err = ca_cpp_read(ca, cpp_id, cpp_addr,
+				  &tmp64, sizeof(tmp64));
 		break;
 	case NFP_CA_ACTION_WRITE32:
 		if (~(uint32_t)mask) {
-			err = nfp_cpp_readl(cpp, cpp_id, cpp_addr, &tmp32);
+			err = ca_cpp_read(ca, cpp_id, cpp_addr,
+					  &tmp32, sizeof(tmp32));
 			if (err < 0)
 				return err;
+
 			val |= tmp32 & ~mask;
 		}
-		err = nfp_cpp_writel(cpp, cpp_id, cpp_addr, val);
+		tmp32 = val;
+		err = ca_cpp_write(ca, cpp_id, cpp_addr,
+				   &tmp32, sizeof(tmp32));
 		break;
 	case NFP_CA_ACTION_WRITE64:
-		if (~(uint32_t)mask) {
-			err = nfp_cpp_readq(cpp, cpp_id, cpp_addr, &tmp64);
+		if (~(uint64_t)mask) {
+			err = ca_cpp_read(ca, cpp_id, cpp_addr,
+					  &tmp64, sizeof(tmp64));
 			if (err < 0)
 				return err;
+
 			val |= tmp64 & ~mask;
 		}
-		err = nfp_cpp_writeq(cpp, cpp_id, cpp_addr, val);
+		tmp64 = val;
+		err = ca_cpp_write(ca, cpp_id, cpp_addr, &tmp64, sizeof(tmp64));
 		break;
 	default:
 		err = -EINVAL;
 		break;
 	}
 
-	cnt++;
 	return err;
 }
 
@@ -280,8 +400,8 @@ exit:
  * @bytes: Length of buffer
  * @cb:    A callback function to be called on each item in the trace.
  */
-static int nfp_ca_parse(struct nfp_cpp *cpp, const void *buff, size_t bytes,
-			nfp_ca_callback cb)
+static int nfp_ca_parse(const void *buff, size_t bytes,
+			nfp_ca_callback cb, void *priv)
 {
 	const uint8_t *byte = buff;
 	uint8_t *zbuff = NULL;
@@ -377,7 +497,7 @@ static int nfp_ca_parse(struct nfp_cpp *cpp, const void *buff, size_t bytes,
 			/* FALLTHROUGH */
 		case NFP_CA_READ_4:
 			tmp32 = ca32_to_cpu(vp);
-			err = cb(cpp, NFP_CA_ACTION_READ32,
+			err = cb(priv, NFP_CA_ACTION_READ32,
 				 cpp_id, cpp_addr, tmp32, mask32);
 			break;
 		case NFP_CA_INC_READ_8:
@@ -385,17 +505,17 @@ static int nfp_ca_parse(struct nfp_cpp *cpp, const void *buff, size_t bytes,
 			/* FALLTHROUGH */
 		case NFP_CA_READ_8:
 			tmp64 = ca64_to_cpu(vp);
-			err = cb(cpp, NFP_CA_ACTION_READ64,
+			err = cb(priv, NFP_CA_ACTION_READ64,
 				 cpp_id, cpp_addr, tmp64, mask64);
 			break;
 		case NFP_CA_POLL_4:
 			tmp32 = ca32_to_cpu(vp);
-			err = cb(cpp, NFP_CA_ACTION_POLL32,
+			err = cb(priv, NFP_CA_ACTION_POLL32,
 				 cpp_id, cpp_addr, tmp32, mask32);
 			break;
 		case NFP_CA_POLL_8:
 			tmp64 = ca64_to_cpu(vp);
-			err = cb(cpp, NFP_CA_ACTION_POLL64,
+			err = cb(priv, NFP_CA_ACTION_POLL64,
 				 cpp_id, cpp_addr, tmp64, mask64);
 			break;
 		case NFP_CA_INC_READ_IGNV_4:
@@ -403,7 +523,7 @@ static int nfp_ca_parse(struct nfp_cpp *cpp, const void *buff, size_t bytes,
 			/* FALLTHROUGH */
 		case NFP_CA_READ_IGNV_4:
 			tmp32 = ca32_to_cpu(vp);
-			err = cb(cpp, NFP_CA_ACTION_READ_IGNV32,
+			err = cb(priv, NFP_CA_ACTION_READ_IGNV32,
 				 cpp_id, cpp_addr, tmp32, mask32);
 			break;
 		case NFP_CA_INC_READ_IGNV_8:
@@ -411,7 +531,7 @@ static int nfp_ca_parse(struct nfp_cpp *cpp, const void *buff, size_t bytes,
 			/* FALLTHROUGH */
 		case NFP_CA_READ_IGNV_8:
 			tmp64 = ca64_to_cpu(vp);
-			err = cb(cpp, NFP_CA_ACTION_READ_IGNV64,
+			err = cb(priv, NFP_CA_ACTION_READ_IGNV64,
 				 cpp_id, cpp_addr, tmp64, mask64);
 			break;
 		case NFP_CA_INC_WRITE_4:
@@ -424,7 +544,7 @@ static int nfp_ca_parse(struct nfp_cpp *cpp, const void *buff, size_t bytes,
 				tmp32 = 0;
 			else
 				tmp32 = ca32_to_cpu(vp);
-			err = cb(cpp, NFP_CA_ACTION_WRITE32,
+			err = cb(priv, NFP_CA_ACTION_WRITE32,
 				 cpp_id, cpp_addr, tmp32, mask32);
 			break;
 		case NFP_CA_INC_WRITE_8:
@@ -437,7 +557,7 @@ static int nfp_ca_parse(struct nfp_cpp *cpp, const void *buff, size_t bytes,
 				tmp64 = 0;
 			else
 				tmp64 = ca64_to_cpu(vp);
-			err = cb(cpp, NFP_CA_ACTION_WRITE64,
+			err = cb(priv, NFP_CA_ACTION_WRITE64,
 				 cpp_id, cpp_addr, tmp64, mask64);
 			break;
 		case NFP_CA_MASK_4:
@@ -488,11 +608,23 @@ exit:
  */
 int nfp_ca_replay(struct nfp_cpp *cpp, const void *ca_buffer, size_t ca_size)
 {
+	struct ca_cpp ca_cpp = { 0 };
 	int err;
 
-	err = nfp_ca_parse(cpp, ca_buffer, ca_size, &nfp_ca_null);
-	if (err < 0)
-		return err;
+	ca_cpp.cpp = cpp;
 
-	return nfp_ca_parse(cpp, ca_buffer, ca_size, &nfp_ca_cpp);
+	err = nfp_ca_parse(ca_buffer, ca_size, nfp_ca_cb_cpp, &ca_cpp);
+
+	ca_cpp_flush(&ca_cpp, 0, 0, 0);
+
+#if DEBUG_CA_CPP_STATS
+	dev_info(nfp_cpp_device(cpp),
+		 "%s: Actions: %d, Flushes: %d, Remaps: %d\n",
+		 __func__,
+		 ca_cpp.stats.actions, ca_cpp.stats.flushes,
+		 ca_cpp.stats.remaps);
+
+#endif
+
+	return err;
 }
