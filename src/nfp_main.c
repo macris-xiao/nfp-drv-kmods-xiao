@@ -369,6 +369,11 @@ static int nfp_pci_probe(struct pci_dev *pdev,
 		dev_err(&pdev->dev, "Unable to set PCI device mask.\n");
 		goto err_dma_mask;
 	}
+	err = pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(40));
+	if (err < 0) {
+		dev_err(&pdev->dev, "Unable to set device consistent mask.\n");
+		goto err_dma_mask;
+	}
 
 	err = pci_request_regions(pdev, nfp_driver_name);
 	if (err < 0) {
