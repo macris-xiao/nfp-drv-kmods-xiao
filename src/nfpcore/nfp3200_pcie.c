@@ -1415,6 +1415,7 @@ err_pcie_write_create:
 static void nfp_cpp_pcie_free(struct nfp_cpp *cpp)
 {
 	struct nfp3200_pcie *nfp = nfp_cpp_priv(cpp);
+	struct pci_dev *pdev = nfp->pdev;
 
 	BUG_ON(!nfp);
 
@@ -1427,7 +1428,7 @@ static void nfp_cpp_pcie_free(struct nfp_cpp *cpp)
 
 	nfp_em_manager_destroy(nfp->event);
 	disable_bars(nfp);
-	devm_iounmap(nfp->dev, nfp->pcietgt);
+	devm_iounmap(&pdev->dev, nfp->pcietgt);
 #ifdef CONFIG_NFP_PCI32
 	dma_free_coherent(&pdev->dev, NFP_DMA_MAX, nfp->dma_cpu_addr,
 			  nfp->dma_dev_addr);
