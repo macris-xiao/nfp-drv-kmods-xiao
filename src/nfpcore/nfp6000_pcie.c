@@ -166,7 +166,7 @@ struct nfp_bar {
 	struct resource *resource;
 };
 
-#define NFP_PCI_BARS    (PCI_64BIT_BAR_COUNT * 8)
+#define NFP_PCI_BAR_MAX    (PCI_64BIT_BAR_COUNT * 8)
 
 struct nfp6000_pcie {
 	struct pci_dev *pdev;
@@ -176,7 +176,8 @@ struct nfp6000_pcie {
 
 	/* PCI BAR management */
 	spinlock_t bar_lock;		/* Protect the PCI2CPP BAR cache */
-	struct nfp_bar bars[NFP_PCI_BARS];
+	int bars;
+	struct nfp_bar bar[NFP_PCI_BAR_MAX];
 	wait_queue_head_t bar_waiters;
 
 	/* Reserved BAR access */
@@ -527,8 +528,8 @@ static int _find_matching_bar(struct nfp6000_pcie *nfp,
 {
 	int n;
 
-	for (n = 0; n < ARRAY_SIZE(nfp->bars); n++) {
-		struct nfp_bar *bar = &nfp->bars[n];
+	for (n = 0; n < nfp->bars; n++) {
+		struct nfp_bar *bar = &nfp->bar[n];
 
 		if (bar->resource->flags & IORESOURCE_PREFETCH) {
 			if (!prefetchable)
@@ -579,8 +580,8 @@ static int _find_unused_bar_noblock(struct nfp6000_pcie *nfp, int prefetchable,
 {
 	int n, invalid = 0;
 
-	for (n = 0; n < ARRAY_SIZE(nfp->bars); n++) {
-		struct nfp_bar *bar = &nfp->bars[n];
+	for (n = 0; n < nfp->bars; n++) {
+		struct nfp_bar *bar = &nfp->bar[n];
 		int err;
 
 		if (bar->bitsize == 0) {
@@ -669,7 +670,7 @@ static int nfp_alloc_bar(struct nfp6000_pcie *nfp,
 	barnum = find_matching_bar(nfp, tgt, act, tok, offset, size, width);
 	if (barnum >= 0) {
 		/* Found a perfect match. */
-		nfp_bar_get(nfp, &nfp->bars[barnum]);
+		nfp_bar_get(nfp, &nfp->bar[barnum]);
 		spin_unlock_irqrestore(&nfp->bar_lock, irqflags);
 		return barnum;
 	}
@@ -697,12 +698,12 @@ static int nfp_alloc_bar(struct nfp6000_pcie *nfp,
 			return retval;
 	}
 
-	nfp_bar_get(nfp, &nfp->bars[barnum]);
-	retval = reconfigure_bar(nfp, &nfp->bars[barnum],
+	nfp_bar_get(nfp, &nfp->bar[barnum]);
+	retval = reconfigure_bar(nfp, &nfp->bar[barnum],
 				 tgt, act, tok, offset,
 				 size, width);
 	if (retval < 0) {
-		nfp_bar_put(nfp, &nfp->bars[barnum]);
+		nfp_bar_put(nfp, &nfp->bar[barnum]);
 		barnum = retval;
 	}
 
@@ -727,8 +728,8 @@ static ssize_t show_barcfg(struct device *dev, struct device_attribute *attr,
 	uint64_t base;
 
 	BUG_ON(!nfp);
-	for (n = 0; n < ARRAY_SIZE(nfp->bars); n++) {
-		struct nfp_bar *bar = &nfp->bars[n];
+	for (n = 0; n < nfp->bars; n++) {
+		struct nfp_bar *bar = &nfp->bar[n];
 		int users = atomic_read(&bar->refcnt);
 
 		if (users == 0 && !NFP_PCIE_VERBOSE_DEBUG)
@@ -834,8 +835,6 @@ static inline int bar_cmp(const void *aptr, const void *bptr)
  */
 static int enable_bars(struct nfp6000_pcie *nfp)
 {
-	struct nfp_bar *bar = nfp->bars;
-	int i;
 	const uint32_t barcfg_msix_general =
 		NFP_PCIE_BAR_PCIE2CPP_MapType(
 		NFP_PCIE_BAR_PCIE2CPP_MapType_GENERAL) |
@@ -856,12 +855,25 @@ static int enable_bars(struct nfp6000_pcie *nfp)
 		NFP_PCIE_BAR_PCIE2CPP_MapType(
 			NFP_PCIE_BAR_PCIE2CPP_MapType_EXPLICIT3),
 	};
+	struct nfp_bar *bar;
+	int i, bars_free;
 
 	BUG_ON(!nfp->dev);
 	BUG_ON(!nfp->pdev);
 
-	for (i = 0; i < ARRAY_SIZE(nfp->bars); i++, bar++) {
-		bar->resource = &nfp->pdev->resource[(i >> 3) * 2];
+	bar = &nfp->bar[0];
+	for (i = 0; i < ARRAY_SIZE(nfp->bar); i++, bar++) {
+		struct resource *res;
+
+		res = &nfp->pdev->resource[(i >> 3) * 2];
+
+		/* Skip over BARs that are not IORESOURCE_MEM */
+		if (!(resource_type(res) & IORESOURCE_MEM)) {
+			bar--;
+			continue;
+		}
+
+		bar->resource = res;
 		bar->barcfg = 0;
 
 		bar->nfp = nfp;
@@ -872,6 +884,9 @@ static int enable_bars(struct nfp6000_pcie *nfp)
 		bar->iomem = NULL;
 	}
 
+	nfp->bars = bar - &nfp->bar[0];
+	bars_free = nfp->bars;
+
 	/* Convert unit ID (0..3) to signal master/data master ID (0x40..0x70)
 	 */
 	mutex_init(&nfp->expl.mutex);
@@ -881,13 +896,14 @@ static int enable_bars(struct nfp6000_pcie *nfp)
 	nfp->expl.signal_ref = 0x10;
 
 	/* Configure, and lock, BAR0.0 for General Target use (MSI-X SRAM) */
-	bar = &nfp->bars[0];
+	bar = &nfp->bar[0];
 	bar->iomem = devm_ioremap_nocache(&nfp->pdev->dev,
 			nfp_bar_resource_start(bar),
 			nfp_bar_resource_len(bar));
 	if (bar->iomem) {
 		dev_info(nfp->dev, "BAR0.0 RESERVED: General Mapping/MSI-X SRAM\n");
 		atomic_inc(&bar->refcnt);
+		bars_free--;
 
 		nfp6000_bar_write(nfp, bar, barcfg_msix_general);
 
@@ -896,9 +912,10 @@ static int enable_bars(struct nfp6000_pcie *nfp)
 	nfp->iomem.general = bar->iomem;
 
 	/* Configure, and lock, BAR0.1 for PCIe XPB (MSI-X PBA) */
-	bar = &nfp->bars[1];
+	bar = &nfp->bar[1];
 	dev_info(nfp->dev, "BAR0.1 RESERVED: PCIe XPB/MSI-X PBA\n");
 	atomic_inc(&bar->refcnt);
+	bars_free--;
 
 	nfp6000_bar_write(nfp, bar, barcfg_msix_xpb);
 
@@ -911,7 +928,7 @@ static int enable_bars(struct nfp6000_pcie *nfp)
 			continue;
 		}
 
-		bar = &nfp->bars[4 + i];
+		bar = &nfp->bar[4 + i];
 		bar->iomem = devm_ioremap_nocache(&nfp->pdev->dev,
 						  nfp_bar_resource_start(bar),
 						  nfp_bar_resource_len(bar));
@@ -919,6 +936,7 @@ static int enable_bars(struct nfp6000_pcie *nfp)
 			dev_info(nfp->dev, "BAR0.%d RESERVED: Explicit%d Mapping\n",
 				 4 + i, i);
 			atomic_inc(&bar->refcnt);
+			bars_free--;
 
 			nfp->expl.group[i].bitsize = bar->bitsize;
 			nfp->expl.group[i].addr = bar->iomem;
@@ -932,18 +950,21 @@ static int enable_bars(struct nfp6000_pcie *nfp)
 
 	/* Sort bars by bit size - use the smallest possible first.
 	 */
-	sort(&nfp->bars[0], ARRAY_SIZE(nfp->bars), sizeof(nfp->bars[0]),
+	sort(&nfp->bar[0], nfp->bars, sizeof(nfp->bar[0]),
 	     bar_cmp, NULL);
+
+	dev_info(nfp->dev, "%d NFP PCI2CPP BARs, %d free\n",
+		 nfp->bars, bars_free);
 
 	return 0;
 }
 
 static void disable_bars(struct nfp6000_pcie *nfp)
 {
-	struct nfp_bar *bar = nfp->bars;
+	struct nfp_bar *bar = &nfp->bar[0];
 	int n;
 
-	for (n = 0; n < ARRAY_SIZE(nfp->bars); n++, bar++) {
+	for (n = 0; n < nfp->bars; n++, bar++) {
 		if (bar->iomem) {
 			devm_iounmap(&nfp->pdev->dev, bar->iomem);
 			bar->iomem = NULL;
@@ -1065,7 +1086,7 @@ static int nfp6000_area_acquire(struct nfp_cpp_area *area)
 		err = barnum;
 		goto err_alloc_bar;
 	}
-	priv->bar = &nfp->bars[barnum];
+	priv->bar = &nfp->bar[barnum];
 
 	/* Calculate offset into BAR. */
 	if (nfp_bar_maptype(priv->bar) ==
