@@ -70,10 +70,10 @@ module_param(nfp_fallback, bool, 0444);
 MODULE_PARM_DESC(nfp_fallback,
 		 "Fallback to nfp.ko behaviour if no suitable FW is present (default = True)");
 
-static bool nfp_reset;
+static bool nfp_reset = 1;
 module_param(nfp_reset, bool, 0444);
 MODULE_PARM_DESC(nfp_reset,
-		 "Soft reset the NFP before firmware load (default = False)");
+		 "Soft reset the NFP during firmware unload (default = True)");
 
 const char nfp_net_driver_name[] = "nfp_net";
 const char nfp_net_driver_version[] = "0.1";
