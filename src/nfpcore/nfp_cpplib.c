@@ -385,11 +385,16 @@ int __nfp_cpp_model_fixup(struct nfp_cpp *cpp)
 		uint32_t ddr0_size;
 		uint32_t ddr1_size;
 
+		/* See if the DDR is even on */
 		err = ddr3200_guess_size(cpp, 0, &ddr0_size);
 		if (err < 0) {
 			dev_err(nfp_cpp_device(cpp), "ddr3200_guess_size() failed.\n");
 			return err;
 		}
+
+		if (ddr0_size <= 0)
+			return 0;
+
 		err = ddr3200_guess_size(cpp, 1, &ddr1_size);
 		if (err < 0) {
 			dev_err(nfp_cpp_device(cpp), "ddr3200_guess_size() failed.\n");
