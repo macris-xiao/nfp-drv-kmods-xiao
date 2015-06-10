@@ -787,15 +787,6 @@ static int nfp_net_tx(struct sk_buff *skb, struct net_device *netdev)
 			txd->dma_addr_hi = ((uint64_t)dma_addr >> 32) & 0xff;
 			txd->dma_addr_lo = dma_addr & 0xffffffff;
 			txd->eop = (f == nr_frags - 1);
-
-			/* On the 6k the FW currently only supports transfer
-			 * lengths *per* TX descriptor of up to 4k. We have not
-			 * seen this happening but use an assert here to flag
-			 * it, if it does.
-			 */
-			nn_assert(txd->dma_len <= 4096,
-				  "TX desc DMA len larger than a page: %d\n",
-				  txd->dma_len);
 		}
 
 		nn->tx_gather++;
