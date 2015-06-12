@@ -160,8 +160,11 @@ static int nfp_net_fw_load(struct pci_dev *pdev,
 		}
 		if (err < 0)
 			goto err_armsp;
+	}
 
-		err = nfp_nsp_command(nfp, SPCODE_SOFT_RESET, 0, 0, 0);
+	if (nfp_reset) {
+		dev_info(&pdev->dev, "NFP soft-reset...\n");
+		err = nfp_reset_soft(nfp);
 		if (err < 0)
 			goto err_sreset;
 	}
@@ -178,7 +181,7 @@ static int nfp_net_fw_load(struct pci_dev *pdev,
 
 err_sreset:
 	release_firmware(fw);
-	dev_err(&pdev->dev, "NSP Failed to soft reset the NFP %d.\n",
+	dev_err(&pdev->dev, "Failed to soft reset the NFP %d.\n",
 		err);
 	return err;
 err_armsp:
