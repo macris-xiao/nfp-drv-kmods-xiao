@@ -195,6 +195,11 @@ static int nfp_netvf_pci_probe(struct pci_dev *pdev,
 		}
 	}
 
+	/* Get ME clock frequency from ctrl BAR
+	 * XXX for now frequency is hardcoded until we figure out how
+	 * to get the value from nfp-hwinfo into ctrl bar */
+	nn->me_freq_mhz = 1200;
+
 	err = nfp_net_netdev_init(nn->netdev);
 	if (err)
 		goto err_netdev_init;

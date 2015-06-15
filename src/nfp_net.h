@@ -16,6 +16,10 @@
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ *
+ * vim:shiftwidth=8:noexpandtab
+ *
+ * Netronome network device driver
  */
 
 #ifndef _NFP_NET_H_
@@ -399,6 +403,11 @@ struct nfp_net_r_vector {
  * @exn_name:           Name for Exception interrupt
  * @shared_handler:     Handler for shared interrupts
  * @shared_name:        Name for shared interrupt
+ * @me_freq_mhz:        ME clock_freq (MHz)
+ * @rx_coalesce_usecs      RX interrupt moderation usecs delay parameter
+ * @rx_coalesce_max_frames RX interrupt moderation frame count parameter
+ * @tx_coalesce_usecs      TX interrupt moderation usecs delay parameter
+ * @tx_coalesce_max_frames TX interrupt moderation frame count parameter
  * @qcp_cfg:            Pointer to QCP queue used for configuration notification
  * @ctrl_bar:           Pointer to mapped control BAR
  * @tx_bar:             Pointer to mapped TX queues
@@ -480,6 +489,13 @@ struct nfp_net {
 
 	irq_handler_t shared_handler;
 	char shared_name[IFNAMSIZ + 8];
+
+	u32 me_freq_mhz;
+
+	u32 rx_coalesce_usecs;
+	u32 rx_coalesce_max_frames;
+	u32 tx_coalesce_usecs;
+	u32 tx_coalesce_max_frames;
 
 	u8 __iomem *qcp_cfg;
 
@@ -652,9 +668,11 @@ int nfp_net_tx_dump(struct nfp_net_tx_ring *tx_ring, char *p);
 int nfp_net_rx_dump(struct nfp_net_rx_ring *rx_ring, char *p);
 int nfp_net_reconfig(struct nfp_net *nn, u32 update);
 void nfp_net_rss_write_itbl(struct nfp_net *nn);
+void nfp_net_coalesce_write_cfg(struct nfp_net *nn);
 int nfp_net_irqs_alloc(struct nfp_net *nn);
 void nfp_net_irqs_disable(struct nfp_net *nn);
 void __iomem *nfp_net_msix_map(struct pci_dev *pdev, unsigned nr_entries);
+
 #endif /* _NFP_NET_H_ */
 
 /*

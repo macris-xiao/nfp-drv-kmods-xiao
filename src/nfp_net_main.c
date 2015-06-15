@@ -714,6 +714,11 @@ static int nfp_net_pci_probe(struct pci_dev *pdev,
 	/* Get MAC address */
 	nfp_net_get_mac_addr(nn, nfp_dev);
 
+	/* Get ME clock frequency from ctrl BAR
+	 * XXX for now frequency is hardcoded until we figure out how
+	 * to get the value from nfp-hwinfo into ctrl bar */
+	nn->me_freq_mhz = 1200;
+
 	/*
 	 * Finalise
 	 */

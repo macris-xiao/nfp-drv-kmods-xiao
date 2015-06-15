@@ -642,6 +642,82 @@ static int nfp_net_get_dump_data(struct net_device *netdev,
 	return 0;
 }
 
+static int nfp_net_get_coalesce(struct net_device *netdev,
+				struct ethtool_coalesce *ec)
+{
+	struct nfp_net *nn = netdev_priv(netdev);
+
+	if (!(nn->pdev->msix_enabled && (nn->cap & NFP_NET_CFG_CTRL_IRQMOD)))
+		return -EINVAL;
+
+	ec->rx_coalesce_usecs       = nn->rx_coalesce_usecs;
+	ec->rx_max_coalesced_frames = nn->rx_coalesce_max_frames;
+	ec->tx_coalesce_usecs       = nn->tx_coalesce_usecs;
+	ec->tx_max_coalesced_frames = nn->tx_coalesce_max_frames;
+
+	return 0;
+}
+
+static int nfp_net_set_coalesce(struct net_device *netdev,
+				struct ethtool_coalesce *ec)
+{
+	struct nfp_net *nn = netdev_priv(netdev);
+
+	unsigned int factor;
+
+	/* Compute factor used to convert coalesce '_usecs' parameters to
+	 * ME timestamp ticks.  There are 16 ME clock cycles for each timestamp
+	 * count.
+	 */
+	factor = nn->me_freq_mhz / 16;
+
+	/*
+	 * Each pair of (usecs, max_frames) fields specifies that interrupts
+	 * should be coalesced until
+	 *      (usecs > 0 && time_since_first_completion >= usecs) ||
+	 *      (max_frames > 0 && completed_frames >= max_frames)
+	 *
+	 * It is illegal to set both usecs and max_frames to zero as this would
+	 * cause interrupts to never be generated.  To disable coalescing, set
+	 * usecs = 0 and max_frames = 1.
+	 *
+	 * Some implementations ignore the value of max_frames and use the
+	 * condition time_since_first_completion >= usecs
+	 */
+
+	if (!(nn->pdev->msix_enabled && (nn->cap & NFP_NET_CFG_CTRL_IRQMOD)))
+		return -EINVAL;
+
+	/* ensure valid configuration */
+	if (!ec->rx_coalesce_usecs && !ec->rx_max_coalesced_frames)
+		return -EINVAL;
+
+	if (!ec->tx_coalesce_usecs && !ec->tx_max_coalesced_frames)
+		return -EINVAL;
+
+	if (ec->rx_coalesce_usecs * factor >= ((1 << 16) - 1))
+		return -EINVAL;
+
+	if (ec->tx_coalesce_usecs * factor >= ((1 << 16) - 1))
+		return -EINVAL;
+
+	if (ec->rx_max_coalesced_frames >= ((1 << 16) - 1))
+		return -EINVAL;
+
+	if (ec->tx_max_coalesced_frames >= ((1 << 16) - 1))
+		return -EINVAL;
+
+	/* configuration is valid */
+	nn->rx_coalesce_usecs      = ec->rx_coalesce_usecs;
+	nn->rx_coalesce_max_frames = ec->rx_max_coalesced_frames;
+	nn->tx_coalesce_usecs      = ec->tx_coalesce_usecs;
+	nn->tx_coalesce_max_frames = ec->tx_max_coalesced_frames;
+
+	/* write configuration to device */
+	nfp_net_coalesce_write_cfg(nn);
+	return nfp_net_reconfig(nn, NFP_NET_CFG_UPDATE_IRQMOD);
+}
+
 static const struct ethtool_ops nfp_net_ethtool_ops = {
 	.get_drvinfo		= nfp_net_get_drvinfo,
 	.get_ringparam		= nfp_net_get_ringparam,
@@ -666,6 +742,8 @@ static const struct ethtool_ops nfp_net_ethtool_ops = {
 	.set_dump               = nfp_net_set_dump,
 	.get_dump_flag          = nfp_net_get_dump_flag,
 	.get_dump_data          = nfp_net_get_dump_data,
+	.get_coalesce           = nfp_net_get_coalesce,
+	.set_coalesce           = nfp_net_set_coalesce,
 };
 
 void nfp_net_set_ethtool_ops(struct net_device *netdev)

@@ -13,12 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
+ * vim:shiftwidth=8:noexpandtab
+ *
  * Netronome network device driver: Control BAR layout
  */
 #ifndef _NFP_NET_CTRL_H_
 #define _NFP_NET_CTRL_H_
 
-/* Configuration BAR size.
+/**
+ * Configuration BAR size.
  *
  * The configuration BAR is 8K in size, but on the NFP6000, due to
  * THB-350, 32k needs to be reserved.
@@ -29,10 +32,14 @@
 #define NFP_NET_CFG_BAR_SZ              (8 * 1024)
 #endif
 
-/* Offset in Freelist buffer where packet starts on RX */
+/**
+ * Offset in Freelist buffer where packet starts on RX
+ */
 #define NFP_NET_RX_OFFSET               32
 
-/* Hash type pre-pended when a RSS hash was computed */
+/**
+ * Hash type pre-pended when a RSS hash was computed
+ */
 #define NFP_NET_RSS_NONE                0
 #define NFP_NET_RSS_IPV4                1
 #define NFP_NET_RSS_IPV6                2
@@ -98,7 +105,8 @@
 #define   NFP_NET_CFG_UPDATE_RXRPRIO      (0x1 <<  4) /* RX Ring prio change */
 #define   NFP_NET_CFG_UPDATE_MSIX         (0x1 <<  5) /* MSI-X change */
 #define   NFP_NET_CFG_UPDATE_L2SWITCH     (0x1 <<  6) /* Switch changes */
-#define   NFP_NET_CFG_UPDATE_RESET	  (0x1 <<  7) /* Update due to FLR */
+#define   NFP_NET_CFG_UPDATE_RESET        (0x1 <<  7) /* Update due to FLR */
+#define   NFP_NET_CFG_UPDATE_IRQMOD       (0x1 <<  8) /* IRQ mod change */
 #define   NFP_NET_CFG_UPDATE_ERR          (0x1 << 31) /* A error occurred */
 #define NFP_NET_CFG_TXRS_ENABLE         0x0008
 #define NFP_NET_CFG_RXRS_ENABLE         0x0010
@@ -177,7 +185,7 @@
  * @NFP_NET_CFG_TXR_SZ:      Per TX ring ring size (1B entries)
  * @NFP_NET_CFG_TXR_VEC:     Per TX ring MSI-X table entry (1B entries)
  * @NFP_NET_CFG_TXR_PRIO:    Per TX ring priority (1B entries)
- * @NFP_NET_CFG_TXR_IRQ_MOD: Per TX ring interrupt moderation (4B entries)
+ * @NFP_NET_CFG_TXR_IRQ_MOD: Per TX ring interrupt moderation packet
  */
 #define NFP_NET_CFG_TXR_BASE            0x0200
 #define NFP_NET_CFG_TXR_ADDR(_x)        (NFP_NET_CFG_TXR_BASE + ((_x) * 0x8))
@@ -186,23 +194,25 @@
 #define NFP_NET_CFG_TXR_SZ(_x)          (NFP_NET_CFG_TXR_BASE + 0x400 + (_x))
 #define NFP_NET_CFG_TXR_VEC(_x)         (NFP_NET_CFG_TXR_BASE + 0x440 + (_x))
 #define NFP_NET_CFG_TXR_PRIO(_x)        (NFP_NET_CFG_TXR_BASE + 0x480 + (_x))
-#define NFP_NET_CFG_TXR_IRQ_MOD(_x)     (NFP_NET_CFG_TXR_BASE + 0x500 + (_x))
+#define NFP_NET_CFG_TXR_IRQ_MOD(_x)	(NFP_NET_CFG_TXR_BASE + 0x500 + \
+					 ((_x) * 0x4))
 
 /**
  * RX ring configuration (0x0800 - 0x0c00)
  * @NFP_NET_CFG_RXR_BASE:    Base offset for RX ring configuration
- * @NFP_NET_CFG_RXR_ADDR:    Per TX ring DMA address (8B entries)
- * @NFP_NET_CFG_RXR_SZ:      Per TX ring ring size (1B entries)
- * @NFP_NET_CFG_RXR_VEC:     Per TX ring MSI-X table entry (1B entries)
- * @NFP_NET_CFG_RXR_PRIO:    Per TX ring priority (1B entries)
- * @NFP_NET_CFG_RXR_IRQ_MOD: Per TX ring interrupt moderation (4B entries)
+ * @NFP_NET_CFG_RXR_ADDR:    Per RX ring DMA address (8B entries)
+ * @NFP_NET_CFG_RXR_SZ:      Per RX ring ring size (1B entries)
+ * @NFP_NET_CFG_RXR_VEC:     Per RX ring MSI-X table entry (1B entries)
+ * @NFP_NET_CFG_RXR_PRIO:    Per RX ring priority (1B entries)
+ * @NFP_NET_CFG_RXR_IRQ_MOD: Per RX ring interrupt moderation (4B entries)
  */
 #define NFP_NET_CFG_RXR_BASE            0x0800
 #define NFP_NET_CFG_RXR_ADDR(_x)        (NFP_NET_CFG_RXR_BASE + ((_x) * 0x8))
 #define NFP_NET_CFG_RXR_SZ(_x)          (NFP_NET_CFG_RXR_BASE + 0x200 + (_x))
 #define NFP_NET_CFG_RXR_VEC(_x)         (NFP_NET_CFG_RXR_BASE + 0x240 + (_x))
 #define NFP_NET_CFG_RXR_PRIO(_x)        (NFP_NET_CFG_RXR_BASE + 0x280 + (_x))
-#define NFP_NET_CFG_RXR_IRQ_MOD(_x)     (NFP_NET_CFG_RXR_BASE + 0x300 + (_x))
+#define NFP_NET_CFG_RXR_IRQ_MOD(_x)	(NFP_NET_CFG_RXR_BASE + 0x300 + \
+					 ((_x) * 0x4))
 
 /**
  * Interrupt Control/Cause registers (0x0c00 - 0x0d00)

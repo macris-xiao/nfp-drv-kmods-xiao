@@ -49,6 +49,13 @@
 #include <linux/ktime.h>
 #include <linux/hrtimer.h>
 
+#include "nfpcore/nfp.h"
+#include "nfpcore/nfp_cpp.h"
+/*#include "nfpcore/nfp_nffw.h"*/
+#include "nfpcore/nfp3200_pcie.h"
+#include "nfpcore/nfp6000_pcie.h"
+#include "nfpcore/nfp_dev_cpp.h"
+
 #include "nfp_net_compat.h"
 #include "nfp_net_ctrl.h"
 #include "nfp_net.h"
@@ -105,7 +112,7 @@ int nfp_net_reconfig(struct nfp_net *nn, u32 update)
  * @pdev:       PCI Device structure
  * @nr_entries: Number of entries in table to map
  *
- * If successful, the table must be un-mapped using iounmap(). 
+ * If successful, the table must be un-mapped using iounmap().
  *
  * Return: Pointer to mapped table or PTR_ERR
  */
@@ -1870,10 +1877,36 @@ void nfp_net_rss_write_itbl(struct nfp_net *nn)
 }
 
 /**
- * nfp_net_netdev_open() - Called when the device is upped
- * @netdev:      netdev structure
- *
- * Return: 0 on success or negative errno on error.
+ * nfp_net_coalesce_write_cfg - Write interrupt coalescence
+ * configuration to device
+ */
+void nfp_net_coalesce_write_cfg(struct nfp_net *nn)
+{
+	u8 i;
+	u32 factor;
+	u32 value;
+
+	/* Compute factor used to convert coalesce '_usecs' parameters to
+	 * ME timestamp ticks.  There are 16 ME clock cycles for each timestamp
+	 * count.
+	 */
+	factor = nn->me_freq_mhz / 16;
+
+	/* copy RX interrupt coalesce parameters */
+	value = (nn->rx_coalesce_max_frames << 16) |
+		(factor * nn->rx_coalesce_usecs);
+	for (i = 0; i < nn->num_r_vecs; i++)
+		nn_writel(nn->ctrl_bar, NFP_NET_CFG_RXR_IRQ_MOD(i), value);
+
+	/* copy TX interrupt coalesce parameters */
+	value = (nn->tx_coalesce_max_frames << 16) |
+		(factor * nn->tx_coalesce_usecs);
+	for (i = 0; i < nn->num_r_vecs; i++)
+		nn_writel(nn->ctrl_bar, NFP_NET_CFG_TXR_IRQ_MOD(i), value);
+}
+
+/**
+ * nfp_net_netdev_open - Called when the device is upped
  */
 static int nfp_net_netdev_open(struct net_device *netdev)
 {
@@ -1929,6 +1962,20 @@ static int nfp_net_netdev_open(struct net_device *netdev)
 		writel(cpu_to_le32(rss_cfg),
 		       nn->ctrl_bar + NFP_NET_CFG_RSS_CTRL);
 		update |= NFP_NET_CFG_UPDATE_RSS;
+	}
+
+	if (nn->pdev->msix_enabled && (nn->cap & NFP_NET_CFG_CTRL_IRQMOD)) {
+		/* defaults correspond to no IRQ moderation */
+		nn->rx_coalesce_usecs      = 0;
+		nn->rx_coalesce_max_frames = 1;
+		nn->tx_coalesce_usecs      = 0;
+		nn->tx_coalesce_max_frames = 1;
+
+		/* write configuration to device */
+		nfp_net_coalesce_write_cfg(nn);
+
+		new_ctrl |= NFP_NET_CFG_CTRL_IRQMOD;
+		update |= NFP_NET_CFG_UPDATE_IRQMOD;
 	}
 
 	/* Step 2: Configure the NFP
@@ -2377,7 +2424,7 @@ void nfp_net_info(struct nfp_net *nn)
 		(nn->pdev->msix_enabled ? "MSI-X" : "hrtimer"));
 	nn_info(nn, "VER: %#x, Maximum supported MTU: %d\n",
 		nn->ver, nn->max_mtu);
-	nn_info(nn, "CAP: %#x %s%s%s%s%s%s%s%s%s%s%s%s%s\n",
+	nn_info(nn, "CAP: %#x %s%s%s%s%s%s%s%s%s%s%s%s%s%s\n",
 		nn->cap,
 		nn->cap & NFP_NET_CFG_CTRL_PROMISC  ? "PROMISC "  : "",
 		nn->cap & NFP_NET_CFG_CTRL_L2BC     ? "L2BCFILT " : "",
@@ -2391,7 +2438,8 @@ void nfp_net_info(struct nfp_net *nn)
 		nn->cap & NFP_NET_CFG_CTRL_LSO      ? "TSO "      : "",
 		nn->cap & NFP_NET_CFG_CTRL_RSS      ? "RSS "      : "",
 		nn->cap & NFP_NET_CFG_CTRL_L2SWITCH ? "L2SWITCH " : "",
-		nn->cap & NFP_NET_CFG_CTRL_MSIXAUTO ? "AUTOMASK"  : "");
+		nn->cap & NFP_NET_CFG_CTRL_MSIXAUTO ? "AUTOMASK " : "",
+		nn->cap & NFP_NET_CFG_CTRL_IRQMOD   ? "IRQMOD"    : "");
 }
 
 /**
@@ -2526,6 +2574,10 @@ int nfp_net_netdev_init(struct net_device *netdev)
 	/* Allow L2 Broadcast through by default, if supported */
 	if (nn->cap & NFP_NET_CFG_CTRL_L2BC)
 		nn->ctrl |= NFP_NET_CFG_CTRL_L2BC;
+
+	/* Allow IRQ moderation, if supported */
+	if (nn->pdev->msix_enabled && (nn->cap & NFP_NET_CFG_CTRL_IRQMOD))
+		nn->ctrl |= NFP_NET_CFG_CTRL_IRQMOD;
 
 	/* On NFP-3200 enable MSI-X auto-masking, if supported and the
 	 * interrupts are not shared.
