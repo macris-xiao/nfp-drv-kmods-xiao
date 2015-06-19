@@ -196,10 +196,18 @@ static int ca_cpp_flush(struct ca_cpp *ca, uint32_t id, uint64_t addr, size_t le
 	return err;
 }
 
+static int ca6000_cpp_write_ustore(struct ca_cpp *ca, uint32_t id,
+	uint64_t addr, void *ptr, size_t len);
+
 static int ca_cpp_write(struct ca_cpp *ca, uint32_t id, uint64_t addr,
 			void *ptr, size_t len)
 {
 	int err = 0;
+
+	if (NFP_CPP_MODEL_IS_6000(nfp_cpp_model(ca->cpp))) {
+		if (id == NFP_CPP_ID(NFP_CPP_TARGET_CT_XPB, 65, 0))
+			return ca6000_cpp_write_ustore(ca, id, addr, ptr, len);
+	}
 
 	if (!ca->area ||
 		(len + ca->buff_size) > sizeof(ca->buff) ||
@@ -213,7 +221,7 @@ static int ca_cpp_write(struct ca_cpp *ca, uint32_t id, uint64_t addr,
 	memcpy(&ca->buff[ca->buff_size], ptr, len);
 	ca->buff_size += len;
 
-	return err + len;
+	return len;
 }
 
 static int ca_cpp_read(struct ca_cpp *ca, uint32_t id, uint64_t addr,
@@ -226,6 +234,80 @@ static int ca_cpp_read(struct ca_cpp *ca, uint32_t id, uint64_t addr,
 		return err;
 
 	return nfp_cpp_area_read(ca->area, ca->buff_offset, ptr, len);
+}
+
+/** Translate a special microengine codestore write action into the necessary
+ * sequence of writes and reads.
+ *
+ * A write with cppid = NFP_CPP_ID(NFP_CPP_TARGET_CT_XPB, 65, 0) should be
+ * handled with this function instead.
+ *
+ * The format of the address is:
+ * addr<39:32> = island_id
+ * addr<31:24> = me_num (0 based, within island)
+ * addr<23:0> = byte codestore address
+ */
+static int ca6000_cpp_write_ustore(struct ca_cpp *ca, uint32_t id,
+	uint64_t addr, void *ptr, size_t len)
+{
+	int err = 0;
+	uint64_t uw = *((uint64_t*)ptr);
+	uint32_t uwlo = uw & 0xFFFFffff;
+	uint32_t uwhi = (uw >> 32) & 0xFFFFffff;
+	uint32_t iid = (addr >> 32) & 0x3F;
+	uint32_t menum = (addr >> 24) & 0xF;
+	uint32_t uaddr = ((addr >> 3) & 0xFFFF);
+	int enable_cs =  ((uw >> 61) & 6) == 6;
+	int disable_cs = ((uw >> 61) & 5) == 5;
+	uint32_t csr_base = (iid << 24) | (1 << 16) | ((menum + 4) << 10);
+
+	/* Clear top control bits */
+	uw &= ~((uint64_t)7 << 61);
+
+	if (enable_cs) {
+		/* Set UstorAddr */
+		uaddr |= (1 << 31);
+		err = ca_cpp_write(ca, NFP_CPP_ID(NFP_CPP_TARGET_CT_XPB, 3, 1),
+			(csr_base | 0x000), &uaddr, sizeof(uaddr));
+		if (err != sizeof(uaddr))
+			return err;
+		err = ca_cpp_read(ca, NFP_CPP_ID(NFP_CPP_TARGET_CT_XPB, 2, 1),
+			(csr_base | 0x000), &uaddr, sizeof(uaddr));
+		if (err != sizeof(uaddr))
+			return err;
+	}
+
+	err = ca_cpp_write(ca, NFP_CPP_ID(NFP_CPP_TARGET_CT_XPB, 3, 1),
+		(csr_base | 0x004), &uwlo, sizeof(uwlo));
+	if (err != sizeof(uwlo))
+		return err;
+	err = ca_cpp_read(ca, NFP_CPP_ID(NFP_CPP_TARGET_CT_XPB, 2, 1),
+		(csr_base | 0x004), &uwlo, sizeof(uwlo));
+	if (err != sizeof(uaddr))
+		return err;
+
+	err = ca_cpp_write(ca, NFP_CPP_ID(NFP_CPP_TARGET_CT_XPB, 3, 1),
+		(csr_base | 0x008), &uwhi, sizeof(uwhi));
+	if (err != sizeof(uwhi))
+		return err;
+	err = ca_cpp_read(ca, NFP_CPP_ID(NFP_CPP_TARGET_CT_XPB, 2, 1),
+		(csr_base | 0x008), &uwhi, sizeof(uwhi));
+	if (err != sizeof(uwhi))
+		return err;
+
+	if (disable_cs) {
+		uaddr &= ~(1 << 31);
+		err = ca_cpp_write(ca, NFP_CPP_ID(NFP_CPP_TARGET_CT_XPB, 3, 1),
+			(csr_base | 0x000), &uaddr, sizeof(uaddr));
+		if (err != sizeof(uaddr))
+			return err;
+		err = ca_cpp_read(ca, NFP_CPP_ID(NFP_CPP_TARGET_CT_XPB, 2, 1),
+			(csr_base | 0x000), &uaddr, sizeof(uaddr));
+		if (err != sizeof(uaddr))
+			return err;
+	}
+
+	return sizeof(uw);
 }
 
 static int nfp_ca_cb_cpp(void *priv, enum nfp_ca_action action,
