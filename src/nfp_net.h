@@ -68,7 +68,7 @@ struct nfp_net;
 /* Bar allocation */
 #define NFP_NET_CRTL_BAR	0
 #define NFP_NET_TX_BAR		2
-#define NFP_NET_RX_BAR		2
+#define NFP_NET_RX_BAR		4
 
 /* Max bits in DMA address */
 #define NFP_NET_MAX_DMA_BITS	40
@@ -463,9 +463,6 @@ struct nfp_net {
 
 	int num_tx_rings;
 	int num_rx_rings;
-
-	int stride_tx;
-	int stride_rx;
 
 	int txd_cnt;
 	int rxd_cnt;

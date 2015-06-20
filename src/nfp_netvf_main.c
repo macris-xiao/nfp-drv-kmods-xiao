@@ -31,6 +31,9 @@
 
 #include "nfp_modinfo.h"
 
+/* Enable workaround for THB-350 */
+#define NFP_NET_THB350
+
 const char nfp_net_driver_name[] = "nfp_netvf";
 const char nfp_net_driver_version[] = "0.1";
 #define PCI_VENDOR_ID_NETRONOME         0x19ee
@@ -54,7 +57,6 @@ static int nfp_netvf_pci_probe(struct pci_dev *pdev,
 	struct nfp_net *nn;
 	uint32_t startq;
 	int is_nfp3200;
-	int stride = 4;
 	int err;
 
 	err = pci_enable_device_mem(pdev);
@@ -99,13 +101,16 @@ static int nfp_netvf_pci_probe(struct pci_dev *pdev,
 		goto err_dma_mask;
 	}
 
-	/* Find out how many rings are supported.
+	/* Find out how many rings are supported.  Note, for the VF we
+	 * could derive this from the BAR size (except for THB-350),
+	 * but to keep the code simple so we just read it from the
+	 * control BAR.
 	 */
 	max_tx_rings = nn_readl(ctrl_bar, NFP_NET_CFG_MAX_TXRINGS);
 	max_rx_rings = nn_readl(ctrl_bar, NFP_NET_CFG_MAX_RXRINGS);
 
-	tx_bar_sz = NFP_QCP_QUEUE_ADDR_SZ * max_tx_rings * stride;
-	rx_bar_sz = NFP_QCP_QUEUE_ADDR_SZ * max_rx_rings * stride;
+	tx_bar_sz = NFP_QCP_QUEUE_ADDR_SZ * max_tx_rings * 2;
+	rx_bar_sz = NFP_QCP_QUEUE_ADDR_SZ * max_rx_rings * 2;
 
 	/* Sanity checks */
 	if (tx_bar_sz > pci_resource_len(pdev, NFP_NET_TX_BAR)) {
@@ -126,10 +131,15 @@ static int nfp_netvf_pci_probe(struct pci_dev *pdev,
 	 */
 	switch (pdev->device) {
 	case PCI_DEVICE_NFP6000VF:
+#ifdef NFP_NET_THB350
 		startq = nn_readl(ctrl_bar, NFP_NET_CFG_START_TXQ);
 		tx_bar_off = NFP_PCIE_QUEUE(startq);
 		startq = nn_readl(ctrl_bar, NFP_NET_CFG_START_RXQ);
 		rx_bar_off = NFP_PCIE_QUEUE(startq);
+#else
+		tx_bar_off = 0;
+		rx_bar_off = 0;
+#endif
 		break;
 	default:
 		err = -ENODEV;
@@ -146,8 +156,6 @@ static int nfp_netvf_pci_probe(struct pci_dev *pdev,
 	nn->ctrl_bar = ctrl_bar;
 	nn->is_vf = 1;
 	nn->is_nfp3200 = is_nfp3200;
-	nn->stride_tx = stride;
-	nn->stride_rx = stride;
 
 #ifdef NFP_NET_HRTIMER_6000
 	nn->hrtimer = 1;

@@ -513,7 +513,6 @@ static int nfp_net_pci_probe(struct pci_dev *pdev,
 	int is_nfp3200;
 	int fw_loaded;
 	int pcie_pf;
-	int stride;
 	int err;
 
 	err = pci_enable_device(pdev);
@@ -542,12 +541,10 @@ static int nfp_net_pci_probe(struct pci_dev *pdev,
 
 	switch (pdev->device) {
 	case PCI_DEVICE_NFP3200:
-		stride = 2;
 		cpp = nfp_cpp_from_nfp3200_pcie(pdev, -1);
 		is_nfp3200 = 1;
 		break;
 	case PCI_DEVICE_NFP6000:
-		stride = 4;
 		cpp = nfp_cpp_from_nfp6000_pcie(pdev, -1);
 		is_nfp3200 = 0;
 		break;
@@ -646,8 +643,8 @@ static int nfp_net_pci_probe(struct pci_dev *pdev,
 	max_tx_rings = nn_readl(ctrl_bar, NFP_NET_CFG_MAX_TXRINGS);
 	max_rx_rings = nn_readl(ctrl_bar, NFP_NET_CFG_MAX_RXRINGS);
 
-	tx_area_sz = NFP_QCP_QUEUE_ADDR_SZ * max_tx_rings * stride;
-	rx_area_sz = NFP_QCP_QUEUE_ADDR_SZ * max_rx_rings * stride;
+	tx_area_sz = NFP_QCP_QUEUE_ADDR_SZ * max_tx_rings * 2;
+	rx_area_sz = NFP_QCP_QUEUE_ADDR_SZ * max_rx_rings * 2;
 
 	/* Allocate and initialise the netdev */
 	nn = nfp_net_netdev_alloc(pdev, max_tx_rings, max_rx_rings);
@@ -663,8 +660,6 @@ static int nfp_net_pci_probe(struct pci_dev *pdev,
 	nn->is_vf = 0;
 	nn->is_nfp3200 = is_nfp3200;
 	nn->fw_loaded = fw_loaded;
-	nn->stride_rx = stride;
-	nn->stride_tx = stride;
 
 #ifdef NFP_NET_HRTIMER_6000
 	if (!nn->is_nfp3200)
