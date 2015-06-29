@@ -540,6 +540,33 @@ static int nfp6000_check_empty_pcie_dma_queues(struct nfp_device *nfp,
 	return 0;
 }
 
+#define NFP_MON_PCIE_ABI(x)	(0x50434900 | ((x & 0xf) << 4))
+#define NFP_MON_PCIE_MAGIC	0x00
+#define NFP_MON_PCIE_CTL(x)	(0x10 + (((x) & 3) * 4))
+
+static int nfp6000_pcie_monitor_set(struct nfp_cpp *cpp,
+				    int pci, uint32_t flags)
+{
+	uint32_t cls = NFP_CPP_ID(NFP_CPP_TARGET_CLS, NFP_CPP_ACTION_RW, 0);
+	uint64_t base = (1ULL << 34) | 0x4000;
+	uint32_t tmp;
+	int err;
+
+	/* Get PCIe Monitor ABI */
+	err = nfp_cpp_readl(cpp, cls, base + NFP_MON_PCIE_MAGIC, &tmp);
+	if (err < 0)
+		return err;
+
+	/* Mask off ABI minor */
+	tmp &= ~0xf;
+
+	if (tmp != NFP_MON_PCIE_ABI(0))
+		return 0;
+
+	return nfp_cpp_writel(cpp, cls, base + NFP_MON_PCIE_CTL(pci), flags);
+}
+
+
 /* Perform a soft reset of the NFP6000:
  *   - Disable traffic ingress
  *   - Verify all NBI MAC packet buffers have returned
@@ -712,6 +739,11 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 			err = -ETIMEDOUT;
 			goto exit;
 		}
+
+		/* Set ARM PCIe Monitor to defaults */
+		err = nfp6000_pcie_monitor_set(cpp, i, 0);
+		if (err < 0)
+			goto exit;
 	}
 
 	/* Stop all MEs */
