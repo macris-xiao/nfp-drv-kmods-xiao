@@ -51,10 +51,14 @@ MODULE_PARM_DESC(nfp_net_vnic, "vNIC net devices (default = enabled)");
 bool nfp_mon_event = 1;
 module_param(nfp_mon_event, bool, 0444);
 MODULE_PARM_DESC(nfp_mon_event, "Event monitor support (default = enabled)");
-char *nfp3200_firmware;
+static bool nfp_reset;
+module_param(nfp_reset, bool, 0444);
+MODULE_PARM_DESC(nfp_reset,
+		                 "Soft reset the NFP on init (default = disable)");
+static char *nfp3200_firmware;
 module_param(nfp3200_firmware, charp, 0444);
 MODULE_PARM_DESC(nfp3200_firmware, "NFP3200 firmware to load from /lib/firmware/");
-char *nfp6000_firmware;
+static char *nfp6000_firmware;
 module_param(nfp6000_firmware, charp, 0444);
 MODULE_PARM_DESC(nfp6000_firmware, "NFP6000 firmware to load from /lib/firmware/");
 
@@ -185,15 +189,27 @@ static int nfp_pcie_fw_load(struct pci_dev *pdev, struct nfp_cpp *cpp)
 		return 0;
 	}
 
-	if (!fw_name)
+	nfp = nfp_device_from_cpp(cpp);
+	if (!nfp)
 		return 0;
+
+	if (nfp_reset) {
+		dev_info(&pdev->dev, "NFP soft-reset requested\n");
+		err = nfp_reset_soft(nfp);
+		if (err < 0) {
+			dev_warn(&pdev->dev, "Could not soft-reset, err = %d\n", err);
+			goto exit;
+		}
+		dev_info(&pdev->dev, "NFP soft-reset completed\n");
+	}
+
+	if (!fw_name) {
+		err = 0;
+		goto exit;
+	}
 
 	/* Make sure we have the ARM service processor */
 	if (need_armsp) {
-		nfp = nfp_device_from_cpp(cpp);
-		if (!nfp)
-			return 0;
-
 		for (; timeout > 0; timeout--) {
 			err = nfp_nsp_command(nfp, SPCODE_NOOP, 0, 0, 0);
 			if (err != -EAGAIN)
@@ -203,10 +219,12 @@ static int nfp_pcie_fw_load(struct pci_dev *pdev, struct nfp_cpp *cpp)
 				break;
 			}
 		}
-		nfp_device_close(nfp);
 		if (err < 0)
-			return err;
+			goto exit;
 	}
+
+	nfp_device_close(nfp);
+	nfp = NULL;
 
 	err = request_firmware(&fw, fw_name, &pdev->dev);
 	if (err < 0) {
@@ -223,8 +241,14 @@ static int nfp_pcie_fw_load(struct pci_dev *pdev, struct nfp_cpp *cpp)
 	return 1;
 
 exit:
-	dev_err(&pdev->dev, "Could not %s firmare \"%s\", err %d\n",
-		fw ? "load" : "request", fw_name, err);
+	if (nfp)
+		nfp_device_close(nfp);
+
+	if (err < 0 && fw_name) {
+		dev_err(&pdev->dev, "Could not %s firmare \"%s\", err %d\n",
+			fw ? "load" : "request", fw_name, err);
+	}
+
 	return err;
 }
 
