@@ -47,7 +47,7 @@ module_param(nfp_net_null, bool, 0444);
 MODULE_PARM_DESC(nfp_net_null, "Null net devices (default = disabled)");
 bool nfp_net_vnic = 0;
 module_param(nfp_net_vnic, bool, 0444);
-MODULE_PARM_DESC(nfp_net_vnic, "vNIC net devices (default = enabled)");
+MODULE_PARM_DESC(nfp_net_vnic, "vNIC net devices (default = disabled)");
 bool nfp_mon_event = 1;
 module_param(nfp_mon_event, bool, 0444);
 MODULE_PARM_DESC(nfp_mon_event, "Event monitor support (default = enabled)");
