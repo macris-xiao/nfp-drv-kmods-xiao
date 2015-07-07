@@ -53,68 +53,6 @@
 #define   NFP_PL_DEVICE_ID_MINOR_REV_of(_x)   (((_x) >> 0) & 0xf)
 
 /**
- * nfp_cpp_read() - read from CPP target
- * @cpp:		CPP handle
- * @destination:	CPP id
- * @address:		offset into CPP target
- * @kernel_vaddr:	kernel buffer for result
- * @length:		number of bytes to read
- *
- * Return: length of io, or -ERRNO
- */
-int nfp_cpp_read(struct nfp_cpp *cpp, uint32_t destination,
-		 unsigned long long address,
-		 void *kernel_vaddr, size_t length)
-{
-	struct nfp_cpp_area *area;
-	int err;
-
-	area = nfp_cpp_area_alloc(cpp, destination, address, length);
-	if (!area)
-		return -ENOMEM;
-
-	err = nfp_cpp_area_acquire(area);
-	if (err)
-		goto out;
-
-	err = nfp_cpp_area_read(area, 0, kernel_vaddr, length);
-out:
-	nfp_cpp_area_release_free(area);
-	return err;
-}
-
-/**
- * nfp_cpp_write() - write to CPP target
- * @cpp:		CPP handle
- * @destination:	CPP id
- * @address:		offset into CPP target
- * @kernel_vaddr:	kernel buffer to read from
- * @length:		number of bytes to write
- *
- * Return: length of io, or -ERRNO
- */
-int nfp_cpp_write(struct nfp_cpp *cpp, uint32_t destination,
-		  unsigned long long address,
-		  const void *kernel_vaddr, size_t length)
-{
-	struct nfp_cpp_area *area;
-	int err;
-
-	area = nfp_cpp_area_alloc(cpp, destination, address, length);
-	if (!area)
-		return -ENOMEM;
-
-	err = nfp_cpp_area_acquire(area);
-	if (err)
-		goto out;
-
-	err = nfp_cpp_area_write(area, 0, kernel_vaddr, length);
-out:
-	nfp_cpp_area_release_free(area);
-	return err;
-}
-
-/**
  * nfp_cpp_readl() - Read a uint32_t word from a CPP location
  * @cpp:	CPP device handle
  * @cpp_id:	CPP ID for operation

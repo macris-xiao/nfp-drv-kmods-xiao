@@ -71,6 +71,19 @@ struct nfp_cpp {
 	uint32_t imb_cat_table[16];
 	/* NFP6000 Island Mask */
 	uint64_t island_mask;
+
+	/* Cached areas for cpp/xpb readl/writel speedups */
+	struct mutex area_cache_mutex;  /* Lock for the area cache */
+	struct list_head area_cache_list;
+};
+
+/* Element of the area_cache_list */
+struct nfp_cpp_area_cache {
+	struct list_head entry;
+	uint32_t id;
+	uint64_t addr;
+	uint32_t size;
+	struct nfp_cpp_area *area;
 };
 
 struct nfp_cpp_area {
@@ -171,8 +184,18 @@ static inline void nfp_cpp_id_release(int id)
 static void __nfp_cpp_release(struct kref *kref)
 {
 	struct nfp_cpp *cpp = container_of(kref, struct nfp_cpp, kref);
+	struct nfp_cpp_area_cache *cache, *tmp;
 
 	device_remove_file(&cpp->dev, &dev_attr_area);
+
+	/* Remove all caches */
+	list_for_each_entry_safe(cache, tmp, &cpp->area_cache_list, entry) {
+		list_del(&cache->entry);
+		if (cache->id)
+			nfp_cpp_area_release(cache->area);
+		nfp_cpp_area_free(cache->area);
+		kfree(cache);
+	}
 
 	if (cpp->op->free)
 		cpp->op->free(cpp);
@@ -316,7 +339,6 @@ static void __release_cpp_area(struct kref *kref)
 	write_lock(&cpp->resource_lock);
 	__resource_del(&area->resource);
 	write_unlock(&cpp->resource_lock);
-	CPP_PUT(area->cpp);
 	kfree(area);
 }
 
@@ -379,7 +401,6 @@ struct nfp_cpp_area *nfp_cpp_area_alloc_with_name(
 	/* Zero out area */
 	memset(area, 0, sizeof(*area) + cpp->op->area_priv_size);
 
-	CPP_GET(cpp);
 	area->cpp = cpp;
 	area->resource.name = (void *)area + sizeof(*area) +
 				cpp->op->area_priv_size;
@@ -399,7 +420,6 @@ struct nfp_cpp_area *nfp_cpp_area_alloc_with_name(
 
 		err = cpp->op->area_init(area, dest, address, size);
 		if (err < 0) {
-			CPP_PUT(area->cpp);
 			kfree(area);
 			return NULL;
 		}
@@ -837,6 +857,201 @@ int nfp_cpp_area_fill(struct nfp_cpp_area *area,
 	return (int)i;
 }
 
+/**
+ * nfp_cpp_area_cache_add() - Permanently reserve and area for the hot cache
+ * @cpp:       NFP CPP handle
+ * @size:      Size of the area - MUST BE A POWER OF 2.
+ */
+int nfp_cpp_area_cache_add(struct nfp_cpp *cpp, size_t size)
+{
+	struct nfp_cpp_area_cache *cache;
+	struct nfp_cpp_area *area;
+
+	/* Allocate an area - we use the MU target's base as a placeholder,
+	 * as all supported chips have a MU.
+	 */
+	area = nfp_cpp_area_alloc(cpp, NFP_CPP_ID(7, NFP_CPP_ACTION_RW, 0),
+				  0, size);
+	if (!area)
+		return -ENOMEM;
+
+	cache = kzalloc(sizeof(*cache), GFP_KERNEL);
+	if (!cache)
+		return -ENOMEM;
+
+	cache->id = cache->addr = 0;
+	cache->size = size;
+	cache->area = area;
+	mutex_lock(&cpp->area_cache_mutex);
+	list_add_tail(&cache->entry, &cpp->area_cache_list);
+	mutex_unlock(&cpp->area_cache_mutex);
+
+	return 0;
+}
+
+static struct nfp_cpp_area_cache *area_cache_get(struct nfp_cpp *cpp,
+						 uint32_t id, uint64_t addr,
+						 unsigned long *offset,
+						 size_t length)
+{
+	struct nfp_cpp_area_cache *cache;
+	int err;
+
+	if (list_empty(&cpp->area_cache_list) || id == 0)
+		return NULL;
+
+	/* Remap from cpp_island to cpp_target */
+	err = nfp_target_cpp(id, addr, &id, &addr, cpp->imb_cat_table);
+	if (err < 0)
+		return NULL;
+
+	addr += *offset;
+
+	mutex_lock(&cpp->area_cache_mutex);
+
+	/* See if we have a match */
+	list_for_each_entry(cache, &cpp->area_cache_list, entry) {
+		if (id == cache->id &&
+		    (addr >= cache->addr) &&
+		    (addr + length <= (cache->addr + cache->size)))
+			goto exit;
+	}
+
+	/* No matches - pull the tail of the LRU */
+	cache = list_entry(cpp->area_cache_list.prev,
+			   struct nfp_cpp_area_cache, entry);
+
+	/* If id != 0, we will need to release it */
+	if (cache->id) {
+		nfp_cpp_area_release(cache->area);
+		cache->id = 0;
+		cache->addr = 0;
+	}
+
+	/* Adjust the start address to be cache size aligned */
+	cache->id = id;
+	cache->addr = addr & ~(uint64_t)(cache->size - 1);
+
+	/* Re-init to the new ID and address */
+	if (cpp->op->area_init) {
+		err = cpp->op->area_init(cache->area,
+					 id, cache->addr, cache->size);
+		if (err < 0) {
+			mutex_unlock(&cpp->area_cache_mutex);
+			return NULL;
+		}
+	}
+
+	/* Attempt to acquire */
+	err = nfp_cpp_area_acquire(cache->area);
+	if (err < 0) {
+		mutex_unlock(&cpp->area_cache_mutex);
+		return NULL;
+	}
+
+exit:
+	/* Adjust offset */
+	*offset = (addr - cache->addr);
+	return cache;
+}
+
+void area_cache_put(struct nfp_cpp *cpp, struct nfp_cpp_area_cache *cache)
+{
+	if (cache == NULL)
+		return;
+
+	/* Move to front of LRU */
+	list_del(&cache->entry);
+	list_add(&cache->entry, &cpp->area_cache_list);
+
+	mutex_unlock(&cpp->area_cache_mutex);
+}
+
+/**
+ * nfp_cpp_read() - read from CPP target
+ * @cpp:               CPP handle
+ * @destination:       CPP id
+ * @address:           offset into CPP target
+ * @kernel_vaddr:      kernel buffer for result
+ * @length:            number of bytes to read
+ *
+ * Return: length of io, or -ERRNO
+ */
+int nfp_cpp_read(struct nfp_cpp *cpp, uint32_t destination,
+		 unsigned long long address,
+		 void *kernel_vaddr, size_t length)
+{
+	struct nfp_cpp_area *area;
+	struct nfp_cpp_area_cache *cache;
+	unsigned long offset = 0;
+	int err;
+
+	cache = area_cache_get(cpp, destination, address, &offset, length);
+	if (cache) {
+		area = cache->area;
+	} else {
+		area = nfp_cpp_area_alloc(cpp, destination, address, length);
+		if (!area)
+			return -ENOMEM;
+
+		err = nfp_cpp_area_acquire(area);
+		if (err)
+			goto out;
+	}
+
+	err = nfp_cpp_area_read(area, offset, kernel_vaddr, length);
+out:
+	if (cache)
+		area_cache_put(cpp, cache);
+	else
+		nfp_cpp_area_release_free(area);
+
+	return err;
+}
+
+/**
+ * nfp_cpp_write() - write to CPP target
+ * @cpp:               CPP handle
+ * @destination:       CPP id
+ * @address:           offset into CPP target
+ * @kernel_vaddr:      kernel buffer to read from
+ * @length:            number of bytes to write
+ *
+ * Return: length of io, or -ERRNO
+ */
+int nfp_cpp_write(struct nfp_cpp *cpp, uint32_t destination,
+		  unsigned long long address,
+		  const void *kernel_vaddr, size_t length)
+{
+	struct nfp_cpp_area *area;
+	struct nfp_cpp_area_cache *cache;
+	unsigned long offset = 0;
+	int err;
+
+	cache = area_cache_get(cpp, destination, address, &offset, length);
+	if (cache) {
+		area = cache->area;
+	} else {
+		area = nfp_cpp_area_alloc(cpp, destination, address, length);
+		if (!area)
+			return -ENOMEM;
+
+		err = nfp_cpp_area_acquire(area);
+		if (err)
+			goto out;
+	}
+
+	err = nfp_cpp_area_write(area, offset, kernel_vaddr, length);
+
+out:
+	if (cache)
+		area_cache_put(cpp, cache);
+	else
+		nfp_cpp_area_release_free(area);
+
+	return err;
+}
+
 /* Return the correct CPP address, and fixup xpb_addr as needed,
  * based upon NFP model.
  */
@@ -1116,6 +1331,8 @@ struct nfp_cpp *nfp_cpp_from_operations(const struct nfp_cpp_operations *ops)
 	lockdep_set_class(&cpp->resource_lock, &nfp_cpp_resource_lock_key);
 #endif
 	INIT_LIST_HEAD(&cpp->resource_list);
+	INIT_LIST_HEAD(&cpp->area_cache_list);
+	mutex_init(&cpp->area_cache_mutex);
 	cpp->dev.init_name = "cpp";
 	cpp->dev.parent = ops->parent;
 	cpp->dev.release = nfp_cpp_dev_release;

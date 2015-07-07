@@ -129,10 +129,6 @@ static int nfp_ca_null(void *priv, enum nfp_ca_action action,
 struct ca_cpp {
 	struct nfp_cpp *cpp;
 
-	uint32_t cpp_id;
-	uint64_t cpp_addr_min, cpp_addr_max;
-	struct nfp_cpp_area *area;
-
 	uint8_t buff[128];
 	size_t buff_size;
 	uint64_t buff_offset;
@@ -140,61 +136,9 @@ struct ca_cpp {
 #if DEBUG_CA_CPP_STATS
 	struct {
 		uint32_t actions;
-		uint32_t flushes;
-		uint32_t remaps;
 	} stats;
 #endif
 };
-
-static int ca_cpp_flush(struct ca_cpp *ca, uint32_t id, uint64_t addr, size_t len)
-{
-	int err = 0;
-
-	if (ca->area) {
-		if (ca->buff_size) {
-#if DEBUG_CA_CPP_STATS
-			ca->stats.flushes++;
-#endif
-			err = nfp_cpp_area_write(ca->area, ca->buff_offset,
-						 ca->buff, ca->buff_size);
-			if (err < 0)
-			    return err;
-		}
-
-		/* New address still in bounds? */
-		if (ca->cpp_id == id &&
-			addr >= ca->cpp_addr_min &&
-			(addr + len) < ca->cpp_addr_max) {
-			ca->buff_offset = addr - ca->cpp_addr_min;
-			ca->buff_size = 0;
-			return err;
-		}
-
-		nfp_cpp_area_release_free(ca->area);
-		ca->area = NULL;
-	}
-
-	if (!id && !addr && !len)
-		return 0;
-
-	/* Allocate a new area */
-	ca->cpp_id = id;
-	ca->cpp_addr_min = addr & ~(CA_CPP_AREA_SIZE - 1);
-	ca->cpp_addr_max = ca->cpp_addr_min + CA_CPP_AREA_SIZE;
-	ca->area = nfp_cpp_area_alloc_acquire(ca->cpp, id, ca->cpp_addr_min,
-					      CA_CPP_AREA_SIZE);
-	if (!ca->area)
-		return -1;
-
-	ca->buff_offset = addr & (CA_CPP_AREA_SIZE - 1);
-	ca->buff_size = 0;
-
-#if DEBUG_CA_CPP_STATS
-	ca->stats.remaps++;
-#endif
-
-	return err;
-}
 
 static int ca6000_cpp_write_ustore(struct ca_cpp *ca, uint32_t id,
 	uint64_t addr, void *ptr, size_t len);
@@ -202,38 +146,18 @@ static int ca6000_cpp_write_ustore(struct ca_cpp *ca, uint32_t id,
 static int ca_cpp_write(struct ca_cpp *ca, uint32_t id, uint64_t addr,
 			void *ptr, size_t len)
 {
-	int err = 0;
-
 	if (NFP_CPP_MODEL_IS_6000(nfp_cpp_model(ca->cpp))) {
 		if (id == NFP_CPP_ID(NFP_CPP_TARGET_CT_XPB, 65, 0))
 			return ca6000_cpp_write_ustore(ca, id, addr, ptr, len);
 	}
 
-	if (!ca->area ||
-		(len + ca->buff_size) > sizeof(ca->buff) ||
-		id != ca->cpp_id ||
-		addr != (ca->cpp_addr_min + ca->buff_offset + ca->buff_size)) {
-		err = ca_cpp_flush(ca, id, addr, len);
-		if (err < 0)
-			return err;
-	}
-
-	memcpy(&ca->buff[ca->buff_size], ptr, len);
-	ca->buff_size += len;
-
-	return len;
+	return nfp_cpp_write(ca->cpp, id, addr, ptr, len);
 }
 
 static int ca_cpp_read(struct ca_cpp *ca, uint32_t id, uint64_t addr,
 	                   void *ptr, size_t len)
 {
-	int err;
-
-	err = ca_cpp_flush(ca, id, addr, len);
-	if (err < 0)
-		return err;
-
-	return nfp_cpp_area_read(ca->area, ca->buff_offset, ptr, len);
+	return nfp_cpp_read(ca->cpp, id, addr, ptr, len);
 }
 
 /** Translate a special microengine codestore write action into the necessary
@@ -697,14 +621,10 @@ int nfp_ca_replay(struct nfp_cpp *cpp, const void *ca_buffer, size_t ca_size)
 
 	err = nfp_ca_parse(ca_buffer, ca_size, nfp_ca_cb_cpp, &ca_cpp);
 
-	ca_cpp_flush(&ca_cpp, 0, 0, 0);
-
 #if DEBUG_CA_CPP_STATS
 	dev_info(nfp_cpp_device(cpp),
-		 "%s: Actions: %d, Flushes: %d, Remaps: %d\n",
-		 __func__,
-		 ca_cpp.stats.actions, ca_cpp.stats.flushes,
-		 ca_cpp.stats.remaps);
+		 "%s: Actions: %d\n", __func__,
+		 ca_cpp.stats.actions);
 
 #endif
 
