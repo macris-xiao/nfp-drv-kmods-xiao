@@ -837,6 +837,9 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 			goto exit;
 	}
 
+	/* Wait for the reset to propogate */
+	usleep_range(60, 100);
+
 	/* Verify all NBI MAC packet buffers have returned */
 	for (i = 0; i < 2; i++) {
 		if (!nbi[i])
