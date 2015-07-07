@@ -1499,6 +1499,13 @@ static int nfp6000_explicit_get(struct nfp_cpp_explicit *expl,
 
 static int nfp6000_init(struct nfp_cpp *cpp)
 {
+	struct nfp6000_pcie *nfp = nfp_cpp_priv(cpp);
+
+	dev_info(nfp->dev, "3 cache BARs\n");
+	nfp_cpp_area_cache_add(cpp, SZ_64K);
+	nfp_cpp_area_cache_add(cpp, SZ_64K);
+	nfp_cpp_area_cache_add(cpp, SZ_256K);
+
 	return nfp6000_pciebars_attr_add(nfp_cpp_device(cpp));
 }
 
