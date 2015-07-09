@@ -476,6 +476,13 @@ static int nfp_ca_parse(const void *buff, size_t bytes,
 		return -ENOSPC;
 	}
 
+	/* CRC check before processing */
+	if (cb != nfp_ca_null) {
+		err = nfp_ca_parse(byte, bytes, nfp_ca_null, NULL);
+		if (err < 0)
+			goto exit;
+	}
+
 	err = 0;
 	for (loc = NFP_CA_SZ(NFP_CA_START); loc < bytes;
 			loc += NFP_CA_SZ(byte[loc])) {
