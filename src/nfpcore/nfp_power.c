@@ -23,6 +23,7 @@
 
 #define CTMX_BASE				(0x60000)
 #define NFP_CTMX_CFG				(CTMX_BASE + 0x000000)
+#define NFP_CTMX_MISC				(CTMX_BASE + 0x020000)
 
 #define	NFP_ECC_CLEARERRORS			0x00000038
 #define	NFP_ECC_ECCENABLE_ENABLE		(1 << 0)
@@ -631,6 +632,11 @@ static int nfp6000_island_ctm_init(struct nfp_cpp *cpp, int island)
 	/* Set up island's CTMs for packet operation
 	 * (all CTM islands have IMBs)
 	 */
+	err = nfp_xpb_writel(cpp, NFP_XPB_OVERLAY(island) + NFP_CTMX_MISC +
+			     0x00c, 0xf);
+	if (err < 0)
+		return err;
+
 	err = nfp_xpb_writel(cpp, NFP_XPB_OVERLAY(island) +
 				  NFP_CTMX_CFG + 0x800,
 				  (0xff000000 >> ((island & 1) * 8)) |
