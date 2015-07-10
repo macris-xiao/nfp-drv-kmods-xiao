@@ -584,18 +584,8 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 	struct nfp_nbi_dev *nbi[2];
 	int mac_enable[2];
 	int i, p, err, nbi_mask = 0;
-	struct nfp_resource *res;
-	struct nfp_cpp_area *area;
 	uint32_t bpe[2][32];
 	int bpes[2];
-
-	/* Claim the nfp.nffw resource page */
-	res = nfp_resource_acquire(nfp, NFP_RESOURCE_NFP_NFFW);
-	if (!res) {
-		nfp_err(nfp, "Can't aquire %s resource\n",
-			NFP_RESOURCE_NFP_NFFW);
-		return -EBUSY;
-	}
 
 	for (i = 0; i < 2; i++) {
 		uint32_t tmp;
@@ -876,6 +866,44 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 	if (err < 0)
 		goto exit;
 
+exit:
+	return err;
+}
+
+/**
+ * nfp_reset_soft() - Perform a soft reset of the NFP
+ * @nfp:	NFP Device handle
+ *
+ * Return: 0, or -ERRNO
+ */
+int nfp_reset_soft(struct nfp_device *nfp)
+{
+	struct nfp_cpp *cpp = nfp_device_cpp(nfp);
+	struct nfp_cpp_area *area;
+	struct nfp_resource *res;
+	uint32_t model;
+	int i, err;
+
+	model = nfp_cpp_model(cpp);
+
+	/* Claim the nfp.nffw resource page */
+	res = nfp_resource_acquire(nfp, NFP_RESOURCE_NFP_NFFW);
+	if (!res) {
+		nfp_err(nfp, "Can't aquire %s resource\n",
+			NFP_RESOURCE_NFP_NFFW);
+		return -EBUSY;
+	}
+
+	if (NFP_CPP_MODEL_IS_3200(model))
+		err = nfp3200_reset_soft(nfp);
+	else if (NFP_CPP_MODEL_IS_6000(model))
+		err = nfp6000_reset_soft(nfp);
+	else
+		err = -EINVAL;
+
+	if (err < 0)
+		goto exit;
+
 	/* Clear all NFP NFFW page */
 	area = nfp_cpp_area_alloc_acquire(cpp, nfp_resource_cpp_id(res),
 					  nfp_resource_address(res),
@@ -904,30 +932,6 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 
 exit:
 	nfp_resource_release(res);
-
-	return err;
-}
-
-/**
- * nfp_reset_soft() - Perform a soft reset of the NFP
- * @nfp:	NFP Device handle
- *
- * Return: 0, or -ERRNO
- */
-int nfp_reset_soft(struct nfp_device *nfp)
-{
-	struct nfp_cpp *cpp = nfp_device_cpp(nfp);
-	uint32_t model;
-	int err;
-
-	model = nfp_cpp_model(cpp);
-
-	if (NFP_CPP_MODEL_IS_3200(model))
-		err = nfp3200_reset_soft(nfp);
-	else if (NFP_CPP_MODEL_IS_6000(model))
-		err = nfp6000_reset_soft(nfp);
-	else
-		err = -EINVAL;
 
 	return err;
 }
