@@ -744,10 +744,10 @@ err_nn_init:
 err_ctrl:
 	if (fw_loaded) {
 		if (nfp_reset) {
-			err = nfp_reset_soft(nfp_dev);
-			if (err < 0)
+			int ret = nfp_reset_soft(nfp_dev);
+			if (ret < 0)
 				dev_warn(&pdev->dev,
-					 "Couldn't unload firmware: %d\n", err);
+					 "Couldn't unload firmware: %d\n", ret);
 			else
 				dev_info(&pdev->dev,
 					 "Firmware safely unloaded\n");
