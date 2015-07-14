@@ -67,8 +67,8 @@ struct nfp_net;
 
 /* Bar allocation */
 #define NFP_NET_CRTL_BAR	0
-#define NFP_NET_TX_BAR		2
-#define NFP_NET_RX_BAR		4
+#define NFP_NET_Q0_BAR		2
+#define NFP_NET_Q1_BAR		4	/* OBSOLETE */
 
 /* Max bits in DMA address */
 #define NFP_NET_MAX_DMA_BITS	40
@@ -464,6 +464,9 @@ struct nfp_net {
 	int num_tx_rings;
 	int num_rx_rings;
 
+	int stride_tx;
+	int stride_rx;
+
 	int txd_cnt;
 	int rxd_cnt;
 
@@ -497,6 +500,7 @@ struct nfp_net {
 	u8 __iomem *qcp_cfg;
 
 	u8 __iomem *ctrl_bar;
+	u8 __iomem *q_bar;
 	u8 __iomem *tx_bar;
 	u8 __iomem *rx_bar;
 

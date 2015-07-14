@@ -509,10 +509,12 @@ static int nfp_net_pci_probe(struct pci_dev *pdev,
 	char pf_symbol[256];
 	uint16_t interface;
 	struct nfp_net *nn;
+	uint32_t version;
 	uint32_t start_q;
 	int is_nfp3200;
 	int fw_loaded;
 	int pcie_pf;
+	int stride;
 	int err;
 
 	err = pci_enable_device(pdev);
@@ -639,12 +641,48 @@ static int nfp_net_pci_probe(struct pci_dev *pdev,
 		goto err_ctrl;
 	}
 
+	/* Determine stride */
+	version = nn_readl(ctrl_bar, NFP_NET_CFG_VERSION);
+	if (((version >> 16) & 0xff) != 0) {
+		/* We only support the Generic Class */
+		dev_err(&pdev->dev, "Unknown Firmware ABI %d.%d.%d.%d\n",
+				(version >> 24) & 0xff,
+				(version >> 16) & 0xff,
+				(version >>  8) & 0xff,
+				(version >>  0) & 0xff);
+		err = -EINVAL;
+		goto err_nn_init;
+	}
+
+	switch (version) {
+	case 0x0000:
+	case 0x0001:
+	case 0x1248:
+		stride = 2;
+		dev_warn(&pdev->dev, "OBSOLETE Firmware detected - VF isolation not available\n");
+		break;
+	case 0x0100:
+		if (is_nfp3200)
+			stride = 2;
+		else
+			stride = 4;
+		break;
+	default:
+		dev_err(&pdev->dev, "Unsupported Firmware ABI %d.%d.%d.%d\n",
+				(version >> 24) & 0xff,
+				(version >> 16) & 0xff,
+				(version >>  8) & 0xff,
+				(version >>  0) & 0xff);
+		err = -EINVAL;
+		goto err_nn_init;
+	}
+
 	/* Find how many rings are supported */
 	max_tx_rings = nn_readl(ctrl_bar, NFP_NET_CFG_MAX_TXRINGS);
 	max_rx_rings = nn_readl(ctrl_bar, NFP_NET_CFG_MAX_RXRINGS);
 
-	tx_area_sz = NFP_QCP_QUEUE_ADDR_SZ * max_tx_rings * 2;
-	rx_area_sz = NFP_QCP_QUEUE_ADDR_SZ * max_rx_rings * 2;
+	tx_area_sz = NFP_QCP_QUEUE_ADDR_SZ * max_tx_rings * stride;
+	rx_area_sz = NFP_QCP_QUEUE_ADDR_SZ * max_rx_rings * stride;
 
 	/* Allocate and initialise the netdev */
 	nn = nfp_net_netdev_alloc(pdev, max_tx_rings, max_rx_rings);
@@ -653,6 +691,7 @@ static int nfp_net_pci_probe(struct pci_dev *pdev,
 		goto err_nn_init;
 	}
 
+	nn->ver = version;
 	nn->cpp = cpp;
 	nn->nfp_dev_cpp = dev_cpp;
 	nn->ctrl_area = ctrl_area;
@@ -660,6 +699,8 @@ static int nfp_net_pci_probe(struct pci_dev *pdev,
 	nn->is_vf = 0;
 	nn->is_nfp3200 = is_nfp3200;
 	nn->fw_loaded = fw_loaded;
+	nn->stride_rx = stride;
+	nn->stride_tx = stride;
 
 #ifdef NFP_NET_HRTIMER_6000
 	if (!nn->is_nfp3200)
@@ -745,6 +786,7 @@ err_ctrl:
 	if (fw_loaded) {
 		if (nfp_reset) {
 			int ret = nfp_reset_soft(nfp_dev);
+
 			if (ret < 0)
 				dev_warn(&pdev->dev,
 					 "Couldn't unload firmware: %d\n", ret);

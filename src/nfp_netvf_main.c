@@ -31,9 +31,6 @@
 
 #include "nfp_modinfo.h"
 
-/* Enable workaround for THB-350 */
-#define NFP_NET_THB350
-
 const char nfp_net_driver_name[] = "nfp_netvf";
 const char nfp_net_driver_version[] = "0.1";
 #define PCI_VENDOR_ID_NETRONOME         0x19ee
@@ -53,10 +50,13 @@ static int nfp_netvf_pci_probe(struct pci_dev *pdev,
 	int max_tx_rings, max_rx_rings;
 	uint32_t tx_bar_off, rx_bar_off;
 	uint32_t tx_bar_sz, rx_bar_sz;
+	int tx_bar_no, rx_bar_no;
 	u8 __iomem *ctrl_bar;
 	struct nfp_net *nn;
+	uint32_t version;
 	uint32_t startq;
 	int is_nfp3200;
+	int stride;
 	int err;
 
 	err = pci_enable_device_mem(pdev);
@@ -101,28 +101,68 @@ static int nfp_netvf_pci_probe(struct pci_dev *pdev,
 		goto err_dma_mask;
 	}
 
-	/* Find out how many rings are supported.  Note, for the VF we
-	 * could derive this from the BAR size (except for THB-350),
-	 * but to keep the code simple so we just read it from the
-	 * control BAR.
+	/* Determine stride */
+	version = nn_readl(ctrl_bar, NFP_NET_CFG_VERSION);
+	if (((version >> 16) & 0xff) != 0) {
+		/* We only support the Generic Class */
+		dev_err(&pdev->dev, "Unknown Firmware ABI %d.%d.%d.%d\n",
+				(version >> 24) & 0xff,
+				(version >> 16) & 0xff,
+				(version >>  8) & 0xff,
+				(version >>  0) & 0xff);
+		err = -EINVAL;
+		goto err_nn_init;
+	}
+
+	switch (version) {
+	case 0x0000:
+	case 0x0001:
+	case 0x1248:
+		dev_warn(&pdev->dev, "OBSOLETE Firmware detected - VF isolation not available\n");
+		stride = 2;
+		tx_bar_no = NFP_NET_Q0_BAR;
+		rx_bar_no = NFP_NET_Q1_BAR;
+		break;
+	case 0x0100:
+		if (is_nfp3200) {
+			stride = 2;
+			tx_bar_no = NFP_NET_Q0_BAR;
+			rx_bar_no = NFP_NET_Q1_BAR;
+		} else {
+			stride = 4;
+			tx_bar_no = NFP_NET_Q0_BAR;
+			rx_bar_no = tx_bar_no;
+		}
+		break;
+	default:
+		dev_err(&pdev->dev, "Unsupported Firmware ABI %d.%d.%d.%d\n",
+				(version >> 24) & 0xff,
+				(version >> 16) & 0xff,
+				(version >>  8) & 0xff,
+				(version >>  0) & 0xff);
+		err = -EINVAL;
+		goto err_nn_init;
+	}
+
+	/* Find out how many rings are supported.
 	 */
 	max_tx_rings = nn_readl(ctrl_bar, NFP_NET_CFG_MAX_TXRINGS);
 	max_rx_rings = nn_readl(ctrl_bar, NFP_NET_CFG_MAX_RXRINGS);
 
-	tx_bar_sz = NFP_QCP_QUEUE_ADDR_SZ * max_tx_rings * 2;
-	rx_bar_sz = NFP_QCP_QUEUE_ADDR_SZ * max_rx_rings * 2;
+	tx_bar_sz = NFP_QCP_QUEUE_ADDR_SZ * max_tx_rings * stride;
+	rx_bar_sz = NFP_QCP_QUEUE_ADDR_SZ * max_rx_rings * stride;
 
 	/* Sanity checks */
-	if (tx_bar_sz > pci_resource_len(pdev, NFP_NET_TX_BAR)) {
+	if (tx_bar_sz > pci_resource_len(pdev, tx_bar_no)) {
 		dev_err(&pdev->dev,
 			"TX BAR too small for number of TX rings. Adjusting");
-		tx_bar_sz = pci_resource_len(pdev, NFP_NET_TX_BAR);
+		tx_bar_sz = pci_resource_len(pdev, tx_bar_no);
 		max_tx_rings = (tx_bar_sz / NFP_QCP_QUEUE_ADDR_SZ) / 2;
 	}
-	if (rx_bar_sz > pci_resource_len(pdev, NFP_NET_RX_BAR)) {
+	if (rx_bar_sz > pci_resource_len(pdev, rx_bar_no)) {
 		dev_err(&pdev->dev,
 			"RX BAR too small for number of RX rings. Adjusting");
-		rx_bar_sz = pci_resource_len(pdev, NFP_NET_RX_BAR);
+		rx_bar_sz = pci_resource_len(pdev, rx_bar_no);
 		max_rx_rings = (rx_bar_sz / NFP_QCP_QUEUE_ADDR_SZ) / 2;
 	}
 
@@ -131,20 +171,17 @@ static int nfp_netvf_pci_probe(struct pci_dev *pdev,
 	 */
 	switch (pdev->device) {
 	case PCI_DEVICE_NFP6000VF:
-#ifdef NFP_NET_THB350
 		startq = nn_readl(ctrl_bar, NFP_NET_CFG_START_TXQ);
 		tx_bar_off = NFP_PCIE_QUEUE(startq);
 		startq = nn_readl(ctrl_bar, NFP_NET_CFG_START_RXQ);
 		rx_bar_off = NFP_PCIE_QUEUE(startq);
-#else
-		tx_bar_off = 0;
-		rx_bar_off = 0;
-#endif
 		break;
 	default:
 		err = -ENODEV;
 		goto err_nn_init;
 	}
+
+
 
 	/* Allocate and initialise the netdev */
 	nn = nfp_net_netdev_alloc(pdev, max_tx_rings, max_rx_rings);
@@ -153,34 +190,67 @@ static int nfp_netvf_pci_probe(struct pci_dev *pdev,
 		goto err_nn_init;
 	}
 
+	nn->ver = version;
 	nn->ctrl_bar = ctrl_bar;
 	nn->is_vf = 1;
 	nn->is_nfp3200 = is_nfp3200;
+	nn->stride_tx = stride;
+	nn->stride_rx = stride;
 
 #ifdef NFP_NET_HRTIMER_6000
 	nn->hrtimer = 1;
 #endif
 
-	/* TX queues */
-	nn->tx_bar = devm_ioremap_nocache(
-		&pdev->dev,
-		pci_resource_start(pdev, NFP_NET_TX_BAR) + tx_bar_off,
-		tx_bar_sz);
-	if (!nn->tx_bar) {
-		nn_err(nn, "Failed to map resource %d", NFP_NET_TX_BAR);
-		err = -EIO;
-		goto err_barmap_tx;
-	}
+	if (rx_bar_no == tx_bar_no) {
+		uint32_t bar_off, bar_sz;
 
-	/* RX queues */
-	nn->rx_bar = devm_ioremap_nocache(
-		&pdev->dev,
-		pci_resource_start(pdev, NFP_NET_RX_BAR) + rx_bar_off,
-		rx_bar_sz);
-	if (!nn->rx_bar) {
-		nn_err(nn, "Failed to map resource %d", NFP_NET_RX_BAR);
-		err = -EIO;
-		goto err_barmap_rx;
+		/* Make a single overlapping BAR mapping */
+		if (tx_bar_off < rx_bar_off)
+			bar_off = tx_bar_off;
+		else
+			bar_off = rx_bar_off;
+
+		if ((tx_bar_off + tx_bar_sz) > (rx_bar_off + rx_bar_sz))
+			bar_sz = (tx_bar_off + tx_bar_sz) - bar_off;
+		else
+			bar_sz = (rx_bar_off + rx_bar_sz) - bar_off;
+
+		nn->q_bar = devm_ioremap_nocache(
+			&pdev->dev,
+			pci_resource_start(pdev, tx_bar_no) + bar_off,
+			bar_sz);
+		if (!nn->q_bar) {
+			nn_err(nn, "Failed to map resource %d", tx_bar_no);
+			err = -EIO;
+			goto err_barmap_tx;
+		}
+
+		/* TX queues */
+		nn->tx_bar = nn->q_bar + (tx_bar_off - bar_off);
+		/* RX queues */
+		nn->rx_bar = nn->q_bar + (rx_bar_off - bar_off);
+	} else {
+		/* TX queues */
+		nn->tx_bar = devm_ioremap_nocache(
+			&pdev->dev,
+			pci_resource_start(pdev, tx_bar_no) + tx_bar_off,
+			tx_bar_sz);
+		if (!nn->tx_bar) {
+			nn_err(nn, "Failed to map resource %d", tx_bar_no);
+			err = -EIO;
+			goto err_barmap_tx;
+		}
+
+		/* RX queues */
+		nn->rx_bar = devm_ioremap_nocache(
+			&pdev->dev,
+			pci_resource_start(pdev, rx_bar_no) + rx_bar_off,
+			rx_bar_sz);
+		if (!nn->rx_bar) {
+			nn_err(nn, "Failed to map resource %d", rx_bar_no);
+			err = -EIO;
+			goto err_barmap_rx;
+		}
 	}
 
 	/* XXX For now generate a MAC address until we figured out how
@@ -223,9 +293,13 @@ err_netdev_init:
 err_map_msix_table:
 	nfp_net_irqs_disable(nn);
 err_irqs_alloc:
-	devm_iounmap(&pdev->dev, nn->rx_bar);
+	if (!nn->q_bar)
+		devm_iounmap(&pdev->dev, nn->rx_bar);
 err_barmap_rx:
-	devm_iounmap(&pdev->dev, nn->tx_bar);
+	if (!nn->q_bar)
+		devm_iounmap(&pdev->dev, nn->tx_bar);
+	else
+		devm_iounmap(&pdev->dev, nn->q_bar);
 err_barmap_tx:
 	pci_set_drvdata(pdev, NULL);
 	nfp_net_netdev_free(nn);
@@ -254,8 +328,12 @@ static void nfp_netvf_pci_remove(struct pci_dev *pdev)
 		iounmap(nn->msix_table);
 	nfp_net_irqs_disable(nn);
 
-	devm_iounmap(&pdev->dev, nn->rx_bar);
-	devm_iounmap(&pdev->dev, nn->tx_bar);
+	if (!nn->q_bar) {
+		devm_iounmap(&pdev->dev, nn->rx_bar);
+		devm_iounmap(&pdev->dev, nn->tx_bar);
+	} else {
+		devm_iounmap(&pdev->dev, nn->q_bar);
+	}
 	devm_iounmap(&pdev->dev, nn->ctrl_bar);
 
 	pci_set_drvdata(pdev, NULL);

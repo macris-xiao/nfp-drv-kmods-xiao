@@ -412,7 +412,7 @@ static void nfp_net_tx_ring_init(struct nfp_net_tx_ring *tx_ring)
 	struct nfp_net_r_vector *r_vec = tx_ring->r_vec;
 	struct nfp_net *nn = r_vec->nfp_net;
 
-	tx_ring->qcidx = tx_ring->idx * 2;
+	tx_ring->qcidx = tx_ring->idx * nn->stride_tx;
 	tx_ring->qcp_q = nn->tx_bar + NFP_QCP_QUEUE_OFF(tx_ring->qcidx);
 }
 
@@ -425,8 +425,8 @@ static void nfp_net_rx_ring_init(struct nfp_net_rx_ring *rx_ring)
 	struct nfp_net_r_vector *r_vec = rx_ring->r_vec;
 	struct nfp_net *nn = r_vec->nfp_net;
 
-	rx_ring->fl_qcidx = rx_ring->idx * 2;
-	rx_ring->rx_qcidx = rx_ring->fl_qcidx + 1;
+	rx_ring->fl_qcidx = rx_ring->idx * nn->stride_rx;
+	rx_ring->rx_qcidx = rx_ring->fl_qcidx + (nn->stride_rx - 1);
 
 	rx_ring->qcp_fl = nn->rx_bar + NFP_QCP_QUEUE_OFF(rx_ring->fl_qcidx);
 	rx_ring->qcp_rx = nn->rx_bar + NFP_QCP_QUEUE_OFF(rx_ring->rx_qcidx);
