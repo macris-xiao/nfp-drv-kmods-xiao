@@ -547,8 +547,8 @@ static struct ecc_location const arm_ecc[] = {
 	{ 0x110000, 1, NFP6000_DEVICE_PCI_PCI },   /* Queue controller ECC */
 	{ 0x120000, 4, NFP6000_DEVICE_PCI_PCI },   /* SRAM ECC */
 }, cry_ecc[] = {
-	{ 0x120000, 1 },
-	{ 0x130000, 16 },
+	{ 0x120000, 1, NFP6000_DEVICE_CRP_CRP },
+	{ 0x130000, 16, NFP6000_DEVICE_CRP_CRP },
 }, imu_ecc[] = {
 	{ 0x210000, 3 },
 	{ 0x220000, 2 },
@@ -568,8 +568,8 @@ static struct ecc_location const arm_ecc[] = {
 	{ 0x5d0000, 1,  NFP6000_DEVICE_EMU_DDR0 }, /*  TCache 6 */
 	{ 0x5f0000, 1,  NFP6000_DEVICE_EMU_DDR0 }, /*  TCache 7 */
 }, ila_ecc[] = {
-	{ 0x120000, 4 },
-	{ 0x130000, 1 },
+	{ 0x120000, 4,  NFP6000_DEVICE_ILA_ILA },
+	{ 0x130000, 1,  NFP6000_DEVICE_ILA_ILA },
 }, nbi_ecc[] = {
 	{ 0x110000, 1 },
 	{ 0x120000, 1 },
