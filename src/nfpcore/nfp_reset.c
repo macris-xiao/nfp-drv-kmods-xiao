@@ -98,10 +98,11 @@ static int nfp3200_reset_soft(struct nfp_device *nfp)
 #define NFP_QCTLR_STS_HI                                     0x0000000c
 #define   NFP_QCTLR_STS_HI_EMPTY				BIT(26)
 
-int nfp6000_island_power(struct nfp_device *nfp, int nbi_mask, int state)
+int nfp6000_island_reset(struct nfp_device *nfp, int nbi_mask)
 {
 	int err;
 	int i, u;
+	int state = NFP_DEVICE_STATE_RESET;
 
 	/* Reset NBI cores */
 	for (i = 0; i < 2; i++) {
@@ -187,6 +188,98 @@ int nfp6000_island_power(struct nfp_device *nfp, int nbi_mask, int state)
 
 	return 0;
 }
+
+int nfp6000_island_on(struct nfp_device *nfp, int nbi_mask)
+{
+	int err;
+	int i, u;
+	int state = NFP_DEVICE_STATE_ON;
+
+	/* Reset NBI cores */
+	for (i = 0; i < 2; i++) {
+		if ((nbi_mask & BIT(i)) == 0)
+			continue;
+
+		err = nfp_power_set(nfp,
+				    NFP6000_DEVICE_NBI(i,
+						       NFP6000_DEVICE_NBI_CORE),
+				    state);
+		if (err < 0) {
+			if (err == -ENODEV)
+				continue;
+			return err;
+		}
+	}
+
+	/* Reset ILA cores */
+	for (i = 0; i < 2; i++) {
+		for (u = 0; u <= NFP6000_DEVICE_ILA_MEG1; u++) {
+			err = nfp_power_set(nfp,
+					    NFP6000_DEVICE_ILA(i, u), state);
+			if (err < 0) {
+				if (err == -ENODEV)
+					break;
+				return err;
+			}
+		}
+	}
+
+	/* Reset FPC cores */
+	for (i = 0; i < 7; i++) {
+		for (u = 0; u <= NFP6000_DEVICE_FPC_MEG5; u++) {
+			err = nfp_power_set(nfp,
+					    NFP6000_DEVICE_FPC(i, u), state);
+			if (err < 0) {
+				if (err == -ENODEV)
+					break;
+				return err;
+			}
+		}
+	}
+
+	/* Reset IMU islands */
+	for (i = 0; i < 2; i++) {
+		for (u = 0; u <= NFP6000_DEVICE_IMU_NLU; u++) {
+			err = nfp_power_set(nfp,
+					    NFP6000_DEVICE_IMU(i, u), state);
+			if (err < 0) {
+				if (err == -ENODEV)
+					break;
+				return err;
+			}
+		}
+	}
+
+	/* Reset CRP islands */
+	for (i = 0; i < 2; i++) {
+		for (u = 0; u <= NFP6000_DEVICE_CRP_MEG1; u++) {
+			err = nfp_power_set(nfp,
+					    NFP6000_DEVICE_CRP(i, u), state);
+			if (err < 0) {
+				if (err == -ENODEV)
+					break;
+				return err;
+			}
+		}
+	}
+
+	/* Reset PCI islands (MEGs only!) */
+	for (i = 0; i < 4; i++) {
+		for (u = NFP6000_DEVICE_PCI_MEG0; u <= NFP6000_DEVICE_PCI_MEG1;
+		     u++) {
+			err = nfp_power_set(nfp,
+					    NFP6000_DEVICE_PCI(i, u), state);
+			if (err < 0) {
+				if (err == -ENODEV)
+					break;
+				return err;
+			}
+		}
+	}
+
+	return 0;
+}
+
 
 #define NFP_ME_CTXENABLES		0x00000018
 #define  NFP_ME_CTXENABLES_INUSECONTEXTS	BIT(31)
@@ -858,11 +951,11 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 	}
 
 	/* Soft reset subcomponents relevant to this model */
-	err = nfp6000_island_power(nfp, nbi_mask, NFP_DEVICE_STATE_RESET);
+	err = nfp6000_island_reset(nfp, nbi_mask);
 	if (err < 0)
 		goto exit;
 
-	err = nfp6000_island_power(nfp, nbi_mask, NFP_DEVICE_STATE_ON);
+	err = nfp6000_island_on(nfp, nbi_mask);
 	if (err < 0)
 		goto exit;
 
