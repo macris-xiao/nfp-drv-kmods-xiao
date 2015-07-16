@@ -132,11 +132,19 @@ static int nfp_net_fw_load(struct pci_dev *pdev,
 	struct nfp_cpp *cpp = nfp_device_cpp(nfp);
 	const struct firmware *fw;
 	const char *fw_name;
+	uint16_t interface;
 	int timeout = 30; /* Seconds */
 	int err;
 
 	if (fw_noload)
 		return 0;
+
+	interface = nfp_cpp_interface(cpp);
+	if (NFP_CPP_INTERFACE_UNIT_of(interface) != 0) {
+		/* Only Unit 0 can load firmware */
+		dev_info(&pdev->dev, "Firmware will be loaded by partner\n");
+		return 0;
+	}
 
 	fw_name = nfp_net_fw_select(pdev);
 
