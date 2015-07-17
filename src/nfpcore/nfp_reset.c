@@ -98,7 +98,7 @@ static int nfp3200_reset_soft(struct nfp_device *nfp)
 #define NFP_QCTLR_STS_HI                                     0x0000000c
 #define   NFP_QCTLR_STS_HI_EMPTY				BIT(26)
 
-int nfp6000_island_reset(struct nfp_device *nfp, int nbi_mask)
+static int nfp6000_island_reset(struct nfp_device *nfp, int nbi_mask)
 {
 	int err;
 	int i, u;
@@ -189,7 +189,7 @@ int nfp6000_island_reset(struct nfp_device *nfp, int nbi_mask)
 	return 0;
 }
 
-int nfp6000_island_on(struct nfp_device *nfp, int nbi_mask)
+static int nfp6000_island_on(struct nfp_device *nfp, int nbi_mask)
 {
 	int err;
 	int i, u;
