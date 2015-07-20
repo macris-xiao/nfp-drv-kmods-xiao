@@ -955,7 +955,8 @@ exit:
 	return cache;
 }
 
-void area_cache_put(struct nfp_cpp *cpp, struct nfp_cpp_area_cache *cache)
+static void area_cache_put(struct nfp_cpp *cpp,
+			   struct nfp_cpp_area_cache *cache)
 {
 	if (cache == NULL)
 		return;
