@@ -49,13 +49,6 @@
 #include <linux/ktime.h>
 #include <linux/hrtimer.h>
 
-#include "nfpcore/nfp.h"
-#include "nfpcore/nfp_cpp.h"
-/*#include "nfpcore/nfp_nffw.h"*/
-#include "nfpcore/nfp3200_pcie.h"
-#include "nfpcore/nfp6000_pcie.h"
-#include "nfpcore/nfp_dev_cpp.h"
-
 #include "nfp_net_compat.h"
 #include "nfp_net_ctrl.h"
 #include "nfp_net.h"
