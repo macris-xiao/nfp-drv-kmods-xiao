@@ -12,6 +12,7 @@
 CONFIG_NFP ?= m
 CONFIG_NFP_NET ?= m
 CONFIG_NFP_NETVF ?= m
+CONFIG_NFP_UIO ?= m
 
 # un-comment for debug symbols
 # override EXTRA_CFLAGS += -g3
@@ -45,6 +46,7 @@ override EXTRA_CFLAGS += -I$(src)
 obj-$(CONFIG_NFP)	+= nfp.o
 obj-$(CONFIG_NFP_NET)	+= nfp_net.o
 obj-$(CONFIG_NFP_NETVF)	+= nfp_netvf.o
+obj-$(CONFIG_NFP_UIO)	+= nfp_uio.o
 
 nfpcore-objs := \
 	    nfpcore/nfp3200_pcie.o \
@@ -90,6 +92,9 @@ nfp_netvf-objs := \
 	    nfp_net_common.o \
 	    nfp_net_ethtool.o \
 	    nfp_netvf_main.o
+
+nfp_uio-objs := $(nfpcore-objs) \
+	    nfp_uio_main.o
 
 ####################
 # Build information
