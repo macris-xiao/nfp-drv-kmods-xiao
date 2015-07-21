@@ -128,6 +128,7 @@ static inline void pci_unlock(struct pci_dev *pdev)
 #endif
 }
 
+#ifdef CONFIG_PCI_MSI
 /*
  * It masks the msi on/off of generating MSI messages.
  */
@@ -173,6 +174,7 @@ static int nfp_uio_msix_mask_irq(struct msi_desc *desc, int32_t state)
 
     return 0;
 }
+#endif /* CONFIG_PCI_MSI */
 
 /**
  * This function sets/clears the masks for generating LSC interrupts.
@@ -193,18 +195,7 @@ static int nfp_uio_set_interrupt_mask(struct nfp_uio_pci_dev *udev,
     /* TODO: Should we change this based on if the firmware advertises
        NFP_NET_CFG_CTRL_MSIXAUTO? */
 
-    if (udev->mode == NFP_UIO_MSIX_INTR_MODE) {
-        struct msi_desc *desc;
-        list_for_each_entry(desc, &pdev->msi_list, list) {
-            nfp_uio_msix_mask_irq(desc, state);
-        }
-    }
-    if (udev->mode == NFP_UIO_MSI_INTR_MODE) {
-        struct msi_desc *desc;
-        list_for_each_entry(desc, &pdev->msi_list, list) {
-            nfp_uio_msi_mask_irq(desc, state);
-        }
-    } else if (udev->mode == NFP_UIO_LEGACY_INTR_MODE) {
+    if (udev->mode == NFP_UIO_LEGACY_INTR_MODE) {
         uint32_t status;
         uint16_t old, new;
 
@@ -217,6 +208,18 @@ static int nfp_uio_set_interrupt_mask(struct nfp_uio_pci_dev *udev,
 
         if (old != new)
             pci_write_config_word(pdev, PCI_COMMAND, new);
+#ifdef CONFIG_PCI_MSI
+    } else if (udev->mode == NFP_UIO_MSIX_INTR_MODE) {
+        struct msi_desc *desc;
+        list_for_each_entry(desc, &pdev->msi_list, list) {
+            nfp_uio_msix_mask_irq(desc, state);
+        }
+    } else if (udev->mode == NFP_UIO_MSI_INTR_MODE) {
+        struct msi_desc *desc;
+        list_for_each_entry(desc, &pdev->msi_list, list) {
+            nfp_uio_msi_mask_irq(desc, state);
+        }
+#endif
     }
 
     return 0;
