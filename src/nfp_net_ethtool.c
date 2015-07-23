@@ -21,6 +21,7 @@
  */
 
 #include <linux/version.h>
+#include <linux/kernel.h>
 #include <linux/netdevice.h>
 #include <linux/etherdevice.h>
 #include <linux/interrupt.h>
@@ -40,7 +41,7 @@ struct _nfp_net_et_stats {
 };
 
 #define NN_ET_NETDEV_STAT(m) NETDEV_ET_STATS,			\
-		sizeof(((struct net_device_stats *)0)->m),	\
+		FIELD_SIZEOF(struct net_device_stats, m),	\
 		offsetof(struct net_device_stats, m)
 #define NN_ET_DRV_STAT(m) NFP_NET_DRV_ET_STATS,			\
 		sizeof(u64),					\
