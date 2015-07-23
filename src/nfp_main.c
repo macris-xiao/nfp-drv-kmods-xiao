@@ -210,6 +210,7 @@ static int nfp_pcie_fw_load(struct pci_dev *pdev, struct nfp_cpp *cpp)
 
 	/* Make sure we have the ARM service processor */
 	if (need_armsp) {
+		dev_info(&pdev->dev, "Waiting for NSP to respond (%d sec max).\n", timeout);
 		for (; timeout > 0; timeout--) {
 			err = nfp_nsp_command(nfp, SPCODE_NOOP, 0, 0, 0);
 			if (err != -EAGAIN)
