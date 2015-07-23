@@ -369,6 +369,8 @@ static int nfp6000_bar_write(struct nfp6000_pcie *nfp, struct nfp_bar *bar,
 	if (nfp->iomem.general) {
 		xbar = NFP_PCIE_CPP_BAR_PCIETOCPPEXPANSIONBAR(base, slot);
 		writel(newcfg, nfp->iomem.general + xbar);
+		/* Readback to ensure BAR is flushed */
+		(void)readl(nfp->iomem.general + xbar);
 	} else {
 		xbar = NFP_PCIE_CFG_BAR_PCIETOCPPEXPANSIONBAR(base, slot);
 		pci_write_config_dword(nfp->pdev, xbar, newcfg);
@@ -1453,20 +1455,42 @@ static int nfp6000_explicit_do(struct nfp_cpp_explicit *expl,
 		}
 	}
 
-	pci_write_config_dword(nfp->pdev, 0x400 +
-			NFP_PCIE_BAR_EXPLICIT_BAR0(
-				priv->bar.group, priv->bar.area),
-			csr[0]);
+	if (nfp->iomem.general) {
+		writel(csr[0], nfp->iomem.general + 0x30000 +
+		       NFP_PCIE_BAR_EXPLICIT_BAR0( priv->bar.group,
+						   priv->bar.area));
+		writel(csr[1], nfp->iomem.general + 0x30000 +
+		       NFP_PCIE_BAR_EXPLICIT_BAR1( priv->bar.group,
+						   priv->bar.area));
+		writel(csr[2], nfp->iomem.general + 0x30000 +
+		       NFP_PCIE_BAR_EXPLICIT_BAR2( priv->bar.group,
+						   priv->bar.area));
+		/* Readback to ensure BAR is flushed */
+		(void)readl(nfp->iomem.general + 0x30000 +
+			    NFP_PCIE_BAR_EXPLICIT_BAR0( priv->bar.group,
+							priv->bar.area));
+		(void)readl(nfp->iomem.general + 0x30000 +
+			    NFP_PCIE_BAR_EXPLICIT_BAR1( priv->bar.group,
+							priv->bar.area));
+		(void)readl(nfp->iomem.general + 0x30000 +
+			    NFP_PCIE_BAR_EXPLICIT_BAR2( priv->bar.group,
+							priv->bar.area));
+	} else {
+		pci_write_config_dword(nfp->pdev, 0x400 +
+				NFP_PCIE_BAR_EXPLICIT_BAR0(
+					priv->bar.group, priv->bar.area),
+				csr[0]);
 
-	pci_write_config_dword(nfp->pdev, 0x400 +
-			NFP_PCIE_BAR_EXPLICIT_BAR1(
-				priv->bar.group, priv->bar.area),
-			csr[1]);
+		pci_write_config_dword(nfp->pdev, 0x400 +
+				NFP_PCIE_BAR_EXPLICIT_BAR1(
+					priv->bar.group, priv->bar.area),
+				csr[1]);
 
-	pci_write_config_dword(nfp->pdev, 0x400 +
-			NFP_PCIE_BAR_EXPLICIT_BAR2(
-				priv->bar.group, priv->bar.area),
-			csr[2]);
+		pci_write_config_dword(nfp->pdev, 0x400 +
+				NFP_PCIE_BAR_EXPLICIT_BAR2(
+					priv->bar.group, priv->bar.area),
+				csr[2]);
+	}
 
 	if (NFP_PCIE_VERBOSE_DEBUG) {
 		dev_dbg(nfp->dev, "EXPL%d.%d: Kickoff 0x%llx (@0x%08x)\n",
