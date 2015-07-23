@@ -996,8 +996,6 @@ struct nfp6000_area_priv {
 	void __iomem *iomem;
 	phys_addr_t phys;
 	struct resource resource;
-
-	struct nfp6000_area_priv *next;
 };
 
 static int nfp6000_area_init(
@@ -1036,7 +1034,6 @@ static int nfp6000_area_init(
 	priv->token = token;
 	priv->offset = address;
 	priv->size = size;
-	priv->next = NULL;
 	memset(&priv->resource, 0, sizeof(priv->resource));
 
 	return 0;
