@@ -17,8 +17,6 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
- * vim:shiftwidth=8:noexpandtab
- *
  * Netronome network device driver: ethtool support
  */
 
@@ -750,10 +748,3 @@ void nfp_net_set_ethtool_ops(struct net_device *netdev)
 {
 	netdev->ethtool_ops = &nfp_net_ethtool_ops;
 }
-
-/*
- * Local variables:
- * c-file-style: "Linux"
- * indent-tabs-mode: t
- * End:
- */

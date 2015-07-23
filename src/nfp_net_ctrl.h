@@ -13,8 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * vim:shiftwidth=8:noexpandtab
- *
  * Netronome network device driver: Control BAR layout
  */
 #ifndef _NFP_NET_CTRL_H_
@@ -265,9 +263,3 @@
 					 ((_x) * 0x10))
 
 #endif /* _NFP_NET_CTRL_H_ */
-/*
- * Local variables:
- * c-file-style: "Linux"
- * indent-tabs-mode: t
- * End:
- */

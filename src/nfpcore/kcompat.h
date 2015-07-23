@@ -501,10 +501,3 @@ struct net_device *compat_alloc_netdev(int sizeof_priv,
 #endif
 
 #endif /* __KERNEL__NFP_COMPAT_H__ */
-
-/*
- * Local variables:
- * c-file-style: "Linux"
- * indent-tabs-mode: t
- * End:
- */

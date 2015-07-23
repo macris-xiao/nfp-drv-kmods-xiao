@@ -950,10 +950,3 @@ MODULE_AUTHOR("Netronome Systems <support@netronome.com>");
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("NFP network device driver");
 MODULE_INFO_NFP();
-
-/*
- * Local variables:
- * c-file-style: "Linux"
- * indent-tabs-mode: t
- * End:
- */

@@ -2521,10 +2521,3 @@ void nfp_net_netdev_clean(struct net_device *netdev)
 
 	unregister_netdev(netdev);
 }
-
-/*
- * Local variables:
- * c-file-style: "Linux"
- * indent-tabs-mode: t
- * End:
- */

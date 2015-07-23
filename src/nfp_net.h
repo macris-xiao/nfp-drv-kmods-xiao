@@ -17,8 +17,6 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
- * vim:shiftwidth=8:noexpandtab
- *
  * Netronome network device driver
  */
 
@@ -660,10 +658,3 @@ void nfp_net_irqs_disable(struct nfp_net *nn);
 void __iomem *nfp_net_msix_map(struct pci_dev *pdev, unsigned nr_entries);
 
 #endif /* _NFP_NET_H_ */
-
-/*
- * Local variables:
- * c-file-style: "Linux"
- * indent-tabs-mode: t
- * End:
- */

@@ -17,8 +17,6 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
- * vim:shiftwidth=8:noexpandtab
- *
  * Common declarations for kernel backwards compat.
  */
 
@@ -210,10 +208,3 @@ int compat_dma_set_mask_and_coherent(struct device *dev, u64 mask)
 #endif
 
 #endif /* _NFP_NET_COMPAT_H_ */
-
-/*
- * Local variables:
- * c-file-style: "Linux"
- * indent-tabs-mode: t
- * End:
- */

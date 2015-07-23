@@ -27,4 +27,3 @@ extern bool nfp_net_null;
 extern bool nfp_net_vnic;
 
 #endif /* NFP_MAIN_H */
-/* vim: set shiftwidth=4 expandtab:  */
