@@ -47,7 +47,6 @@
 #include <linux/random.h>
 
 #include <linux/ktime.h>
-#include <linux/hrtimer.h>
 
 #include "nfp_net_compat.h"
 #include "nfp_net_ctrl.h"
@@ -56,10 +55,6 @@
 static unsigned int num_rings;
 module_param(num_rings, uint, 0);
 MODULE_PARM_DESC(num_rings, "Number of RX/TX rings to use");
-
-#ifdef NFP_NET_HRTIMER_6000
-static unsigned int pollinterval = 500;
-#endif
 
 /**
  * nfp_net_reconfigure() - Reconfigure the firmware
@@ -233,12 +228,6 @@ int nfp_net_irqs_alloc(struct nfp_net *nn)
 	int nvecs;
 
 	wanted_vecs = nfp_net_irqs_wanted(nn);
-
-	if (nn->hrtimer) {
-		nn->num_vecs = wanted_vecs;
-		nn->num_r_vecs = wanted_vecs - NFP_NET_NON_Q_VECTORS;
-		return wanted_vecs;
-	}
 
 	nvecs = nfp_net_msix_alloc(nn, wanted_vecs);
 
@@ -480,9 +469,6 @@ static void nfp_net_irqs_assign(struct net_device *netdev)
 		r_vec->irq_idx = i;
 		r_vec->requested = 0;
 
-#ifdef NFP_NET_HRTIMER_6000
-		spin_lock_init(&r_vec->txlock);
-#endif
 		cpumask_set_cpu(r, &r_vec->affinity_mask);
 
 		r_vec->tx_ring = &nn->tx_rings[r];
@@ -508,9 +494,6 @@ static void nfp_net_irqs_request(struct net_device *netdev)
 	struct msix_entry *entry, *lsc_entry, *exn_entry;
 	struct nfp_net *nn = netdev_priv(netdev);
 	int err;
-
-	if (nn->hrtimer)
-		return;
 
 	nn_assert(nn->num_vecs > 0, "num_vecs is zero");
 
@@ -579,9 +562,6 @@ static void nfp_net_irqs_free(struct net_device *netdev)
 	struct nfp_net *nn = netdev_priv(netdev);
 
 	nn_assert(nn->num_vecs > 0, "num_vecs is 0");
-
-	if (nn->hrtimer)
-		return;
 
 	if (nn->num_vecs == 1) {
 		synchronize_irq(nn->irq_entries[0].vector);
@@ -928,17 +908,10 @@ static void nfp_net_tx_flush(struct nfp_net_tx_ring *tx_ring)
 	int nr_frags;
 	int fidx;
 	int idx;
-#ifdef NFP_NET_HRTIMER_6000
-	unsigned long flags;
-#endif
 
 	nn_assert((tx_ring->wr_p - tx_ring->rd_p) <= tx_ring->cnt,
 		  "rd_p=%u wr_p=%u cnt=%u\n",
 		  tx_ring->rd_p, tx_ring->wr_p, tx_ring->cnt);
-
-#ifdef NFP_NET_HRTIMER_6000
-	spin_lock_irqsave(&r_vec->txlock, flags);
-#endif
 
 	while (tx_ring->rd_p != tx_ring->wr_p) {
 		idx = tx_ring->rd_p % tx_ring->cnt;
@@ -977,10 +950,6 @@ static void nfp_net_tx_flush(struct nfp_net_tx_ring *tx_ring)
 		tx_ring->qcp_rd_p++;
 		tx_ring->rd_p++;
 	}
-
-#ifdef NFP_NET_HRTIMER_6000
-	spin_unlock_irqrestore(&r_vec->txlock, flags);
-#endif
 }
 
 static void nfp_net_tx_timeout(struct net_device *netdev)
@@ -1668,62 +1637,6 @@ err_alloc:
 	return err;
 }
 
-#ifdef NFP_NET_HRTIMER_6000
-/**
- * nfp_net_timer() - Handler for nfp_net timer interrupts
- * @hrtimer:  HRTimer structure
- *
- * Handler invoked upon timer ticks. If we currently have napi
- * polling enabled we only do the TX completion polling here.
- *
- * @Return: HRTIMER_RESTAR to restart the timer.
- */
-static enum hrtimer_restart nfp_net_timer(struct hrtimer *hrtimer)
-{
-	struct nfp_net_r_vector *r_vec =
-		container_of(hrtimer, struct nfp_net_r_vector, timer);
-	struct nfp_net_rx_ring *rx_ring = r_vec->rx_ring;
-	struct nfp_net_tx_ring *tx_ring = r_vec->tx_ring;
-	struct nfp_net *nn = r_vec->nfp_net;
-	struct netdev_queue *txq;
-	unsigned long flags;
-	int pkts_completed;
-
-	nn_assert(r_vec != 0, "r_vec = 0\n");
-	nn_assert(rx_ring != 0, "rx_ring = 0\n");
-	nn_assert(tx_ring != 0, "tx_ring = 0\n");
-	nn_assert(nn != 0, "nn = 0\n");
-
-	if (likely(napi_schedule_prep(&r_vec->napi))) {
-		r_vec->napi_polling = 1;
-		__napi_schedule(&r_vec->napi);
-	}
-
-	if (!r_vec->napi_polling) {
-		nfp_net_rx(rx_ring, INT_MAX);
-
-		/* refill freelist  */
-		nfp_net_rx_fill_freelist(rx_ring);
-		spin_lock_irqsave(&r_vec->txlock, flags);
-
-		/* Handle completed TX. If TX queue was stopped, re-enable it */
-		tx_ring = &nn->tx_rings[rx_ring->idx];
-		txq = netdev_get_tx_queue(nn->netdev, tx_ring->idx);
-
-		pkts_completed = nfp_net_tx_complete(tx_ring);
-
-		if (unlikely(netif_tx_queue_stopped(txq)) && pkts_completed)
-			netif_tx_wake_queue(txq);
-
-		spin_unlock_irqrestore(&r_vec->txlock, flags);
-	}
-
-	hrtimer_add_expires(&r_vec->timer, r_vec->timer_interval);
-
-	return HRTIMER_RESTART;
-}
-#endif
-
 /**
  * nfp_net_alloc_resources() - Allocate resources for RX and TX rings
  * @nn:      NFP Net device to reconfigure
@@ -1746,7 +1659,7 @@ static int nfp_net_alloc_resources(struct nfp_net *nn)
 		netif_napi_add(nn->netdev, &r_vec->napi,
 			       nfp_net_poll, NFP_NET_NAPI_WEIGHT);
 
-		if (!nn->hrtimer && nn->num_vecs > 1) {
+		if (nn->num_vecs > 1) {
 			/* Request the interrupt if available */
 			entry = &nn->irq_entries[r_vec->irq_idx];
 
@@ -1785,17 +1698,6 @@ static int nfp_net_alloc_resources(struct nfp_net *nn)
 
 		r_vec->tx_pkts = 0;
 		r_vec->rx_pkts = 0;
-
-#ifdef NFP_NET_HRTIMER_6000
-		/* Setup a timer for polling Qs at regular intervals. */
-		hrtimer_init(&r_vec->timer,
-			     CLOCK_MONOTONIC, HRTIMER_MODE_REL);
-		r_vec->timer.function = nfp_net_timer;
-		if (!pollinterval)
-			pollinterval = 1000;
-		r_vec->timer_interval =
-			ns_to_ktime(pollinterval * 1000UL);
-#endif
 	}
 
 	return 0;
@@ -2019,7 +1921,6 @@ static int nfp_net_netdev_open(struct net_device *netdev)
 	 * - enable NAPI on each ring
 	 * - enable all TX queues
 	 * - set link state
-	 * - start hrtimer
 	 */
 	for (r = 0; r < nn->num_r_vecs; r++) {
 		r_vec = &nn->r_vecs[r];
@@ -2029,12 +1930,6 @@ static int nfp_net_netdev_open(struct net_device *netdev)
 
 		napi_enable(&r_vec->napi);
 		set_bit(NFP_NET_RVEC_NAPI_STARTED, &r_vec->flags);
-
-#ifdef NFP_NET_HRTIMER_6000
-		hrtimer_start(&r_vec->timer,
-			      r_vec->timer_interval,
-			      HRTIMER_MODE_REL);
-#endif
 	}
 
 	netif_tx_wake_all_queues(netdev);
@@ -2074,12 +1969,6 @@ static int nfp_net_netdev_open(struct net_device *netdev)
 
 err_reconfig:
 	/* Could clean up some of the cfg BAR settings here */
-#ifdef NFP_NET_HRTIMER_6000
-	for (r = 0; r < nn->num_r_vecs; r++) {
-		r_vec = &nn->r_vecs[r];
-		hrtimer_cancel(&r_vec->timer);
-	}
-#endif
 err_set_queues:
 	nfp_net_free_resources(nn);
 err_alloc_rings:
@@ -2115,15 +2004,7 @@ static int nfp_net_netdev_close(struct net_device *netdev)
 
 	netif_tx_disable(netdev);
 
-	/*
-	 * Step 2: cancel hrtimers
-	 */
-#ifdef NFP_NET_HRTIMER_6000
-	for (r = 0; r < nn->num_r_vecs; r++)
-		hrtimer_cancel(&nn->r_vecs[r].timer);
-#endif
-	/*
-	 * Step 3: Tell NFP
+	/* Step 2: Tell NFP
 	 */
 	new_ctrl = nn->ctrl;
 	new_ctrl &= ~NFP_NET_CFG_CTRL_ENABLE;
@@ -2138,7 +2019,8 @@ static int nfp_net_netdev_close(struct net_device *netdev)
 	nn_writeq(nn->ctrl_bar, NFP_NET_CFG_TXRS_ENABLE, 0);
 	nn_writeq(nn->ctrl_bar, NFP_NET_CFG_RXRS_ENABLE, 0);
 
-	/* Notify NFP */
+	/* Step 3: Notify NFP
+	 */
 	nn_writel(nn->ctrl_bar, NFP_NET_CFG_CTRL, new_ctrl);
 	err = nfp_net_reconfig(nn, update);
 	if (err)
@@ -2408,13 +2290,11 @@ static struct net_device_ops nfp_net_netdev_ops = {
  */
 void nfp_net_info(struct nfp_net *nn)
 {
-	nn_info(nn, "Netronome %s %sNetdev: TxQs=%d/%d RxQs=%d/%d using %s\n",
+	nn_info(nn, "Netronome %s %sNetdev: TxQs=%d/%d RxQs=%d/%d\n",
 		nn->is_nfp3200 ? "NFP-32xx" : "NFP-6xxx",
 		nn->is_vf ? "VF " : "",
 		nn->num_tx_rings, nn->max_tx_rings,
-		nn->num_rx_rings, nn->max_rx_rings,
-		nn->hrtimer ? "HRTIMER" :
-		(nn->pdev->msix_enabled ? "MSI-X" : "hrtimer"));
+		nn->num_rx_rings, nn->max_rx_rings);
 	nn_info(nn, "VER: %#x, Maximum supported MTU: %d\n",
 		nn->ver, nn->max_mtu);
 	nn_info(nn, "CAP: %#x %s%s%s%s%s%s%s%s%s%s%s%s%s%s\n",

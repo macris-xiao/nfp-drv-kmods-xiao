@@ -711,13 +711,6 @@ static int nfp_net_pci_probe(struct pci_dev *pdev,
 	nn->stride_rx = stride;
 	nn->stride_tx = stride;
 
-#ifdef NFP_NET_HRTIMER_6000
-	if (!nn->is_nfp3200)
-		nn->hrtimer = 1;
-	else
-		nn->hrtimer = 0;
-#endif
-
 	/* Map TX queues */
 	start_q = nn_readl(ctrl_bar, NFP_NET_CFG_START_TXQ);
 	nn->tx_bar = nfp_net_map_area(cpp, "net.tx", 0, 0,

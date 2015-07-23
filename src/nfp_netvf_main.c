@@ -197,10 +197,6 @@ static int nfp_netvf_pci_probe(struct pci_dev *pdev,
 	nn->stride_tx = stride;
 	nn->stride_rx = stride;
 
-#ifdef NFP_NET_HRTIMER_6000
-	nn->hrtimer = 1;
-#endif
-
 	if (rx_bar_no == tx_bar_no) {
 		uint32_t bar_off, bar_sz;
 

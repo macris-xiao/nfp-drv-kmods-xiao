@@ -44,15 +44,6 @@
 #define nn_assert(cond, fmt, args...)
 #endif
 
-/* On the 6k we offer using hrtimers for RX/TX polling instead of
- * MSI-X. By setting CONFIG _NFP_NET_HRTIMER_6000 this gets activated.
- */
-#ifdef CONFIG_NFP_NET_HRTIMER_6000
-#define NFP_NET_HRTIMER_6000
-#else
-#undef NFP_NET_HRTIMER_6000
-#endif
-
 /* Define to enable the SR-IOV related netdev operations */
 #undef NFP_NET_NDO_SRIOV
 
@@ -330,13 +321,6 @@ struct nfp_net_r_vector {
 	unsigned long flags;
 #define NFP_NET_RVEC_NAPI_STARTED	BIT(0)
 
-#ifdef NFP_NET_HRTIMER_6000
-	unsigned napi_polling:1;
-	struct hrtimer timer;
-	ktime_t timer_interval;
-	spinlock_t txlock;		/* Lock to avoid timer race */
-#endif
-
 	int idx;
 	struct nfp_net_tx_ring *tx_ring;
 	struct nfp_net_rx_ring *rx_ring;
@@ -362,7 +346,6 @@ struct nfp_net_r_vector {
  * @is_nfp3200:         Is the driver for a NFP-3200 card?
  * @removing_pdev:      Are we in the process of removing the device driver
  * @link_up:            Is the link up?
- * @hrtimer:            Are we using HRTIMER (instead of interrupts)?
  * @fw_loaded:          Is the firmware loaded?
  * @cpp:                Pointer to the CPP handle
  * @nfp_dev_cpp:        Pointer to the NFP Device handle
@@ -424,7 +407,6 @@ struct nfp_net {
 	unsigned is_nfp3200:1;
 	unsigned removing_pdev:1;
 	unsigned link_up:1;
-	unsigned hrtimer:1;
 	unsigned fw_loaded:1;
 
 #ifdef CONFIG_PCI_IOV
