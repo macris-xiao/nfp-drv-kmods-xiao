@@ -25,6 +25,9 @@
 #ifndef _NFP_NET_H_
 #define _NFP_NET_H_
 
+#include <linux/netdevice.h>
+#include <linux/pci.h>
+
 #define NFP_NET_DEBUG
 #define nn_err(nn, fmt, args...)  netdev_err((nn)->netdev, fmt, ## args)
 #define nn_warn(nn, fmt, args...) netdev_warn((nn)->netdev, fmt, ## args)

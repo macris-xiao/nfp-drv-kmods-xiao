@@ -24,6 +24,7 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
+#include <linux/etherdevice.h>
 
 #include "nfp_net_compat.h"
 #include "nfp_net_ctrl.h"
