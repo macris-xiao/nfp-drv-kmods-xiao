@@ -204,6 +204,10 @@ int compat_dma_set_mask_and_coherent(struct device *dev, u64 mask)
 	compat_dma_set_mask_and_coherent(dev, mask)
 #endif
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 0, 0))
+#define skb_vlan_tag_present(skb)	vlan_tx_tag_present(skb)
+#define skb_vlan_tag_get(skb)		vlan_tx_tag_get(skb)
+#endif
 
 #endif /* _NFP_NET_COMPAT_H_ */
 

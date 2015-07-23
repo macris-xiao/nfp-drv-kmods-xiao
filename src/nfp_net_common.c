@@ -733,9 +733,9 @@ static int nfp_net_tx(struct sk_buff *skb, struct net_device *netdev)
 
 	nfp_net_tx_csum(nn, txd, skb);
 
-	if (vlan_tx_tag_present(skb) && nn->ctrl & NFP_NET_CFG_CTRL_TXVLAN) {
+	if (skb_vlan_tag_present(skb) && nn->ctrl & NFP_NET_CFG_CTRL_TXVLAN) {
 		txd->flags |= PCIE_DESC_TX_VLAN;
-		txd->vlan = vlan_tx_tag_get(skb);
+		txd->vlan = skb_vlan_tag_get(skb);
 	}
 
 	/* Gather DMA */
