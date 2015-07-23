@@ -2199,65 +2199,6 @@ static int nfp_net_set_features(struct net_device *netdev,
 	return 0;
 }
 
-#ifdef NFP_NET_NDO_SRIOV
-/*
- * SR-IOV support (placeholders for now.
- */
-#ifdef IFLA_VF_MAX
-static int nfp_net_set_vf_mac(struct net_device *netdev, int vf_id, u8 *mac)
-{
-	struct nfp_net *nn = netdev_priv(netdev);
-
-	nn_warn(nn, "Set MAC %pM on VF %d unimplemented\n",
-		mac, vf_id);
-	/* Once we have L2 filters, program them here. */
-	return -EOPNOTSUPP;
-}
-
-static int nfp_net_set_vf_port_vlan(struct net_device *netdev,
-				    int vf_id, u16 vlan_id, u8 qos)
-{
-	struct nfp_net *nn = netdev_priv(netdev);
-
-	nn_warn(nn, "Set port vlan %d/qos %d on VF %d unimplemented\n",
-		vlan_id, qos, vf_id);
-	return -EOPNOTSUPP;
-}
-
-static int nfp_net_get_vf_config(struct net_device *netdev,
-				 int vf_id, struct ifla_vf_info *ivi)
-{
-	struct nfp_net *nn = netdev_priv(netdev);
-
-	nn_warn(nn, "Getting VF config unimplemented\n");
-	return -EOPNOTSUPP;
-}
-
-#ifdef HAVE_NDO_SET_VF_LINK_STATE
-static int nfp_net_set_vf_link_state(struct net_device *netdev,
-				     int vf_id, int link)
-{
-	struct nfp_net *nn = netdev_priv(netdev);
-
-	nn_warn(nn, "Set VF linkstate to %d on VF %d unimplemented\n",
-		link, vf_id);
-	return -EOPNOTSUPP;
-}
-#endif
-
-#ifdef HAVE_VF_SPOOFCHK_CONFIGURE
-static int nfp_net_set_vf_spoofchk(struct net_device *netdev,
-				   int vf_id, bool enable)
-{
-	struct nfp_net *nn = netdev_priv(netdev);
-
-	nn_warn(nn, "Set VF Spoof config on VF %d unimplemented\n", vf_id);
-	return -EOPNOTSUPP;
-}
-#endif
-#endif /* IFLA_VF_MAX */
-#endif /* NFP_NET_NDO_SRIOV */
-
 static struct net_device_ops nfp_net_netdev_ops = {
 	.ndo_open		= nfp_net_netdev_open,
 	.ndo_stop		= nfp_net_netdev_close,
@@ -2268,20 +2209,6 @@ static struct net_device_ops nfp_net_netdev_ops = {
 	.ndo_change_mtu		= nfp_net_change_mtu,
 	.ndo_set_mac_address	= eth_mac_addr,
 	.ndo_set_features	= nfp_net_set_features,
-
-#ifdef NFP_NET_NDO_SRIOV
-#ifdef IFLA_VF_MAX
-	.ndo_set_vf_mac         = nfp_net_set_vf_mac,
-	.ndo_set_vf_vlan        = nfp_net_set_vf_port_vlan,
-	.ndo_get_vf_config      = nfp_net_get_vf_config,
-#ifdef HAVE_NDO_SET_VF_LINK_STATE
-	.ndo_set_vf_link_state  = nfp_net_set_vf_link_state,
-#endif
-#ifdef HAVE_VF_SPOOFCHK_CONFIGURE
-	.ndo_set_vf_spoofchk    = nfp_net_set_vf_spoofchk,
-#endif
-#endif /* IFLA_VF_MAX */
-#endif /* NFP_NET_NDO_SRIOV */
 };
 
 /**

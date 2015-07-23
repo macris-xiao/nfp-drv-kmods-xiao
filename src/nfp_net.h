@@ -45,9 +45,6 @@
 #define nn_assert(cond, fmt, args...)
 #endif
 
-/* Define to enable the SR-IOV related netdev operations */
-#undef NFP_NET_NDO_SRIOV
-
 /* Forward declaration */
 struct nfp_net;
 
