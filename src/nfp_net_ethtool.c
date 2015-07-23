@@ -142,7 +142,8 @@ static int nfp_net_set_ringparam(struct net_device *netdev,
 		/* Some NIC drivers allow reconfiguration on the fly,
 		 * some down the interface, change and then up it
 		 * again.  For now we don't allow changes when the
-		 * device is up. */
+		 * device is up.
+		 */
 		nn_warn(nn, "Can't change rings while device is up\n");
 		return -EBUSY;
 	}
@@ -278,8 +279,7 @@ static int nfp_net_get_sset_count(struct net_device *netdev, int sset)
 	}
 }
 
-/*
- * RX network flow classification (RSS, filters, etc)
+/* RX network flow classification (RSS, filters, etc)
  */
 static int nfp_net_get_rss_hash_opts(struct nfp_net *nn,
 				     struct ethtool_rxnfc *cmd)
@@ -544,8 +544,7 @@ static int nfp_net_set_rxfh_indir(struct net_device *netdev, const u32 *indir)
 }
 #endif
 
-/*
- * Dump BAR registers
+/* Dump BAR registers
  */
 static int nfp_net_get_regs_len(struct net_device *netdev)
 {
@@ -566,8 +565,7 @@ static void nfp_net_get_regs(struct net_device *netdev,
 			le32_to_cpu(readl(nn->ctrl_bar + (i * sizeof(u32))));
 }
 
-/*
- * Debug support.
+/* Debug support.
  * We "mis-use" the ethtool dump support to dump selected RX/TX rings
  */
 static int nfp_net_set_dump(struct net_device *netdev, struct ethtool_dump *val)
@@ -670,8 +668,7 @@ static int nfp_net_set_coalesce(struct net_device *netdev,
 	 */
 	factor = nn->me_freq_mhz / 16;
 
-	/*
-	 * Each pair of (usecs, max_frames) fields specifies that interrupts
+	/* Each pair of (usecs, max_frames) fields specifies that interrupts
 	 * should be coalesced until
 	 *      (usecs > 0 && time_since_first_completion >= usecs) ||
 	 *      (max_frames > 0 && completed_frames >= max_frames)

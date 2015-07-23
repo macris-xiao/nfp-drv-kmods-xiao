@@ -107,10 +107,10 @@ static int nfp_netvf_pci_probe(struct pci_dev *pdev,
 	if (((version >> 16) & 0xff) != 0) {
 		/* We only support the Generic Class */
 		dev_err(&pdev->dev, "Unknown Firmware ABI %d.%d.%d.%d\n",
-				(version >> 24) & 0xff,
-				(version >> 16) & 0xff,
-				(version >>  8) & 0xff,
-				(version >>  0) & 0xff);
+			(version >> 24) & 0xff,
+			(version >> 16) & 0xff,
+			(version >>  8) & 0xff,
+			(version >>  0) & 0xff);
 		err = -EINVAL;
 		goto err_nn_init;
 	}
@@ -137,10 +137,10 @@ static int nfp_netvf_pci_probe(struct pci_dev *pdev,
 		break;
 	default:
 		dev_err(&pdev->dev, "Unsupported Firmware ABI %d.%d.%d.%d\n",
-				(version >> 24) & 0xff,
-				(version >> 16) & 0xff,
-				(version >>  8) & 0xff,
-				(version >>  0) & 0xff);
+			(version >> 24) & 0xff,
+			(version >> 16) & 0xff,
+			(version >>  8) & 0xff,
+			(version >>  0) & 0xff);
 		err = -EINVAL;
 		goto err_nn_init;
 	}
@@ -181,8 +181,6 @@ static int nfp_netvf_pci_probe(struct pci_dev *pdev,
 		err = -ENODEV;
 		goto err_nn_init;
 	}
-
-
 
 	/* Allocate and initialise the netdev */
 	nn = nfp_net_netdev_alloc(pdev, max_tx_rings, max_rx_rings);

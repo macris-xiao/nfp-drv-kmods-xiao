@@ -97,8 +97,7 @@ struct nfp_net;
 /* Forward declaration */
 struct nfp_net_r_vector;
 
-/*
- * TX descriptor format
+/* TX descriptor format
  */
 
 /* Flags in the host TX descriptor */
@@ -149,7 +148,6 @@ struct nfp_net_tx_desc {
 	};
 };
 
-
 /**
  * struct nfp_net_tx_ring - TX ring structure
  * @r_vec:      Back pointer to ring vector structure
@@ -188,8 +186,7 @@ struct nfp_net_tx_ring {
 	unsigned int size;
 } ____cacheline_aligned;
 
-/*
- * RX and freelist descriptor format
+/* RX and freelist descriptor format
  */
 
 /* Flags in the RX descriptor */

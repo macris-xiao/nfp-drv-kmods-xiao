@@ -128,8 +128,7 @@ void __iomem *nfp_net_msix_map(struct pci_dev *pdev, unsigned nr_entries)
 	return ioremap_nocache(phys_addr, nr_entries * PCI_MSIX_ENTRY_SIZE);
 }
 
-/*
- * Interrupt configuration and handling
+/* Interrupt configuration and handling
  */
 
 /**
@@ -580,8 +579,7 @@ static void nfp_net_irqs_free(struct net_device *netdev)
 	nn_writeb(nn->ctrl_bar, NFP_NET_CFG_LSC, 0xff);
 }
 
-/*
- * Transmit
+/* Transmit
  *
  * One queue controller peripheral queue is used for transmit.  The
  * driver en-queues packets for transmit by advancing the write
@@ -1023,8 +1021,7 @@ int nfp_net_tx_dump(struct nfp_net_tx_ring *tx_ring, char *p)
 	return off;
 }
 
-/*
- * Receive processing
+/* Receive processing
  */
 
 /**
@@ -1472,8 +1469,7 @@ static int nfp_net_poll(struct napi_struct *napi, int budget)
 	return 0;
 }
 
-/*
- * Setup and Configuration
+/* Setup and Configuration
  */
 
 /**
@@ -1991,8 +1987,7 @@ static int nfp_net_netdev_close(struct net_device *netdev)
 		return 0;
 	}
 
-	/*
-	 * Step 1: Disable RX and TX rings from the Linux kernel perspective
+	/* Step 1: Disable RX and TX rings from the Linux kernel perspective
 	 */
 
 	netif_carrier_off(netdev);
@@ -2028,8 +2023,7 @@ static int nfp_net_netdev_close(struct net_device *netdev)
 
 	nn->ctrl = new_ctrl;
 
-	/*
-	 * Step 4: Free resources
+	/* Step 4: Free resources
 	 */
 	for (i = 0; i < nn->num_r_vecs; i++) {
 		nfp_net_rx_flush(nn->r_vecs[i].rx_ring);
