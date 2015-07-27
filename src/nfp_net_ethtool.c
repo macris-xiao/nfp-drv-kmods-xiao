@@ -289,20 +289,36 @@ static int nfp_net_get_rss_hash_opts(struct nfp_net *nn,
 	if (!(nn->cap & NFP_NET_CFG_CTRL_RSS))
 		return -EOPNOTSUPP;
 
-	/* Report support RSS options */
+	/* Report enabled RSS options */
 	switch (cmd->flow_type) {
 	case TCP_V4_FLOW:
+		if (nn->rss_cfg & NFP_NET_CFG_RSS_IPV4_TCP)
+			cmd->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
+		cmd->data |= RXH_IP_SRC | RXH_IP_DST;
+		break;
 	case UDP_V4_FLOW:
-		cmd->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
-	/* fall through to add IP fields */
+		if (nn->rss_cfg & NFP_NET_CFG_RSS_IPV4_UDP)
+			cmd->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
+		cmd->data |= RXH_IP_SRC | RXH_IP_DST;
+		break;
 	case IPV4_FLOW:
+		if (nn->rss_cfg & NFP_NET_CFG_RSS_IPV4)
+			cmd->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
 		cmd->data |= RXH_IP_SRC | RXH_IP_DST;
 		break;
 	case TCP_V6_FLOW:
+		if (nn->rss_cfg & NFP_NET_CFG_RSS_IPV6_TCP)
+			cmd->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
+		cmd->data |= RXH_IP_SRC | RXH_IP_DST;
+		break;
 	case UDP_V6_FLOW:
-		cmd->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
-	/* fall through to add IP fields */
+		if (nn->rss_cfg & NFP_NET_CFG_RSS_IPV6_UDP)
+			cmd->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
+		cmd->data |= RXH_IP_SRC | RXH_IP_DST;
+		break;
 	case IPV6_FLOW:
+		if (nn->rss_cfg & NFP_NET_CFG_RSS_IPV6)
+			cmd->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
 		cmd->data |= RXH_IP_SRC | RXH_IP_DST;
 		break;
 	default:
@@ -335,7 +351,7 @@ static int nfp_net_get_rxnfc(struct net_device *netdev,
 static int nfp_net_set_rss_hash_opt(struct nfp_net *nn,
 				    struct ethtool_rxnfc *nfc)
 {
-	u32 new_rss_cfg = 0;
+	u32 new_rss_cfg = nn->rss_cfg;
 	int err;
 
 	if (!(nn->cap & NFP_NET_CFG_CTRL_RSS))
@@ -354,8 +370,11 @@ static int nfp_net_set_rss_hash_opt(struct nfp_net *nn,
 	switch (nfc->flow_type) {
 	case TCP_V4_FLOW:
 		switch (nfc->data & (RXH_L4_B_0_1 | RXH_L4_B_2_3)) {
+		case 0:
+			new_rss_cfg &= ~NFP_NET_CFG_RSS_IPV4_TCP;
+			break;
 		case (RXH_L4_B_0_1 | RXH_L4_B_2_3):
-			new_rss_cfg = NFP_NET_CFG_RSS_IPV4_TCP;
+			new_rss_cfg |= NFP_NET_CFG_RSS_IPV4_TCP;
 			break;
 		default:
 			return -EINVAL;
@@ -363,8 +382,11 @@ static int nfp_net_set_rss_hash_opt(struct nfp_net *nn,
 		break;
 	case TCP_V6_FLOW:
 		switch (nfc->data & (RXH_L4_B_0_1 | RXH_L4_B_2_3)) {
+		case 0:
+			new_rss_cfg &= ~NFP_NET_CFG_RSS_IPV6_TCP;
+			break;
 		case (RXH_L4_B_0_1 | RXH_L4_B_2_3):
-			new_rss_cfg = NFP_NET_CFG_RSS_IPV6_TCP;
+			new_rss_cfg |= NFP_NET_CFG_RSS_IPV6_TCP;
 			break;
 		default:
 			return -EINVAL;
@@ -372,8 +394,11 @@ static int nfp_net_set_rss_hash_opt(struct nfp_net *nn,
 		break;
 	case UDP_V4_FLOW:
 		switch (nfc->data & (RXH_L4_B_0_1 | RXH_L4_B_2_3)) {
+		case 0:
+			new_rss_cfg &= ~NFP_NET_CFG_RSS_IPV4_UDP;
+			break;
 		case (RXH_L4_B_0_1 | RXH_L4_B_2_3):
-			new_rss_cfg = NFP_NET_CFG_RSS_IPV4_UDP;
+			new_rss_cfg |= NFP_NET_CFG_RSS_IPV4_UDP;
 			break;
 		default:
 			return -EINVAL;
@@ -381,18 +406,39 @@ static int nfp_net_set_rss_hash_opt(struct nfp_net *nn,
 		break;
 	case UDP_V6_FLOW:
 		switch (nfc->data & (RXH_L4_B_0_1 | RXH_L4_B_2_3)) {
+		case 0:
+			new_rss_cfg &= ~NFP_NET_CFG_RSS_IPV6_UDP;
+			break;
 		case (RXH_L4_B_0_1 | RXH_L4_B_2_3):
-			new_rss_cfg = NFP_NET_CFG_RSS_IPV6_UDP;
+			new_rss_cfg |= NFP_NET_CFG_RSS_IPV6_UDP;
 			break;
 		default:
 			return -EINVAL;
 		}
 		break;
 	case IPV4_FLOW:
-		new_rss_cfg = NFP_NET_CFG_RSS_IPV4;
+		switch (nfc->data & (RXH_L4_B_0_1 | RXH_L4_B_2_3)) {
+		case 0:
+			new_rss_cfg &= ~NFP_NET_CFG_RSS_IPV4;
+			break;
+		case (RXH_L4_B_0_1 | RXH_L4_B_2_3):
+			new_rss_cfg |= NFP_NET_CFG_RSS_IPV4;
+			break;
+		default:
+			return -EINVAL;
+		}
 		break;
 	case IPV6_FLOW:
-		new_rss_cfg = NFP_NET_CFG_RSS_IPV6;
+		switch (nfc->data & (RXH_L4_B_0_1 | RXH_L4_B_2_3)) {
+		case 0:
+			new_rss_cfg &= ~NFP_NET_CFG_RSS_IPV6;
+			break;
+		case (RXH_L4_B_0_1 | RXH_L4_B_2_3):
+			new_rss_cfg |= NFP_NET_CFG_RSS_IPV6;
+			break;
+		default:
+			return -EINVAL;
+		}
 		break;
 	default:
 		return -EINVAL;
