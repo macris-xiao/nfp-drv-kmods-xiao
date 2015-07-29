@@ -130,7 +130,7 @@ static int __nfp_rtsymtab_probe(struct nfp_device *dev,
 		goto err_symtab;
 	}
 
-	priv->rtstrtab = kmalloc(strtab_size, GFP_KERNEL);
+	priv->rtstrtab = kmalloc(strtab_size + 1, GFP_KERNEL);
 	if (!priv->rtstrtab) {
 		err = -ENOMEM;
 		goto err_strtab;
