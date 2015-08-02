@@ -1236,7 +1236,7 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
 			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
 					       le16_to_cpu(rxd->rxd.vlan));
 
-		netif_receive_skb(skb);
+		napi_gro_receive(&rx_ring->r_vec->napi, skb);
 
 		/* Clear internal state to be on the safe side */
 		rx_ring->rxbufs[idx].skb = NULL;
