@@ -523,23 +523,14 @@ static int matching_bar(struct nfp_bar *bar,
 	return 0;
 }
 
-static int _find_matching_bar(struct nfp6000_pcie *nfp,
+static int find_matching_bar(struct nfp6000_pcie *nfp,
 			      uint32_t tgt, uint32_t act, uint32_t tok,
-			      uint64_t offset, size_t size, int width,
-			      int prefetchable)
+			      uint64_t offset, size_t size, int width)
 {
 	int n;
 
 	for (n = 0; n < nfp->bars; n++) {
 		struct nfp_bar *bar = &nfp->bar[n];
-
-		if (bar->resource->flags & IORESOURCE_PREFETCH) {
-			if (!prefetchable)
-				continue;
-		} else {
-			if (prefetchable)
-				continue;
-		}
 
 		if (matching_bar(bar, tgt, act, tok, offset, size, width)) {
 			if (NFP_PCIE_VERBOSE_DEBUG) {
@@ -554,31 +545,11 @@ static int _find_matching_bar(struct nfp6000_pcie *nfp,
 	return -1;
 }
 
-/* If the tgt/act/tok is prefetchable, try the IORESOURCE_PREFETCH BARs first,
- */
-static int find_matching_bar(struct nfp6000_pcie *nfp,
-			     uint32_t tgt, uint32_t act, uint32_t tok,
-			     uint64_t offset, size_t size, int width)
-{
-	int prefetchable;
-	int err = -1;
-
-	prefetchable = __nfp_cpp_id_is_prefetchable(NFP_CPP_ID(tgt, act, tok));
-	if (prefetchable)
-		err = _find_matching_bar(nfp, tgt, act, tok,
-					 offset, size, width, 1);
-	if (err < 0)
-		err = _find_matching_bar(nfp, tgt, act, tok,
-					 offset, size, width, 0);
-
-	return err;
-}
-
 /* Return EAGAIN if no resource is available
  */
-static int _find_unused_bar_noblock(struct nfp6000_pcie *nfp, int prefetchable,
-				    int tgt, int act, int tok,
-				    uint64_t offset, size_t size, int width)
+static int find_unused_bar_noblock(struct nfp6000_pcie *nfp,
+				   int tgt, int act, int tok,
+				   uint64_t offset, size_t size, int width)
 {
 	int n, invalid = 0;
 
@@ -590,10 +561,6 @@ static int _find_unused_bar_noblock(struct nfp6000_pcie *nfp, int prefetchable,
 			invalid++;
 			continue;
 		}
-
-		if (prefetchable &&
-		    (bar->resource->flags & IORESOURCE_PREFETCH) == 0)
-			continue;
 
 		if (atomic_read(&bar->refcnt) != 0)
 			continue;
@@ -609,24 +576,6 @@ static int _find_unused_bar_noblock(struct nfp6000_pcie *nfp, int prefetchable,
 	}
 
 	return (n == invalid) ? -EINVAL : -EAGAIN;
-}
-
-static int find_unused_bar_noblock(struct nfp6000_pcie *nfp,
-				   int tgt, int act, int tok,
-				   uint64_t offset, size_t size, int width)
-{
-	int prefetchable;
-	int err = -EAGAIN;
-
-	prefetchable = __nfp_cpp_id_is_prefetchable(NFP_CPP_ID(tgt, act, tok));
-	if (prefetchable)
-		err = _find_unused_bar_noblock(nfp, 1, tgt, act, tok,
-					       offset, size, width);
-	if (err < 0)
-		err = _find_unused_bar_noblock(nfp, 0, tgt, act, tok,
-					       offset, size, width);
-
-	return err;
 }
 
 /* Return -EAGAIN
