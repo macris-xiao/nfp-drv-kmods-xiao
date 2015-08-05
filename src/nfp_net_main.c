@@ -559,6 +559,7 @@ static int nfp_net_pci_probe(struct pci_dev *pdev,
 		cpp = nfp_cpp_from_nfp3200_pcie(pdev, -1);
 		is_nfp3200 = 1;
 		break;
+	case PCI_DEVICE_NFP4000:
 	case PCI_DEVICE_NFP6000:
 		cpp = nfp_cpp_from_nfp6000_pcie(pdev, -1);
 		is_nfp3200 = 0;

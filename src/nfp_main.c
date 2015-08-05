@@ -431,6 +431,7 @@ static int nfp_pci_probe(struct pci_dev *pdev,
 	case PCI_DEVICE_NFP3200:
 		np->cpp = nfp_cpp_from_nfp3200_pcie(pdev, irq);
 		break;
+	case PCI_DEVICE_NFP4000:
 	case PCI_DEVICE_NFP6000:
 		np->cpp = nfp_cpp_from_nfp6000_pcie(pdev, irq);
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 8, 0)) && defined(CONFIG_PCI_IOV)
@@ -492,7 +493,8 @@ static void nfp_pci_remove(struct pci_dev *pdev)
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 8, 0))
 #ifdef CONFIG_PCI_IOV
-	if (pdev->device == PCI_DEVICE_NFP6000)
+	if (pdev->device == PCI_DEVICE_NFP6000 ||
+	    pdev->device == PCI_DEVICE_NFP4000)
 		nfp_sriov_attr_remove(&pdev->dev);
 #endif
 #endif
