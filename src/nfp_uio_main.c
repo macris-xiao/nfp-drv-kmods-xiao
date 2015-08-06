@@ -127,8 +127,8 @@ static inline void pci_unlock(struct pci_dev *pdev)
  */
 static int nfp_uio_msi_mask_irq(struct msi_desc *desc, int32_t state)
 {
-	uint32_t mask_bits = desc->masked;
-	uint32_t val;
+	u32 mask_bits = desc->masked;
+	u32 val;
 
 	if (state != 0)
 		mask_bits |= (1 << desc->msi_attrib.entry_nr);
@@ -150,7 +150,7 @@ static int nfp_uio_msi_mask_irq(struct msi_desc *desc, int32_t state)
  */
 static int nfp_uio_msix_mask_irq(struct msi_desc *desc, int32_t state)
 {
-	uint32_t mask_bits = desc->masked;
+	u32 mask_bits = desc->masked;
 	unsigned offset = desc->msi_attrib.entry_nr * PCI_MSIX_ENTRY_SIZE +
 						PCI_MSIX_ENTRY_VECTOR_CTRL;
 
@@ -188,8 +188,8 @@ static int nfp_uio_set_interrupt_mask(struct nfp_uio_pci_dev *udev,
 				NFP_NET_CFG_CTRL_MSIXAUTO? */
 
 	if (udev->mode == NFP_UIO_LEGACY_INTR_MODE) {
-		uint32_t status;
-		uint16_t old, new;
+		u32 status;
+		u16 old, new;
 
 		pci_read_config_dword(pdev, PCI_COMMAND, &status);
 		old = status;
@@ -262,8 +262,8 @@ nfp_uio_pci_irqhandler(int irq, struct uio_info *info)
 	unsigned long flags;
 	struct nfp_uio_pci_dev *udev = nfp_uio_get_uio_pci_dev(info);
 	struct pci_dev *pdev = udev->pdev;
-	uint32_t cmd_status_dword;
-	uint16_t status;
+	u32 cmd_status_dword;
+	u16 status;
 
 	spin_lock_irqsave(&udev->lock, flags);
 	/* block userspace PCI config reads/writes */
@@ -299,7 +299,7 @@ static int nfp_uio_pci_setup_iomem(struct pci_dev *dev, struct uio_info *info,
 	unsigned long addr, len;
 	void *internal_addr;
 
-	if (sizeof(info->mem) / sizeof(info->mem[0]) <= n)
+	if (ARRAY_SIZE(info->mem) <= n)
 		return -EINVAL;
 
 	addr = pci_resource_start(dev, pci_bar);
@@ -325,7 +325,7 @@ static int nfp_uio_pci_setup_ioport(struct pci_dev *dev, struct uio_info *info,
 {
 	unsigned long addr, len;
 
-	if (sizeof(info->port) / sizeof(info->port[0]) <= n)
+	if (ARRAY_SIZE(info->port) <= n)
 		return -EINVAL;
 
 	addr = pci_resource_start(dev, pci_bar);
@@ -368,7 +368,7 @@ static int nfp_uio_setup_bars(struct pci_dev *dev, struct uio_info *info)
 	iom = 0;
 	iop = 0;
 
-	for (i = 0; i != sizeof(bar_names) / sizeof(bar_names[0]); i++) {
+	for (i = 0; i != ARRAY_SIZE(bar_names); i++) {
 		if (pci_resource_len(dev, i) == 0 ||
 		    pci_resource_start(dev, i) == 0)
 			continue;
