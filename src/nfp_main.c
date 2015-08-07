@@ -512,6 +512,7 @@ static void nfp_pci_remove(struct pci_dev *pdev)
 					 rc);
 			else
 				dev_info(&pdev->dev, "Firmware safely unloaded\n");
+			nfp_device_close(nfp_dev);
 		}
 	}
 
