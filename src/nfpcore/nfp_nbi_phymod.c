@@ -78,6 +78,10 @@ struct nfp_phymod_priv {
 			const struct sff_ops *op;
 			void *priv;
 		} sff;
+		struct {
+			struct pin link;
+			struct pin activity;
+		} indicator;
 	} phymod[48];
 	int eths;
 	struct nfp_phymod_eth {
@@ -448,17 +452,6 @@ static int _phymod_get_attr_bus(struct nfp_phymod *phy, const char *attr,
 	return -ENOENT;
 }
 
-static int cpld_write(struct nfp_spi *spi, int cs, uint8_t addr, uint32_t val)
-{
-	uint8_t data[5] = {};
-	int i;
-
-	for (i = 0; i < 4; i++)
-		data[i] = (val >> (24 - 8 * i)) & 0xff;
-
-	return nfp_spi_write(spi, cs, 1, &addr, 5, data);
-}
-
 static int cpld_read(struct nfp_spi *spi, int cs, uint8_t addr, uint32_t *val)
 {
 	uint8_t data[5];
@@ -474,9 +467,25 @@ static int cpld_read(struct nfp_spi *spi, int cs, uint8_t addr, uint32_t *val)
 	for (i = 0; i < 4; i++)
 		res |= (data[i] << (24 - 8 * i));
 
-	*val = res;
+	if (val)
+		*val = res;
 
 	return 0;
+}
+
+static int cpld_write(struct nfp_spi *spi, int cs, uint8_t addr, uint32_t val)
+{
+	uint8_t data[5] = { 0, 0, 0, 0, 0 };
+	int i;
+
+	/* Workaround for Starfighter1 CPLDs */
+	if (cs == 2)
+		cpld_read(spi, cs, 0x0, NULL);
+
+	for (i = 0; i < 4; i++)
+		data[i] = (val >> (24 - 8 * i)) & 0xff;
+
+	return nfp_spi_write(spi, cs, 1, &addr, 5, data);
 }
 
 static int pin_direction(struct nfp_device *nfp, struct pin *pin, int dir)
@@ -628,6 +637,13 @@ static void *_phymod_private(struct nfp_device *nfp)
 			if (i == ARRAY_SIZE(sff_op_table))
 				continue;
 		}
+
+		/* (optional) link indicator pin */
+		_phymod_get_attr_pin(phy, "pin.link",
+					  &phy->indicator.link);
+		/* (optional) activity indicator pin */
+		_phymod_get_attr_pin(phy, "pin.activity",
+					  &phy->indicator.activity);
 
 		priv->phymods++;
 	}
@@ -796,6 +812,31 @@ int nfp_phymod_get_nbi(struct nfp_phymod *phymod, int *nbi)
 
 	return 0;
 }
+
+/**
+ * nfp_phymod_indicate_link() - Turn on/off link indicator
+ * @phymod:		PHY module handle
+ * @is_on:		0 = disable, 1 = enable
+ *
+ * Return: 0, or -ERRNO
+ */
+int nfp_phymod_indicate_link(struct nfp_phymod *phymod, int is_on)
+{
+	return pin_set(phymod->priv->nfp, &phymod->indicator.link, is_on);
+}
+
+/**
+ * nfp_phymod_indicate_activity() - Turn on/off activity indicator
+ * @phymod:		PHY module handle
+ * @is_on:		0 = disable, 1 = enable
+ *
+ * Return: 0, or -ERRNO
+ */
+int nfp_phymod_indicate_activity(struct nfp_phymod *phymod, int is_on)
+{
+	return pin_set(phymod->priv->nfp, &phymod->indicator.activity, is_on);
+}
+
 
 /**
  * nfp_phymod_get_port() - Get the base port and/or size

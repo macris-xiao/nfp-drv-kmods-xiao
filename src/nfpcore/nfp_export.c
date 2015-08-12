@@ -118,6 +118,8 @@ EXPORT_SYMBOL(nfp_phymod_get_label);
 EXPORT_SYMBOL(nfp_phymod_get_nbi);
 EXPORT_SYMBOL(nfp_phymod_get_port);
 EXPORT_SYMBOL(nfp_phymod_get_type);
+EXPORT_SYMBOL(nfp_phymod_indicate_link);
+EXPORT_SYMBOL(nfp_phymod_indicate_activity);
 EXPORT_SYMBOL(nfp_phymod_read_status);
 EXPORT_SYMBOL(nfp_phymod_read_status_los);
 EXPORT_SYMBOL(nfp_phymod_read_status_fault);

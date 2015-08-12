@@ -86,6 +86,9 @@ int nfp_phymod_get_nbi(struct nfp_phymod *phymod, int *nbi);
 int nfp_phymod_get_port(struct nfp_phymod *phymod, int *base, int *lanes);
 int nfp_phymod_get_type(struct nfp_phymod *phymod, int *type);
 
+int nfp_phymod_indicate_link(struct nfp_phymod *phymod, int is_on);
+int nfp_phymod_indicate_activity(struct nfp_phymod *phymod, int is_on);
+
 int nfp_phymod_read_status(struct nfp_phymod *phymod, uint32_t *txstatus,
 			   uint32_t *rxstatus);
 int nfp_phymod_read_status_los(struct nfp_phymod *phymod, uint32_t *txstatus,
