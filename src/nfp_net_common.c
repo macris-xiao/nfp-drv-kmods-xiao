@@ -2126,52 +2126,52 @@ static int nfp_net_set_features(struct net_device *netdev,
 	new_ctrl = nn->ctrl;
 
 	if (changed & NETIF_F_RXCSUM) {
-		if (new_ctrl & NFP_NET_CFG_CTRL_RXCSUM)
-			new_ctrl &= ~NFP_NET_CFG_CTRL_RXCSUM;
-		else
+		if (features & NETIF_F_RXCSUM)
 			new_ctrl |= NFP_NET_CFG_CTRL_RXCSUM;
+		else
+			new_ctrl &= ~NFP_NET_CFG_CTRL_RXCSUM;
 	}
 
-	if (changed & NETIF_F_IP_CSUM || changed & NETIF_F_IPV6_CSUM) {
-		if (new_ctrl & NFP_NET_CFG_CTRL_TXCSUM)
-			new_ctrl &= ~NFP_NET_CFG_CTRL_TXCSUM;
-		else
+	if (changed & (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM)) {
+		if (features & (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM))
 			new_ctrl |= NFP_NET_CFG_CTRL_TXCSUM;
+		else
+			new_ctrl &= ~NFP_NET_CFG_CTRL_TXCSUM;
 	}
 
-	if (changed & NETIF_F_TSO || changed & NETIF_F_TSO6) {
-		if (new_ctrl & NFP_NET_CFG_CTRL_LSO)
-			new_ctrl &= ~NFP_NET_CFG_CTRL_LSO;
-		else
+	if (changed & (NETIF_F_TSO | NETIF_F_TSO6)) {
+		if (features & (NETIF_F_TSO | NETIF_F_TSO6))
 			new_ctrl |= NFP_NET_CFG_CTRL_LSO;
+		else
+			new_ctrl &= ~NFP_NET_CFG_CTRL_LSO;
 	}
 
-	if (changed & NETIF_F_RXHASH || changed & NETIF_F_NTUPLE) {
-		if (new_ctrl & NFP_NET_CFG_CTRL_RSS)
-			new_ctrl &= ~NFP_NET_CFG_CTRL_RSS;
-		else
+	if (changed & (NETIF_F_RXHASH | NETIF_F_NTUPLE)) {
+		if (features & (NETIF_F_RXHASH | NETIF_F_NTUPLE))
 			new_ctrl |= NFP_NET_CFG_CTRL_RSS;
+		else
+			new_ctrl &= ~NFP_NET_CFG_CTRL_RSS;
 	}
 
 	if (changed & NETIF_F_HW_VLAN_CTAG_RX) {
-		if (new_ctrl & NFP_NET_CFG_CTRL_RXVLAN)
-			new_ctrl &= ~NFP_NET_CFG_CTRL_RXVLAN;
-		else
+		if (features & NETIF_F_HW_VLAN_CTAG_RX)
 			new_ctrl |= NFP_NET_CFG_CTRL_RXVLAN;
+		else
+			new_ctrl &= ~NFP_NET_CFG_CTRL_RXVLAN;
 	}
 
 	if (changed & NETIF_F_HW_VLAN_CTAG_TX) {
-		if (new_ctrl & NFP_NET_CFG_CTRL_TXVLAN)
-			new_ctrl &= ~NFP_NET_CFG_CTRL_TXVLAN;
-		else
+		if (features & NETIF_F_HW_VLAN_CTAG_TX)
 			new_ctrl |= NFP_NET_CFG_CTRL_TXVLAN;
+		else
+			new_ctrl &= ~NFP_NET_CFG_CTRL_TXVLAN;
 	}
 
 	if (changed & NETIF_F_SG) {
-		if (new_ctrl & NFP_NET_CFG_CTRL_GATHER)
-			new_ctrl &= ~NFP_NET_CFG_CTRL_GATHER;
-		else
+		if (features & NETIF_F_SG)
 			new_ctrl |= NFP_NET_CFG_CTRL_GATHER;
+		else
+			new_ctrl &= ~NFP_NET_CFG_CTRL_GATHER;
 	}
 
 	nn_dbg(nn, "Feature change 0x%llx -> 0x%llx (changed=0x%llx)\n",
