@@ -1,5 +1,4 @@
-Netronome Flow Processor (NFP) Kernel Drivers
----------------------------------------------
+# Netronome Flow Processor (NFP) Kernel Drivers
 
 These drivers support Netronome's line of Flow Processor devices,
 including the NFP3200 and NFP6000 model lines.
@@ -16,95 +15,243 @@ This archive builds the following modules:
    - SR-IOV driver for virtual functions
    - Configuration and features depend upon Physical Function firmware
 
- * nfp.ko: Debugging driver - has no NIC features
+ * nfp.ko: Debugging driver
+   - Has no NIC features
    - For diagnostics and test only
 
 For more information, please see:
 
   http://www.netronome.com
 
-Acquiring Firmware
-------------------
+# Acquiring Firmware
 
-The NFP3200 and NFP6000 devices require application specific firmware
-to function.
+The NFP3200 and NFP6000 devices require application
+specific firmware to function.
 
-Building and installing
------------------------
+Please contact support@netronome.com for the latest
+firmware for your platform and device.
+
+Once acquired, install the firmware to `/lib/firmware`:
+
+For the NFP3200 device family:
+
+    # mkdir -p /lib/firmware/netronome
+    # cp nfp3200_net.cat /lib/firmware/netronome
+
+For the NFP6000/NFP4000 device family:
+
+    # mkdir -p /lib/firmware/netronome
+    # cp nfp6000_net.cat /lib/firmware/netronome
+
+# Building and Installing
 
 Building and installing for the currently running kernel:
-$ make
-$ sudo make install
+
+    $ make
+    $ sudo make install
+
+To clean up use the `clean` target
+
+    $ make clean
+
+For a more verbose build use the `noisy` target
+
+    $ make noisy
+
+To override the kernel version to build for set `KVER`:
+
+    $ make KVER=<version>
+    $ sudo make KVER=<version> install
+
+The `Makefile` searches a number of standard locations
+for the configured kernel sources.
+
+To override the detected location, set `KSRC`:
+
+    $ make KSRC=<location of kernel source>
+
+## Additional targets:
+
+| Command         | Action                                          |
+| --------------- | ----------------------------------------------- |
+| make coccicheck | Runs Coccinelle/coccicheck[1]                   |
+| make sparse     | Runs sparse, a tool for static code analysis[2] |
+
+1. Requires `coccinelle` to be installed, e.g.
+
+    $ sudo apt-get install coccinelle
+2. Requires the `sparse` tool to be installed, e.g.,
+
+    $ sudo apt-get install sparse
+
+# Kernel Modules
+
+The kernel modules are structured as follows:
+
+NOTE: 'modinfo <modulename>' is the authoratitive documentation,
+this is only presented here as a reference.
+
+## nfp_uio.ko
+
+This module supports DPDK applications, which directly allow the kernel
+driver to directly read and write packets from the application.
+
+Used by the Netronome Software Defined Networking (SDN) products.
+
+### Sources
+
+| Source              | Description                                           |
+| ------------------- | ----------------------------------------------------- |
+| nfp_uio_main.c      | NFP User-Space IO Driver                              |
 
 
-To clean up use the 'clean' target
-$ make clean
+### Parameters
 
-For a more verbose build use the 'noisy' target
-$ make noisy
+No parameters are tunable.
 
-To override the kernel version to build for set 'KVER':
-$ make KVER=<version>
-$ sudo make KVER=<version> install
+## nfp_netvf.ko
 
-The Makefile searches a number of standard location for the configured
-kernel sources. To override the location set 'KSRC'
-$ make KSRC=<location of kernel source>
+This module is used to provide NIC-style access to Software Defined
+Networking (SDN) flows.
 
+For example, if a physical NFP6000 device was running Netronome SDN,
+and had assigned a rule matching 'all 172.16.0.0/24 received' to VF 5,
+then the NFP6000's SR-IOV device #5 would use this driver to provide a
+NIC style interface to the flows that match that rule.
 
-Additional targets:
-- coccicheck: Runs Coccinelle/coccicheck
-  requires coccinelle to be installed, e.g., sudo apt-get install coccinelle
-- sparse: Runs sparse, a tool for static code analysis
-  requires the sparse tool to be installed, e.g., sudo apt-get install sparse
+### Sources
 
-Kernel Module Parmaters
------------------------
+| Source              | Description                                           |
+| ------------------- | ----------------------------------------------------- |
+| nfp_netvf_main.c    | NFP Virtual Function NIC driver                       |
+| nfp_net_common.c    | NFP NIC common interface functions                    |
+| nfp_net_ethtool.c   | NFP NIC ethtool interface support                     |
 
-NOTE: 'modinfo <modulename>' is the authoratitive documentation, this is
-only presented here as a reference.
+### Parameters
 
-nfp_uio.ko parameters
----------------------
+| Parameter       | Default | Comment                                         |
+| --------------- | ------- | ----------------------------------------------- |
+| num_rings       |       1 | Number of RX/TX rings to use [1]                |
 
-- none -
+1. NOTE: This is not adjustable on current firmwares.
 
-nfp_net.ko parameters
----------------------
+## nfp_net.ko
 
-nfp_dev_cpp=true            NFP CPP /dev interface (default = enabled) (bool)
-fw_noload=false             Do not load firmware
-fw_stop_on_fail=true        Remain loaded even if no suitable FW is present
-nfp_reset=true              Soft reset the NFP during firmware unload
-num_rings=N                 Number of RX/TX rings to use
-hwinfo_wait=10              -1 for no timeout, or N seconds to wait for board.state match (int)
-hwinfo_debug                Enable to log hwinfo contents on load (int)
-board_state=15              board.state to wait for (int)
-nfp6000_explicit_bars=4     Number of explicit BARs (0-4) (int)
-nfp6000_debug=0             Enable debugging for the NFP6000 PCIe (int)
-nfp3200_debug=0             Enable debugging for the NFP3200 PCIe (int)
+This module provides a NIC interface to the NFP's physical network ports,
+for stand-alone systems that will not be running Netronome SDN products.
 
-nfp_netvf.ko parameters
------------------------
+### Sources
 
-num_rings=N                 Number of RX/TX rings to use (default is 1)
+| Source              | Description                                           |
+| ------------------- | ----------------------------------------------------- |
+| nfp_net_main.c      | NFP NIC driver                                        |
+| nfp_net_common.c    | NFP NIC common interface functions                    |
+| nfp_net_ethtool.c   | NFP NIC ethtool interface support                     |
+| nfpcore/            | NFP Core Library [1]                                  |
+
+1. See the [NFP Core Library](#nfp-core-library) section for details
 
 
-nfp.ko parameters
------------------
+| Parameter       | Default | Comment                                         |
+| --------------- | ------- | ----------------------------------------------- |
+| nfp_dev_cpp     |    true | NFP CPP /dev interface                          |
+| fw_noload       |   false | Do not load firmware                            |
+| fw_stop_on_fail |    true | Remain loaded even if no suitable FW is present |
+| nfp_reset       |    true | Soft reset the NFP during firmware unload       |
+| num_rings       |       1 | Number of RX/TX rings to use [1]                |
+| hwinfo_debug    |   false | Enable to log hwinfo contents on load           |
+| board_state     |      15 | HWInfo board.state to wait for. (range: 0..15)  |
+| hwinfo_wait     |      10 | Wait N sec for board.state match, -1 = forever  |
+| nfp6000_explicit_bars | 4 | Number of explicit BARs. (range: 1..4)          |
+| nfp6000_debug   |   false | Enable debugging for the NFP6000 PCIe           |
+| nfp3200_debug   |   false | Enable debugging for the NFP3200 PCIe           |
 
-nfp_mon_err=false           ECC Monitor (default = disbled) (bool)
-nfp_dev_cpp=true            NFP CPP /dev interface (default = enabled) (bool)
-nfp_net_null=false          Null net devices (default = disabled) (bool)
-nfp_net_vnic=false          vNIC net devices (default = enabled) (bool)
-nfp_net_vnic_pollinterval=10 Polling interval for Rx/Tx queues (in ms) (uint)
-nfp_net_vnic_debug=0        Enable debug printk messages (uint)
-nfp_mon_err_pollinterval=10 Polling interval for error checking (in ms) (uint)
-hwinfo_wait=10              -1 for no timeout, or N seconds to wait for board.state match (int)
-hwinfo_debug                Enable to log hwinfo contents on load (int)
-board_state=15              board.state to wait for (int)
-nfp6000_explicit_bars=4     Number of explicit BARs (0-4) (int)
-nfp6000_debug=0             Enable debugging for the NFP6000 PCIe (int)
-nfp3200_debug=0             Enable debugging for the NFP3200 PCIe (int)
-nfp3200_firmware=           NFP3200 firmware to load from /lib/firmware/
-nfp6000_firmware=           NFP6000 firmware to load from /lib/firmware/
+1. NOTE: The valid range for this value is firmware dependant.
+
+## nfp.ko
+
+This module is used by the Netronome SDN products for health monitoring,
+loading firmware, and diagnostics.
+
+It provides a low-level interface into the NFP, and does not require
+that a NFP firmware be loaded.
+
+### Sources
+
+| Source              | Description                                           |
+| ------------------- | ----------------------------------------------------- |
+| nfp_main.c          | NFP low level driver                                  |
+| nfpcore/            | NFP Core Library [1]                                  |
+
+1. See the [NFP Core Library](#nfp-core-library) section for details
+
+| Parameter       | Default | Comment                                         |
+| --------------- | ------- | ----------------------------------------------- |
+| nfp_mon_err     |   false | ECC Monitor [1]                                 |
+| nfp_dev_cpp     |    true | NFP CPP /dev interface [2]                      |
+| nfp_net_null    |   false | Null net devices [3]                            |
+| nfp_net_vnic    |   false | vNIC net devices [4]                            |
+| nfp_net_vnic_pollinterval | 10 | Polling interval for Rx/Tx queues (in ms)  |
+| nfp_net_vnic_debug | false | Enable debug printk messages                   |
+| nfp_mon_err_pollinterval | 10 | Polling interval for error checking (in ms) |
+| nfp_reset       |    true | Soft reset the NFP during firmware unload       |
+| hwinfo_debug    |   false | Enable to log hwinfo contents on load           |
+| board_state     |      15 | HWInfo board.state to wait for. (range: 0..15)  |
+| hwinfo_wait     |      10 | Wait N sec for board.state match, -1 = forever  |
+| nfp6000_explicit_bars | 4 | Number of explicit BARs. (range: 1..4)          |
+| nfp6000_debug   |   false | Enable debugging for the NFP6000 PCIe           |
+| nfp3200_debug   |   false | Enable debugging for the NFP3200 PCIe           |
+| nfp3200_firmware | (none) | NFP3200 firmware to load from /lib/firmware/    |
+| nfp6000_firmware | (none) | NFP6000 firmware to load from /lib/firmware/    |
+
+1. The 'ECC Monitor' example is for the NFP3200 hardware only
+2. The '/dev/nfp-cpp-N' interface is for diagnostic applications
+3. The Null net device creates a dummy ethN interface for every port.
+4. The vNIC net device creates a pseudo-NIC for NFP ARM Linux systems
+
+## NFP Core Library <a id="#nfp-core-library"></a>
+
+The NFP Core Library is used by the `nfp_net.ko` and `nfp.ko` kernel modules
+to load firmware, and provide other low-level accesses to the NFP.
+
+It is not used by the `nfp_netvf.ko` nor `nfp_uio.ko` drivers.
+
+### Sources
+
+All sources are in `src/nfpcore/`:
+
+| Source              | Type      | Description                               |
+| ------------------- | ----------|------------------------------------------ |
+| crc32.c             | API       | CRC32 library                             |
+| nfp3200_pcie.c      | Transport | NFP3200 PCIe interface                    |
+| nfp3200_plat.c      | Transport | NFP3200/NFP6000 ARM interface             |
+| nfp6000_pcie.c      | Transport | NFP6000 PCIe interface                    |
+| nfp_ca.c            | API       | CPP Action firmware file parser           |
+| nfp_cppcore.c       | API       | CPP bus core                              |
+| nfp_cpplib.c        | API       | CPP bus helper                            |
+| nfp_device.c        | API       | NFP chip interface                        |
+| nfp_dev_cpp.c       | Example   | /dev/nfp-cpp-N interface                  |
+| nfp_em_manager.c    | API       | NFP Event Monitor                         |
+| nfp_export.c        | API       | List of all EXPORT_SYMBOLs                |
+| nfp_gpio.c          | API       | NFP GPIO access                           |
+| nfp_hwinfo.c        | API       | NFP Hardware Info Database                |
+| nfp_i2c.c           | API       | NFP I2C access                            |
+| nfp_mip.c           | API       | Microcode Information Page                |
+| nfp_mon_err.c       | Example   | ECC error monitor for the NFP3200         |
+| nfp_nbi.c           | API       | NFP NBI access                            |
+| nfp_nbi_mac_eth.c   | API       | NFP NBI Ethernet MAC access               |
+| nfp_nbi_phymod.c    | API       | NFP NBI Ethernet PHY access               |
+| nfp_net_null.c      | Example   | Dummy NIC interfaces, one for each port   |
+| nfp_net_vnic.c      | Example   | Pseudo-NIC for interfacing with NFP Linux |
+| nfp_nffw.c          | API       | NFP NFP Flow Firmware interface           |
+| nfp_nsp.c           | API       | NIC Service Processor interface           |
+| nfp_platform.c      | API       | NFP CPP bus device registration           |
+| nfp_power.c         | API       | NFP subsystem power control               |
+| nfp_reset.c         | API       | NFP controlled soft reset                 |
+| nfp_resource.c      | API       | NFP Resource management                   |
+| nfp_roce.c          | Example   | RoCE interface                            |
+| nfp_rtsym.c         | API       | NFP Firmware Runtime Symbol access        |
+| nfp_spi.c           | API       | NFP SPI access                            |
+| sff_8431.c          | PHY       | PHY driver for SFP/SFP+                   |
+| sff_8436.c          | PHY       | PHY driver for QSFP                       |
+| sff_8647.c          | PHY       | PHY driver for CXP                        |
