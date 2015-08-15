@@ -151,6 +151,7 @@ for stand-alone systems that will not be running Netronome SDN products.
 
 1. See the [NFP Core Library](#nfp-core-library) section for details
 
+### Parameters
 
 | Parameter       | Default | Comment                                         |
 | --------------- | ------- | ----------------------------------------------- |
@@ -184,6 +185,8 @@ that a NFP firmware be loaded.
 | nfpcore/            | NFP Core Library [1]                                  |
 
 1. See the [NFP Core Library](#nfp-core-library) section for details
+
+### Parameters
 
 | Parameter       | Default | Comment                                         |
 | --------------- | ------- | ----------------------------------------------- |
