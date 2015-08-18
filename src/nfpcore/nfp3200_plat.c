@@ -710,7 +710,7 @@ static int nfp3200_plat_explicit_do(struct nfp_cpp_explicit *expl,
 	uint32_t model = nfp_cpp_model(cpp);
 
 	if (NFP_CPP_MODEL_IS_3200(model))
-		default_master = 0x65;
+		default_master = 0x41;
 	else if (NFP_CPP_MODEL_IS_6000(model))
 		default_master = 0x11;
 	else
