@@ -44,6 +44,7 @@ struct sff_ops {
 
 struct pin {
 	enum { PIN_NONE, PIN_GPIO, PIN_CPLD } type;
+	enum { PIN_ACTIVE_LOW = 0, PIN_ACTIVE_HIGH = 1 } active;
 	union {
 		struct {
 			int pin;
@@ -163,6 +164,13 @@ static int _get_attr_pin(const char *ptr, struct pin *val)
 	int rc, bus, cs, addr, pin;
 
 	val->type = PIN_NONE;
+
+	if (*ptr == '-' || *ptr == '_' || *ptr == '#') {
+		val->active = PIN_ACTIVE_LOW;
+		ptr++;
+	} else {
+		val->active = PIN_ACTIVE_HIGH;
+	}
 
 	rc = sscanf(ptr, "gpio:%i", &pin);
 	if (rc == 1) {
@@ -516,6 +524,9 @@ static int pin_set(struct nfp_device *nfp, struct pin *pin, int out)
 {
 	int err;
 
+	if (pin->active == PIN_ACTIVE_LOW)
+		out = out ? 0 : 1;
+
 	if (pin->type == PIN_GPIO) {
 		err = nfp_gpio_set(nfp, pin->gpio.pin, out);
 	} else if (pin->type == PIN_CPLD) {
@@ -573,6 +584,11 @@ static int pin_get(struct nfp_device *nfp, struct pin *pin)
 		nfp_spi_release(spi);
 	} else {
 		err = -EINVAL;
+	}
+
+	if (err >= 0) {
+		if (pin->active == PIN_ACTIVE_LOW)
+			err = err ? 0 : 1;
 	}
 
 	return err;
