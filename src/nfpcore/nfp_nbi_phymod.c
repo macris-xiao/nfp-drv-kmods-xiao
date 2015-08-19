@@ -53,6 +53,10 @@ struct pin {
 			int bus;
 			int cs;
 			uint16_t addr;
+			struct {
+				int read;
+				int write;
+			} mode;
 		} cpld;
 	};
 };
@@ -175,6 +179,14 @@ static int _get_attr_pin(const char *ptr, struct pin *val)
 		val->cpld.cs = cs;
 		val->cpld.addr = addr & 0xffff;
 		val->cpld.bit = pin;
+
+		/* The CDP and Starfighter1 CPLDs
+		 * write in SPI mode 0, but read in
+		 * SPI mode 1.
+		 */
+		val->cpld.mode.read = 1;
+		val->cpld.mode.write = 0;
+
 		return 0;
 	}
 
@@ -515,14 +527,16 @@ static int pin_set(struct nfp_device *nfp, struct pin *pin, int out)
 			return -ENOMEM;
 		if (IS_ERR(spi))
 			return PTR_ERR(spi);
-		nfp_spi_mode_set(spi, 1);
 
+		nfp_spi_mode_set(spi, pin->cpld.mode.read);
 		err = cpld_read(spi, pin->cpld.cs, pin->cpld.addr, &tmp);
 		if (err >= 0) {
 			if (out)
 				tmp |=  (1 << pin->cpld.bit);
 			else
 				tmp &= ~(1 << pin->cpld.bit);
+
+			nfp_spi_mode_set(spi, pin->cpld.mode.write);
 			err = cpld_write(spi,
 					 pin->cpld.cs, pin->cpld.addr, tmp);
 		}
@@ -550,8 +564,8 @@ static int pin_get(struct nfp_device *nfp, struct pin *pin)
 			return -ENOMEM;
 		if (IS_ERR(spi))
 			return PTR_ERR(spi);
-		nfp_spi_mode_set(spi, 1);
 
+		nfp_spi_mode_set(spi, pin->cpld.mode.read);
 		err = cpld_read(spi, pin->cpld.cs, pin->cpld.addr, &tmp);
 		if (err >= 0)
 			err = (tmp >> pin->cpld.bit) & 1;
