@@ -836,6 +836,11 @@ static int enable_bars(struct nfp6000_pcie *nfp)
 	}
 
 	nfp->bars = bar - &nfp->bar[0];
+	if (nfp->bars < 8) {
+		dev_err(nfp->dev, "No usable BARs found!\n");
+		return -EINVAL;
+	}
+
 	bars_free = nfp->bars;
 
 	/* Convert unit ID (0..3) to signal master/data master ID (0x40..0x70)
