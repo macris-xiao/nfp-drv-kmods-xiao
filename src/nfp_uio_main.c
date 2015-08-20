@@ -279,7 +279,6 @@ nfp_uio_pci_irqhandler(int irq, struct uio_info *info)
 			goto done;
 	}
 
-	nfp_uio_set_interrupt_mask(udev, 0);
 	ret = IRQ_HANDLED;
 done:
 	/* unblock userspace PCI config reads/writes */
