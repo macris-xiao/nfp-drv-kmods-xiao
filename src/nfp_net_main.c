@@ -301,8 +301,8 @@ MODULE_PARM_DESC(nfp_dev_cpp,
 		 "Enable NFP CPP user-space access (default = True)");
 
 /* Default FW names */
-static char *nfp3200_net_fw = "netronome/nfp3200_net.cat";
-static char *nfp6000_net_fw = "netronome/nfp6000_net.cat";
+static char *nfp3200_net_fw = "nfp3200_net";
+static char *nfp6000_net_fw = "nfp6000_net";
 MODULE_FIRMWARE("netronome/nfp3200_net.cat");
 MODULE_FIRMWARE("netronome/nfp6000_net.cat");
 
@@ -353,12 +353,24 @@ MODULE_DEVICE_TABLE(pci, nfp_net_pci_device_ids);
 /**
  * nfp_net_fw_select() - Select a FW image for a given device
  * @pdev:       PCI Device structure
+ * @nfp:	NFP Device
+ * @specific:	Model specific firmware
  *
- * Return: Name of the firmware image to load
+ * Return: Default firmware image to load
  */
-static const char *nfp_net_fw_select(struct pci_dev *pdev)
+static const char *nfp_net_fw_select(struct pci_dev *pdev,
+				     struct nfp_device *nfp,
+				     const char **specific)
 {
-	/* TODO: For now we simply use the default values defined
+	const char *partno;
+
+	partno = nfp_hwinfo_lookup(nfp, "assembly.partno");
+	if (partno)
+		*specific = partno;
+	else
+		*specific = NULL;
+
+	/* If no model,  now we simply use the default values defined
 	 * above.  However, in the future we should provide module
 	 * parameters allowing a user to change the default.  This
 	 * should also allow for overriding the default for individual
@@ -384,7 +396,8 @@ static int nfp_net_fw_load(struct pci_dev *pdev,
 {
 	struct nfp_cpp *cpp = nfp_device_cpp(nfp);
 	const struct firmware *fw;
-	const char *fw_name;
+	const char *fw_default, *fw_model;
+	char fw_name[128];
 	uint16_t interface;
 	int timeout = 30; /* Seconds */
 	int err;
@@ -399,12 +412,26 @@ static int nfp_net_fw_load(struct pci_dev *pdev,
 		return 0;
 	}
 
-	fw_name = nfp_net_fw_select(pdev);
+	fw_default = nfp_net_fw_select(pdev, nfp, &fw_model);
 
-	if (!fw_name)
+	if (!fw_default)
 		return 0;
 
-	err = request_firmware(&fw, fw_name, &pdev->dev);
+	if (fw_model) {
+		snprintf(fw_name, sizeof(fw_name), "netronome/%s.cat", fw_model);
+		fw_name[sizeof(fw_name)-1] = 0;
+		dev_info(&pdev->dev, "FW image: %s\n", fw_name);
+		err = request_firmware(&fw, fw_name, &pdev->dev);
+	} else {
+		err = -1;
+	}
+
+	if (err < 0) {
+		snprintf(fw_name, sizeof(fw_name), "netronome/%s.cat", fw_default);
+		fw_name[sizeof(fw_name)-1] = 0;
+		dev_info(&pdev->dev, "Default FW image: %s\n", fw_name);
+		err = request_firmware(&fw, fw_name, &pdev->dev);
+	}
 	if (err < 0)
 		goto err_request;
 
