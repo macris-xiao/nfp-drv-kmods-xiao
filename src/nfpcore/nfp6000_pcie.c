@@ -1702,24 +1702,24 @@ static int nfp6000_explicit_do(struct nfp_cpp_explicit *expl,
 
 	if (nfp->iomem.general) {
 		writel(csr[0], nfp->iomem.general + 0x30000 +
-		       NFP_PCIE_BAR_EXPLICIT_BAR0( priv->bar.group,
-						   priv->bar.area));
+		       NFP_PCIE_BAR_EXPLICIT_BAR0(priv->bar.group,
+						  priv->bar.area));
 		writel(csr[1], nfp->iomem.general + 0x30000 +
-		       NFP_PCIE_BAR_EXPLICIT_BAR1( priv->bar.group,
-						   priv->bar.area));
+		       NFP_PCIE_BAR_EXPLICIT_BAR1(priv->bar.group,
+						  priv->bar.area));
 		writel(csr[2], nfp->iomem.general + 0x30000 +
-		       NFP_PCIE_BAR_EXPLICIT_BAR2( priv->bar.group,
-						   priv->bar.area));
+		       NFP_PCIE_BAR_EXPLICIT_BAR2(priv->bar.group,
+						  priv->bar.area));
 		/* Readback to ensure BAR is flushed */
 		(void)readl(nfp->iomem.general + 0x30000 +
-			    NFP_PCIE_BAR_EXPLICIT_BAR0( priv->bar.group,
-							priv->bar.area));
+			    NFP_PCIE_BAR_EXPLICIT_BAR0(priv->bar.group,
+						       priv->bar.area));
 		(void)readl(nfp->iomem.general + 0x30000 +
-			    NFP_PCIE_BAR_EXPLICIT_BAR1( priv->bar.group,
-							priv->bar.area));
+			    NFP_PCIE_BAR_EXPLICIT_BAR1(priv->bar.group,
+						       priv->bar.area));
 		(void)readl(nfp->iomem.general + 0x30000 +
-			    NFP_PCIE_BAR_EXPLICIT_BAR2( priv->bar.group,
-							priv->bar.area));
+			    NFP_PCIE_BAR_EXPLICIT_BAR2(priv->bar.group,
+						       priv->bar.area));
 	} else {
 		pci_write_config_dword(nfp->pdev, 0x400 +
 				NFP_PCIE_BAR_EXPLICIT_BAR0(

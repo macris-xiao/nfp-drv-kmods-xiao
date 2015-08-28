@@ -452,7 +452,7 @@ static int ca_cpp_write(struct ca_cpp *ca, uint32_t id, uint64_t addr,
 }
 
 static int ca_cpp_read(struct ca_cpp *ca, uint32_t id, uint64_t addr,
-	                   void *ptr, size_t len)
+		       void *ptr, size_t len)
 {
 	return nfp_cpp_read(ca->cpp, id, addr, ptr, len);
 }
@@ -472,7 +472,7 @@ static int ca6000_cpp_write_ustore(struct ca_cpp *ca, uint32_t id,
 	uint64_t addr, void *ptr, size_t len)
 {
 	int err = 0;
-	uint64_t uw = *((uint64_t*)ptr);
+	uint64_t uw = *((uint64_t *)ptr);
 	uint32_t uwlo = uw & 0xFFFFffff;
 	uint32_t uwhi = (uw >> 32) & 0xFFFFffff;
 	uint32_t iid = (addr >> 32) & 0x3F;

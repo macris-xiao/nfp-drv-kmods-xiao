@@ -1037,7 +1037,9 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 			mask =  NFP_NBI_MACX_ETH_SEG_CMD_CONFIG_ETH_RX_ENA;
 			r =  NFP_NBI_MACX_ETH_SEG_CMD_CONFIG(p % 12);
 
-			err = nfp_nbi_mac_regr(nbi[i], NFP_NBI_MACX_ETH(p / 12), r, &tmp);
+			err = nfp_nbi_mac_regr(nbi[i],
+					       NFP_NBI_MACX_ETH(p / 12),
+					       r, &tmp);
 			if (err < 0) {
 				nfp_err(nfp, "Can't verify RX is disabled for port %d.%d\n",
 					i, p);
@@ -1046,7 +1048,7 @@ static int nfp6000_reset_soft(struct nfp_device *nfp)
 
 			if (tmp & mask) {
 				nfp_warn(nfp, "HAZARD: RX for traffic was not disabled by firmware for port %d.%d\n",
-				         i, p);
+					 i, p);
 			}
 
 			err = nfp_nbi_mac_regw(nbi[i], NFP_NBI_MACX_ETH(p / 12),

@@ -485,8 +485,10 @@ static inline
 int compat_dma_set_mask_and_coherent(struct device *dev, u64 mask)
 {
 	int rc = dma_set_mask(dev, mask);
+
 	if (rc == 0)
 		dma_set_coherent_mask(dev, mask);
+
 	return rc;
 }
 #define dma_set_mask_and_coherent(dev, mask) \

@@ -488,7 +488,8 @@ static int nfp_uio_set_interrupt_mask(struct nfp_uio_pci_dev *udev,
 			new = old | PCI_COMMAND_INTX_DISABLE;
 
 		if (old != new)
-			 pci_write_config_word(pdev, PCI_COMMAND, new);
+			pci_write_config_word(pdev, PCI_COMMAND, new);
+
 #ifdef CONFIG_PCI_MSI
 	} else if (udev->mode == NFP_UIO_MSIX_INTR_MODE) {
 		struct msi_desc *desc;
@@ -880,8 +881,7 @@ static int __init nfp_uio_pci_init_module(void)
 		pf_support = 0;
 	}
 
-	pr_info("nfp_uio: NFP UIO driver PF/VF, Copyright (C) 2014-2015 Netronome"
-		" Systems\n");
+	pr_info("nfp_uio: NFP UIO driver PF/VF, Copyright (C) 2014-2015 Netronome Systems\n");
 
 	if (pf_support) {
 		err = nfp_cppcore_init();
