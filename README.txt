@@ -97,12 +97,15 @@ thus forming a work based on the Program, and copy and distribute such
 modifications or work under the terms of Section 1 above, provided that you
 also meet all of these conditions:
 
+
 a) You must cause the modified files to carry prominent notices stating that
 you changed the files and the date of any change.
+
 b) You must cause any work that you distribute or publish, that in whole or
 in part contains or is derived from the Program or any part thereof, to be
 licensed as a whole at no charge to all third parties under the terms of
-his License.
+this License.
+
 c) If the modified program normally reads commands interactively when run,
 you must cause it, when started running for such interactive use in the most
 ordinary way, to print or display an announcement including an appropriate
@@ -127,7 +130,7 @@ Thus, it is not the intent of this section to claim rights or contest your
 rights to work written entirely by you; rather, the intent is to exercise
 the right to control the distribution of derivative or collective works
 based on the Program.
- 
+
 In addition, mere aggregation of another work not based on the Program with
 the Program (or with a work based on the Program) on a volume of a storage
 or distribution medium does not bring the other work under the scope of
@@ -252,11 +255,11 @@ promoting the sharing and reuse of software generally.
 
 NO WARRANTY
 
-11. BECAUSE THE PROGRAM IS LICENSED FREE OF CHARGE, THERE IS NO WARRANTY FOR
-THE PROGRAM, TO THE EXTENT PERMITTED BY APPLICABLE LAW. EXCEPT WHEN
+11. BECAUSE THE PROGRAM IS LICENSED FREE OF CHARGE, THERE IS NO WARRANTY
+FOR THE PROGRAM, TO THE EXTENT PERMITTED BY APPLICABLE LAW. EXCEPT WHEN
 OTHERWISE STATED IN WRITING THE COPYRIGHT HOLDERS AND/OR OTHER PARTIES
-PROVIDE THE PROGRAM "AS IS" WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESSED OR
-IMPLIED, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+PROVIDE THE PROGRAM "AS IS" WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESSED
+OR IMPLIED, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE. THE ENTIRE RISK AS TO
 THE QUALITY AND PERFORMANCE OF THE PROGRAM IS WITH YOU. SHOULD THE PROGRAM
 PROVE DEFECTIVE, YOU ASSUME THE COST OF ALL NECESSARY SERVICING, REPAIR OR
@@ -274,9 +277,10 @@ POSSIBILITY OF SUCH DAMAGES.
 
 **************************************
 
-The BSD 2-Clause License: 
+The BSD 2-Clause License:
 Copyright 2015 Netronome Systems, Inc.
- 
+All rights reserved.
+
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
 
