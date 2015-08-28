@@ -391,45 +391,49 @@ static int nfp_netvf_pci_probe(struct pci_dev *pdev,
 
 	/* Determine stride */
 	version = nn_readl(ctrl_bar, NFP_NET_CFG_VERSION);
-	if (((version >> 16) & 0xff) != 0) {
+
+	if ((NFP_NET_CFG_VERSION_CLASS_MASK & version) !=
+	    NFP_NET_CFG_VERSION_CLASS(NFP_NET_CFG_VERSION_CLASS_GENERIC)) {
 		/* We only support the Generic Class */
 		dev_err(&pdev->dev, "Unknown Firmware ABI %d.%d.%d.%d\n",
-			(version >> 24) & 0xff,
-			(version >> 16) & 0xff,
-			(version >>  8) & 0xff,
-			(version >>  0) & 0xff);
+				(version >> 24) & 0xff,
+				(version >> 16) & 0xff,
+				(version >>  8) & 0xff,
+				(version >>  0) & 0xff);
 		err = -EINVAL;
 		goto err_nn_init;
 	}
 
-	switch (version) {
-	case 0x0000:
-	case 0x0001:
-	case 0x1248:
-		dev_warn(&pdev->dev, "OBSOLETE Firmware detected - VF isolation not available\n");
+	if (version == 0x00000000 ||
+	    version == 0x00000001 ||
+	    version == 0x00001248) {
 		stride = 2;
 		tx_bar_no = NFP_NET_Q0_BAR;
 		rx_bar_no = NFP_NET_Q1_BAR;
-		break;
-	case 0x0100:
-		if (is_nfp3200) {
-			stride = 2;
-			tx_bar_no = NFP_NET_Q0_BAR;
-			rx_bar_no = NFP_NET_Q1_BAR;
-		} else {
-			stride = 4;
-			tx_bar_no = NFP_NET_Q0_BAR;
-			rx_bar_no = tx_bar_no;
+		dev_warn(&pdev->dev, "OBSOLETE Firmware detected - VF isolation not available\n");
+	} else {
+		switch (NFP_NET_CFG_VERSION_MAJOR_MASK & version) {
+		case NFP_NET_CFG_VERSION_MAJOR(1):
+		case NFP_NET_CFG_VERSION_MAJOR(2):
+			if (is_nfp3200) {
+				stride = 2;
+				tx_bar_no = NFP_NET_Q0_BAR;
+				rx_bar_no = NFP_NET_Q1_BAR;
+			} else {
+				stride = 4;
+				tx_bar_no = NFP_NET_Q0_BAR;
+				rx_bar_no = tx_bar_no;
+			}
+			break;
+		default:
+			dev_err(&pdev->dev, "Unsupported Firmware ABI %d.%d.%d.%d\n",
+					(version >> 24) & 0xff,
+					(version >> 16) & 0xff,
+					(version >>  8) & 0xff,
+					(version >>  0) & 0xff);
+			err = -EINVAL;
+			goto err_nn_init;
 		}
-		break;
-	default:
-		dev_err(&pdev->dev, "Unsupported Firmware ABI %d.%d.%d.%d\n",
-			(version >> 24) & 0xff,
-			(version >> 16) & 0xff,
-			(version >>  8) & 0xff,
-			(version >>  0) & 0xff);
-		err = -EINVAL;
-		goto err_nn_init;
 	}
 
 	/* Find out how many rings are supported.

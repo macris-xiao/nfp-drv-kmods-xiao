@@ -415,6 +415,14 @@
  * - define more STS bits
  */
 #define NFP_NET_CFG_VERSION             0x0030
+#define   NFP_NET_CFG_VERSION_RESERVED_MASK	(0xff << 24)
+#define   NFP_NET_CFG_VERSION_CLASS_MASK  (0xff << 16)
+#define   NFP_NET_CFG_VERSION_CLASS(x)    (((x) & 0xff) << 16)
+#define   NFP_NET_CFG_VERSION_CLASS_GENERIC	0
+#define   NFP_NET_CFG_VERSION_MAJOR_MASK  (0xff <<  8)
+#define   NFP_NET_CFG_VERSION_MAJOR(x)    (((x) & 0xff) <<  8)
+#define   NFP_NET_CFG_VERSION_MINOR_MASK  (0xff <<  0)
+#define   NFP_NET_CFG_VERSION_MINOR(x)    (((x) & 0xff) <<  0)
 #define NFP_NET_CFG_STS                 0x0034
 #define   NFP_NET_CFG_STS_LINK            (0x1 << 0) /* Link up or down */
 #define NFP_NET_CFG_CAP                 0x0038
@@ -430,6 +438,11 @@
  * @NFP_NET_CFG_SPARE_ADDR:  DMA address for ME code to use (e.g. YDS-155 fix)
  */
 #define NFP_NET_CFG_SPARE_ADDR          0x0050
+/**
+ * NFP6000/NFP4000 - Prepend configuration
+ */
+#define NFP_NET_CFG_RX_OFFSET		0x0050
+#define NFP_NET_CFG_RX_OFFSET_PREPEND		0	/* Prepend mode */
 
 /**
  * 64B reserved for future use (0x0080 - 0x00c0)

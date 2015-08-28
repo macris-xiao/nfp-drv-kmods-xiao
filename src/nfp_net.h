@@ -720,6 +720,8 @@ struct nfp_net {
 	u32 ctrl;
 	u32 fl_bufsz;
 
+	int rx_prepend;
+
 	int max_tx_rings;
 	int max_rx_rings;
 

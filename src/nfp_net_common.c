@@ -1493,7 +1493,7 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
 		data_len = rxd->rxd.data_len;
 
 		/* The packet data starts at a fixed offset */
-		skb_reserve(skb, NFP_NET_RX_OFFSET);
+		skb_reserve(skb, nn->rx_prepend);
 
 		/* Adjust the SKB for the meta data pre-pended */
 		skb_put(skb, data_len - meta_len);
@@ -2667,6 +2667,15 @@ int nfp_net_netdev_init(struct net_device *netdev)
 	    nn->num_vecs > 1 && nn->per_vector_masking)
 		nn->ctrl |= NFP_NET_CFG_CTRL_MSIXAUTO;
 
+	/* On NFP4000/NFP6000, determine RX packet/metadata boundary offset
+	 */
+	if ((nn->ver & NFP_NET_CFG_VERSION_MAJOR_MASK) >=
+	    NFP_NET_CFG_VERSION_MAJOR(2)) {
+		nn->rx_prepend = nn_readl(nn->ctrl_bar, NFP_NET_CFG_RX_OFFSET);
+	} else {
+		nn->rx_prepend = NFP_NET_RX_OFFSET;
+	}
+
 	/* Generate some random bits for RSS and write to device */
 	if (nn->cap & NFP_NET_CFG_CTRL_RSS) {
 		get_random_bytes(nn->rss_key, NFP_NET_CFG_RSS_KEY_SZ);
@@ -2699,6 +2708,8 @@ int nfp_net_netdev_init(struct net_device *netdev)
 		return err;
 
 	nfp_net_irqs_assign(netdev);
+
+	nn_info(nn, "%d bytes for RX metadata\n", nn->rx_prepend);
 
 	if (nn->is_nfp3200) {
 		/* YDS-155 workaround. */
