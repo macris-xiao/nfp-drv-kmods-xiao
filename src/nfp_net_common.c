@@ -1492,8 +1492,13 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
 		meta_len = rxd->rxd.meta_len;
 		data_len = rxd->rxd.data_len;
 
-		/* The packet data starts at a fixed offset */
-		skb_reserve(skb, nn->rx_prepend);
+		if (nn->rx_prepend == NFP_NET_CFG_RX_OFFSET_DYNAMIC) {
+			/* The packet data starts after the metadata */
+			skb_reserve(skb, meta_len);
+		} else {
+			/* The packet data starts at a fixed offset */
+			skb_reserve(skb, nn->rx_prepend);
+		}
 
 		/* Adjust the SKB for the meta data pre-pended */
 		skb_put(skb, data_len - meta_len);
@@ -2709,7 +2714,10 @@ int nfp_net_netdev_init(struct net_device *netdev)
 
 	nfp_net_irqs_assign(netdev);
 
-	nn_info(nn, "%d bytes for RX metadata\n", nn->rx_prepend);
+	if (nn->rx_prepend == NFP_NET_CFG_RX_OFFSET_DYNAMIC)
+		nn_info(nn, "Dynamic RX metadata length\n");
+	else
+		nn_info(nn, "%d bytes for RX metadata\n", nn->rx_prepend);
 
 	if (nn->is_nfp3200) {
 		/* YDS-155 workaround. */

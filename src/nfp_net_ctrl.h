@@ -442,7 +442,7 @@
  * NFP6000/NFP4000 - Prepend configuration
  */
 #define NFP_NET_CFG_RX_OFFSET		0x0050
-#define NFP_NET_CFG_RX_OFFSET_PREPEND		0	/* Prepend mode */
+#define NFP_NET_CFG_RX_OFFSET_DYNAMIC		0	/* Prepend mode */
 
 /**
  * 64B reserved for future use (0x0080 - 0x00c0)
