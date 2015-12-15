@@ -876,7 +876,6 @@ static int nfp6000_island_nbi_init(struct nfp_cpp *cpp, int island, int unit)
 		u32 nbi = NFP_CPP_ID(NFP_CPP_TARGET_NBI,
 					  NFP_CPP_ACTION_RW, 0);
 		u64 addr = (u64)(island - 8) << 38;
-		u32 val;
 		int i;
 
 		/* Initialize NbiDmaBD SRAM */
@@ -979,20 +978,6 @@ static int nfp6000_island_nbi_init(struct nfp_cpp *cpp, int island, int unit)
 
 		err = memzap(cpp, nbi, addr + NFP_NBI_PC + 0,
 			     16 * 64 * 1024, 0);
-		if (err < 0)
-			return err;
-
-		err = nfp_xpb_readl(cpp, NFP_XPB_ISLAND(island) +
-				NFP_NBI_PCX_CHAR +
-				NFP_NBI_PCX_CHAR_CreditConfig, &val);
-		if (err < 0)
-			return err;
-
-		val &= ~(0x7);
-		val |= NFP_NBI_PCX_CHAR_CreditConfig_BufCmpCredit(2);
-		err = nfp_xpb_writel(cpp, NFP_XPB_ISLAND(island) +
-				NFP_NBI_PCX_CHAR +
-				NFP_NBI_PCX_CHAR_CreditConfig, val);
 		if (err < 0)
 			return err;
 
