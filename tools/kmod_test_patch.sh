@@ -85,6 +85,8 @@ function local_kernel_config() {
     # depends on it
     echo CONFIG_ISO9660_FS=y
     echo CONFIG_ZISOFS=y
+
+    echo CONFIG_SPARSE_RCU_POINTER=y
 }
 
 ## local_notify() - notify user about the results
