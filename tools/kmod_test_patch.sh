@@ -352,8 +352,9 @@ done
 	    #
 	    # TEST 4 - build in linux-next
 	    #
-	    make CC=${NEXT_CC:-$DEFAULT_CC} -j8 -C ../linux-next M=`pwd`/src
-	    make CC=${NEXT_CC:-$DEFAULT_CC} -j8 -C ../linux-next-32bit M=`pwd`/src
+	    echo > ../build.log
+	    make CC=${NEXT_CC:-$DEFAULT_CC} -j8 -C ../linux-next M=`pwd`/src W=1 | tee -a ../build.log
+	    make CC=${NEXT_CC:-$DEFAULT_CC} -j8 -C ../linux-next-32bit M=`pwd`/src W=1 | tee -a ../build.log
 
 	    #
 	    # TEST 5 - check sparse warnings
@@ -372,7 +373,6 @@ done
 	    #
 	    # TEST 7 - build for older kernels
 	    #
-	    echo > ../build.log
 	    for v in $kernels; do
 		make CC=$DEFAULT_CC -j8 -C ../linux-$v M=`pwd`/src 2>&1 | tee -a ../build.log
 	    done
