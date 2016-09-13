@@ -41,7 +41,7 @@ REPO_URL=ssh://hg.netronome.com/data/git/repos/nfp-drv-kmods.git
 INCUMBENT_SPARSE_WARNINGS=71
 INCUMBENT_COCCI_WARNINGS=8
 INCUMBENT_KDOC_WARNINGS=26
-INCUMBENT_NEWLINE_WARNINGS=132
+INCUMBENT_NEWLINE_WARNINGS=133
 # Default compiler to use for most testing (must be something conservative
 # otherwise the old kernels won't build)
 DEFAULT_CC=gcc-4.9
