@@ -365,14 +365,7 @@ done
 	    check_warn_cnt $sparse_warnings $INCUMBENT_SPARSE_WARNINGS sparse
 
 	    #
-	    # TEST 6 - run coccicheck
-	    #
-	    make CC=$DEFAULT_CC -C ../linux-next M=`pwd`/src coccicheck | tee ../cocci.log
-	    cocci_warnings=$(grep '^/' ../cocci.log | wc -l)
-	    check_warn_cnt $cocci_warnings $INCUMBENT_COCCI_WARNINGS cocci
-
-	    #
-	    # TEST 7 - build for older kernels
+	    # TEST 6 - build for older kernels
 	    #
 	    for v in $kernels; do
 		make CC=$DEFAULT_CC -j8 -C ../linux-$v M=`pwd`/src 2>&1 | tee -a ../build.log
@@ -382,12 +375,21 @@ done
 	    done
 
 	    #
-	    # TEST 8 - build for ARM (cross-compile 3.10)
+	    # TEST 7 - build for ARM (cross-compile 3.10)
 	    #
 	    make ARCH=arm CROSS_COMPILE=$ARM_TOOLCHAIN -j8 -C ../nfp-bsp-linux M=`pwd`/src 2>&1 | tee -a ../build.log
 
 	    build_warnings=$(grep -i "\(warn\|error\)" ../build.log | wc -l)
 	    check_warn_cnt $build_warnings 0 build
+
+	    #
+	    # TEST 8 - run coccicheck
+	    #
+	    make CC=$DEFAULT_CC -C ../linux-next M=`pwd`/src coccicheck | tee ../cocci.log
+	    cocci_warnings=$(grep '^/' ../cocci.log | wc -l)
+	    check_warn_cnt $cocci_warnings $INCUMBENT_COCCI_WARNINGS cocci
+
+	    echo CC=${NEXT_CC:-$DEFAULT_CC}
 	)
 
 	((skip_check_cnt)) && ((skip_check_cnt--))
