@@ -40,7 +40,7 @@ REPO_URL=ssh://hg.netronome.com/data/git/repos/nfp-drv-kmods.git
 # Counts of warnings which already exist in your code (e.g. false positives)
 INCUMBENT_SPARSE_WARNINGS=71
 INCUMBENT_COCCI_WARNINGS=8
-INCUMBENT_KDOC_WARNINGS=49
+INCUMBENT_KDOC_WARNINGS=26
 INCUMBENT_NEWLINE_WARNINGS=132
 # Default compiler to use for most testing (must be something conservative
 # otherwise the old kernels won't build)
@@ -340,6 +340,7 @@ done
 	    #
 	    rm -f src/*.mod.c || true
 	    ../linux-next.git/scripts/kernel-doc -man $(find -name '*.c' -or -name '*.h') > /dev/null 2> ../kdoc.log || true
+	    sed -i '/warning: no structured comments found/d' ../kdoc.log
 	    kdoc_warnings=$(grep -v nfp_net_ctrl.h ../kdoc.log | wc -l)
 	    check_warn_cnt $kdoc_warnings $INCUMBENT_KDOC_WARNINGS kdoc
 
