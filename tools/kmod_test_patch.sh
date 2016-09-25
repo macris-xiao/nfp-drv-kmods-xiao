@@ -72,6 +72,7 @@ function non_vanilla_kernels() {
 # default settings print them here.
 function local_kernel_config() {
     echo CONFIG_MODULES=y
+    echo CONFIG_SMP=y
     echo CONFIG_PCI_IOV=y
     echo CONFIG_PCI_MSI=y
     echo CONFIG_NET=y
@@ -87,6 +88,7 @@ function local_kernel_config() {
     echo CONFIG_ZISOFS=y
 
     echo CONFIG_SPARSE_RCU_POINTER=y
+    echo CONFIG_BPF_SYSCALL=y
 }
 
 ## local_notify() - notify user about the results
