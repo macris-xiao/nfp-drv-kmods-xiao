@@ -327,7 +327,7 @@ done
 	    ((skip_check_cnt)) && continue
 
 	    #
-	    # TEST 1 - run checkpatch
+	    # Run checkpatch
 	    #
 	    if [ $IGNORE_CP -eq 1 ]; then
 		../linux-next.git/scripts/checkpatch.pl --strict $real_path 2>&1 | tee -a ../checkpatch.log
@@ -336,7 +336,7 @@ done
 	    fi
 
 	    #
-	    # TEST 2 - check kerneldoc
+	    # Check kerneldoc
 	    #
 	    rm -f src/*.mod.c || true
 	    ../linux-next.git/scripts/kernel-doc -man $(find -name '*.c' -or -name '*.h') > /dev/null 2> ../kdoc.log || true
@@ -345,27 +345,27 @@ done
 	    check_warn_cnt $kdoc_warnings $INCUMBENT_KDOC_WARNINGS kdoc
 
 	    #
-	    # TEST 3 - check new lines in strings
+	    # Check new lines in strings
 	    #
 	    nl_warnings=$(grep -nrI '[^n]"[,)]' src/ | sed -e '/"AS IS"/d;/NN_ET_.*_STAT/d;/MODULE_/d;/sn*printf/d;/scanf/d;/_phymod_get_attr_/d' | wc -l)
 	    check_warn_cnt $nl_warnings $INCUMBENT_NEWLINE_WARNINGS "'line endings in strings'"
 
 	    #
-	    # TEST 4 - build in linux-next
+	    # Build in linux-next
 	    #
 	    echo > ../build.log
 	    make CC=${NEXT_CC:-$DEFAULT_CC} -j8 -C ../linux-next M=`pwd`/src W=1 | tee -a ../build.log
 	    make CC=${NEXT_CC:-$DEFAULT_CC} -j8 -C ../linux-next-32bit M=`pwd`/src W=1 | tee -a ../build.log
 
 	    #
-	    # TEST 5 - check sparse warnings
+	    # Check sparse warnings
 	    #
 	    make CC=$DEFAULT_CC -C ../linux-next M=`pwd`/src C=2 CF=-D__CHECK_ENDIAN__ 2>&1 | tee ../sparse.log
 	    sparse_warnings=$(grep "\(arning:\|rror:\)" ../sparse.log | wc -l)
 	    check_warn_cnt $sparse_warnings $INCUMBENT_SPARSE_WARNINGS sparse
 
 	    #
-	    # TEST 6 - build for older kernels
+	    # Build for older kernels
 	    #
 	    for v in $kernels; do
 		make CC=$DEFAULT_CC -j8 -C ../linux-$v M=`pwd`/src 2>&1 | tee -a ../build.log
@@ -375,7 +375,7 @@ done
 	    done
 
 	    #
-	    # TEST 7 - build for ARM (cross-compile 3.10)
+	    # Build for ARM (cross-compile 3.10)
 	    #
 	    make ARCH=arm CROSS_COMPILE=$ARM_TOOLCHAIN -j8 -C ../nfp-bsp-linux M=`pwd`/src 2>&1 | tee -a ../build.log
 
@@ -383,7 +383,7 @@ done
 	    check_warn_cnt $build_warnings 0 build
 
 	    #
-	    # TEST 8 - run coccicheck
+	    # Run coccicheck
 	    #
 	    make CC=$DEFAULT_CC -C ../linux-next M=`pwd`/src coccicheck | tee ../cocci.log
 	    cocci_warnings=$(grep '^/' ../cocci.log | wc -l)
