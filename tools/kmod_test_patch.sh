@@ -106,6 +106,7 @@ function local_notify() {
 
 call_dir=`pwd`
 IGNORE_CP=0
+IGNORE_XT=0
 
 #
 # Utility functions
@@ -171,6 +172,8 @@ function usage() {
     echo -e "\t        checked those patches in previous run"
     echo -e "\t-I      keep going even if checkpatch reports problems (setting this"
     echo -e "\t        flag will also make checkpatch output go to checkpatch.log)."
+    echo -e "\t-X      keep going even if xmastree reports problems (setting this"
+    echo -e "\t        flag will also make xmastree output go to xmastree.log)."
     echo -e "\t-c <n>  set number of incumbent cocci warnings to <n> for this run"
     echo -e "\t-s <n>  set number of incumbent sparse warnings to <n> for this run"
     echo -e "\t-d <n>  set number of incumbent kdoc warnings to <n> for this run"
@@ -203,6 +206,7 @@ while [ $prev_p_cnt != $# ]; do
     [ "$1" == "-h" ] && usage
     [ "$1" == "-b" ] && shift && BUILD_ROOT=$1 && shift
     [ "$1" == "-I" ] && shift && IGNORE_CP=1
+    [ "$1" == "-X" ] && shift && IGNORE_XT=1
     [ "$1" == "-S" ] && shift && skip_check_cnt=$1 && shift
     [ "$1" == "-c" ] && shift && INCUMBENT_COCCI_WARNINGS=$1 && shift
     [ "$1" == "-s" ] && shift && INCUMBENT_SPARSE_WARNINGS=$1 && shift
@@ -305,7 +309,7 @@ done
 
     l # separate the tests from prep with a line across the terminal
 
-    rm -f checkpatch.log
+    rm -f checkpatch.log xmastree.log
 
     #
     # Test patches loop
@@ -333,6 +337,15 @@ done
 		../linux-next.git/scripts/checkpatch.pl --strict $real_path 2>&1 | tee -a ../checkpatch.log
 	    else
 		../linux-next.git/scripts/checkpatch.pl --strict $real_path
+	    fi
+
+	    #
+	    # Check variable ordering
+	    #
+	    if [ $IGNORE_XT -eq 1 ]; then
+		./tools/xmastree.py $real_path 2>&1 | tee -a ../xmastree.log
+	    else
+		./tools/xmastree.py $real_path
 	    fi
 
 	    #

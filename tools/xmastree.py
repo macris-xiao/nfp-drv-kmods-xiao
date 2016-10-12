@@ -39,7 +39,7 @@ type_qualifiers = ['const', 'volatile', 'restrict']
 
 def is_decl(line):
     """Determine whether a line looks like it's declaring a variable.
-    
+
     A declaration begins with a type name, a storage-class, or a type
     qualifier.  No sanely-formatted non-declaration should ever do so.
     """
@@ -135,13 +135,13 @@ def check_file(f):
 
 def report(name, viols):
     if viols:
-        print "WARNING: Violation(s) in", name
+        print "xmastree: WARNING: Violation(s) in", name
         for last, line, li in viols:
             print "Line %d"%(li-1,)
             print '\t'+last
             print '\t'+line
     else:
-        print "No problems found in", name
+        print "xmastree: no problems found in", name
 
 if len(sys.argv) == 1:
     viols = check_file(sys.stdin)
@@ -151,3 +151,5 @@ else:
         viols = check_file(open(fn, 'r'))
         name = os.path.basename(fn)
         report(name, viols)
+
+exit(bool(viols))
