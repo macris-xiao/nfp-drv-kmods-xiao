@@ -41,7 +41,7 @@ REPO_URL=ssh://hg.netronome.com/data/git/repos/nfp-drv-kmods.git
 INCUMBENT_SPARSE_WARNINGS=71
 INCUMBENT_COCCI_WARNINGS=8
 INCUMBENT_KDOC_WARNINGS=26
-INCUMBENT_NEWLINE_WARNINGS=133
+INCUMBENT_NEWLINE_WARNINGS=83
 # Default compiler to use for most testing (must be something conservative
 # otherwise the old kernels won't build)
 DEFAULT_CC=gcc-4.9
@@ -362,7 +362,7 @@ done
 	    #
 	    # Check new lines in strings
 	    #
-	    nl_warnings=$(grep -nrI '[^n]"[,)]' src/ | sed -e '/"AS IS"/d;/NN_ET_.*_STAT/d;/MODULE_/d;/sn*printf/d;/scanf/d;/_phymod_get_attr_/d' | wc -l)
+	    nl_warnings=$(grep -nrI '[^n]"[,)]' src/ | sed -e '/"AS IS"/d;/NN_ET_.*_STAT/d;/MODULE_/d;/sn*printf/d;/scanf/d;/_phymod_get_attr_/d;/? ".*" *: ".*"/d;/seq_/d;/strncpy/d;/debugfs_create_/d' | wc -l)
 	    check_warn_cnt $nl_warnings $INCUMBENT_NEWLINE_WARNINGS "'line endings in strings'"
 
 	    #
