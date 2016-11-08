@@ -25,7 +25,6 @@ nfp-kmod-srcs = $(nfp-kmod-src-dir)/Kbuild \
 	$(wildcard $(addprefix $(dir_src_top)/$(nfp-kmod-src-dir)/,*.c *.h))\
 	$(wildcard $(addprefix $(dir_src_top)/$(nfp-kmod-src-dir)/nfp_net/,*.c *.h))\
 	$(wildcard $(addprefix $(dir_src_top)/$(nfp-kmod-src-dir)/nfpcore/,*.c *.h))\
-	$(wildcard $(addprefix $(dir_src_top)/$(nfp-kmod-src-dir)/nfpcore/nfp3200/,*.h))\
 	$(wildcard $(addprefix $(dir_src_top)/$(nfp-kmod-src-dir)/nfpcore/nfp6000/,*.h))\
 	$(wildcard $(addprefix $(dir_src_top)/$(nfp-kmod-src-dir)/nfpcore/nfp-bsp/,*.h))\
    )
