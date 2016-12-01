@@ -376,6 +376,11 @@ done
 	    make CC=${NEXT_CC:-$DEFAULT_CC} -j8 -C ../linux-next-32bit M=`pwd`/src W=1 2>&1 | tee -a ../build.log
 
 	    #
+	    # Build with different configs
+	    #
+	    make CC=${NEXT_CC:-$DEFAULT_CC} -j8 -C ../linux-next M=`pwd`/src W=1 | tee -a ../build.log CONFIG_NFP_NET_VF=n
+
+	    #
 	    # Check sparse warnings
 	    #
 	    make CC=$DEFAULT_CC -C ../linux-next M=`pwd`/src C=2 CF=-D__CHECK_ENDIAN__ 2>&1 | tee ../sparse.log
