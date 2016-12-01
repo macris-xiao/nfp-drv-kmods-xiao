@@ -41,7 +41,7 @@ REPO_URL=ssh://hg.netronome.com/data/git/repos/nfp-drv-kmods.git
 INCUMBENT_SPARSE_WARNINGS=71
 INCUMBENT_COCCI_WARNINGS=8
 INCUMBENT_KDOC_WARNINGS=25
-INCUMBENT_NEWLINE_WARNINGS=64
+INCUMBENT_NEWLINE_WARNINGS=61
 # Default compiler to use for most testing (must be something conservative
 # otherwise the old kernels won't build).  Check if gcc-4.9, gcc-4.8 or gcc
 # exist and use them in that order of priority.
@@ -378,7 +378,9 @@ done
 	    #
 	    # Build with different configs
 	    #
+	    make CC=${NEXT_CC:-$DEFAULT_CC} -j8 -C ../linux-next M=`pwd`/src W=1 | tee -a ../build.log CONFIG_NFP_NET_PF=n
 	    make CC=${NEXT_CC:-$DEFAULT_CC} -j8 -C ../linux-next M=`pwd`/src W=1 | tee -a ../build.log CONFIG_NFP_NET_VF=n
+	    make CC=${NEXT_CC:-$DEFAULT_CC} -j8 -C ../linux-next M=`pwd`/src W=1 | tee -a ../build.log CONFIG_NFP_NET_PF=n CONFIG_NFP_NET_VF=n
 
 	    #
 	    # Check sparse warnings
