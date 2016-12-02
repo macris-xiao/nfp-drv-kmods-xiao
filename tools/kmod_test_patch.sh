@@ -378,9 +378,21 @@ done
 	    #
 	    # Build with different configs
 	    #
-	    make CC=${NEXT_CC:-$DEFAULT_CC} -j8 -C ../linux-next M=`pwd`/src W=1 | tee -a ../build.log CONFIG_NFP_NET_PF=n
-	    make CC=${NEXT_CC:-$DEFAULT_CC} -j8 -C ../linux-next M=`pwd`/src W=1 | tee -a ../build.log CONFIG_NFP_NET_VF=n
-	    make CC=${NEXT_CC:-$DEFAULT_CC} -j8 -C ../linux-next M=`pwd`/src W=1 | tee -a ../build.log CONFIG_NFP_NET_PF=n CONFIG_NFP_NET_VF=n
+	    build_opts=(CONFIG_NFP_NET_PF CONFIG_NFP_NET_VF \
+			CONFIG_NFP_USER_SPACE_CPP)
+	    for i in `seq $(((1 << ${#build_opts[@]}) - 1))`
+	    do
+		b_opts=
+		for j in `seq 0 $((${#build_opts[@]} - 1))`
+		do
+		    [ $(($i & (1 << $j))) -eq 0 ] && continue
+
+		    b_opts="$b_opts ${build_opts[j]}=n"
+		done
+
+		echo "Build with opts=$b_opts"
+		make CC=${NEXT_CC:-$DEFAULT_CC} -j8 -C ../linux-next M=`pwd`/src W=1 $b_opts 2>&1 | tee -a ../build.log
+	    done
 
 	    #
 	    # Check sparse warnings
