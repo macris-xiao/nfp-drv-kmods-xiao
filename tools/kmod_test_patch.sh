@@ -369,8 +369,8 @@ done
 	    # Build in linux-next
 	    #
 	    echo > ../build.log
-	    make CC=${NEXT_CC:-$DEFAULT_CC} -j8 -C ../linux-next M=`pwd`/src W=1 | tee -a ../build.log
-	    make CC=${NEXT_CC:-$DEFAULT_CC} -j8 -C ../linux-next-32bit M=`pwd`/src W=1 | tee -a ../build.log
+	    make CC=${NEXT_CC:-$DEFAULT_CC} -j8 -C ../linux-next M=`pwd`/src W=1 2>&1 | tee -a ../build.log
+	    make CC=${NEXT_CC:-$DEFAULT_CC} -j8 -C ../linux-next-32bit M=`pwd`/src W=1 2>&1 | tee -a ../build.log
 
 	    #
 	    # Check sparse warnings
