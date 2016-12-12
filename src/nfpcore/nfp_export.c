@@ -141,3 +141,32 @@ EXPORT_SYMBOL(nfp_phymod_eth_write_disable);
 EXPORT_SYMBOL(nfp_rtsym_count);
 EXPORT_SYMBOL(nfp_rtsym_get);
 EXPORT_SYMBOL(nfp_rtsym_lookup);
+
+/*
+ * NOTE: the exports below are for test infrastructure only and are not
+ *	 guaranteed to provide stable API.  We are happy to make them
+ *	 normal exports but please let the kernel team know before using them.
+ */
+
+/* Implemented in nfp_ca.c */
+
+EXPORT_SYMBOL_GPL(nfp_ca_replay);	/* Testing only */
+
+/* Implemented in nfp_device.c */
+
+EXPORT_SYMBOL_GPL(nfp_device_lock);	/* Testing only */
+EXPORT_SYMBOL_GPL(nfp_device_unlock);	/* Testing only */
+
+/* Implemented in nfp_hwinfo.c */
+
+EXPORT_SYMBOL_GPL(nfp_hwinfo_lookup);	/* Testing only */
+
+/* Implemented in nfp_reset.c */
+
+EXPORT_SYMBOL_GPL(nfp_reset_soft);	/* Testing only */
+
+/* Implemented in nfp_nsp.c */
+
+EXPORT_SYMBOL_GPL(nfp_nsp_open);	/* Testing only */
+EXPORT_SYMBOL_GPL(nfp_nsp_close);	/* Testing only */
+EXPORT_SYMBOL_GPL(nfp_nsp_command);	/* Testing only */

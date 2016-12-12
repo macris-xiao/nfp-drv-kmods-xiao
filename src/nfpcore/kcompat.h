@@ -606,6 +606,16 @@ netif_trans_update(struct net_device *netdev)
 {
 	netdev->trans_start = jiffies;
 }
+
+static inline int
+debugfs_use_file_start(const void *a, const void *b)
+{
+	return 0;
+}
+
+static inline void debugfs_use_file_finish(int a)
+{
+}
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0)

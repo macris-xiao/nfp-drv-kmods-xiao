@@ -14,6 +14,9 @@ CONFIG_NFP_NET_PF ?= y
 # Include code for the VFs
 CONFIG_NFP_NET_VF ?= y
 
+# Build test harness
+CONFIG_NFP_TEST_HARNESS ?= n
+
 ccflags-y := $(CFLAGS_EXTRA)
 
 # un-comment for debug symbols
@@ -114,6 +117,8 @@ ifneq (,$(filter y,$(CONFIG_NFP_NET_PF) $(CONFIG_NFP_NET_VF)))
     endif
   endif # $(KERNEL_GT_4_8),1
 endif # CONFIG_NFP_NET_*
+
+obj-$(CONFIG_NFP_TEST_HARNESS) := nfp_test_harness.o
 
 ####################
 # Build information

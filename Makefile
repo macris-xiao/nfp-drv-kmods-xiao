@@ -76,4 +76,8 @@ uninstall:
 	rm -f $(INSTALL_MOD_PATH)/lib/modules/$(KVER)/extra/nfp_netvf.ko
 	depmod $(DEPMOD_PATH) $(KVER)
 
-.PHONY: build nfp_net noisy coccicheck sparse clean install uninstall
+test_prepare:
+	$(MAKE) -C tests/mefw
+	$(MAKE) $(COMMON_ARGS) CONFIG_NFP=n CONFIG_NFP_TEST_HARNESS=m
+
+.PHONY: build nfp_net noisy coccicheck sparse clean install uninstall test_prepare

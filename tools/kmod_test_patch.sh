@@ -403,6 +403,8 @@ done
 		echo "Build with opts=$b_opts"
 		make CC=${NEXT_CC:-$DEFAULT_CC} -j8 -C ../linux-next M=`pwd`/src W=1 $b_opts 2>&1 | tee -a ../build.log
 	    done
+	    echo "Build with opts=CONFIG_NFP_TEST_HARNESS=m"
+	    make CC=${NEXT_CC:-$DEFAULT_CC} -j8 -C ../linux-next M=`pwd`/src W=1 CONFIG_NFP_TEST_HARNESS=m 2>&1 | tee -a ../build.log
 
 	    #
 	    # Check sparse warnings
