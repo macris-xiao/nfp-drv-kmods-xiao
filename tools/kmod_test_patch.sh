@@ -40,8 +40,8 @@ REPO_URL=ssh://hg.netronome.com/data/git/repos/nfp-drv-kmods.git
 # Counts of warnings which already exist in your code (e.g. false positives)
 INCUMBENT_SPARSE_WARNINGS=67
 INCUMBENT_COCCI_WARNINGS=5
-INCUMBENT_KDOC_WARNINGS=24
-INCUMBENT_NEWLINE_WARNINGS=45
+INCUMBENT_KDOC_WARNINGS=20
+INCUMBENT_NEWLINE_WARNINGS=46
 # Default compiler to use for most testing (must be something conservative
 # otherwise the old kernels won't build).  Check if gcc-4.9, gcc-4.8 or gcc
 # exist and use them in that order of priority.
