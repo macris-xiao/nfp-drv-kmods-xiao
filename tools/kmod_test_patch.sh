@@ -38,7 +38,7 @@ REPO_URL=ssh://hg.netronome.com/data/git/repos/nfp-drv-kmods.git
 # Build directory (can get huge)
 [ -z "$BUILD_ROOT" ] && BUILD_ROOT=~/tests/auto/
 # Counts of warnings which already exist in your code (e.g. false positives)
-INCUMBENT_SPARSE_WARNINGS=67
+INCUMBENT_SPARSE_WARNINGS=66
 INCUMBENT_COCCI_WARNINGS=5
 INCUMBENT_KDOC_WARNINGS=20
 INCUMBENT_NEWLINE_WARNINGS=46
