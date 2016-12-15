@@ -403,8 +403,6 @@ done
 	    make CC=$DEFAULT_CC -C ../linux-next M=`pwd`/src coccicheck | tee ../cocci.log
 	    cocci_warnings=$(grep '^/' ../cocci.log | wc -l)
 	    check_warn_cnt $cocci_warnings $INCUMBENT_COCCI_WARNINGS cocci
-
-	    echo CC=${NEXT_CC:-$DEFAULT_CC}
 	)
 
 	((skip_check_cnt)) && ((skip_check_cnt--))
