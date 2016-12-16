@@ -43,11 +43,14 @@ INCUMBENT_COCCI_WARNINGS=8
 INCUMBENT_KDOC_WARNINGS=26
 INCUMBENT_NEWLINE_WARNINGS=83
 # Default compiler to use for most testing (must be something conservative
-# otherwise the old kernels won't build)
-DEFAULT_CC=gcc-4.9
+# otherwise the old kernels won't build).  Check if gcc-4.9, gcc-4.8 or gcc
+# exist and use them in that order of priority.
+[ -z "$DEFAULT_CC" ] && DEFAULT_CC=$(which gcc-4.9 >> /dev/null && echo gcc-4.9)
+[ -z "$DEFAULT_CC" ] && DEFAULT_CC=$(which gcc-4.8 >> /dev/null && echo gcc-4.8)
+[ -z "$DEFAULT_CC" ] && DEFAULT_CC=$(which gcc     >> /dev/null && echo gcc)
 # Compiler to use for building with linux-next.  You can use the lastest,
 # greatest GCC here.  Leave empty to disable the extra run.
-NEXT_CC=gcc
+NEXT_CC=$(compgen -c gcc | sed -n '/gcc\(-[0-9]\(\.[0-9]\)*\)*$/p' | sort | tail -1)
 # ARM toolchain path
 [ -z "$ARM_TOOLCHAIN" ] && ARM_TOOLCHAIN=${HOME}/cross/gcc-4.6.3-nolibc/arm-unknown-linux-gnueabi/bin/arm-unknown-linux-gnueabi-
 
