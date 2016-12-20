@@ -154,10 +154,6 @@ EXPORT_SYMBOL_GPL(nfp_device_unlock);	/* Testing only */
 
 EXPORT_SYMBOL_GPL(nfp_hwinfo_lookup);	/* Testing only */
 
-/* Implemented in nfp_reset.c */
-
-EXPORT_SYMBOL_GPL(nfp_reset_soft);	/* Testing only */
-
 /* Implemented in nfp_resource.c */
 EXPORT_SYMBOL_GPL(nfp_resource_acquire);	/* Testing only */
 EXPORT_SYMBOL_GPL(nfp_resource_release);	/* Testing only */
@@ -171,3 +167,4 @@ EXPORT_SYMBOL_GPL(nfp_resource_size);	/* Testing only */
 EXPORT_SYMBOL_GPL(nfp_nsp_open);	/* Testing only */
 EXPORT_SYMBOL_GPL(nfp_nsp_close);	/* Testing only */
 EXPORT_SYMBOL_GPL(nfp_nsp_wait);	/* Testing only */
+EXPORT_SYMBOL_GPL(nfp_nsp_device_soft_reset);	/* Testing only */

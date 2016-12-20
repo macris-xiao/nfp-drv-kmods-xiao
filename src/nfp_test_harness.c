@@ -128,6 +128,33 @@ struct {
 	}								\
 	NTH_DECLARE_HANDLER(__name);
 
+#define NTH_DECLARE_ACTION_NSP(__name, __op)				\
+	static int nth_ ## __name ## _read(struct seq_file *file, void *data) \
+	{								\
+		struct nfp_cpp *cpp;					\
+		struct nfp_nsp *nsp;					\
+		int ret;						\
+									\
+		cpp = nfp_cpp_from_device_id(nth.id);			\
+		if (!cpp)						\
+			return -EBUSY;					\
+									\
+		nsp = nfp_nsp_open(cpp);				\
+		if (IS_ERR(nsp)) {					\
+			ret = PTR_ERR(nsp);				\
+			goto err_free_cpp;				\
+		}							\
+									\
+		ret = __op(nsp);					\
+									\
+		nfp_nsp_close(nsp);					\
+	err_free_cpp:							\
+		nfp_cpp_free(cpp);					\
+									\
+		return ret;						\
+	}								\
+	NTH_DECLARE_HANDLER(__name);
+
 static int nth_serial_read(struct seq_file *file, void *data)
 {
 	struct nfp_cpp *cpp;
@@ -169,7 +196,7 @@ static int nth_interface_read(struct seq_file *file, void *data)
 NTH_DECLARE_HANDLER(interface);
 
 NTH_DECLARE_ACTION(cache_flush, nfp_nffw_cache_flush);
-NTH_DECLARE_ACTION(reset, nfp_reset_soft);
+NTH_DECLARE_ACTION_NSP(reset, nfp_nsp_device_soft_reset);
 
 static int nth_rtsym_count_read(struct seq_file *file, void *data)
 {
@@ -357,7 +384,7 @@ static ssize_t nth_write_fw_load(struct file *file, const char __user *user_buf,
 	if (ret < 0)
 		goto err_nsp_close;
 
-	ret = nfp_reset_soft(cpp);
+	ret = nfp_nsp_device_soft_reset(nsp);
 	if (ret < 0) {
 		pr_err("Failed to soft reset the NFP: %ld\n", ret);
 		goto err_nsp_close;
