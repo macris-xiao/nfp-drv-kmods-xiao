@@ -170,4 +170,4 @@ EXPORT_SYMBOL_GPL(nfp_resource_size);	/* Testing only */
 
 EXPORT_SYMBOL_GPL(nfp_nsp_open);	/* Testing only */
 EXPORT_SYMBOL_GPL(nfp_nsp_close);	/* Testing only */
-EXPORT_SYMBOL_GPL(nfp_nsp_command);	/* Testing only */
+EXPORT_SYMBOL_GPL(nfp_nsp_wait);	/* Testing only */

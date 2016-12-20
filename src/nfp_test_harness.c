@@ -327,7 +327,6 @@ static ssize_t nth_write_fw_load(struct file *file, const char __user *user_buf,
 	struct nfp_cpp *cpp;
 	struct nfp_nsp *nsp;
 	ssize_t copied, ret;
-	int timeout = 30;
 	int srcu_idx;
 
 	ret = debugfs_use_file_start(file->f_path.dentry, &srcu_idx);
@@ -354,19 +353,9 @@ static ssize_t nth_write_fw_load(struct file *file, const char __user *user_buf,
 		goto err_release_fw;
 	}
 
-	for (; timeout > 0; timeout--) {
-		ret = nfp_nsp_command(nsp, SPCODE_NOOP, 0, 0, 0);
-		if (ret != -EAGAIN)
-			break;
-		if (msleep_interruptible(1000) > 0) {
-			ret = -ETIMEDOUT;
-			break;
-		}
-	}
-	if (ret < 0) {
-		pr_err("NSP failed to respond\n");
+	ret = nfp_nsp_wait(nsp);
+	if (ret < 0)
 		goto err_nsp_close;
-	}
 
 	ret = nfp_reset_soft(cpp);
 	if (ret < 0) {
