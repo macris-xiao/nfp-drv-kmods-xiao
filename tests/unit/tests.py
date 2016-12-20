@@ -45,7 +45,7 @@ class NFPKmodUnit(NFPKmodGrp):
               "Test if incompatible parameter combinations are rejected"),
              ('dev_cpp', DevCppTest,
               "Test user space access existence and basic functionality"),
-             ('ca_load', CALoadTest, "Test kernel firmware loader (CA replay)"))
+             ('kernel_fw_load', KernelLoadTest, "Test kernel firmware loader"))
 
         for t in T:
             self._tests[t[0]] = t[1](src, dut, self, t[0], t[2])
@@ -328,7 +328,7 @@ class RTSymTest(CommonTest):
             if not tu[0]:
                 M.dfs_read('nth/reset')
             elif not user_space_load:
-                M.dfs_write('nth/fw_load', 'netronome/%s/%s.ca' % \
+                M.dfs_write('nth/fw_load', 'netronome/%s/%s.nffw' % \
                             (fwdir_base, tu[0]))
             else:
                 if self.loaded:
@@ -404,7 +404,7 @@ class FwSearchTest(CommonDrvTest):
         _, out = M.cmd('dmesg -c')
         if out.find('nfp: probe of ') == -1:
             raise NtiGeneralError('nfp.ko should fail to load without FW')
-        if out.find('Direct firmware load for netronome/nfp6000_net.cat') == -1:
+        if out.find('Direct firmware load for netronome/nfp6000_net.nffw') == -1:
             raise NtiGeneralError('nfp.ko netdev not looking for default FW')
         if out.find('Direct firmware load for netronome/%s' % (part_no)) == -1:
             raise NtiGeneralError('nfp.ko netdev not looking for part FW (%s)' %
@@ -509,11 +509,11 @@ class DevCppTest(CommonDrvTest):
             raise NtiGeneralError('nfp-cpp-dev should not work by default')
         M.rmmod()
 
-class CALoadTest(CommonTest):
+class KernelLoadTest(CommonTest):
     def load_test(self, name):
         M = self.dut
 
-        M.cp_to(self.group.netdevca, '/lib/firmware/netronome/%s.cat' % name)
+        M.cp_to(self.group.netdevfw, '/lib/firmware/netronome/%s.nffw' % name)
 
         M.refresh()
         netifs_old = M._netifs
@@ -531,7 +531,7 @@ class CALoadTest(CommonTest):
 
         self.ping()
         M.rmmod()
-        M.cmd('rm /lib/firmware/netronome/%s.cat' % (name))
+        M.cmd('rm /lib/firmware/netronome/%s.nffw' % (name))
 
     def execute(self):
         M = self.dut

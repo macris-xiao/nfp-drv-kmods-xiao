@@ -141,15 +141,6 @@ EXPORT_SYMBOL(nfp_rtsym_lookup);
  *	 normal exports but please let the kernel team know before using them.
  */
 
-/* Implemented in nfp_ca.c */
-
-EXPORT_SYMBOL_GPL(nfp_ca_replay);	/* Testing only */
-
-/* Implemented in nfp_device.c */
-
-EXPORT_SYMBOL_GPL(nfp_device_lock);	/* Testing only */
-EXPORT_SYMBOL_GPL(nfp_device_unlock);	/* Testing only */
-
 /* Implemented in nfp_hwinfo.c */
 
 EXPORT_SYMBOL_GPL(nfp_hwinfo_lookup);	/* Testing only */
@@ -168,3 +159,4 @@ EXPORT_SYMBOL_GPL(nfp_nsp_open);	/* Testing only */
 EXPORT_SYMBOL_GPL(nfp_nsp_close);	/* Testing only */
 EXPORT_SYMBOL_GPL(nfp_nsp_wait);	/* Testing only */
 EXPORT_SYMBOL_GPL(nfp_nsp_device_soft_reset);	/* Testing only */
+EXPORT_SYMBOL_GPL(nfp_nsp_load_fw);	/* Testing only */

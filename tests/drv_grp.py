@@ -57,7 +57,6 @@ class NFPKmodGrp(netro.testinfra.Group):
         ("nfpkmod", [False, "Directory with kernel mods to load on DUT"]),
         ("nfp", [False, "NFP device number to use (default 0)"]),
         ("netdevfw", [True, "Path to netdev firmware"]),
-        ("netdevca", [True, "Path to netdev firmware in CA format"]),
         ("mefw", [True, "Path to firmware image directory"]),
     ])
     _config["HostA"] = collections.OrderedDict([
@@ -98,7 +97,6 @@ class NFPKmodGrp(netro.testinfra.Group):
         self.nfp = 0
         self.nfpkmods = None
         self.netdevfw = None
-        self.netdevca = None
         self.mefw = None
 
         self.host_a = None
@@ -189,8 +187,6 @@ class NFPKmodGrp(netro.testinfra.Group):
             self.nthkmod = os.path.join(self.nfpkmods, 'nfp_test_harness.ko')
         if self.cfg.has_option("DUT", "netdevfw"):
             self.netdevfw = self.cfg.get("DUT", "netdevfw")
-        if self.cfg.has_option("DUT", "netdevca"):
-            self.netdevca = self.cfg.get("DUT", "netdevca")
         if self.cfg.has_option("DUT", "mefw"):
             self.mefw = self.cfg.get("DUT", "mefw")
 
