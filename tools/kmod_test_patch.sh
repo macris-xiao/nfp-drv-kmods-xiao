@@ -37,11 +37,6 @@ MIN_KERNEL_VER=308
 REPO_URL=ssh://hg.netronome.com/data/git/repos/nfp-drv-kmods.git
 # Build directory (can get huge)
 [ -z "$BUILD_ROOT" ] && BUILD_ROOT=~/tests/auto/
-# Counts of warnings which already exist in your code (e.g. false positives)
-INCUMBENT_SPARSE_WARNINGS=66
-INCUMBENT_COCCI_WARNINGS=5
-INCUMBENT_KDOC_WARNINGS=19
-INCUMBENT_NEWLINE_WARNINGS=62
 # Default compiler to use for most testing (must be something conservative
 # otherwise the old kernels won't build).  Check if gcc-4.9, gcc-4.8 or gcc
 # exist and use them in that order of priority.
@@ -53,6 +48,8 @@ INCUMBENT_NEWLINE_WARNINGS=62
 NEXT_CC=$(compgen -c gcc | sed -n '/gcc\(-[0-9]\(\.[0-9]\)*\)*$/p' | sort | tail -1)
 # ARM toolchain path
 [ -z "$ARM_TOOLCHAIN" ] && ARM_TOOLCHAIN=${HOME}/cross/gcc-4.6.3-nolibc/arm-unknown-linux-gnueabi/bin/arm-unknown-linux-gnueabi-
+
+source $(dirname $0)/kmod_test_patch_inc.sh
 
 ## non_vanilla_kernels() - get user-specific list of kernels to test
 #
@@ -183,6 +180,9 @@ function usage() {
     echo -e "\t-s <n>  set number of incumbent sparse warnings to <n> for this run"
     echo -e "\t-d <n>  set number of incumbent kdoc warnings to <n> for this run"
     echo -e "\t-l <n>  set number of incumbent new line warnings to <n> for this run"
+    echo -e "\t        NOTE: setting inclumbent errors from command line disables"
+    echo -e "\t              automatic refresh of all values for each patch"
+    echo
     echo -e "\t-h      print help"
 
     trap '' EXIT
@@ -213,10 +213,10 @@ while [ $prev_p_cnt != $# ]; do
     [ "$1" == "-I" ] && shift && IGNORE_CP=1
     [ "$1" == "-X" ] && shift && IGNORE_XT=1
     [ "$1" == "-S" ] && shift && skip_check_cnt=$1 && shift
-    [ "$1" == "-c" ] && shift && INCUMBENT_COCCI_WARNINGS=$1 && shift
-    [ "$1" == "-s" ] && shift && INCUMBENT_SPARSE_WARNINGS=$1 && shift
-    [ "$1" == "-d" ] && shift && INCUMBENT_KDOC_WARNINGS=$1 && shift
-    [ "$1" == "-l" ] && shift && INCUMBENT_NEWLINE_WARNINGS=$1 && shift
+    [ "$1" == "-c" ] && shift && INCUMBENT_COCCI_WARNINGS=$1   _I=1 && shift
+    [ "$1" == "-s" ] && shift && INCUMBENT_SPARSE_WARNINGS=$1  _I=1 && shift
+    [ "$1" == "-d" ] && shift && INCUMBENT_KDOC_WARNINGS=$1    _I=1 && shift
+    [ "$1" == "-l" ] && shift && INCUMBENT_NEWLINE_WARNINGS=$1 _I=1 && shift
 done
 
 # Do basic checks
@@ -334,6 +334,10 @@ done
 
 	    # This hacky hack says - if skip_check_cnt is not 0 - skip
 	    ((skip_check_cnt)) && continue
+
+	    # Re-read the incumbent error counts - they can change from
+	    # patch to patch
+	    [ -z "$_I" ] && source tools/kmod_test_patch_inc.sh
 
 	    #
 	    # Run checkpatch
