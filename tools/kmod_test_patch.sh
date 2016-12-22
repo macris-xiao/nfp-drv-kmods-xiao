@@ -30,6 +30,8 @@
 # Configuration variables and callbacks
 #
 
+# Environment version
+BUILD_ENV_VERSION=1
 # Oldest kernel for which to test (in 3-digit format, 300 is 3.0, 303 is 3.3,
 # 312 is 3.12, 402 is 4.2, etc.)
 MIN_KERNEL_VER=308
@@ -223,8 +225,12 @@ done
 [ $# -lt 1 ] && usage
 [ -z "$BUILD_ROOT" ] && bold "no BUILD_ROOT specified"  &&  usage
 
-! [ -e "$BUILD_ROOT" ] && mkdir -p $BUILD_ROOT
+! [ -e "$BUILD_ROOT" ] && mkdir -p $BUILD_ROOT && echo -n $BUILD_ENV_VERSION > $BUILD_ROOT/version
 ! [ -d "$BUILD_ROOT" ] && bold "BUILD_ROOT ($BUILD_ROOT) is not a directory" && usage
+
+! [ -f $BUILD_ROOT/version ] && bold_red "Version file not found, assuming OK" && echo -n $BUILD_ENV_VERSION > $BUILD_ROOT/version
+
+[ $(cat $BUILD_ROOT/version) != $BUILD_ENV_VERSION ] && bold_red "Your build directory was created with an old version of the script, you have to recreate it or fix it manually" && exit
 
 (
     cd $BUILD_ROOT
