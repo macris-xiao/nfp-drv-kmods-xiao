@@ -306,6 +306,7 @@ static ssize_t nth_write_fw_load(struct file *file, const char __user *user_buf,
 			       size_t count, loff_t *ppos)
 {
 	struct debugfs_blob_wrapper *blob = file->private_data;
+	struct nfp_cpp_mutex *mutex;
 	const struct firmware *fw;
 	u8 *data = blob->data;
 	struct nfp_cpp *cpp;
@@ -361,14 +362,15 @@ static ssize_t nth_write_fw_load(struct file *file, const char __user *user_buf,
 	/* Lock the NFP, prevent others from touching it while we
 	 * load the firmware.
 	 */
-	ret = nfp_device_lock(cpp);
-	if (ret < 0) {
-		pr_err("Can't lock NFP device: %ld\n", ret);
+	mutex = nfp_device_lock(cpp);
+	if (!mutex) {
+		pr_err("Can't lock NFP device\n");
+		ret = -ENOMEM;
 		goto err_nsp_close;
 	}
 
 	ret = nfp_ca_replay(cpp, fw->data, fw->size);
-	nfp_device_unlock(cpp);
+	nfp_device_unlock(cpp, mutex);
 
 	if (ret) {
 		pr_err("FW loading failed: %ld\n", ret);
