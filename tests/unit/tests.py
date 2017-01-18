@@ -33,6 +33,7 @@ class NFPKmodUnit(NFPKmodGrp):
         T = (('modinfo', Modinfo, "Test if modinfo is correct"),
              ('serial_and_ifc', NFPSerialAndInterface,
               "Read the serial number and interface ID"),
+             ('resource', ResourceTest, 'Test in-kernel resource table interface'),
              ('hwinfo', HWInfoTest, 'Test in-kernel HWInfo interface'),
              ('rtsym', RTSymTest, 'Test in-kernel RT-Sym interface'),
              ('fw_names', FwSearchTest, "Test FW requested by the driver"),
@@ -94,6 +95,84 @@ class NFPSerialAndInterface(CommonNTHTest):
         if dfs != interface:
             raise NtiGeneralError("Interface doesn't match debugfs %s vs %s" %
                                   (interface, dfs))
+
+class ResourceTest(CommonNTHTest):
+    def resources_validate(self, want, output, user_space):
+        out_lines = output.split('\n')[:-1]
+
+        if len(out_lines) != len(want):
+            raise NtiGeneralError("Different resource numbers %d vs %d" %
+                                  (len(want), len(out_lines)))
+
+        locked = len(set(i[0] for i in want))
+        if user_space.count('LOCKED') != locked:
+            raise NtiGeneralError("Incorrect number of locked resources %d vs %d" %
+                                  (user_space.count('LOCKED'), locked))
+
+        for i in range(0, len(want)):
+            fields = out_lines[i].split()
+
+            if fields[1] != want[i][0] or fields[3] != want[i][0]:
+                raise NtiGeneralError("Bad name %s vs %s %s" %
+                                      (want[i][0], fields[1], fields[3]))
+
+            if fields[4] != want[i][1]:
+                raise NtiGeneralError("CPP_ID %s vs %s" %
+                                      (want[i][1], fields[4]))
+
+            if fields[5] != want[i][2]:
+                raise NtiGeneralError("Addr %s vs %s" % (want[i][2], fields[5]))
+
+            if fields[6] != want[i][3]:
+                raise NtiGeneralError("Size %s vs %s" % (want[i][3], fields[6]))
+
+            if not re.search("%s.*LOCKED" % fields[1], user_space):
+                raise NtiGeneralError("Resource %s not locked %s %s" % (want[i][0], "%s.*LOCKED" % fields[1], user_space))
+
+    def nth_execute(self):
+        M = self.dut
+
+        # Try non-existing resource
+        M.dfs_write('resource', "test.xxx", do_fail=True)
+
+        _, out = M.cmd('nfp-res -L')
+        # Iterate over lines skipping header
+        resources = []
+        for line in out.split('\n')[1:]:
+            if not line:
+                continue
+
+            fields = line.split()
+            name = fields[0]
+            cpp_id = fields[2].split(':')[:3]
+            addr = fields[2].split(':')[3][2:]
+            size = fields[3][3:][:-1]
+
+            cpp_id = "%02x%02x%02x00" % \
+                     (int(cpp_id[0]), int(cpp_id[2]), int(cpp_id[1]))
+
+            resources.append((name, cpp_id, addr, size))
+
+        resources *= 3
+        random.seed(1234)
+        random.shuffle(resources)
+
+        for i in range(0, len(resources)):
+            M.dfs_write('nth/resource', resources[i][0])
+            rescs = M.dfs_read_raw('nth/resource')
+            _, out = M.cmd('nfp-res -L')
+            self.resources_validate(resources[:i+1], rescs, out)
+
+        # Try non-existing resource on filled table
+        M.dfs_write('resource', "test.xxx", do_fail=True)
+
+        # Release all resources and see if locks are freed
+        for i in range(0, len(resources)):
+            M.dfs_write('nth/resource', i)
+
+        _, out = M.cmd('nfp-res -L')
+        if out.count("LOCKED"):
+            raise NtiGeneralError("Locked resources exist on exit")
 
 class HWInfoTest(CommonNTHTest):
     def hwinfo_check(self, keys, vals):

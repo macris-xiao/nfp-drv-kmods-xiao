@@ -97,6 +97,10 @@ class DrvSystem(System):
         _, data = self.cmd('echo `cat %s`' % (os.path.join(self.dfs_dir, path)))
         return data.strip()
 
+    def dfs_read_raw(self, path):
+        _, data = self.cmd('cat %s' % (os.path.join(self.dfs_dir, path)))
+        return data
+
     def dfs_write(self, path, data, do_fail=False):
         ret, data = self.cmd('echo -n "%s" > %s' %
                              (data, os.path.join(self.dfs_dir, path)),

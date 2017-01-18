@@ -55,6 +55,11 @@ struct {
 
 	u8 fw_load_data[1024];
 	struct debugfs_blob_wrapper fw_load;
+
+	struct {
+		const char *name;
+		struct nfp_resource *res;
+	} resources[1024];
 } nth = {
 	.hwinfo_key = {
 		.data = nth.hwinfo_key_data,
@@ -394,6 +399,98 @@ static const struct file_operations nth_fw_load_ops = {
 	.llseek = default_llseek,
 };
 
+static int nth_resource_read(struct seq_file *file, void *data)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(nth.resources); i++) {
+		if (!nth.resources[i].name)
+			continue;
+
+		seq_printf(file, "%d\t%s\t%p %s\t%08x %010llx %llx\n",
+			   i, nth.resources[i].name, nth.resources[i].res,
+			   nfp_resource_name(nth.resources[i].res),
+			   nfp_resource_cpp_id(nth.resources[i].res),
+			   nfp_resource_address(nth.resources[i].res),
+			   nfp_resource_size(nth.resources[i].res));
+	}
+
+	return 0;
+}
+
+static ssize_t
+nth_resource_write(struct file *file, const char __user *user_buf,
+		   size_t count, loff_t *ppos)
+{
+	struct nfp_cpp *cpp;
+	ssize_t copied, ret;
+	char name[16] = {};
+	int srcu_idx;
+	long i;
+
+	ret = debugfs_use_file_start(file->f_path.dentry, &srcu_idx);
+	if (likely(!ret))
+		ret = simple_write_to_buffer(name, sizeof(name) - 1,
+					     ppos, user_buf, count);
+	debugfs_use_file_finish(srcu_idx);
+	if (ret < 0)
+		return ret;
+	copied = ret;
+	ret = 0;
+
+	cpp = nfp_cpp_from_device_id(nth.id);
+	if (!cpp)
+		return -EBUSY;
+
+	if (kstrtol(name, 0, &i)) {
+		for (i = 0; i < ARRAY_SIZE(nth.resources); i++)
+			if (!nth.resources[i].name)
+				break;
+		if (i == ARRAY_SIZE(nth.resources)) {
+			ret = -ENOSPC;
+			goto exit_free_cpp;
+		}
+
+		nth.resources[i].name = kstrdup(name, GFP_KERNEL);
+		if (!nth.resources[i].name) {
+			ret = -ENOMEM;
+			goto exit_free_cpp;
+		}
+
+		nth.resources[i].res = nfp_resource_acquire(cpp, name);
+		if (IS_ERR(nth.resources[i].res)) {
+			kfree(nth.resources[i].name);
+			ret = PTR_ERR(nth.resources[i].res);
+			nth.resources[i].res = NULL;
+		}
+	} else if (nth.resources[i].name) {
+		kfree(nth.resources[i].name);
+		nfp_resource_release(nth.resources[i].res);
+		memset(&nth.resources[i], 0, sizeof(nth.resources[i]));
+	} else {
+		ret = -EINVAL;
+	}
+
+exit_free_cpp:
+	nfp_cpp_free(cpp);
+
+	return ret ? ret : copied;
+}
+
+static int nth_resource_open(struct inode *inode, struct file *f)
+{
+	return single_open(f, nth_resource_read, inode->i_private);
+}
+
+static const struct file_operations nth_resource_ops = {
+	.owner = THIS_MODULE,
+	.open = nth_resource_open,
+	.release = single_release,
+	.write = nth_resource_write,
+	.read = seq_read,
+	.llseek = seq_lseek,
+};
+
 static int __init nth_init(void)
 {
 	bool fail = false;
@@ -431,6 +528,9 @@ static int __init nth_init(void)
 	fail |= !debugfs_create_file("fw_load", 0600, nth.dir,
 				     &nth.fw_load, &nth_fw_load_ops);
 
+	fail |= !debugfs_create_file("resource", 0600, nth.dir,
+				     NULL, &nth_resource_ops);
+
 	if (fail) {
 		debugfs_remove_recursive(nth.dir);
 		return -EINVAL;
@@ -441,7 +541,16 @@ static int __init nth_init(void)
 
 static void __exit nth_exit(void)
 {
+	int i;
+
 	debugfs_remove_recursive(nth.dir);
+
+	for (i = 0; i < ARRAY_SIZE(nth.resources); i++) {
+		if (!nth.resources[i].name)
+			continue;
+		kfree(nth.resources[i].name);
+		nfp_resource_release(nth.resources[i].res);
+	}
 }
 
 module_init(nth_init);

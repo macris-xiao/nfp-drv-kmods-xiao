@@ -165,6 +165,14 @@ EXPORT_SYMBOL_GPL(nfp_hwinfo_lookup);	/* Testing only */
 
 EXPORT_SYMBOL_GPL(nfp_reset_soft);	/* Testing only */
 
+/* Implemented in nfp_resource.c */
+EXPORT_SYMBOL_GPL(nfp_resource_acquire);	/* Testing only */
+EXPORT_SYMBOL_GPL(nfp_resource_release);	/* Testing only */
+EXPORT_SYMBOL_GPL(nfp_resource_cpp_id);	/* Testing only */
+EXPORT_SYMBOL_GPL(nfp_resource_name);	/* Testing only */
+EXPORT_SYMBOL_GPL(nfp_resource_address);	/* Testing only */
+EXPORT_SYMBOL_GPL(nfp_resource_size);	/* Testing only */
+
 /* Implemented in nfp_nsp.c */
 
 EXPORT_SYMBOL_GPL(nfp_nsp_open);	/* Testing only */
