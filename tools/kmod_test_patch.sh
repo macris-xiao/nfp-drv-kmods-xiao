@@ -32,6 +32,8 @@
 
 # Environment version
 BUILD_ENV_VERSION=1
+# Number of parallel builds
+[ -z "$NJ" ] && NJ=$(grep processor /proc/cpuinfo | wc -l)
 # Oldest kernel for which to test (in 3-digit format, 300 is 3.0, 303 is 3.3,
 # 312 is 3.12, 402 is 4.2, etc.)
 MIN_KERNEL_VER=308
@@ -149,7 +151,7 @@ function build_kernel() {
 
 	make CC=$DEFAULT_CC $DIR defconfig
 	make CC=$DEFAULT_CC $DIR local_defconfig
-	make CC=$DEFAULT_CC $DIR -j8
+	make CC=$DEFAULT_CC $DIR -j$NJ
     )
 }
 
@@ -276,7 +278,7 @@ done
 	    linux32 make CC=$DEFAULT_CC O=../linux-next-32bit/ defconfig
 	    linux32 make CC=$DEFAULT_CC O=../linux-next-32bit/ local_defconfig
 	fi
-	make CC=$DEFAULT_CC O=../linux-next-32bit/ -j8
+	make CC=$DEFAULT_CC O=../linux-next-32bit/ -j$NJ
 
 	#
 	# Prepare nfp ARM build
@@ -288,7 +290,7 @@ done
 		cd nfp-bsp-linux
 		git checkout remotes/origin/nfp-bsp-6000-b0
 		make ARCH=arm CROSS_COMPILE=$ARM_TOOLCHAIN nfp_defconfig
-		make ARCH=arm CROSS_COMPILE=$ARM_TOOLCHAIN -j8
+		make ARCH=arm CROSS_COMPILE=$ARM_TOOLCHAIN -j$NJ
 	    )
 	fi
 
@@ -382,8 +384,8 @@ done
 	    # Build in linux-next
 	    #
 	    echo > ../build.log
-	    make CC=${NEXT_CC:-$DEFAULT_CC} -j8 -C ../linux-next M=`pwd`/src W=1 2>&1 | tee -a ../build.log
-	    make CC=${NEXT_CC:-$DEFAULT_CC} -j8 -C ../linux-next-32bit M=`pwd`/src W=1 2>&1 | tee -a ../build.log
+	    make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../linux-next M=`pwd`/src W=1 2>&1 | tee -a ../build.log
+	    make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../linux-next-32bit M=`pwd`/src W=1 2>&1 | tee -a ../build.log
 
 	    #
 	    # Build with different configs
@@ -401,10 +403,10 @@ done
 		done
 
 		echo "Build with opts=$b_opts"
-		make CC=${NEXT_CC:-$DEFAULT_CC} -j8 -C ../linux-next M=`pwd`/src W=1 $b_opts 2>&1 | tee -a ../build.log
+		make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../linux-next M=`pwd`/src W=1 $b_opts 2>&1 | tee -a ../build.log
 	    done
 	    echo "Build with opts=CONFIG_NFP_TEST_HARNESS=m"
-	    make CC=${NEXT_CC:-$DEFAULT_CC} -j8 -C ../linux-next M=`pwd`/src W=1 CONFIG_NFP_TEST_HARNESS=m 2>&1 | tee -a ../build.log
+	    make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../linux-next M=`pwd`/src W=1 CONFIG_NFP_TEST_HARNESS=m 2>&1 | tee -a ../build.log
 
 	    #
 	    # Check sparse warnings
@@ -417,16 +419,16 @@ done
 	    # Build for older kernels
 	    #
 	    for v in $kernels; do
-		make CC=$DEFAULT_CC -j8 -C ../linux-$v M=`pwd`/src 2>&1 | tee -a ../build.log
+		make CC=$DEFAULT_CC -j$NJ -C ../linux-$v M=`pwd`/src 2>&1 | tee -a ../build.log
 	    done
 	    for build_dir in `non_vanilla_kernels`; do
-		make CC=$DEFAULT_CC -j8 -C $build_dir M=`pwd`/src 2>&1 | tee -a ../build.log
+		make CC=$DEFAULT_CC -j$NJ -C $build_dir M=`pwd`/src 2>&1 | tee -a ../build.log
 	    done
 
 	    #
 	    # Build for ARM (cross-compile 3.10)
 	    #
-	    make ARCH=arm CROSS_COMPILE=$ARM_TOOLCHAIN -j8 -C ../nfp-bsp-linux M=`pwd`/src 2>&1 | tee -a ../build.log
+	    make ARCH=arm CROSS_COMPILE=$ARM_TOOLCHAIN -j$NJ -C ../nfp-bsp-linux M=`pwd`/src 2>&1 | tee -a ../build.log
 
 	    build_warnings=$(grep -i "\(warn\|error\)" ../build.log | wc -l)
 	    check_warn_cnt $build_warnings 0 build
