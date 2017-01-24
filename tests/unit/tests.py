@@ -34,6 +34,7 @@ class NFPKmodUnit(NFPKmodGrp):
              ('serial_and_ifc', NFPSerialAndInterface,
               "Read the serial number and interface ID"),
              ('resource', ResourceTest, 'Test in-kernel resource table interface'),
+             ('nsp_eth_table', NspEthTable, "Test NSP ETH table functions"),
              ('hwinfo', HWInfoTest, 'Test in-kernel HWInfo interface'),
              ('rtsym', RTSymTest, 'Test in-kernel RT-Sym interface'),
              ('fw_names', FwSearchTest, "Test FW requested by the driver"),
@@ -173,6 +174,73 @@ class ResourceTest(CommonNTHTest):
         _, out = M.cmd('nfp-res -L')
         if out.count("LOCKED"):
             raise NtiGeneralError("Locked resources exist on exit")
+
+class NspEthTable(CommonNTHTest):
+    def compare_state(self):
+        M = self.dut
+
+        tbl = M.dfs_read('nth/eth_table').split('\n')
+        _, phy = M.cmd('nfp-phymod -E')
+        phy = phy.strip().split('\n')
+        _, nsp = M.cmd('nfp-nsp -E | grep Configure | tr -d "A-Za-z" | tr +- 10')
+        nsp = nsp.strip().split('\n')
+
+        if len(tbl) != len(phy) or len(phy) != len(nsp):
+            raise NtiGeneralError("Bad number of items %d %d %d" %
+                                  (len(tbl), len(phy), len(nsp)))
+
+        for i in range(0, len(tbl)):
+            t = tbl[i].split()
+            p = re.match('eth(\d*): NBI[^(]*\((\d)\)\t"([^"]*)" ([^ ]*) (\d*)G',
+                         phy[i]).groups()
+            n = nsp[i].split()[1:4]
+
+            # First time we run populate the enable_state array
+            if len(self.enable_state) <= i:
+                self.enable_state += [n[0]]
+            # Now force the enable state to what is expected
+            n[0] = self.enable_state[i]
+
+            userspace = " ".join((p[0], p[1], p[2], p[3], p[4] + "000") +
+                                 tuple(n))
+            kernel = " ".join((t[1], t[5], t[8], t[7], t[6]) + tuple(t[9:12]))
+
+            if kernel != userspace:
+                raise NtiGeneralError("User space vs kernel mismatch %s vs %s" %
+                                      (userspace, kernel))
+
+    def flip_state(self, i):
+        M = self.dut
+
+        if self.enable_state[i] == '0':
+            self.enable_state[i] = '1'
+        else:
+            self.enable_state[i] = '0'
+
+        M.dfs_write('nth/eth_enable', " ".join((str(i), self.enable_state[i])))
+
+    def nth_execute(self):
+        M = self.dut
+
+        self.enable_state = []
+
+        # Flip there and back (enable order: 0 -> len, disable: len -> 0)
+        self.compare_state()
+        for i in range(0, len(self.enable_state)):
+            self.flip_state(i)
+            self.compare_state()
+        for i in reversed(range(0, len(self.enable_state))):
+            self.flip_state(i)
+            self.compare_state()
+
+        # And flip some random ones
+        random.seed(1234)
+        for i in range(0, len(self.enable_state) / 2 + 1):
+            v = random.randrange(len(self.enable_state))
+            self.flip_state(v)
+            self.compare_state()
+            self.flip_state(v)
+            self.compare_state()
 
 class HWInfoTest(CommonNTHTest):
     def hwinfo_check(self, keys, vals):

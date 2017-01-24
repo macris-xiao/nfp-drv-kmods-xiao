@@ -37,6 +37,7 @@
 #include "nfpcore/kcompat.h"
 #include "nfpcore/nfp.h"
 #include "nfpcore/nfp_nffw.h"
+#include "nfpcore/nfp_nsp_eth.h"
 
 struct {
 	struct dentry *dir;
@@ -55,6 +56,9 @@ struct {
 
 	u8 fw_load_data[1024];
 	struct debugfs_blob_wrapper fw_load;
+
+	u8 wr_only_data[1024];
+	struct debugfs_blob_wrapper wr_only;
 
 	struct {
 		const char *name;
@@ -82,6 +86,12 @@ struct {
 	.fw_load = {
 		.data = nth.fw_load_data,
 		.size = sizeof(nth.fw_load_data),
+	},
+
+	/* For all things which don't need to read things back */
+	.wr_only = {
+		.data = nth.wr_only_data,
+		.size = sizeof(nth.wr_only_data),
 	},
 };
 
@@ -491,6 +501,96 @@ static const struct file_operations nth_resource_ops = {
 	.llseek = seq_lseek,
 };
 
+static int nth_eth_table_read(struct seq_file *file, void *data)
+{
+	struct nfp_eth_table *eth_table;
+	struct nfp_cpp *cpp;
+	int i;
+
+	cpp = nfp_cpp_from_device_id(nth.id);
+	if (!cpp)
+		return -EBUSY;
+
+	eth_table = nfp_eth_read_ports(cpp);
+	if (!eth_table) {
+		nfp_cpp_free(cpp);
+		return -EIO;
+	}
+
+	for (i = 0; i < eth_table->count; i++)
+		seq_printf(file, "%d: %u %u %u %u %u %u %pM %s %d %d %d\n",
+			   i, eth_table->ports[i].eth_index,
+			   eth_table->ports[i].index,
+			   eth_table->ports[i].nbi,
+			   eth_table->ports[i].base,
+			   eth_table->ports[i].lanes,
+			   eth_table->ports[i].speed,
+			   eth_table->ports[i].mac_addr,
+			   eth_table->ports[i].label,
+			   eth_table->ports[i].enabled,
+			   eth_table->ports[i].tx_enabled,
+			   eth_table->ports[i].rx_enabled);
+
+	nfp_cpp_free(cpp);
+	return 0;
+}
+
+static int nth_eth_table_open(struct inode *inode, struct file *f)
+{
+	return single_open(f, nth_eth_table_read, inode->i_private);
+}
+
+static const struct file_operations nth_eth_table_ops = {
+	.owner = THIS_MODULE,
+	.open = nth_eth_table_open,
+	.release = single_release,
+	.read = seq_read,
+	.llseek = seq_lseek,
+};
+
+static ssize_t
+nth_write_eth_enable(struct file *file, const char __user *user_buf,
+		     size_t count, loff_t *ppos)
+{
+	struct debugfs_blob_wrapper *blob = file->private_data;
+	unsigned int idx, enable;
+	u8 *data = blob->data;
+	struct nfp_cpp *cpp;
+	int err, srcu_idx;
+	ssize_t ret;
+
+	ret = debugfs_use_file_start(file->f_path.dentry, &srcu_idx);
+	if (likely(!ret))
+		ret = simple_write_to_buffer(blob->data, blob->size - 1,
+					     ppos, user_buf, count);
+	debugfs_use_file_finish(srcu_idx);
+	if (ret < 0)
+		return ret;
+	data[ret] = 0;
+
+	if (sscanf(data, "%u %u", &idx, &enable) != 2)
+		return -EINVAL;
+
+	cpp = nfp_cpp_from_device_id(nth.id);
+	if (!cpp)
+		return -EBUSY;
+
+	err = nfp_eth_set_mod_enable(cpp, idx, enable);
+	if (err)
+		ret = err;
+
+	nfp_cpp_free(cpp);
+
+	return ret;
+}
+
+static const struct file_operations nth_eth_enable_ops = {
+	.read = nth_read_blob,
+	.write = nth_write_eth_enable,
+	.open = simple_open,
+	.llseek = default_llseek,
+};
+
 static int __init nth_init(void)
 {
 	bool fail = false;
@@ -530,6 +630,11 @@ static int __init nth_init(void)
 
 	fail |= !debugfs_create_file("resource", 0600, nth.dir,
 				     NULL, &nth_resource_ops);
+
+	fail |= !debugfs_create_file("eth_table", 0400, nth.dir,
+				     NULL, &nth_eth_table_ops);
+	fail |= !debugfs_create_file("eth_enable", 0600, nth.dir,
+				     &nth.wr_only, &nth_eth_enable_ops);
 
 	if (fail) {
 		debugfs_remove_recursive(nth.dir);
