@@ -411,7 +411,7 @@ done
 	    #
 	    # Check sparse warnings
 	    #
-	    make CC=$DEFAULT_CC -C ../linux-next M=`pwd`/src C=2 CF=-D__CHECK_ENDIAN__ 2>&1 | tee ../sparse.log
+	    make CC=$DEFAULT_CC -j$NJ -C ../linux-next M=`pwd`/src C=2 CF=-D__CHECK_ENDIAN__ 2>&1 | tee ../sparse.log
 	    sparse_warnings=$(grep "\(arning:\|rror:\)" ../sparse.log | wc -l)
 	    check_warn_cnt $sparse_warnings $INCUMBENT_SPARSE_WARNINGS sparse
 
