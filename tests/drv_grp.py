@@ -48,7 +48,10 @@ class NFPKmodGrp(netro.testinfra.Group):
     _config = collections.OrderedDict()
     _config["General"] = collections.OrderedDict([
         ('noclean', [False, "Don't clean the systems after a run (default "
-                            "False). Useful for debugging test failures."])])
+                            "False). Useful for debugging test failures."]),
+        ('rm_fw_dir', [False, "Allow test code to remove the "
+                              "/lib/firmware/netronome directory if present"])
+    ])
     _config["DUT"] = collections.OrderedDict([
         ("name", [True, "Host name of the DUT (can also be <user>@<host> or "
                         "IP address). Assumes root as default."]),
@@ -87,6 +90,7 @@ class NFPKmodGrp(netro.testinfra.Group):
         # Set up attributes initialised by the config file.
         # If no config was provided these will be None.
         self.noclean = False
+        self.rm_fw_dir = False
 
         self.dut = None
         self.pci_id = None
@@ -136,7 +140,10 @@ class NFPKmodGrp(netro.testinfra.Group):
             self.dut.cmd('lsmod | grep nfp && rmmod nfp', fail=False)
             ret, _ = self.dut.cmd('ls /lib/firmware/netronome', fail=False)
             if ret == 0:
-                raise NtiGeneralError('ERROR: driver tests require standard firmware directory to not be present!   Please remove the /lib/firmware/netronome/ directory!')
+                if self.rm_fw_dir:
+                    self.dut.cmd('rm -r /lib/firmware/netronome')
+                else:
+                    raise NtiGeneralError('ERROR: driver tests require standard firmware directory to not be present!   Please remove the /lib/firmware/netronome/ directory!')
 
         return
 
@@ -174,6 +181,8 @@ class NFPKmodGrp(netro.testinfra.Group):
         # General
         if self.cfg.has_option("General", "noclean"):
             self.noclean = self.cfg.getboolean("General", "noclean")
+        if self.cfg.has_option("General", "rm_fw_dir"):
+            self.rm_fw_dir = self.cfg.getboolean("General", "rm_fw_dir")
 
         # DUT
         self.addr_x = self.cfg.get("DUT", "addrX")
