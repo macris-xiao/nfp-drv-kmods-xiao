@@ -179,8 +179,8 @@ class NspEthTable(CommonNTHTest):
     def compare_state(self):
         M = self.dut
 
-        tbl = M.dfs_read('nth/eth_table').split('\n')
-        _, phy = M.cmd('nfp-phymod -E')
+        tbl = M.dfs_read_raw('nth/eth_table').split('\n')[:-1]
+        _, phy = M.cmd('nfp-phymod -E | grep "^eth"')
         phy = phy.strip().split('\n')
         _, nsp = M.cmd('nfp-nsp -E | grep Configure | tr -d "A-Za-z" | tr +- 10')
         nsp = nsp.strip().split('\n')
@@ -198,6 +198,7 @@ class NspEthTable(CommonNTHTest):
             # First time we run populate the enable_state array
             if len(self.enable_state) <= i:
                 self.enable_state += [n[0]]
+                self.port2idx += [t[2]]
             # Now force the enable state to what is expected
             n[0] = self.enable_state[i]
 
@@ -206,8 +207,8 @@ class NspEthTable(CommonNTHTest):
             kernel = " ".join((t[1], t[5], t[8], t[7], t[6]) + tuple(t[9:12]))
 
             if kernel != userspace:
-                raise NtiGeneralError("User space vs kernel mismatch %s vs %s" %
-                                      (userspace, kernel))
+                raise NtiGeneralError("User space vs kernel mismatch on idx %d | %s vs %s" %
+                                      (i, userspace, kernel))
 
     def flip_state(self, i):
         M = self.dut
@@ -217,12 +218,16 @@ class NspEthTable(CommonNTHTest):
         else:
             self.enable_state[i] = '0'
 
-        M.dfs_write('nth/eth_enable', " ".join((str(i), self.enable_state[i])))
+        LOG ("\nFlip state port %d(%s) from %s\n" % (i, self.port2idx[i],
+                                                     self.enable_state[i]))
+        M.dfs_write('nth/eth_enable', " ".join((self.port2idx[i],
+                                                self.enable_state[i])))
 
     def nth_execute(self):
         M = self.dut
 
         self.enable_state = []
+        self.port2idx = []
 
         # Flip there and back (enable order: 0 -> len, disable: len -> 0)
         self.compare_state()
