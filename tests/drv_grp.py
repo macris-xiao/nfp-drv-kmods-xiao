@@ -61,6 +61,8 @@ class NFPKmodGrp(netro.testinfra.Group):
         ("nfp", [False, "NFP device number to use (default 0)"]),
         ("netdevfw", [True, "Path to netdev firmware"]),
         ("mefw", [True, "Path to firmware image directory"]),
+        ("serial", [False, "Serial number for adapter selection "
+                           "(default to nfp 0, takes precedence over @nfp)"]),
     ])
     _config["HostA"] = collections.OrderedDict([
         ("name", [True, "Host name of the Host A (can also be <user>@<host> "
@@ -102,6 +104,7 @@ class NFPKmodGrp(netro.testinfra.Group):
         self.nfpkmods = None
         self.netdevfw = None
         self.mefw = None
+        self.serial = None
 
         self.host_a = None
         self.eth_a = None
@@ -133,9 +136,6 @@ class NFPKmodGrp(netro.testinfra.Group):
         """
 
         if self.dut:
-            _, out = self.dut.cmd("lspci -d '19ee:'")
-            self.pci_id = out.split()[0]
-
             self.dut.cmd('lsmod | grep nfp_test_harness && rmmod nfp_test_harness', fail=False)
             self.dut.cmd('lsmod | grep nfp && rmmod nfp', fail=False)
             ret, _ = self.dut.cmd('ls /lib/firmware/netronome', fail=False)
@@ -144,6 +144,42 @@ class NFPKmodGrp(netro.testinfra.Group):
                     self.dut.cmd('rm -r /lib/firmware/netronome')
                 else:
                     raise NtiGeneralError('ERROR: driver tests require standard firmware directory to not be present!   Please remove the /lib/firmware/netronome/ directory!')
+
+            self.dut.insmod()
+
+            _, out = self.dut.cmd('lspci -d "19ee:" | cut -d" " -f1')
+            devices = out.split()
+
+            # Resolve serial if given
+            if self.serial:
+                self.nfp = None
+                cmd = 'lspci -d "19ee:" -v'
+                cmd += ' | sed -n "s/-/:/g;s/.*Serial Number \(.*\)/\\1/p"'
+                _, out = self.dut.cmd(cmd)
+
+                serials = out.split()
+
+                i = -1
+                for s in serials:
+                    i += 1
+                    serial = s[:-6] # remove the interface part
+                    if serial != self.serial:
+                        continue
+
+                    cmd = 'ls /sys/bus/pci/devices/0000:%s/cpp' % (devices[i])
+                    cmd += ' | sed -n "s/nfp-dev-cpp.\([0-9]*\)/\\1/p"'
+                    _, num = self.dut.cmd(cmd)
+
+                    self.nfp = int(num)
+
+                if self.nfp is None:
+                    raise NtiGeneralError("Couldn't find device is SN: %s" %
+                                          self.serial)
+
+            # Figure out PCI ID
+            self.pci_id = devices[self.nfp]
+
+            self.dut.reset_mods()
 
         return
 
@@ -198,6 +234,8 @@ class NFPKmodGrp(netro.testinfra.Group):
             self.netdevfw = self.cfg.get("DUT", "netdevfw")
         if self.cfg.has_option("DUT", "mefw"):
             self.mefw = self.cfg.get("DUT", "mefw")
+        if self.cfg.has_option("DUT", "serial"):
+            self.serial = self.cfg.get("DUT", "serial")
 
         self.dut = DrvSystem(self.cfg.get("DUT", "name"), self,
                              quick=self.quick)
