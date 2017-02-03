@@ -225,7 +225,7 @@ class NFPKmodGrp(netro.testinfra.Group):
         self.addr_v6_x = self.cfg.get("DUT", "addr6X")
 
         if self.cfg.has_option("DUT", "nfp"):
-            self.nfp = self.cfg.getint("DUT", "nfp")
+            self.nfp = int(self.cfg.getint("DUT", "nfp"))
         if self.cfg.has_option("DUT", "nfpkmods"):
             self.nfpkmods = self.cfg.get("DUT", "nfpkmods")
             self.nfpkmod = os.path.join(self.nfpkmods, 'nfp.ko')

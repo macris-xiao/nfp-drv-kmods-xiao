@@ -78,7 +78,7 @@ class NFPSerialAndInterface(CommonNTHTest):
     def nth_execute(self):
         M = self.dut
 
-        _, out = M.cmd('lspci -d 19ee\: -vv')
+        _, out = M.cmd('lspci -s %s -vv' % self.group.pci_id)
         DSN = re.search("Device Serial Number (.*)", out).group(1)
         serial = DSN[0:-6].replace('-', ':')
         interface = DSN[-5:].replace('-', '')
@@ -136,7 +136,7 @@ class ResourceTest(CommonNTHTest):
         # Try non-existing resource
         M.dfs_write('resource', "test.xxx", do_fail=True)
 
-        _, out = M.cmd('nfp-res -L')
+        _, out = M.cmd_res('-L')
         # Iterate over lines skipping header
         resources = []
         for line in out.split('\n')[1:]:
@@ -161,7 +161,7 @@ class ResourceTest(CommonNTHTest):
         for i in range(0, len(resources)):
             M.dfs_write('nth/resource', resources[i][0])
             rescs = M.dfs_read_raw('nth/resource')
-            _, out = M.cmd('nfp-res -L')
+            _, out = M.cmd_res('-L')
             self.resources_validate(resources[:i+1], rescs, out)
 
         # Try non-existing resource on filled table
@@ -171,7 +171,7 @@ class ResourceTest(CommonNTHTest):
         for i in range(0, len(resources)):
             M.dfs_write('nth/resource', i)
 
-        _, out = M.cmd('nfp-res -L')
+        _, out = M.cmd_res('-L')
         if out.count("LOCKED"):
             raise NtiGeneralError("Locked resources exist on exit")
 
@@ -180,9 +180,9 @@ class NspEthTable(CommonNTHTest):
         M = self.dut
 
         tbl = M.dfs_read_raw('nth/eth_table').split('\n')[:-1]
-        _, phy = M.cmd('nfp-phymod -E | grep "^eth"')
+        _, phy = M.cmd_phymod('-E | grep "^eth"')
         phy = phy.strip().split('\n')
-        _, nsp = M.cmd('nfp-nsp -E | grep Configure | tr -d "A-Za-z" | tr +- 10')
+        _, nsp = M.cmd_nsp(' -E | grep Configure | tr -d "A-Za-z" | tr +- 10')
         nsp = nsp.strip().split('\n')
 
         if len(tbl) != len(phy) or len(phy) != len(nsp):
@@ -337,8 +337,8 @@ class RTSymTest(CommonTest):
                             (fwdir_base, tu[0]))
             else:
                 if self.loaded:
-                    M.cmd('nfp-nffw unload')
-                M.cmd('nfp-nffw load %s.nffw' % (os.path.join(fwdir, tu[0])))
+                    M.nffw_unload()
+                M.nffw_load('%s.nffw' % (os.path.join(fwdir, tu[0])))
                 M.dfs_read('nth/cache_flush')
 
             self.loaded = bool(tu[0])
@@ -385,9 +385,7 @@ class FwSearchTest(CommonDrvTest):
         if out.find('Direct firmware load for ') != -1:
             raise NtiGeneralError('nfp.ko looking for firmware')
 
-        _, part_no = M.cmd('nfp-hwinfo assembly.partno')
-        part_no = part_no.split('=')[1].strip()
-        M.part_no = part_no # cache for other tests
+        M.part_no = M.get_hwinfo('assembly.partno') # cache for other tests
         M.rmmod()
 
         # Request nfp.ko to look for some FW
@@ -411,9 +409,9 @@ class FwSearchTest(CommonDrvTest):
             raise NtiGeneralError('nfp.ko should fail to load without FW')
         if out.find('Direct firmware load for netronome/nfp6000_net.nffw') == -1:
             raise NtiGeneralError('nfp.ko netdev not looking for default FW')
-        if out.find('Direct firmware load for netronome/%s' % (part_no)) == -1:
+        if out.find('Direct firmware load for netronome/%s' % (M.part_no)) == -1:
             raise NtiGeneralError('nfp.ko netdev not looking for part FW (%s)' %
-                                  (part_no))
+                                  (M.part_no))
         M.rmmod()
 
 class SriovTest(CommonDrvTest):
@@ -462,7 +460,7 @@ class NetdevTest(CommonDrvTest):
 
         # Check FW loading from the user space
         M.insmod(params="nfp_reset=1")
-        M.cmd('nfp-nffw load %s' % self.group.netdevfw)
+        M.nffw_load('%s' % self.group.netdevfw)
         M.rmmod()
 
         M.refresh()
@@ -500,16 +498,16 @@ class DevCppTest(CommonDrvTest):
 
         # Check if user space exists and works by default
         M.insmod()
-        M.cmd('ls /dev/nfp-cpp-0')
-        M.cmd('nfp-hwinfo')
+        M.cmd('ls /dev/nfp-cpp-%d' % self.group.nfp)
+        M.cmd_hwinfo('')
         M.rmmod()
 
         # Check if it doesn't if netdev requested
         M.insmod(netdev=True)
-        ret, _ = M.cmd('ls /dev/nfp-cpp-0', fail=False)
+        ret, _ = M.cmd('ls /dev/nfp-cpp-%d' % self.group.nfp, fail=False)
         if ret == 0:
             raise NtiGeneralError('nfp-cpp-dev interface should not exist by default')
-        ret, _ = M.cmd('nfp-hwinfo', fail=False)
+        ret, _ = M.cmd_hwinfo('', fail=False)
         if ret == 0:
             raise NtiGeneralError('nfp-cpp-dev should not work by default')
         M.rmmod()

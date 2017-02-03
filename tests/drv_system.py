@@ -76,10 +76,14 @@ class DrvSystem(System):
             params += ' nfp_pf_netdev=%d' % netdev
 
         ret, out = self.cmd('insmod %s %s' % (module, params), fail=fail)
+        # Store the module name for cleanup
         if ret == 0:
             m = os.path.basename(module)
             m = os.path.splitext(m)[0]
             self._mods.add(m)
+        # Select the NFP if it's NTH
+        if module == self.mod_nth:
+            self.dfs_write('nth/id', self.grp.nfp)
         return ret, out
 
     def rmmod(self, module="nfp"):
@@ -112,7 +116,7 @@ class DrvSystem(System):
                                   (path, failed, do_fail))
 
     def get_hwinfo(self, what):
-        _, data = self.cmd('nfp-hwinfo %s' % (what))
+        _, data = self.cmd_hwinfo(what)
         return data.split('=')[1].strip()
 
     def get_part_no(self):
@@ -122,3 +126,22 @@ class DrvSystem(System):
         self.part_no = self.get_hwinfo('assembly.partno')
         self.rmmod()
         return self.part_no
+
+    def nffw_load(self, fw, fail=True):
+        return self.cmd('nfp-nffw load -n %d %s' %
+                        (self.grp.nfp, fw), fail=fail)
+
+    def nffw_unload(self, fail=True):
+        return self.cmd('nfp-nffw unload -n %d' % (self.grp.nfp), fail=fail)
+
+    def cmd_res(self, cmd, fail=True):
+        return self.cmd('nfp-res -n %d %s' % (self.grp.nfp, cmd), fail=fail)
+
+    def cmd_hwinfo(self, cmd, fail=True):
+        return self.cmd('nfp-hwinfo -n %d %s' % (self.grp.nfp, cmd), fail=fail)
+
+    def cmd_phymod(self, cmd, fail=True):
+        return self.cmd('nfp-phymod -n %d %s' % (self.grp.nfp, cmd), fail=fail)
+
+    def cmd_nsp(self, cmd, fail=True):
+        return self.cmd('nfp-nsp -n %d %s' % (self.grp.nfp, cmd), fail=fail)
