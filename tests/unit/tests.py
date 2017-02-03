@@ -106,9 +106,9 @@ class ResourceTest(CommonNTHTest):
                                   (len(want), len(out_lines)))
 
         locked = len(set(i[0] for i in want))
-        if user_space.count('LOCKED') != locked:
+        if user_space.count('LOCKED pci') != locked:
             raise NtiGeneralError("Incorrect number of locked resources %d vs %d" %
-                                  (user_space.count('LOCKED'), locked))
+                                  (user_space.count('LOCKED pci'), locked))
 
         for i in range(0, len(want)):
             fields = out_lines[i].split()
@@ -127,8 +127,8 @@ class ResourceTest(CommonNTHTest):
             if fields[6] != want[i][3]:
                 raise NtiGeneralError("Size %s vs %s" % (want[i][3], fields[6]))
 
-            if not re.search("%s.*LOCKED" % fields[1], user_space):
-                raise NtiGeneralError("Resource %s not locked %s %s" % (want[i][0], "%s.*LOCKED" % fields[1], user_space))
+            if not re.search("%s.*LOCKED pci" % fields[1], user_space):
+                raise NtiGeneralError("Resource %s not locked %s %s" % (want[i][0], "%s.*LOCKED pci" % fields[1], user_space))
 
     def nth_execute(self):
         M = self.dut
@@ -172,7 +172,7 @@ class ResourceTest(CommonNTHTest):
             M.dfs_write('nth/resource', i)
 
         _, out = M.cmd_res('-L')
-        if out.count("LOCKED"):
+        if out.count("LOCKED pci"):
             raise NtiGeneralError("Locked resources exist on exit")
 
 class NspEthTable(CommonNTHTest):
