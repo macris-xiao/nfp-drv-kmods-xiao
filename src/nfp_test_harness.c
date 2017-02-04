@@ -474,7 +474,7 @@ nth_resource_write(struct file *file, const char __user *user_buf,
 		if (IS_ERR(nth.resources[i].res)) {
 			kfree(nth.resources[i].name);
 			ret = PTR_ERR(nth.resources[i].res);
-			nth.resources[i].res = NULL;
+			memset(&nth.resources[i], 0, sizeof(nth.resources[i]));
 		}
 	} else if (nth.resources[i].name) {
 		kfree(nth.resources[i].name);
