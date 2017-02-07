@@ -63,10 +63,12 @@ from ..drv_test import *
 class Modinfo(CommonTest):
     def execute(self):
         # Check if module device table is complete
-        entries = ('v000019EEd00006003sv000019EEsd',
+        entries = ['v000019EEd00006003sv000019EEsd',
                    'v000019EEd00004000sv000019EEsd',
                    'v000019EEd00006000sv000019EEsd',
-                   'v000019EEd00006010sv000019EEsd')
+                   'v000019EEd00006010sv000019EEsd']
+
+        entries += ["netronome/%s" % self.dut.get_fw_name()]
 
         _, out = cmd_log('modinfo %s' % (self.group.nfpkmod))
 
