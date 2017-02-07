@@ -45,7 +45,8 @@ class NFPKmodUnit(NFPKmodGrp):
               "Test if incompatible parameter combinations are rejected"),
              ('dev_cpp', DevCppTest,
               "Test user space access existence and basic functionality"),
-             ('kernel_fw_load', KernelLoadTest, "Test kernel firmware loader"))
+             ('kernel_fw_load', KernelLoadTest, "Test kernel firmware loader"),
+             ('bsp_diag', BSPDiag, "Test the basic BSP diagnostics"))
 
         for t in T:
             self._tests[t[0]] = t[1](src, dut, self, t[0], t[2])
@@ -542,6 +543,59 @@ class KernelLoadTest(CommonTest):
         M.cmd('mkdir -p /lib/firmware/netronome')
 
         self.load_test(M.get_fw_name())
+
+    def cleanup(self):
+        self.dut.cmd('rm -rf /lib/firmware/netronome')
+        self.dut.reset_mods()
+
+class BSPDiag(CommonTest):
+    def execute(self):
+        M = self.dut
+
+        M.cmd('mkdir -p /lib/firmware/netronome')
+
+        M.cp_to(self.group.netdevfw,
+                '/lib/firmware/netronome/%s' % M.get_fw_name())
+
+        M.refresh()
+        netifs_old = M._netifs
+        M.insmod(netdev=True, params='nfp_dev_cpp=1')
+        time.sleep(1)
+        M.refresh()
+        netifs_new = M._netifs
+
+        regx_sp = re.compile('.*sp:(\d*\.\d*).*', re.M | re.S)
+        for ifc in list(set(netifs_new) - set(netifs_old)):
+            _, out = M.cmd('ethtool -i %s' % ifc)
+
+            # Ignore other devices if present
+            if not re.search(self.group.pci_id, out):
+                continue
+
+            ver_m = regx_sp.match(out)
+            if not ver_m:
+                raise NtiGeneralError("Ethtool does not report NSP ABI")
+
+            ver = ver_m.groups()[0]
+            _, cmd_ver = M.cmd_nsp('-v')
+            cmd_ver = cmd_ver.split('\n')[0]
+
+            if cmd_ver != ver:
+                raise NtiGeneralError("NSP ABI version does not match ethtool:'%s' user space:'%s'" % (ver, cmd_ver))
+
+            # Try dumps which shouldn't work
+            bad_ethtool_dumps = (1, 3, 0xffffffff)
+            for flag in bad_ethtool_dumps:
+                ret, _ = M.cmd('ethtool -W %s %d' % (ifc, flag), fail=False)
+                if ret == 0:
+                    raise NtiGeneralError("ethtool allows bad dump flags")
+
+            _, out = M.cmd('ethtool -w %s' % (ifc))
+            if out.find('flag: 0, version: 1, length: 8192') == -1:
+                raise NtiGeneralError("ethtool dump report unexpected")
+
+            # Just to exercise the code path
+            _, out = M.cmd('ethtool -w %s data /dev/null' % (ifc))
 
     def cleanup(self):
         self.dut.cmd('rm -rf /lib/firmware/netronome')
