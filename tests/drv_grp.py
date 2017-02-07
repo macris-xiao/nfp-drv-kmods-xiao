@@ -55,8 +55,8 @@ class NFPKmodGrp(netro.testinfra.Group):
     _config["DUT"] = collections.OrderedDict([
         ("name", [True, "Host name of the DUT (can also be <user>@<host> or "
                         "IP address). Assumes root as default."]),
-        ("addrX", [True, "IPv4 address/mask to be assigned to ethX"]),
-        ("addr6X", [True, "IPv6 address/mask to be assigned to ethX"]),
+        ("addrX", [True, "List of IPv4 address/mask to be assigned to ethX"]),
+        ("addr6X", [True, "List of IPv6 address/mask to be assigned to ethX"]),
         ("nfpkmod", [False, "Directory with kernel mods to load on DUT"]),
         ("nfp", [False, "NFP device number to use (default 0)"]),
         ("netdevfw", [True, "Path to netdev firmware"]),
@@ -67,9 +67,9 @@ class NFPKmodGrp(netro.testinfra.Group):
     _config["HostA"] = collections.OrderedDict([
         ("name", [True, "Host name of the Host A (can also be <user>@<host> "
                         "or IP address). Assumes root as default."]),
-        ("eth", [True, "Name of the interface on Host A"]),
-        ("addrA", [True, "IPv4 address/mask to be assigned to Host A"]),
-        ("addr6A", [True, "IPv4 address/mask to be assigned to Host A"]),
+        ("eth", [True, "List of names of the interfaces on Host A"]),
+        ("addrA", [True, "List of IPv4 address/mask to be assigned to HostA"]),
+        ("addr6A", [True, "List of IPv6 address/mask to be assigned to HostA"]),
         ("reload", [False, "Attempt to reload the kmod for ethA "
                            "(default false)."])
     ])
@@ -221,8 +221,8 @@ class NFPKmodGrp(netro.testinfra.Group):
             self.rm_fw_dir = self.cfg.getboolean("General", "rm_fw_dir")
 
         # DUT
-        self.addr_x = self.cfg.get("DUT", "addrX")
-        self.addr_v6_x = self.cfg.get("DUT", "addr6X")
+        self.addr_x = self.cfg.get("DUT", "addrX").split()
+        self.addr_v6_x = self.cfg.get("DUT", "addr6X").split()
 
         if self.cfg.has_option("DUT", "nfp"):
             self.nfp = int(self.cfg.getint("DUT", "nfp"))
@@ -242,12 +242,18 @@ class NFPKmodGrp(netro.testinfra.Group):
 
         # Host A
         self.host_a = NrtSystem(self.cfg.get("HostA", "name"), self.quick)
-        self.eth_a = self.cfg.get("HostA", "eth")
-        self.addr_a = self.cfg.get("HostA", "addrA")
-        self.addr_v6_a = self.cfg.get("HostA", "addr6A")
+        self.eth_a = self.cfg.get("HostA", "eth").split()
+        self.addr_a = self.cfg.get("HostA", "addrA").split()
+        self.addr_v6_a = self.cfg.get("HostA", "addr6A").split()
         if self.cfg.has_option("HostA", "reload"):
             self.reload_a = self.cfg.getboolean("HostA", "reload")
 
-        self.host_a.cmd('ifconfig %s %s' % (self.eth_a, self.addr_a))
+        if len(self.eth_a) != len(self.addr_a) or \
+           len(self.addr_a) != len(self.addr_v6_a) or \
+           len(self.addr_v6_a) != len(self.addr_x) or \
+           len(self.addr_x) != len(self.addr_v6_x):
+            raise NtiGeneralError('ERROR: Config has different number of addresses and interfaces')
+        for i in range(0, len(self.eth_a)):
+            self.host_a.cmd('ifconfig %s %s' % (self.eth_a[i], self.addr_a[i]))
 
         return

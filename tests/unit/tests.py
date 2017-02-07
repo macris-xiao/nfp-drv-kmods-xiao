@@ -526,14 +526,22 @@ class KernelLoadTest(CommonTest):
         M.refresh()
         netifs_new = M._netifs
 
-        if len(netifs_new) - len(netifs_old) != 1:
+        if len(netifs_new) - len(netifs_old) < 1:
             raise NtiGeneralError('Expected one interface created, got %d' %
                                   (len(netifs_new) - len(netifs_old)))
 
-        ifc = M.netifs[list(set(netifs_new) - set(netifs_old))[0]]
-        M.cmd('ifconfig %s %s up' % (ifc.devn, self.group.addr_x))
+        i = 0
+        for ifc in list(set(netifs_new) - set(netifs_old)):
+            _, out = M.cmd('ethtool -i %s' % ifc)
 
-        self.ping()
+            # Ignore other devices if present
+            if not re.search(self.group.pci_id, out):
+                continue
+
+            M.cmd('ifconfig %s %s up' % (ifc, self.dut_addr[i]))
+            self.ping(i)
+            i += 1
+
         M.rmmod()
         M.cmd('rm /lib/firmware/netronome/%s' % (name))
 

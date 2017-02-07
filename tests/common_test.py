@@ -42,7 +42,6 @@ class CommonTest(Test):
         self.src = src[0]
         self.src_addr = src[1]
         self.src_ifn = src[2]
-        self.src_if = self.src.netifs[self.src_ifn]
         self.src_addr_v6 = src[3]
 
         self.dut = dut[0]
@@ -95,7 +94,7 @@ class CommonTest(Test):
             return NrtResult(name=self.name, testtype=self.__class__.__name__,
                              passed=None, comment=comment)
 
-    def ping(self, count=10, size=0, pattern="", fail=True):
+    def ping(self, port, count=10, size=0, pattern="", fail=True):
         opts = ""
         if size:
             opts = opts + "-s %d " % (size)
@@ -103,18 +102,18 @@ class CommonTest(Test):
             opts = opts + "-p %s " % (pattern)
 
         _, out = self.src.cmd('ping -c %d -i0.05 -W2 %s -I %s %s' %
-                               (count, opts, self.src_ifn,
-                                self.dut_addr[:-3]), fail=False)
+                               (count, opts, self.src_ifn[port],
+                                self.dut_addr[port][:-3]), fail=False)
         if _ and fail:
             raise NtiGeneralError("Couldn't ping endpoint")
         if _ == 0 and not fail:
             raise NtiGeneralError("Could ping endpoint")
 
 
-    def ping6(self, count=10, fail=True):
+    def ping6(self, port, count=10, fail=True):
         _, out = self.src.cmd('ping6 -c %d -i0.1 -W5 -I %s %s' %
-                               (count, self.src_ifn,
-                                self.dut_addr_v6[:-3]), fail=False)
+                               (count, self.src_ifn[port],
+                                self.dut_addr_v6[port][:-3]), fail=False)
         if _ and fail:
             raise NtiGeneralError("Couldn't ping6 endpoint")
         if _ == 0 and not fail:
@@ -123,7 +122,8 @@ class CommonTest(Test):
 
     def tcpping(self, count=10, sport=100, dport=58, fail=True):
         _, out = self.src.cmd('hping3 %s --fast -c %d -s %d -p %d -d 50 -k --syn' %
-                               (self.dut_addr[:-3], count, sport, dport), fail=False)
+                               (self.dut_addr[port][:-3], count, sport, dport),
+                              fail=False)
         if _ and fail:
             return NtiGeneralError("Couldn't TCP ping endpoint")
         if _ == 0 and not fail:

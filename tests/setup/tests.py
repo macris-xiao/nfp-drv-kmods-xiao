@@ -70,7 +70,7 @@ class DebugFSSetupTest(CommonNTHTest):
 
 class Tools(CommonTest):
     def execute(self):
-        ret, _ = self.dut.cmd_nffw('-h >> /dev/null')
+        ret, _ = self.dut.cmd('nfp-nffw -h >> /dev/null')
 
 class Mefw(CommonTest):
     def execute(self):
