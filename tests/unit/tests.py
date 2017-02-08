@@ -385,7 +385,7 @@ class FwSearchTest(CommonDrvTest):
         if out.find('Direct firmware load for ') != -1:
             raise NtiGeneralError('nfp.ko looking for firmware')
 
-        M.part_no = M.get_hwinfo('assembly.partno') # cache for other tests
+        fw_name = M.get_fw_name()
         M.rmmod()
 
         # Request nfp.ko to look for some FW
@@ -407,9 +407,9 @@ class FwSearchTest(CommonDrvTest):
         _, out = M.cmd('dmesg -c')
         if out.find('nfp: probe of ') == -1:
             raise NtiGeneralError('nfp.ko should fail to load without FW')
-        if out.find('Direct firmware load for netronome/%s' % (M.part_no)) == -1:
+        if out.find('Direct firmware load for netronome/%s' % (fw_name)) == -1:
             raise NtiGeneralError('nfp.ko netdev not looking for part FW (%s)' %
-                                  (M.part_no))
+                                  (fw_name))
         M.rmmod()
 
 class SriovTest(CommonDrvTest):
@@ -514,11 +514,11 @@ class KernelLoadTest(CommonTest):
     def load_test(self, name):
         M = self.dut
 
-        M.cp_to(self.group.netdevfw, '/lib/firmware/netronome/%s.nffw' % name)
+        M.cp_to(self.group.netdevfw, '/lib/firmware/netronome/%s' % name)
 
         M.refresh()
         netifs_old = M._netifs
-        M.insmod(netdev=True)
+        M.insmod(params='fw_load_required=1', netdev=True)
         time.sleep(1)
         M.refresh()
         netifs_new = M._netifs
@@ -532,14 +532,14 @@ class KernelLoadTest(CommonTest):
 
         self.ping()
         M.rmmod()
-        M.cmd('rm /lib/firmware/netronome/%s.nffw' % (name))
+        M.cmd('rm /lib/firmware/netronome/%s' % (name))
 
     def execute(self):
         M = self.dut
 
         M.cmd('mkdir -p /lib/firmware/netronome')
 
-        self.load_test(M.get_part_no())
+        self.load_test(M.get_fw_name())
 
     def cleanup(self):
         self.dut.cmd('rm -rf /lib/firmware/netronome')

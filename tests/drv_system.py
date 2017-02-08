@@ -19,6 +19,7 @@ class DrvSystem(System):
         System.__init__(self, host, quick, _noendsec)
 
         self.part_no = None
+        self.fw_name = None
         self.grp = grp
         self.tmpdir = self.make_temp_dir()
 
@@ -127,6 +128,39 @@ class DrvSystem(System):
         self.rmmod()
         return self.part_no
 
+    def get_fw_name(self):
+        if self.fw_name:
+            return self.fw_name
+
+        t_tbl = { '10G' : [ 10 ],
+                  '25G' : [ 25 ],
+                  '4x10G' : [ 10, 10, 10, 10 ],
+                  '40G' : [ 40 ] }
+        amda = self.get_part_no()
+
+        self.insmod()
+        _, media = self.cmd_media()
+        self.rmmod()
+
+        links = []
+        for phy in media.split('\n'):
+            cfg = re.search('=(.*G)', phy)
+            if not cfg:
+                continue
+            links += t_tbl[cfg.groups()[0]]
+
+        self.fw_name = 'nic_' + amda
+        i = 0
+        while i < len(links):
+            j = 1
+            while i + j < len(links) and links[i] == links[i + j]:
+                j += 1
+            self.fw_name += '_%dx%d' % (j, links[i])
+            i += j
+        self.fw_name += '.nffw'
+
+        return self.fw_name
+
     def nffw_load(self, fw, fail=True):
         return self.cmd('nfp-nffw load -n %d %s' %
                         (self.grp.nfp, fw), fail=fail)
@@ -145,3 +179,6 @@ class DrvSystem(System):
 
     def cmd_nsp(self, cmd, fail=True):
         return self.cmd('nfp-nsp -n %d %s' % (self.grp.nfp, cmd), fail=fail)
+
+    def cmd_media(self, cmd='', fail=True):
+        return self.cmd('nfp-media -n %d %s' % (self.grp.nfp, cmd), fail=fail)
