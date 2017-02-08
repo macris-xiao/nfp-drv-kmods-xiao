@@ -407,8 +407,6 @@ class FwSearchTest(CommonDrvTest):
         _, out = M.cmd('dmesg -c')
         if out.find('nfp: probe of ') == -1:
             raise NtiGeneralError('nfp.ko should fail to load without FW')
-        if out.find('Direct firmware load for netronome/nfp6000_net.nffw') == -1:
-            raise NtiGeneralError('nfp.ko netdev not looking for default FW')
         if out.find('Direct firmware load for netronome/%s' % (M.part_no)) == -1:
             raise NtiGeneralError('nfp.ko netdev not looking for part FW (%s)' %
                                   (M.part_no))
@@ -541,7 +539,6 @@ class KernelLoadTest(CommonTest):
 
         M.cmd('mkdir -p /lib/firmware/netronome')
 
-        self.load_test('nfp6000_net')
         self.load_test(M.get_part_no())
 
     def cleanup(self):
