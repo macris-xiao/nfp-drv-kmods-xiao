@@ -534,6 +534,7 @@ static int nth_eth_table_read(struct seq_file *file, void *data)
 			   eth_table->ports[i].tx_enabled,
 			   eth_table->ports[i].rx_enabled);
 
+	kfree(eth_table);
 	nfp_cpp_free(cpp);
 	return 0;
 }
