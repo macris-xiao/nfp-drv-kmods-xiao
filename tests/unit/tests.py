@@ -434,7 +434,7 @@ class SriovTest(CommonDrvTest):
         M.cmd('modprobe vfio_pci')
         M.cmd('echo 19ee 6003 > /sys/bus/pci/drivers/vfio-pci/new_id')
 
-        M.insmod()
+        M.insmod(reset=True)
         _, out = M.cmd('cat /sys/bus/pci/devices/0000:%s/sriov_totalvfs' %
                        (self.group.pci_id))
         out = out.strip()
@@ -462,6 +462,7 @@ class NetdevTest(CommonDrvTest):
         # Check FW loading from the user space
         M.insmod(reset=True)
         M.nffw_load('%s' % self.group.netdevfw)
+        max_vfs = M.get_rtsym_scalar('nfd_vf_cfg_max_vfs')
         M.rmmod()
 
         M.refresh()
@@ -477,6 +478,13 @@ class NetdevTest(CommonDrvTest):
         if netifs_new <= netifs_old:
             raise NtiGeneralError('Interfaces was:%s is:%d, expected new ones' %
                                   (netifs_old, netifs_new))
+
+        # See if after kernel load SR-IOV limit was set correctly
+        ret, _ = M.cmd('echo %d > /sys/bus/pci/devices/0000:%s/sriov_numvfs' %
+                       (max_vfs + 1, self.group.pci_id), fail=False)
+        if not ret:
+            raise NtiGeneralError('SR-IOV VF limit not obeyed')
+
 
 class ParamsIncompatTest(CommonTest):
     def execute(self):
@@ -521,7 +529,7 @@ class KernelLoadTest(CommonTest):
 
         M.refresh()
         netifs_old = M._netifs
-        M.insmod(params='fw_load_required=1', netdev=True)
+        M.insmod(netdev=True, userspace=True)
         time.sleep(1)
         M.refresh()
         netifs_new = M._netifs
@@ -541,6 +549,18 @@ class KernelLoadTest(CommonTest):
             M.cmd('ifconfig %s %s up' % (ifc, self.dut_addr[i]))
             self.ping(i)
             i += 1
+
+        if i != len(self.dut_addr):
+            raise NtiGeneralError('Bad number of interfaces %d %d' %
+                                  (i, len(self.dut_addr)))
+
+        # See if after kernel load SR-IOV limit was set correctly
+        M.cmd('ls /dev/nfp-cpp-*', fail=False)
+        max_vfs = M.get_rtsym_scalar('nfd_vf_cfg_max_vfs')
+        ret, _ = M.cmd('echo %d > /sys/bus/pci/devices/0000:%s/sriov_numvfs' %
+                       (max_vfs + 1, self.group.pci_id), fail=False)
+        if not ret:
+            raise NtiGeneralError('SR-IOV VF limit not obeyed')
 
         M.rmmod()
         M.cmd('rm /lib/firmware/netronome/%s' % (name))

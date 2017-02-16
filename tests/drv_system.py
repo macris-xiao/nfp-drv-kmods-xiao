@@ -166,6 +166,15 @@ class DrvSystem(System):
 
         return self.fw_name
 
+    def get_rtsym_scalar(self, symbol, fail=True):
+        ret, out = self.cmd('nfp-rtsym -n %d %s' % (self.grp.nfp, symbol),
+                            fail=fail)
+        if ret:
+            return ~0
+
+        vals = out.split()
+        return int(vals[1], 16) | (int(vals[2], 16) << 32)
+
     def nffw_load(self, fw, fail=True):
         return self.cmd('nfp-nffw load -n %d %s' %
                         (self.grp.nfp, fw), fail=fail)
