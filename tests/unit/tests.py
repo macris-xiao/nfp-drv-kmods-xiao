@@ -360,7 +360,7 @@ class RTSymTest(CommonTest):
         M.cmd('mkdir -p /lib/firmware/netronome')
         M.cp_to(self.group.mefw, '/lib/firmware/netronome/')
 
-        M.insmod(params="nfp_reset=1")
+        M.insmod(reset=True)
         M.insmod(module="nth")
 
         self.check_cnt('insmod', -5)
@@ -460,7 +460,7 @@ class NetdevTest(CommonDrvTest):
         M = self.dut
 
         # Check FW loading from the user space
-        M.insmod(params="nfp_reset=1")
+        M.insmod(reset=True)
         M.nffw_load('%s' % self.group.netdevfw)
         M.rmmod()
 
@@ -567,7 +567,7 @@ class BSPDiag(CommonTest):
 
         M.refresh()
         netifs_old = M._netifs
-        M.insmod(netdev=True, params='nfp_dev_cpp=1')
+        M.insmod(netdev=True, userspace=True)
         time.sleep(1)
         M.refresh()
         netifs_new = M._netifs

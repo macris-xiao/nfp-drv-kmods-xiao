@@ -68,13 +68,18 @@ class DrvSystem(System):
         LOG_endsec()
         return
 
-    def insmod(self, module=None, netdev=False, params='', fail=True):
+    def insmod(self, module=None, netdev=False, userspace=None, reset=None,
+               params='', fail=True):
         if not module:
             module = self.mod
         elif module == "nth":
             module = self.mod_nth
         if module == self.mod and not netdev is None:
             params += ' nfp_pf_netdev=%d' % netdev
+        if module == self.mod and not userspace is None:
+            params += ' nfp_dev_cpp=%d' % userspace
+        if module == self.mod and not reset is None:
+            params += ' nfp_reset=%d' % reset
 
         ret, out = self.cmd('insmod %s %s' % (module, params), fail=fail)
         # Store the module name for cleanup
