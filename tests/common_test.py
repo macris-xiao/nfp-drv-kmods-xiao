@@ -5,6 +5,7 @@
 from netro.testinfra.nrt_result import NrtResult
 from netro.testinfra.nti_exceptions import NtiGeneralError
 from netro.testinfra.test import Test
+from netro.testinfra import LOG_init, LOG_sec, LOG, LOG_endsec, CMD
 
 ###############################################################################
 # Test with cleanup
@@ -83,6 +84,17 @@ class CommonTest(Test):
         return NrtResult(name=self.name, testtype=self.__class__.__name__,
                          passed=True)
 
+
+    def log(self, text, thing):
+        LOG_sec(text)
+        if 'pp' in dir(thing):
+            LOG(thing.pp())
+        else:
+            LOG(str(thing))
+        LOG_endsec()
+
+    def log_stat_diff(self, diff):
+        self.log("Interface stats difference", diff)
 
     def kernel_min(self, major, minor):
         M = self.dut

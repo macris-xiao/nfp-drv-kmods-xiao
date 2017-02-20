@@ -51,7 +51,6 @@ class NFPKmodSetup(NFPKmodGrp):
 import os
 from netro.testinfra.nti_exceptions import NtiGeneralError
 from netro.testinfra.nrt_result import NrtResult
-from ..drv_test import *
 
 class Insmod(CommonDrvTest):
     def execute(self):

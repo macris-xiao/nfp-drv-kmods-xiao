@@ -4,7 +4,7 @@
 
 import netro.testinfra
 from netro.testinfra.nrt_result import NrtResult
-from ..drv_test import *
+from ..common_test import *
 
 class XDPSetupTest(CommonTest):
     def run(self):

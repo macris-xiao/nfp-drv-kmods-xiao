@@ -5,7 +5,7 @@
 import netro.testinfra
 from setup import NFPKmodSetup
 from unit import NFPKmodUnit
-from rand import NFPKmodRand
+from rand import NFPKmodRand, NFPKmodRandErr
 from drv_grp import *
 
 class Project(netro.testinfra.Project):
@@ -16,4 +16,5 @@ class Project(netro.testinfra.Project):
 
     _groups = { "setup" : NFPKmodSetup,
                 "unit" :  NFPKmodUnit,
-                "rand" :  NFPKmodRand }
+                "rand" :  NFPKmodRand,
+                "rand_err" : NFPKmodRandErr }

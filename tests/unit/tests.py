@@ -6,6 +6,7 @@ Unit test group for the NFP Linux drivers.
 """
 
 import netro.testinfra
+from reconfig import ChannelReconfig
 from netro.testinfra.test import *
 from ..drv_grp import NFPKmodGrp
 
@@ -47,7 +48,9 @@ class NFPKmodUnit(NFPKmodGrp):
              ('dev_cpp', DevCppTest,
               "Test user space access existence and basic functionality"),
              ('kernel_fw_load', KernelLoadTest, "Test kernel firmware loader"),
-             ('bsp_diag', BSPDiag, "Test the basic BSP diagnostics"))
+             ('bsp_diag', BSPDiag, "Test the basic BSP diagnostics"),
+             ('channel_reconfig', ChannelReconfig, "Ethtool channel reconfig")
+        )
 
         for t in T:
             self._tests[t[0]] = t[1](src, dut, self, t[0], t[2])
@@ -60,7 +63,7 @@ from random import shuffle
 from netro.testinfra.nti_exceptions import NtiGeneralError
 from netro.testinfra.nrt_result import NrtResult
 from netro.testinfra.system import cmd_log
-from ..drv_test import *
+from ..common_test import *
 
 class Modinfo(CommonTest):
     def execute(self):

@@ -10,6 +10,10 @@ import netro.testinfra
 from netro.testinfra.system import *
 from netro.testinfra.nti_exceptions import NtiGeneralError
 
+class NfpNfdCtrl:
+    VERSION      = 0x30
+    RX_OFFSET    = 0x50
+
 class DrvSystem(System):
     """
     Class for the system where our driver will be loaded (with an NFP).
@@ -107,12 +111,34 @@ class DrvSystem(System):
             m = self._mods.pop()
             self.rmmod(module=m)
 
+    def nfd_reg_read_le32(self, ifc, offset, count=1):
+        # Dump the NFD BAR using ethtool into a giant hex string
+        cmd =  'ethtool -d %s raw on' % (ifc)
+        cmd += ' | hexdump -v -e "1/1 \\"%02X\\""'
+        _, data = self.cmd(cmd)
+        # Cut out the part we need
+        val_s = data[offset * 2:(offset + count * 4) * 2]
+        # Byte swap
+        res = 0
+        for val_i in range(0, count):
+            # Byte swap one 32bit value
+            for byte_i in range(6, -2, -2):
+                start = val_i * 8 + byte_i
+                res = res << 8 | int('0x' + val_s[start:start + 2], 16)
+        return res
+
     def dfs_read(self, path):
         _, data = self.cmd('echo `cat %s`' % (os.path.join(self.dfs_dir, path)))
         return data.strip()
 
     def dfs_read_raw(self, path):
         _, data = self.cmd('cat %s' % (os.path.join(self.dfs_dir, path)))
+        return data
+
+    def dfs_nn_port_lines(self, method, path):
+        port_path = 'nfp_net/0000:%s/port%d' % (self.grp.pci_id, 0)
+        path = os.path.join(self.dfs_dir, port_path, path)
+        _, data = self.cmd('%s %s | wc -l' % (method, path))
         return data
 
     def dfs_write(self, path, data, do_fail=False):

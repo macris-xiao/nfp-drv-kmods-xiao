@@ -3,6 +3,6 @@
 ##
 """ Test classes used by NFP Linux drivers setup tests """
 
-from tests import NFPKmodRand
+from tests import NFPKmodRand, NFPKmodRandErr
 
-__all__ = ["setup"]
+__all__ = ["rand", "rand_err"]
