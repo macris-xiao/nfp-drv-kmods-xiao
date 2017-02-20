@@ -521,7 +521,7 @@ static int nth_eth_table_read(struct seq_file *file, void *data)
 	}
 
 	for (i = 0; i < eth_table->count; i++)
-		seq_printf(file, "%d: %u %u %u %u %u %u %pM %s %d %d %d\n",
+		seq_printf(file, "%d: %u %u %u %u %u %u %pM %d.%d %d %d %d\n",
 			   i, eth_table->ports[i].eth_index,
 			   eth_table->ports[i].index,
 			   eth_table->ports[i].nbi,
@@ -529,7 +529,8 @@ static int nth_eth_table_read(struct seq_file *file, void *data)
 			   eth_table->ports[i].lanes,
 			   eth_table->ports[i].speed,
 			   eth_table->ports[i].mac_addr,
-			   eth_table->ports[i].label,
+			   eth_table->ports[i].label_port,
+			   eth_table->ports[i].label_subport,
 			   eth_table->ports[i].enabled,
 			   eth_table->ports[i].tx_enabled,
 			   eth_table->ports[i].rx_enabled);
