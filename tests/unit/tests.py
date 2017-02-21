@@ -41,6 +41,7 @@ class NFPKmodUnit(NFPKmodGrp):
              ('sriov', SriovTest, 'Test SR-IOV sysfs interface'),
              ('netdev', NetdevTest, "Test netdev loading"),
              # Tests which assume netdev FW to be loaded
+             ('phys_port_name', PhysPortName, "Test port naming"),
              ('params_incompat', ParamsIncompatTest,
               "Test if incompatible parameter combinations are rejected"),
              ('dev_cpp', DevCppTest,
@@ -485,6 +486,58 @@ class NetdevTest(CommonDrvTest):
         if not ret:
             raise NtiGeneralError('SR-IOV VF limit not obeyed')
 
+class PhysPortName(CommonNetdevTest):
+    def prepare(self):
+        return self.kernel_min(4, 1)
+
+    def netdev_execute(self):
+        M = self.dut
+
+        cmd =  '''
+        cd /sys/class/net/;
+        for i in `ls`;
+        do
+            echo $i $([ -e $i/device ] && basename $(readlink $i/device) || echo no_dev) $(cat $i/phys_port_name || echo no_name) $(ip -o li show dev $i | cut -d" " -f20);
+        done
+        '''
+
+        _, devs = M.cmd(cmd)
+
+        tbl = M.dfs_read_raw('nth/eth_table')
+
+        devices = devs.split('\n')[:-1]
+        found = 0
+        for d in devices:
+            # <ifname> <pci_id> <phys_port_name> <ethaddr>
+            info = d.split()
+            ifc = info[0]
+            pci_id = info[1]
+            port_name = info[2]
+            ethaddr = info[3]
+
+            if pci_id[5:] != self.group.pci_id:
+                continue
+            found += 1
+
+            labels = re.search('%s (\d*)\.(\d*)' % ethaddr, tbl)
+            if not labels:
+                raise NtiError('MAC addr for interface %s not found in ETH table' %
+                               ifc)
+
+            # if label X.1 exists the port is split
+            is_split = tbl.find(' %s.1 ' % labels.groups()[0]) != -1
+            if is_split:
+                want = 'p%ss%s' % labels.groups()
+            else:
+                want = 'p%s' % labels.groups()[0]
+
+            if want != port_name:
+                raise NtiError('Port name incorrect want: %s have: %s' %
+                               (want, port_name))
+
+        if found != len(self.group.addr_x):
+            raise NtiError('Expected %d interfaces, found %d' %
+                           (len(self.group.addr_x), found))
 
 class ParamsIncompatTest(CommonTest):
     def execute(self):

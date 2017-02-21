@@ -149,3 +149,23 @@ class CommonNTHTest(CommonTest):
 
     def cleanup(self):
         self.dut.reset_mods()
+
+
+class CommonNetdevTest(CommonTest):
+    def execute(self):
+        M = self.dut
+
+        M.insmod(netdev=True, userspace=True)
+        ret, _ = M.cmd_rtsym('_pf0_net_bar0', fail=False)
+        if ret != 0:
+            M.nffw_unload()
+            M.nffw_load('%s' % self.group.netdevfw)
+            M.rmmod()
+            M.insmod(netdev=True, userspace=True)
+
+        M.insmod(module="nth")
+
+        self.netdev_execute()
+
+    def cleanup(self):
+        self.dut.reset_mods()

@@ -47,6 +47,10 @@ class DrvSystem(System):
 
         self._mods = set()
 
+    def kernel_ver_ge(self, major, minor):
+        return (self.kernel_maj == major and self.kernel_min >= minor) or \
+            self.kernel_maj >= major
+
     def cp_to(self, src, dst):
         """
         Copy a file from the local machine to the system.
@@ -167,8 +171,7 @@ class DrvSystem(System):
         return self.fw_name
 
     def get_rtsym_scalar(self, symbol, fail=True):
-        ret, out = self.cmd('nfp-rtsym -n %d %s' % (self.grp.nfp, symbol),
-                            fail=fail)
+        ret, out = self.cmd_rtsym(cmd=symbol, fail=fail)
         if ret:
             return ~0
 
@@ -184,6 +187,9 @@ class DrvSystem(System):
 
     def cmd_res(self, cmd, fail=True):
         return self.cmd('nfp-res -n %d %s' % (self.grp.nfp, cmd), fail=fail)
+
+    def cmd_rtsym(self, cmd, fail=True):
+        return self.cmd('nfp-rtsym -n %d %s' % (self.grp.nfp, cmd), fail=fail)
 
     def cmd_hwinfo(self, cmd, fail=True):
         return self.cmd('nfp-hwinfo -n %d %s' % (self.grp.nfp, cmd), fail=fail)
