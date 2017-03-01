@@ -61,7 +61,7 @@ class NFPKmodGrp(netro.testinfra.Group):
         ("nfpkmod", [False, "Directory with kernel mods to load on DUT"]),
         ("nfp", [False, "NFP device number to use (default 0)"]),
         ("netdevfw", [True, "Path to netdev firmware"]),
-        ("mefw", [True, "Path to firmware image directory"]),
+        ("samples", [True, "Path to directory with test samples"]),
         ("serial", [False, "Serial number for adapter selection "
                            "(default to nfp 0, takes precedence over @nfp)"]),
     ])
@@ -104,7 +104,7 @@ class NFPKmodGrp(netro.testinfra.Group):
         self.nfp = 0
         self.nfpkmods = None
         self.netdevfw = None
-        self.mefw = None
+        self.samples = None
         self.serial = None
 
         self.host_a = None
@@ -136,52 +136,54 @@ class NFPKmodGrp(netro.testinfra.Group):
         called from the groups run() method.
         """
 
-        if self.dut:
-            self.dut.cmd('lsmod | grep nfp_test_harness && rmmod nfp_test_harness', fail=False)
-            self.dut.cmd('lsmod | grep nfp && rmmod nfp', fail=False)
-            ret, _ = self.dut.cmd('ls /lib/firmware/netronome', fail=False)
-            if ret == 0:
-                if self.rm_fw_dir:
-                    self.dut.cmd('rm -r /lib/firmware/netronome')
-                else:
-                    raise NtiGeneralError('ERROR: driver tests require standard firmware directory to not be present!   Please remove the /lib/firmware/netronome/ directory!')
+        if not self.dut:
+            return
+        self.dut.cmd('lsmod | grep nfp_test_harness && rmmod nfp_test_harness', fail=False)
+        self.dut.cmd('lsmod | grep nfp && rmmod nfp', fail=False)
+        ret, _ = self.dut.cmd('ls /lib/firmware/netronome', fail=False)
+        if ret == 0:
+            if self.rm_fw_dir:
+                self.dut.cmd('rm -r /lib/firmware/netronome')
+            else:
+                raise NtiGeneralError('ERROR: driver tests require standard firmware directory to not be present!   Please remove the /lib/firmware/netronome/ directory!')
 
-            self.dut.insmod()
+        self.dut.insmod()
 
-            _, out = self.dut.cmd('lspci -d "19ee:" | cut -d" " -f1')
-            devices = out.split()
+        _, out = self.dut.cmd('lspci -d "19ee:" | cut -d" " -f1')
+        devices = out.split()
 
-            # Resolve serial if given
-            if self.serial:
-                self.nfp = None
-                cmd = 'lspci -d "19ee:" -v'
-                cmd += ' | sed -n "s/-/:/g;s/.*Serial Number \(.*\)/\\1/p"'
-                _, out = self.dut.cmd(cmd)
+        # Resolve serial if given
+        if self.serial:
+            self.nfp = None
+            cmd = 'lspci -d "19ee:" -v'
+            cmd += ' | sed -n "s/-/:/g;s/.*Serial Number \(.*\)/\\1/p"'
+            _, out = self.dut.cmd(cmd)
 
-                serials = out.split()
+            serials = out.split()
 
-                i = -1
-                for s in serials:
-                    i += 1
-                    serial = s[:-6] # remove the interface part
-                    if serial != self.serial:
-                        continue
+            i = -1
+            for s in serials:
+                i += 1
+                serial = s[:-6] # remove the interface part
+                if serial != self.serial:
+                    continue
 
-                    cmd = 'ls /sys/bus/pci/devices/0000:%s/cpp' % (devices[i])
-                    cmd += ' | sed -n "s/nfp-dev-cpp.\([0-9]*\)/\\1/p"'
-                    _, num = self.dut.cmd(cmd)
+                cmd = 'ls /sys/bus/pci/devices/0000:%s/cpp' % (devices[i])
+                cmd += ' | sed -n "s/nfp-dev-cpp.\([0-9]*\)/\\1/p"'
+                _, num = self.dut.cmd(cmd)
 
-                    self.nfp = int(num)
+                self.nfp = int(num)
 
-                if self.nfp is None:
-                    raise NtiGeneralError("Couldn't find device is SN: %s" %
-                                          self.serial)
+            if self.nfp is None:
+                raise NtiGeneralError("Couldn't find device is SN: %s" %
+                                      self.serial)
 
-            # Figure out PCI ID
-            self.pci_id = devices[self.nfp]
+        # Figure out PCI ID
+        self.pci_id = devices[self.nfp]
 
-            self.dut.reset_mods()
+        self.tmpdir = self.host_a.make_temp_dir()
 
+        self.dut.reset_mods()
         return
 
     def _fini(self):
@@ -234,8 +236,11 @@ class NFPKmodGrp(netro.testinfra.Group):
             self.nthkmod = os.path.join(self.nfpkmods, 'nfp_test_harness.ko')
         if self.cfg.has_option("DUT", "netdevfw"):
             self.netdevfw = self.cfg.get("DUT", "netdevfw")
-        if self.cfg.has_option("DUT", "mefw"):
-            self.mefw = self.cfg.get("DUT", "mefw")
+        if self.cfg.has_option("DUT", "samples"):
+            self.samples = self.cfg.get("DUT", "samples")
+            self.mefw = os.path.join(self.samples, 'mefw')
+            self.samples_bpf = os.path.join(self.samples, 'bpf')
+            self.samples_xdp = os.path.join(self.samples, 'xdp')
         if self.cfg.has_option("DUT", "serial"):
             self.serial = self.cfg.get("DUT", "serial")
 
@@ -260,3 +265,34 @@ class NFPKmodGrp(netro.testinfra.Group):
             self.host_a.cmd('ifconfig %s %s' % (self.eth_a[i], self.addr_a[i]))
 
         return
+
+    def bpf_capable(self):
+        if hasattr(self, 'is_bpf_capable'):
+            return self.is_bpf_capable
+
+        cmd = 'ethtool -k lo | grep hw-tc-offload'
+
+        # Check if BPF files are available
+        LOG_sec ("Check if BPF tools available")
+        ret, _ = cmd_log(cmd, fail=False)
+        LOG_endsec()
+
+        self.is_bpf_capable = ret == 0
+
+        return self.is_bpf_capable
+
+    def xdp_capable(self):
+        if hasattr(self, 'is_xdp_capable'):
+            return self.is_xdp_capable
+
+        cmd = 'ls tests/samples/xdp/*.o'
+        cmd += '&& ip link help 2>&1 | grep xdp'
+
+        # Check if XDP files are available
+        LOG_sec ("Check if XDP available")
+        ret, _ = cmd_log(cmd, fail=False)
+        LOG_endsec()
+
+        self.is_xdp_capable = ret == 0
+
+        return self.is_xdp_capable

@@ -72,6 +72,8 @@ uninstall:
 
 test_prepare:
 	$(MAKE) -C tests/samples/mefw
+	$(MAKE) -C tests/samples/bpf
+	$(MAKE) -C tests/samples/xdp
 	$(MAKE) $(COMMON_ARGS) CONFIG_NFP=n CONFIG_NFP_TEST_HARNESS=m
 
 .PHONY: build nfp_net noisy coccicheck sparse clean install uninstall test_prepare

@@ -8,7 +8,7 @@ Setup test group for the NFP Linux drivers.
 import netro.testinfra
 from netro.testinfra.test import *
 from netro.testinfra.system import cmd_log
-from xdp import *
+from ..common_test import *
 from ..drv_grp import NFPKmodGrp
 
 ###########################################################################
@@ -19,8 +19,7 @@ from ..drv_grp import NFPKmodGrp
 class NFPKmodSetup(NFPKmodGrp):
     """Setup tests for the NFP Linux drivers"""
 
-    summary = "Tests used for configuring environment for the " \
-              "NFP Linux driver tests."
+    summary = "Check environment for running the NFP Linux driver tests."
 
     def __init__(self, name, cfg=None, quick=False, dut_object=None,
                  dut=None, nfp=None, nfpkmods=None, mefw=None):
@@ -43,6 +42,8 @@ class NFPKmodSetup(NFPKmodGrp):
                                    "Test if firmware images are present")
         self._tests['sriov'] = Sriov(src, dut, self, 'sriov',
                                      "Test if SR-IOV can be used")
+        self._tests['bpf'] = BPFSetupTest(src, dut, self, 'bpf',
+                                          "Test the setup for BPF")
         self._tests['xdp'] = XDPSetupTest(src, dut, self, 'xdp',
                                           "Test the setup for XDP")
         return
@@ -69,7 +70,15 @@ class DebugFSSetupTest(CommonNTHTest):
 
 class Tools(CommonTest):
     def execute(self):
-        ret, _ = self.dut.cmd('nfp-nffw -h >> /dev/null')
+        ret, _ = self.dut.cmd('nfp-nffw -h >> /dev/null', fail=False)
+        if ret:
+            raise NtiGeneralError("BSP tools not installed")
+        ret, _ = self.src.cmd('hping3 -h', fail=False)
+        if ret:
+            raise NtiGeneralError("hping3 not installed on SRC")
+        ret, _ = self.dut.cmd('hping3 -h', fail=False)
+        if ret:
+            raise NtiGeneralError("hping3 not installed on DUT")
 
 class Mefw(CommonTest):
     def execute(self):
@@ -94,3 +103,13 @@ class Sriov(CommonTest):
         _, out = self.dut.cmd('ls /sys/kernel/iommu_groups | wc -l')
         if int(out) < 1:
             raise NtiGeneralError("No IOMMU groups - is IOMMU enabled?")
+
+class BPFSetupTest(CommonTest):
+    def run(self):
+        return NrtResult(name=self.name, passed=self.group.bpf_capable(),
+                         testtype=self.__class__.__name__)
+
+class XDPSetupTest(CommonTest):
+    def run(self):
+        return NrtResult(name=self.name, passed=self.group.xdp_capable(),
+                         testtype=self.__class__.__name__)

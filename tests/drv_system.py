@@ -27,11 +27,6 @@ class DrvSystem(System):
         self.grp = grp
         self.tmpdir = self.make_temp_dir()
 
-        # Check if XDP is available
-        ret, _ = self.cmd('ls ~/xdp/pass.py /lib/modules/`uname -r`/build',
-                          fail=False)
-        self.has_xdp = ret == 0
-
         # Check kernel version
         _, self.kernel_ver = self.cmd('uname -r')
         self.kernel_maj = int(self.kernel_ver.split('.')[0])
@@ -51,10 +46,24 @@ class DrvSystem(System):
 
         self._mods = set()
 
+    def copy_bpf_samples(self):
+        self.bpf_samples_dir = os.path.join(self.tmpdir, 'bpf')
+        self.cmd('mkdir %s' % self.bpf_samples_dir)
+        self.cp_to(os.path.join(self.grp.samples_bpf, '*.o'),
+                   self.bpf_samples_dir)
+
+        self.xdp_samples_dir = os.path.join(self.tmpdir, 'xdp')
+        self.cmd('mkdir %s' % self.xdp_samples_dir)
+        self.cp_to(os.path.join(self.grp.samples_xdp, '*.o'),
+                   self.xdp_samples_dir)
+
+        return
+
     def kernel_ver_ge(self, major, minor):
         return (self.kernel_maj == major and self.kernel_min >= minor) or \
             self.kernel_maj >= major
 
+    # Reimplement cp_to with -r parameter
     def cp_to(self, src, dst):
         """
         Copy a file from the local machine to the system.
