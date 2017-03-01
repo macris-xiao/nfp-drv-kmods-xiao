@@ -71,7 +71,7 @@ uninstall:
 	depmod $(DEPMOD_PATH) $(KVER)
 
 test_prepare:
-	$(MAKE) -C tests/mefw
+	$(MAKE) -C tests/samples/mefw
 	$(MAKE) $(COMMON_ARGS) CONFIG_NFP=n CONFIG_NFP_TEST_HARNESS=m
 
 .PHONY: build nfp_net noisy coccicheck sparse clean install uninstall test_prepare
