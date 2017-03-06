@@ -262,8 +262,12 @@ class NFPKmodGrp(netro.testinfra.Group):
            len(self.eth_x) != len(self.addr_v6_x):
             raise NtiGeneralError('ERROR: Config has different number of addresses and interfaces')
         for i in range(0, len(self.eth_a)):
-            self.host_a.cmd('ifconfig %s %s' % (self.eth_a[i], self.addr_a[i]))
-
+            cmd = ''
+            cmd += 'ip addr add dev %s %s' % (self.eth_a[i], self.addr_a[i])
+            cmd += '; ip addr add dev %s %s' % (self.eth_a[i],
+                                                self.addr_v6_a[i])
+            cmd += '; ip link set dev %s up' % (self.eth_a[i])
+            self.host_a.cmd(cmd)
         return
 
     def bpf_capable(self):
