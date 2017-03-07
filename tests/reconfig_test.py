@@ -161,7 +161,7 @@ class ReconfigTest(CommonNetdevTest):
                                (out.split(), expected_list))
 
         # Check indirection table (should get updated at this point)
-        _, out = self.dut.cmd('ethtool -x %s | sed -n "s/^[^:]*:\\([^:]*\\)$/\\1/p"' %
+        _, out = self.dut.cmd('ethtool -x %s | sed -n "s/^[^:]*:\\([ 0-9]*\\)$/\\1/p"' %
                               (self.dut_ifn))
         indir_tb = map(int, out.split())
         if max(indir_tb) != t[0] + t[2] - 1:
