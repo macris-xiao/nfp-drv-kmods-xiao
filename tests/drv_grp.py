@@ -50,7 +50,8 @@ class NFPKmodGrp(netro.testinfra.Group):
         ('noclean', [False, "Don't clean the systems after a run (default "
                             "False). Useful for debugging test failures."]),
         ('rm_fw_dir', [False, "Allow test code to remove the "
-                              "/lib/firmware/netronome directory if present"])
+                              "/lib/firmware/netronome directory if present"]),
+        ('upstream_drv', [False, "Use upstream/installed driver"]),
     ])
     _config["DUT"] = collections.OrderedDict([
         ("name", [True, "Host name of the DUT (can also be <user>@<host> or "
@@ -94,6 +95,7 @@ class NFPKmodGrp(netro.testinfra.Group):
         # If no config was provided these will be None.
         self.noclean = False
         self.rm_fw_dir = False
+        self.upstream_drv = True
 
         self.dut = None
         self.pci_id = None
@@ -222,6 +224,8 @@ class NFPKmodGrp(netro.testinfra.Group):
             self.noclean = self.cfg.getboolean("General", "noclean")
         if self.cfg.has_option("General", "rm_fw_dir"):
             self.rm_fw_dir = self.cfg.getboolean("General", "rm_fw_dir")
+        if self.cfg.has_option("General", "upstream_drv"):
+            self.upstream_drv = self.cfg.getboolean("General", "upstream_drv")
 
         # DUT
         self.eth_x = self.cfg.get("DUT", "ethX").split()

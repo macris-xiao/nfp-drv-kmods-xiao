@@ -148,20 +148,34 @@ class NFPKmodBPF(NFPKmodGrp):
             self._tests[t[0]] = t[1](src, dut, group=self, name=t[0],
                                      summary=t[2])
 
+    def driver_load(self):
+        M = self.dut
+
+        if not self.upstream_drv:
+            # Try to see if FW is already loaded
+            M.insmod(netdev=True, userspace=True)
+            ret, _ = M.cmd_rtsym('_pf0_net_bar0', fail=False)
+            if ret == 0:
+                return
+
+            M.rmmod()
+
+        # If not use kernel loader
+        M.cmd('mkdir -p /lib/firmware/netronome')
+        M.cp_to(self.netdevfw, '/lib/firmware/netronome/%s' % M.get_fw_name())
+
+        if self.upstream_drv:
+            M.cmd('modprobe nfp')
+        else:
+            M.insmod(netdev=True, userspace=True)
+
+
     def _init(self):
         NFPKmodGrp._init(self)
 
+        self.driver_load()
+
         M = self.dut
-        # Try to see if FW is already loaded
-        M.insmod(netdev=True, userspace=True)
-        ret, _ = M.cmd_rtsym('_pf0_net_bar0', fail=False)
-        if ret != 0:
-            M.rmmod()
-            # If not use kernel loader
-            M.cmd('mkdir -p /lib/firmware/netronome')
-            M.cp_to(self.netdevfw, '/lib/firmware/netronome/%s' %
-                    M.get_fw_name())
-            M.insmod(netdev=True, userspace=True)
 
         # Init DUT
         M.cmd('ifconfig %s %s promisc up' % (self.eth_x[0], self.addr_x[0]))
