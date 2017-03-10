@@ -160,3 +160,8 @@ EXPORT_SYMBOL_GPL(nfp_nsp_close);	/* Testing only */
 EXPORT_SYMBOL_GPL(nfp_nsp_wait);	/* Testing only */
 EXPORT_SYMBOL_GPL(nfp_nsp_device_soft_reset);	/* Testing only */
 EXPORT_SYMBOL_GPL(nfp_nsp_load_fw);	/* Testing only */
+EXPORT_SYMBOL_GPL(nfp_eth_config_start);	/* Testing only */
+EXPORT_SYMBOL_GPL(nfp_eth_config_commit_end);	/* Testing only */
+EXPORT_SYMBOL_GPL(__nfp_eth_set_aneg);	/* Testing only */
+EXPORT_SYMBOL_GPL(__nfp_eth_set_speed);	/* Testing only */
+EXPORT_SYMBOL_GPL(__nfp_eth_set_split);	/* Testing only */

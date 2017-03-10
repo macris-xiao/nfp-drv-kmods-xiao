@@ -507,8 +507,8 @@ static int nth_eth_table_read(struct seq_file *file, void *data)
 		return -EIO;
 	}
 
-	for (i = 0; i < eth_table->count; i++)
-		seq_printf(file, "%d: %u %u %u %u %u %u %pM %d.%d %d %d %d\n",
+	for (i = 0; i < eth_table->count; i++) {
+		seq_printf(file, "%d: %u %u %u %u %u %u %pM %d.%d %d %d %d ",
 			   i, eth_table->ports[i].eth_index,
 			   eth_table->ports[i].index,
 			   eth_table->ports[i].nbi,
@@ -521,6 +521,17 @@ static int nth_eth_table_read(struct seq_file *file, void *data)
 			   eth_table->ports[i].enabled,
 			   eth_table->ports[i].tx_enabled,
 			   eth_table->ports[i].rx_enabled);
+
+		seq_printf(file, "| %d %d %d %d ",
+			   eth_table->ports[i].interface,
+			   eth_table->ports[i].media,
+			   eth_table->ports[i].aneg,
+			   eth_table->ports[i].override_changed);
+
+		seq_printf(file, "| 0x%02hhx %d\n",
+			   eth_table->ports[i].port_type,
+			   eth_table->ports[i].is_split);
+	}
 
 	kfree(eth_table);
 	nfp_cpp_free(cpp);
@@ -583,6 +594,159 @@ static const struct file_operations nth_eth_enable_ops = {
 	.llseek = default_llseek,
 };
 
+static ssize_t
+nth_write_eth_aneg(struct file *file, const char __user *user_buf,
+		   size_t count, loff_t *ppos)
+{
+	struct debugfs_blob_wrapper *blob = file->private_data;
+	unsigned int idx, aneg;
+	u8 *data = blob->data;
+	struct nfp_cpp *cpp;
+	struct nfp_nsp *nsp;
+	int err, srcu_idx;
+	ssize_t ret;
+
+	ret = debugfs_use_file_start(file->f_path.dentry, &srcu_idx);
+	if (likely(!ret))
+		ret = simple_write_to_buffer(blob->data, blob->size - 1,
+					     ppos, user_buf, count);
+	debugfs_use_file_finish(srcu_idx);
+	if (ret < 0)
+		return ret;
+	data[ret] = 0;
+
+	if (sscanf(data, "%u %u", &idx, &aneg) != 2)
+		return -EINVAL;
+
+	cpp = nfp_cpp_from_device_id(nth.id);
+	if (!cpp)
+		return -EBUSY;
+
+	nsp = nfp_eth_config_start(cpp, idx);
+	if (IS_ERR(nsp)) {
+		ret = PTR_ERR(nsp);
+		goto err;
+	}
+
+	__nfp_eth_set_aneg(nsp, aneg);
+	err = nfp_eth_config_commit_end(nsp);
+	if (err)
+		ret = err;
+err:
+	nfp_cpp_free(cpp);
+
+	return ret;
+}
+
+static const struct file_operations nth_eth_aneg_ops = {
+	.read = nth_read_blob,
+	.write = nth_write_eth_aneg,
+	.open = simple_open,
+	.llseek = default_llseek,
+};
+
+static ssize_t
+nth_write_eth_speed(struct file *file, const char __user *user_buf,
+		    size_t count, loff_t *ppos)
+{
+	struct debugfs_blob_wrapper *blob = file->private_data;
+	unsigned int idx, speed;
+	u8 *data = blob->data;
+	struct nfp_cpp *cpp;
+	struct nfp_nsp *nsp;
+	int err, srcu_idx;
+	ssize_t ret;
+
+	ret = debugfs_use_file_start(file->f_path.dentry, &srcu_idx);
+	if (likely(!ret))
+		ret = simple_write_to_buffer(blob->data, blob->size - 1,
+					     ppos, user_buf, count);
+	debugfs_use_file_finish(srcu_idx);
+	if (ret < 0)
+		return ret;
+	data[ret] = 0;
+
+	if (sscanf(data, "%u %u", &idx, &speed) != 2)
+		return -EINVAL;
+
+	cpp = nfp_cpp_from_device_id(nth.id);
+	if (!cpp)
+		return -EBUSY;
+
+	nsp = nfp_eth_config_start(cpp, idx);
+	if (IS_ERR(nsp)) {
+		ret = PTR_ERR(nsp);
+		goto err;
+	}
+
+	__nfp_eth_set_speed(nsp, speed);
+	err = nfp_eth_config_commit_end(nsp);
+	if (err)
+		ret = err;
+err:
+	nfp_cpp_free(cpp);
+
+	return ret;
+}
+
+static const struct file_operations nth_eth_speed_ops = {
+	.read = nth_read_blob,
+	.write = nth_write_eth_speed,
+	.open = simple_open,
+	.llseek = default_llseek,
+};
+
+static ssize_t
+nth_write_eth_lanes(struct file *file, const char __user *user_buf,
+		    size_t count, loff_t *ppos)
+{
+	struct debugfs_blob_wrapper *blob = file->private_data;
+	unsigned int idx, lanes;
+	u8 *data = blob->data;
+	struct nfp_cpp *cpp;
+	struct nfp_nsp *nsp;
+	int err, srcu_idx;
+	ssize_t ret;
+
+	ret = debugfs_use_file_start(file->f_path.dentry, &srcu_idx);
+	if (likely(!ret))
+		ret = simple_write_to_buffer(blob->data, blob->size - 1,
+					     ppos, user_buf, count);
+	debugfs_use_file_finish(srcu_idx);
+	if (ret < 0)
+		return ret;
+	data[ret] = 0;
+
+	if (sscanf(data, "%u %u", &idx, &lanes) != 2)
+		return -EINVAL;
+
+	cpp = nfp_cpp_from_device_id(nth.id);
+	if (!cpp)
+		return -EBUSY;
+
+	nsp = nfp_eth_config_start(cpp, idx);
+	if (IS_ERR(nsp)) {
+		ret = PTR_ERR(nsp);
+		goto err;
+	}
+
+	__nfp_eth_set_split(nsp, lanes);
+	err = nfp_eth_config_commit_end(nsp);
+	if (err)
+		ret = err;
+err:
+	nfp_cpp_free(cpp);
+
+	return ret;
+}
+
+static const struct file_operations nth_eth_lanes_ops = {
+	.read = nth_read_blob,
+	.write = nth_write_eth_lanes,
+	.open = simple_open,
+	.llseek = default_llseek,
+};
+
 static int __init nth_init(void)
 {
 	bool fail = false;
@@ -630,6 +794,12 @@ static int __init nth_init(void)
 				     NULL, &nth_eth_table_ops);
 	fail |= !debugfs_create_file("eth_enable", 0600, nth.dir,
 				     &nth.wr_only, &nth_eth_enable_ops);
+	fail |= !debugfs_create_file("eth_aneg", 0600, nth.dir,
+				     &nth.wr_only, &nth_eth_aneg_ops);
+	fail |= !debugfs_create_file("eth_speed", 0600, nth.dir,
+				     &nth.wr_only, &nth_eth_speed_ops);
+	fail |= !debugfs_create_file("eth_lanes", 0600, nth.dir,
+				     &nth.wr_only, &nth_eth_lanes_ops);
 
 	fail |= !debugfs_create_file("rand_r", 0600, nth.dir,
 				     NULL, &nth_rand_r_ops);
