@@ -75,6 +75,11 @@ class DrvSystem(System):
 
         return int(speed.groups()[0])
 
+    def ethtool_set_speed(self, ifc, speed, fail=True):
+        return self.cmd('ifconfig %s down; ethtool -s %s speed %d' %
+                        (ifc, ifc, speed),
+                        include_stderr=True, fail=fail)
+
     def get_nsp_ver(self, ifc=None):
         if ifc:
             _, out = self.cmd('ethtool -i %s' % (ifc))

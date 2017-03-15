@@ -202,7 +202,7 @@ class CommonNTHTest(CommonTest):
 
 
 class CommonNetdevTest(CommonTest):
-    def execute(self):
+    def netdev_prep(self):
         M = self.dut
 
         M.insmod(netdev=True, userspace=True)

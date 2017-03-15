@@ -7,6 +7,7 @@ from setup import NFPKmodSetup
 from unit import NFPKmodUnit
 from ebpf import NFPKmodBPF
 from rand import NFPKmodRand, NFPKmodRandErr
+from reboot import NFPKmodReboot
 from drv_grp import *
 
 class Project(netro.testinfra.Project):
@@ -19,4 +20,5 @@ class Project(netro.testinfra.Project):
                 "unit" :  NFPKmodUnit,
                 "ebpf" :  NFPKmodBPF,
                 "rand" :  NFPKmodRand,
-                "rand_err" : NFPKmodRandErr }
+                "rand_err" : NFPKmodRandErr,
+                "reboot" :   NFPKmodReboot }
