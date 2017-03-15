@@ -50,7 +50,9 @@ class NFPKmodUnit(NFPKmodGrp):
              ('kernel_fw_load', KernelLoadTest, "Test kernel firmware loader"),
              ('bsp_diag', BSPDiag, "Test the basic BSP diagnostics"),
              ('channel_reconfig', ChannelReconfig, "Ethtool channel reconfig"),
-             ('ethtool_get_speed', LinkSpeedEthtool, "Ethtool get settings")
+             ('ethtool_get_speed', LinkSpeedEthtool, "Ethtool get settings"),
+             ('ethtool_aneg', AutonegEthtool,
+              "Test setting autonegotiation with ethtool")
         )
 
         for t in T:
@@ -714,3 +716,59 @@ class LinkSpeedEthtool(CommonNetdevTest):
             if phymod != ethtool:
                 raise NtiError("On port %d phymod reports:%d ethtool:%d" %
                                (i, phymod, ethtool))
+
+class AutonegEthtool(CommonNetdevTest):
+    def get_hwinfo_status(self, ifc):
+        status = self.dut.get_hwinfo("phy%d.aneg" % (ifc), params='-u')
+
+        if status == 'A' or status == '':
+            return True
+        if status == 'F':
+            return False
+
+        raise NtiError('Invalid hwinfo aneg status: %s' % (status))
+
+    def state_check(self):
+        i = 0
+        for ifc in self.dut_ifn:
+            ethtool = self.dut.ethtool_get_autoneg(ifc)
+            hwinfo = self.get_hwinfo_status(i)
+
+            if self.state[ifc] != ethtool:
+                raise NtiError('ethtool reports state: %d expeted: %d' %
+                               (ethtool, self.state[ifc]))
+
+            if self.state[ifc] != hwinfo:
+                raise NtiError('hwinfo reports state: %d expeted: %d' %
+                               (hwinfo, self.state[ifc]))
+
+            i += 1
+
+    def flip_autoneg_status(self, ifc):
+        want = 'on'
+        if self.state[ifc]:
+            want = 'off'
+
+        self.dut.cmd('ethtool -s %s autoneg %s' % (ifc, want))
+        self.state[ifc] = not self.state[ifc]
+
+    def netdev_execute(self):
+        # Check NSP version
+        self.nsp_min(15)
+
+        self.state = {}
+
+        for ifc in self.dut_ifn:
+            self.state[ifc] = self.dut.ethtool_get_autoneg(ifc)
+
+        self.state_check()
+
+        for ifc in self.dut_ifn:
+            self.flip_autoneg_status(ifc)
+
+        self.state_check()
+
+        for ifc in self.dut_ifn:
+            self.flip_autoneg_status(ifc)
+
+        self.state_check()

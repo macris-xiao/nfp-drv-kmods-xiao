@@ -8,6 +8,22 @@ from netro.testinfra.test import Test
 from netro.testinfra import LOG_init, LOG_sec, LOG, LOG_endsec, CMD
 
 ###############################################################################
+# Exception for throwing results
+###############################################################################
+class NtiSkip(Exception):
+    """ Exception raised to skip tests.
+
+    Attributes:
+        msg  -- explanation of the reason test was skipeed
+    """
+
+    def __init__(self, msg):
+        self.msg = msg
+
+    def __str__(self):
+        return repr(self.msg)
+
+###############################################################################
 # Test with cleanup
 ###############################################################################
 class CommonTest(Test):
@@ -76,13 +92,18 @@ class CommonTest(Test):
         if res:
             return res
 
+        res = NrtResult(name=self.name, testtype=self.__class__.__name__,
+                        passed=True)
+
         try:
             self.execute()
+        except NtiSkip as err:
+            res = NrtResult(name=self.name, testtype=self.__class__.__name__,
+                            passed=None, comment=str(err))
         finally:
             self.cleanup()
 
-        return NrtResult(name=self.name, testtype=self.__class__.__name__,
-                         passed=True)
+        return res
 
 
     def log(self, text, thing):
@@ -105,6 +126,12 @@ class CommonTest(Test):
                 (M.kernel_maj, M.kernel_min, major, minor)
             return NrtResult(name=self.name, testtype=self.__class__.__name__,
                              passed=None, comment=comment)
+
+    def nsp_min(self, exp_ver):
+        nsp_ver = self.dut.get_nsp_ver()
+        if nsp_ver < exp_ver:
+            raise NtiSkip("NSP version %d, test requires %d" %
+                          (nsp_ver, exp_ver))
 
     def ifc_all_up(self):
         for i in range(0, len(self.dut_ifn)):

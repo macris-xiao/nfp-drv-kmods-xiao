@@ -59,12 +59,44 @@ class DrvSystem(System):
 
         return
 
+    def ethtool_get_autoneg(self, ifc):
+        _, out = self.cmd('ethtool %s | grep Auto-negotiation' % (ifc))
+
+        if out.find(': on') != -1:
+            return True
+        if out.find(': off') != -1:
+            return False
+        raise NtiError('Invalid ethtool response: %s' % (out))
+
     def ethtool_get_speed(self, ifc):
         _, out = self.cmd('ethtool %s' % (ifc))
 
         speed = re.search('Speed: (\d*)Mb/s', out)
 
         return int(speed.groups()[0])
+
+    def get_nsp_ver(self, ifc=None):
+        if ifc:
+            _, out = self.cmd('ethtool -i %s' % (ifc))
+
+            sp_ver = re.search('sp:(.*)', out)
+            if not sp_ver:
+                raise NtiError("Can't get NSP version - ethtool output invalid")
+
+            sp_ver = sp_ver.groups()[0]
+        else: # Use userspace
+            _, out = self.cmd_nsp("-v")
+
+            sp_ver = out.split()[0]
+
+        sp_ver = sp_ver.split(".")
+
+        if len(sp_ver) != 2:
+            raise NtiError("Can't get NSP version - sp ver invalid")
+        if sp_ver[0] != "0":
+            raise NtiError("Non-0 major version")
+
+        return int(sp_ver[1])
 
     def kernel_ver_ge(self, major, minor):
         return (self.kernel_maj == major and self.kernel_min >= minor) or \
@@ -169,8 +201,8 @@ class DrvSystem(System):
                                   ' (did:%s, wanted:%s)' % \
                                   (path, failed, do_fail))
 
-    def get_hwinfo(self, what):
-        _, data = self.cmd_hwinfo(what)
+    def get_hwinfo(self, what, params=''):
+        _, data = self.cmd_hwinfo(params + ' ' + what)
         return data.split('=')[1].strip()
 
     def get_part_no(self):
