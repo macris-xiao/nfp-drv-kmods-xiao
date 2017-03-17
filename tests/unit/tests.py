@@ -159,9 +159,10 @@ class ResourceTest(CommonNTHTest):
             cpp_id = "%02x%02x%02x00" % \
                      (int(cpp_id[0]), int(cpp_id[2]), int(cpp_id[1]))
 
+            if name == "nfp.res":
+                continue
             resources.append((name, cpp_id, addr, size))
 
-        resources *= 3
         random.seed(1234)
         random.shuffle(resources)
 
@@ -172,7 +173,13 @@ class ResourceTest(CommonNTHTest):
             self.resources_validate(resources[:i+1], rescs, out)
 
         # Try non-existing resource on filled table
-        M.dfs_write('resource', "test.xxx", do_fail=True)
+        M.dfs_write('nth/resource', "test.xxx", do_fail=True)
+
+        # Try to lock the table itself
+        M.dfs_write('nth/resource', "nfp.res", do_fail=True)
+
+        # Try something already locked
+        M.dfs_write('nth/resource', resources[0][0], do_fail=True, timeout=2)
 
         # Release all resources and see if locks are freed
         for i in range(0, len(resources)):

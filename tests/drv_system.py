@@ -150,10 +150,12 @@ class DrvSystem(System):
         _, data = self.cmd('%s %s | wc -l' % (method, path))
         return data
 
-    def dfs_write(self, path, data, do_fail=False):
-        ret, data = self.cmd('echo -n "%s" > %s' %
-                             (data, os.path.join(self.dfs_dir, path)),
-                             fail=False)
+    def dfs_write(self, path, data, do_fail=False, timeout=None):
+        cmd = 'echo -n "%s" > %s' % (data,
+                                     os.path.join(self.dfs_dir, path))
+        if timeout:
+            cmd = ('timeout %d ' % (timeout)) + cmd
+        ret, data = self.cmd(cmd, fail=False)
         failed = ret != 0
         if failed != do_fail:
             raise NtiGeneralError('DebugFS write fail mismatch for file %s' \
