@@ -116,6 +116,10 @@ ifneq (,$(filter y,$(CONFIG_NFP_NET_PF) $(CONFIG_NFP_NET_VF)))
   endif # $(KERNEL_GT_4_8),1
 endif # CONFIG_NFP_NET_*
 
+nfp_test_harness-objs := \
+		      nfp_test_harness_main.o \
+		      nfp_test_harness_rand.o
+
 obj-$(CONFIG_NFP_TEST_HARNESS) := nfp_test_harness.o
 
 ####################

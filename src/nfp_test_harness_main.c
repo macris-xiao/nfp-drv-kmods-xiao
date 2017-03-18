@@ -38,33 +38,10 @@
 #include "nfpcore/nfp.h"
 #include "nfpcore/nfp_nffw.h"
 #include "nfpcore/nfp_nsp_eth.h"
+#include "nfpcore/nfp6000/nfp6000.h"
+#include "nfp_test_harness.h"
 
-struct {
-	struct dentry *dir;
-
-	u8 id;
-
-	u8 hwinfo_key_data[1024];
-	struct debugfs_blob_wrapper hwinfo_key;
-	u8 hwinfo_val_data[1024];
-	struct debugfs_blob_wrapper hwinfo_val;
-
-	u8 rtsym_key_data[1024];
-	struct debugfs_blob_wrapper rtsym_key;
-	u8 rtsym_val_data[1024];
-	struct debugfs_blob_wrapper rtsym_val;
-
-	u8 fw_load_data[1024];
-	struct debugfs_blob_wrapper fw_load;
-
-	u8 wr_only_data[1024];
-	struct debugfs_blob_wrapper wr_only;
-
-	struct {
-		const char *name;
-		struct nfp_resource *res;
-	} resources[1024];
-} nth = {
+struct nth nth = {
 	.hwinfo_key = {
 		.data = nth.hwinfo_key_data,
 		.size = sizeof(nth.hwinfo_key_data),
@@ -600,6 +577,9 @@ static int __init nth_init(void)
 {
 	bool fail = false;
 
+	INIT_LIST_HEAD(&nth.rand);
+	mutex_init(&nth.lock);
+
 	nth.dir = debugfs_create_dir("nth", NULL);
 	if (!nth.dir)
 		return -EBUSY;
@@ -640,6 +620,11 @@ static int __init nth_init(void)
 				     NULL, &nth_eth_table_ops);
 	fail |= !debugfs_create_file("eth_enable", 0600, nth.dir,
 				     &nth.wr_only, &nth_eth_enable_ops);
+
+	fail |= !debugfs_create_file("rand_r", 0600, nth.dir,
+				     NULL, &nth_rand_r_ops);
+	fail |= !debugfs_create_bool("rand_trigger_warns", 0600, nth.dir,
+				     &nth.rand_trigger_warns);
 
 	if (fail) {
 		debugfs_remove_recursive(nth.dir);
