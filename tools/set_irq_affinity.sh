@@ -15,9 +15,16 @@ fi
 [ "a$DEV" == a ] && usage
 
 NODE=$(cat /sys/bus/pci/devices/$DEV/numa_node)
-CPUS=$(cat /sys/bus/node/devices/node${NODE}/cpulist | tr ',' ' ')
+CPUL=$(cat /sys/bus/node/devices/node${NODE}/cpulist | tr ',' ' ')
 
-echo Device $DEV is on node $NODE with cpus $CPUS
+for c in $CPUL; do
+    # Convert "n-m" into "n n+1 n+2 ... m"
+    [[ "$c" =~ '-' ]] && c=$(seq $(echo $c | tr '-' ' '))
+
+    CPUS=(${CPUS[@]} $c)
+done
+
+echo Device $DEV is on node $NODE with cpus ${CPUS[@]}
 
 IRQBAL=$(ps aux | grep irqbalance | wc -l)
 
@@ -27,10 +34,11 @@ IRQS=$(ls /sys/bus/pci/devices/$DEV/msi_irqs/)
 
 
 IRQS=($IRQS)
-CPUS=($CPUS)
 
 for i in $(seq 0 $((${#IRQS[@]} - 1)))
 do
+    ! [ -e /proc/irq/${IRQS[i]} ] && continue
+
     cpu=${CPUS[i % ${#CPUS[@]}]}
     echo Mapping IRQ ${IRQS[i]} to CPU $cpu
     echo $cpu > /proc/irq/${IRQS[i]}/smp_affinity_list
