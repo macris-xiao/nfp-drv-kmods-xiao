@@ -433,26 +433,36 @@ nth_resource_write(struct file *file, const char __user *user_buf,
 		return -EBUSY;
 
 	if (kstrtol(name, 0, &i)) {
+		char *new_name;
+
+		mutex_lock(&nth.lock);
 		for (i = 0; i < ARRAY_SIZE(nth.resources); i++)
-			if (!nth.resources[i].name)
+			if (!nth.resources[i].res)
 				break;
 		if (i == ARRAY_SIZE(nth.resources)) {
+			mutex_unlock(&nth.lock);
 			ret = -ENOSPC;
 			goto exit_free_cpp;
 		}
+		/* mark as used until we get a full pointer or fail and clear */
+		nth.resources[i].res = (void *)1;
+		mutex_unlock(&nth.lock);
 
-		nth.resources[i].name = kstrdup(name, GFP_KERNEL);
-		if (!nth.resources[i].name) {
+		new_name = kstrdup(name, GFP_KERNEL);
+		if (!new_name) {
 			ret = -ENOMEM;
+			memset(&nth.resources[i], 0, sizeof(nth.resources[i]));
 			goto exit_free_cpp;
 		}
 
 		nth.resources[i].res = nfp_resource_acquire(cpp, name);
 		if (IS_ERR(nth.resources[i].res)) {
-			kfree(nth.resources[i].name);
+			kfree(new_name);
 			ret = PTR_ERR(nth.resources[i].res);
 			memset(&nth.resources[i], 0, sizeof(nth.resources[i]));
+			goto exit_free_cpp;
 		}
+		nth.resources[i].name = new_name;
 	} else if (nth.resources[i].name) {
 		kfree(nth.resources[i].name);
 		nfp_resource_release(nth.resources[i].res);
