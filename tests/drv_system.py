@@ -59,6 +59,13 @@ class DrvSystem(System):
 
         return
 
+    def ethtool_get_speed(self, ifc):
+        _, out = self.cmd('ethtool %s' % (ifc))
+
+        speed = re.search('Speed: (\d*)Mb/s', out)
+
+        return int(speed.groups()[0])
+
     def kernel_ver_ge(self, major, minor):
         return (self.kernel_maj == major and self.kernel_min >= minor) or \
             self.kernel_maj >= major

@@ -49,7 +49,8 @@ class NFPKmodUnit(NFPKmodGrp):
               "Test user space access existence and basic functionality"),
              ('kernel_fw_load', KernelLoadTest, "Test kernel firmware loader"),
              ('bsp_diag', BSPDiag, "Test the basic BSP diagnostics"),
-             ('channel_reconfig', ChannelReconfig, "Ethtool channel reconfig")
+             ('channel_reconfig', ChannelReconfig, "Ethtool channel reconfig"),
+             ('ethtool_get_speed', LinkSpeedEthtool, "Ethtool get settings")
         )
 
         for t in T:
@@ -691,3 +692,25 @@ class BSPDiag(CommonTest):
     def cleanup(self):
         self.dut.cmd('rm -rf /lib/firmware/netronome')
         self.dut.reset_mods()
+
+class LinkSpeedEthtool(CommonNetdevTest):
+    def netdev_execute(self):
+        _, phy = self.dut.cmd_phymod('-E | grep "^eth"')
+        phy = phy.strip().split('\n')
+
+        self.ifc_skip_if_not_all_up()
+
+        if len(phy) != len(self.dut_ifn):
+            raise NtiError("Bad number of items userspace:%d interfaces:%d" %
+                           (len(phy), len(self.dut_ifn)))
+
+        for i in range(0, len(phy)):
+            p = re.match('eth(\d*): NBI[^(]*\((\d)\)\t"([^"]*)" ([^ ]*) (\d*)G',
+                         phy[i]).groups()
+
+            phymod = int(p[4]) * 1000
+            ethtool = self.dut.ethtool_get_speed(self.dut_ifn[i])
+
+            if phymod != ethtool:
+                raise NtiError("On port %d phymod reports:%d ethtool:%d" %
+                               (i, phymod, ethtool))

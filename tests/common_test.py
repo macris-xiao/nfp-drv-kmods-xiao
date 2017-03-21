@@ -106,6 +106,17 @@ class CommonTest(Test):
             return NrtResult(name=self.name, testtype=self.__class__.__name__,
                              passed=None, comment=comment)
 
+    def ifc_all_up(self):
+        for i in range(0, len(self.dut_ifn)):
+            self.dut.cmd('ifconfig %s %s up' % (self.dut_ifn[i],
+                                                self.dut_addr[i]))
+
+    def ifc_skip_if_not_all_up(self):
+        for i in range(0, len(self.dut_ifn)):
+            _, out = self.dut.cmd('ethtool %s' % (self.dut_ifn[i]))
+            if out.find('Link detected: yes') == -1:
+                raise NtiSkip("Interface %s is not up" % (self.dut_ifn[i]))
+
     def ping(self, port, count=10, size=0, pattern="", fail=True):
         opts = ""
         if size:
@@ -176,6 +187,11 @@ class CommonNetdevTest(CommonTest):
             M.insmod(netdev=True, userspace=True)
 
         M.insmod(module="nth")
+
+        self.ifc_all_up()
+
+    def execute(self):
+        self.netdev_prep()
 
         self.netdev_execute()
 
