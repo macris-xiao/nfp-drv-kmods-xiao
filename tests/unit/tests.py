@@ -167,7 +167,7 @@ class ResourceTest(CommonNTHTest):
         random.shuffle(resources)
 
         for i in range(0, len(resources)):
-            M.dfs_write('nth/resource', resources[i][0])
+            M.dfs_write('nth/resource', resources[i][0], timeout=5)
             rescs = M.dfs_read_raw('nth/resource')
             _, out = M.cmd_res('-L')
             self.resources_validate(resources[:i+1], rescs, out)

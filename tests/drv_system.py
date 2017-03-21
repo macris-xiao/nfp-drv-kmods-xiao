@@ -190,7 +190,7 @@ class DrvSystem(System):
 
         links = []
         for phy in media.split('\n'):
-            cfg = re.search('=(.*G)', phy)
+            cfg = re.search('=(\d*G)', phy)
             if not cfg:
                 continue
             links += t_tbl[cfg.groups()[0]]
