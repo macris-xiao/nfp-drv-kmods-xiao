@@ -348,7 +348,7 @@ class eBPF4ctx(eBPFtest):
         counts = (30, 36, 7200, 7500)
         self.validate_cntrs(rx_t=counts, pass_all=True)
 
-        _, out = self.dut.cmd('nfp-reg mecsr:i34.me9.CtxEnables')
+        _, out = self.dut.cmd_reg('mecsr:i34.me9.CtxEnables')
         if out.find('InUseContexts=0x1') == -1:
             raise NtiGeneralError('InUseContexts not set to 0x1')
         if out.find('CtxEnables.CtxEnables=0x55') == -1:

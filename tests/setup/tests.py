@@ -70,7 +70,7 @@ class DebugFSSetupTest(CommonNTHTest):
 
 class Tools(CommonTest):
     def execute(self):
-        ret, _ = self.dut.cmd('nfp-nffw -h >> /dev/null', fail=False)
+        ret, _ = self.dut.cmd_hwinfo('-h', fail=False)
         if ret:
             raise NtiGeneralError("BSP tools not installed")
         ret, _ = self.src.cmd('hping3 -h', fail=False)

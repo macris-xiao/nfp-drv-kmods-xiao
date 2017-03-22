@@ -65,6 +65,8 @@ class NFPKmodGrp(netro.testinfra.Group):
         ("samples", [True, "Path to directory with test samples"]),
         ("serial", [False, "Serial number for adapter selection "
                            "(default to nfp 0, takes precedence over @nfp)"]),
+        ("bsppath", [False, "Path to the BSP installation "
+                            "(default /opt/netronome/)"]),
     ])
     _config["HostA"] = collections.OrderedDict([
         ("name", [True, "Host name of the Host A (can also be <user>@<host> "
@@ -108,6 +110,7 @@ class NFPKmodGrp(netro.testinfra.Group):
         self.netdevfw = None
         self.samples = None
         self.serial = None
+        self.bsppath = '/opt/netronome'
 
         self.host_a = None
         self.eth_a = None
@@ -247,6 +250,8 @@ class NFPKmodGrp(netro.testinfra.Group):
             self.samples_xdp = os.path.join(self.samples, 'xdp')
         if self.cfg.has_option("DUT", "serial"):
             self.serial = self.cfg.get("DUT", "serial")
+        if self.cfg.has_option("DUT", "bsppath"):
+            self.bsppath = self.cfg.get("DUT", "bsppath")
 
         self.dut = DrvSystem(self.cfg.get("DUT", "name"), self,
                              quick=self.quick)

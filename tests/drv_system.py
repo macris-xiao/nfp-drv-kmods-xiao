@@ -215,27 +215,34 @@ class DrvSystem(System):
         vals = out.split()
         return int(vals[1], 16) | (int(vals[2], 16) << 32)
 
+    def bsp_cmd(self, cmd, fail):
+        return self.cmd(os.path.join(self.grp.bsppath, 'bin', 'nfp-') + cmd,
+                        fail=fail)
+
     def nffw_load(self, fw, fail=True):
-        return self.cmd('nfp-nffw load -n %d %s' %
+        return self.bsp_cmd('nffw load -n %d %s' %
                         (self.grp.nfp, fw), fail=fail)
 
     def nffw_unload(self, fail=True):
-        return self.cmd('nfp-nffw unload -n %d' % (self.grp.nfp), fail=fail)
+        return self.bsp_cmd('nffw unload -n %d' % (self.grp.nfp), fail=fail)
+
+    def cmd_reg(self, cmd, fail=True):
+        return self.bsp_cmd('reg -n %d %s' % (self.grp.nfp, cmd), fail=fail)
 
     def cmd_res(self, cmd, fail=True):
-        return self.cmd('nfp-res -n %d %s' % (self.grp.nfp, cmd), fail=fail)
+        return self.bsp_cmd('res -n %d %s' % (self.grp.nfp, cmd), fail=fail)
 
     def cmd_rtsym(self, cmd, fail=True):
-        return self.cmd('nfp-rtsym -n %d %s' % (self.grp.nfp, cmd), fail=fail)
+        return self.bsp_cmd('rtsym -n %d %s' % (self.grp.nfp, cmd), fail=fail)
 
     def cmd_hwinfo(self, cmd, fail=True):
-        return self.cmd('nfp-hwinfo -n %d %s' % (self.grp.nfp, cmd), fail=fail)
+        return self.bsp_cmd('hwinfo -n %d %s' % (self.grp.nfp, cmd), fail=fail)
 
     def cmd_phymod(self, cmd, fail=True):
-        return self.cmd('nfp-phymod -n %d %s' % (self.grp.nfp, cmd), fail=fail)
+        return self.bsp_cmd('phymod -n %d %s' % (self.grp.nfp, cmd), fail=fail)
 
     def cmd_nsp(self, cmd, fail=True):
-        return self.cmd('nfp-nsp -n %d %s' % (self.grp.nfp, cmd), fail=fail)
+        return self.bsp_cmd('nsp -n %d %s' % (self.grp.nfp, cmd), fail=fail)
 
     def cmd_media(self, cmd='', fail=True):
-        return self.cmd('nfp-media -n %d %s' % (self.grp.nfp, cmd), fail=fail)
+        return self.bsp_cmd('media -n %d %s' % (self.grp.nfp, cmd), fail=fail)
