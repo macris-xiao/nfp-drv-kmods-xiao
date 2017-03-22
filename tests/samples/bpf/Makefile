@@ -1,5 +1,5 @@
 LLVM_VERSION ?= -4.0
-LLVM := $(shell clang$(LLVM_VERSION) --version 2>&1)
+LLVM := $(shell clang$(LLVM_VERSION) --version)
 
 SRCS=$(wildcard *.c)
 OBJS=$(patsubst %.c,%.o,$(SRCS))
@@ -12,9 +12,11 @@ Q ?= @
 	$(Q) llc$(LLVM_VERSION) -march=bpf -filetype=obj -o $@ $(patsubst %.o,%.llvm,$@)
 	$(Q) rm $(patsubst %.o,%.llvm,$@)
 
-all: $(OBJS)
 ifeq ($(LLVM),)
-	$(warning Install LLVM to compile XDP sources)
+all:
+	$(warning Install LLVM to compile BPF sources)
+else
+all: $(OBJS)
 endif
 
 clean:
