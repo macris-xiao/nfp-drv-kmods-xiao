@@ -66,7 +66,11 @@ struct nth {
 	} resources[1024];
 
 	struct list_head rand;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 4, 0)
+	u32 rand_trigger_warns;
+#else
 	bool rand_trigger_warns;
+#endif
 };
 
 extern struct nth nth;

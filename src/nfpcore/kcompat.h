@@ -38,6 +38,7 @@
 #ifndef __KERNEL__NFP_COMPAT_H__
 #define __KERNEL__NFP_COMPAT_H__
 
+#include <linux/debugfs.h>
 #include <linux/kernel.h>
 #include <linux/version.h>
 #include <linux/device.h>
@@ -48,6 +49,7 @@
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0)
 #include <linux/bitfield.h>
 #endif
+#include <linux/random.h>
 
 #define VER_VANILLA_LT(x, y)						\
 	(!RHEL_RELEASE_CODE && LINUX_VERSION_CODE < KERNEL_VERSION(x, y, 0))
@@ -267,6 +269,13 @@ static inline int compat_pci_enable_msix_range(struct pci_dev *dev,
 #define pci_enable_msix_range(dev, entries, minv, maxv) \
 	compat_pci_enable_msix_range(dev, entries, minv, maxv)
 #endif /* < 3.14 */
+
+#if VER_VANILLA_LT(3, 14) || VER_RHEL_LT(7, 1)
+static inline u32 prandom_u32_max(u32 max)
+{
+	return prandom_u32() % max;
+}
+#endif
 
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 26)
 #include <linux/mm.h>

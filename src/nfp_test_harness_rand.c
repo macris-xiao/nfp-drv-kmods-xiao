@@ -30,10 +30,14 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-#include <linux/debugfs.h>
-#include <linux/sched/signal.h>
-
 #include "nfpcore/kcompat.h"
+
+#include <linux/debugfs.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0)
+#include <linux/sched/signal.h>
+#endif
+#include <linux/random.h>
+
 #include "nfpcore/nfp.h"
 #include "nfpcore/nfp_nffw.h"
 #include "nfpcore/nfp_nsp_eth.h"

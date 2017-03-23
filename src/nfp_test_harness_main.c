@@ -362,13 +362,13 @@ static ssize_t nth_write_fw_load(struct file *file, const char __user *user_buf,
 
 	ret = nfp_nsp_device_soft_reset(nsp);
 	if (ret < 0) {
-		pr_err("Failed to soft reset the NFP: %ld\n", ret);
+		pr_err("Failed to soft reset the NFP: %zd\n", ret);
 		goto err_nsp_close;
 	}
 
 	ret = nfp_nsp_load_fw(nsp, fw);
 	if (ret) {
-		pr_err("FW loading failed: %ld\n", ret);
+		pr_err("FW loading failed: %zd\n", ret);
 		goto err_nsp_close;
 	}
 
