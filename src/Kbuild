@@ -120,7 +120,7 @@ nfp_test_harness-objs := \
 		      nfp_test_harness_main.o \
 		      nfp_test_harness_rand.o
 
-obj-$(CONFIG_NFP_TEST_HARNESS) := nfp_test_harness.o
+obj-$(CONFIG_NFP_TEST_HARNESS) += nfp_test_harness.o
 
 ####################
 # Build information

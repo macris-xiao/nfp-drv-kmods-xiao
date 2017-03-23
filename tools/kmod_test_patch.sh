@@ -337,6 +337,9 @@ done
 	(
 	    cd nfp-drv-kmods
 
+	    # Always build test harness
+	    export CONFIG_NFP_TEST_HARNESS=m
+
 	    git am --abort 2>/dev/null || true
 	    git am $real_path
 
