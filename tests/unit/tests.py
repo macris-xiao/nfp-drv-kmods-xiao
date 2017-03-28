@@ -37,6 +37,7 @@ class NFPKmodUnit(NFPKmodGrp):
              ('resource', ResourceTest, 'Test in-kernel resource table interface'),
              ('nsp_eth_table', NspEthTable, "Test NSP ETH table functions"),
              ('hwinfo', HWInfoTest, 'Test in-kernel HWInfo interface'),
+             ('bsp_version', BspVerTest, "Test NSP BSP Version function"),
              ('rtsym', RTSymTest, 'Test in-kernel RT-Sym interface'),
              ('fw_names', FwSearchTest, "Test FW requested by the driver"),
              ('sriov', SriovTest, 'Test SR-IOV sysfs interface'),
@@ -295,6 +296,29 @@ class HWInfoTest(CommonNTHTest):
         self.hwinfo_check(keys, vals)
         shuffle(keys)
         self.hwinfo_check(keys, vals)
+
+class BspVerTest(CommonDrvTest):
+    def execute(self):
+        M = self.dut
+
+        # Clean the old dmesg info
+        M.cmd('dmesg -c')
+
+        M.insmod()
+        self.nsp_min(16)
+
+        cmd  = 'dmesg | grep "nfp 0000:%s"' % (self.group.pci_id)
+        cmd += ' | grep -o "BSP: .*" | cut -c 6- | tr -d "\n"'
+        _, ver = M.cmd(cmd)
+        comp = ver.split('.')
+        if len(comp) != 3:
+            raise NtiGeneralError('bad bsp version format: %s %d' %
+                                  (ver, len(comp)))
+        for i in range(3):
+            if len(comp[i]) != 6:
+                raise NtiGeneralError('bad bsp version format: %s' % ver)
+            if False == all(c in '0123456789abcdefABCDEF' for c in comp[i]):
+                raise NtiGeneralError('bad bsp version format (char): %s' % ver)
 
 class RTSymTest(CommonTest):
     def __init__(self, src, dut, group=None, name="", summary=None):
