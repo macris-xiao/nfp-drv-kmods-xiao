@@ -195,7 +195,7 @@ class DrvSystem(System):
         return data
 
     def dfs_nn_port_lines(self, method, path):
-        port_path = 'nfp_net/0000:%s/port%d' % (self.grp.pci_id, 0)
+        port_path = 'nfp_net/0000:%s/vnic%d' % (self.grp.pci_id, 0)
         path = os.path.join(self.dfs_dir, port_path, path)
         _, data = self.cmd('%s %s | wc -l' % (method, path))
         return data
