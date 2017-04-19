@@ -194,10 +194,10 @@ class NFPKmodBPF(NFPKmodGrp):
 
         # add static arp entries to speed up drop tests
         self.host_a.cmd('ip neigh add %s lladdr %s dev %s' %
-                        (self.addr_x[:-3], self.hwaddr_x, self.eth_a[0]),
+                        (self.addr_x[0][:-3], self.hwaddr_x, self.eth_a[0]),
                         fail=False)
         self.host_a.cmd('ip neigh add %s lladdr %s dev %s' %
-                        (self.addr_v6_x[:-3], self.hwaddr_x, self.eth_a[0]),
+                        (self.addr_v6_x[0][:-3], self.hwaddr_x, self.eth_a[0]),
                         fail=False)
 
         M.copy_bpf_samples()
