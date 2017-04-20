@@ -18,15 +18,6 @@ from ..drv_grp import NFPKmodGrp
 ###############################################################################
 
 class XDPTest(CommonTest):
-    def xdp_start(self, prog):
-        return self.dut.cmd('ip -force link set dev %s xdp obj %s sec ".text"' %
-                            (self.dut_ifn[0],
-                             os.path.join(self.dut.xdp_samples_dir, prog)))
-
-    def xdp_stop(self):
-        return self.dut.cmd('ip -force link set dev %s xdp off' %
-                            (self.dut_ifn[0]))
-
     def tcpdump_cmd(self, capture_system, ifname, cmd_system, cmd):
         pcap_res = os.path.join(self.group.tmpdir, 'pcap_res')
 

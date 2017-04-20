@@ -9,6 +9,8 @@ import netro.testinfra
 from reconfig import ChannelReconfig
 from netro.testinfra.test import *
 from ..drv_grp import NFPKmodGrp
+from ..drv_system import NfpNfdCtrl
+from ..ebpf.xdp import XDPTest
 
 ###########################################################################
 # Unit Tests
@@ -53,7 +55,9 @@ class NFPKmodUnit(NFPKmodGrp):
              ('channel_reconfig', ChannelReconfig, "Ethtool channel reconfig"),
              ('ethtool_get_speed', LinkSpeedEthtool, "Ethtool get settings"),
              ('ethtool_aneg', AutonegEthtool,
-              "Test setting autonegotiation with ethtool")
+              "Test setting autonegotiation with ethtool"),
+             ('mtu_flbufsz_check', MtuFlbufCheck,
+              "Check if driver sets correct fl_bufsz and mtu")
         )
 
         for t in T:
@@ -815,3 +819,55 @@ class AutonegEthtool(CommonNetdevTest):
             self.flip_autoneg_status(ifc)
 
         self.state_check()
+
+class MtuFlbufCheck(CommonNetdevTest):
+    def get_bar_rx_offset(self):
+        return self.dut.nfd_reg_read_le32(self.dut_ifn[0], NfpNfdCtrl.RX_OFFSET)
+
+    def get_bar_mtu(self):
+        return self.dut.nfd_reg_read_le32(self.dut_ifn[0], NfpNfdCtrl.MTU)
+
+    def get_bar_flbufsz(self):
+        return self.dut.nfd_reg_read_le32(self.dut_ifn[0], NfpNfdCtrl.FLBUFSZ)
+
+    def check(self, has_xdp):
+        check_mtus = [1500, 1024, 2049, 2047, 2048 - 32, 2048 - 64]
+
+        for mtu in check_mtus:
+            self.dut.cmd('ip link set dev %s mtu %d' % (self.dut_ifn[0], mtu))
+            bmtu = self.get_bar_mtu()
+            bflbufsz = self.get_bar_flbufsz()
+            brxoffset = self.get_bar_rx_offset()
+
+            if brxoffset == 0:
+                rxoffset = 64
+            else:
+                rxoffset = brxoffset
+
+            if has_xdp:
+                xdp_off = 256 - rxoffset
+            else:
+                xdp_off = 0
+
+            fl_bufsz = xdp_off + rxoffset + 14 + 8 + mtu
+            fl_bufsz = (fl_bufsz + 63) & ~63
+            fl_bufsz -= xdp_off
+
+            self.log("vals", [mtu, bmtu, rxoffset, bflbufsz, fl_bufsz])
+
+            if mtu != bmtu:
+                raise NtiError("MTU doesn't match BAR: %d vs %d" % (mtu, bmtu))
+            if fl_bufsz != bflbufsz:
+                raise NtiError("FL_BUFSZ doesn't match BAR: %d vs %d" %
+                               (fl_bufsz, bflbufsz))
+
+    def netdev_execute(self):
+        self.dut.copy_bpf_samples()
+
+        self.check(False)
+
+        self.xdp_start('pass.o')
+
+        self.check(True)
+
+        self.xdp_stop()

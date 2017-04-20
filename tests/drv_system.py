@@ -11,8 +11,10 @@ from netro.testinfra.system import *
 from netro.testinfra.nti_exceptions import NtiGeneralError
 
 class NfpNfdCtrl:
-    VERSION      = 0x30
-    RX_OFFSET    = 0x50
+    MTU        = 0x18
+    FLBUFSZ    = 0x1c
+    VERSION    = 0x30
+    RX_OFFSET  = 0x50
 
 class DrvSystem(System):
     """
@@ -47,6 +49,9 @@ class DrvSystem(System):
         self._mods = set()
 
     def copy_bpf_samples(self):
+        if hasattr(self, 'bpf_samples_dir'):
+            return
+
         self.bpf_samples_dir = os.path.join(self.tmpdir, 'bpf')
         self.cmd('mkdir %s' % self.bpf_samples_dir)
         self.cp_to(os.path.join(self.grp.samples_bpf, '*.o'),

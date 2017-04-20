@@ -2,6 +2,7 @@
 ## Copyright (C) 2016-2017,  Netronome Systems, Inc.  All rights reserved.
 ##
 
+import os
 from netro.testinfra.nrt_result import NrtResult
 from netro.testinfra.nti_exceptions import NtiGeneralError
 from netro.testinfra.test import Test
@@ -147,6 +148,15 @@ class CommonTest(Test):
             _, out = self.dut.cmd('ethtool %s' % (self.dut_ifn[i]))
             if out.find('Link detected: yes') == -1:
                 raise NtiSkip("Interface %s is not up" % (self.dut_ifn[i]))
+
+    def xdp_start(self, prog):
+        return self.dut.cmd('ip -force link set dev %s xdp obj %s sec ".text"' %
+                            (self.dut_ifn[0],
+                             os.path.join(self.dut.xdp_samples_dir, prog)))
+
+    def xdp_stop(self):
+        return self.dut.cmd('ip -force link set dev %s xdp off' %
+                            (self.dut_ifn[0]))
 
     def ping(self, port, count=10, size=0, pattern="", fail=True):
         opts = ""
