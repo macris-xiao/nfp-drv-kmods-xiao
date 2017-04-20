@@ -33,7 +33,7 @@ class ReconfigTest(CommonNetdevTest):
         # Wait for netdev to appear
         ret = 1
         while ret != 0:
-            ret, _ = self.dut.cmd('ls /sys/class/net/%s' % (self.dut_ifn),
+            ret, _ = self.dut.cmd('ls /sys/class/net/%s' % (self.dut_ifn[0]),
                                   fail=False)
 
     def reload_mod(self):
@@ -47,15 +47,15 @@ class ReconfigTest(CommonNetdevTest):
         self.state_refresh()
 
     def ifup(self):
-        ret, _ = self.dut.cmd('ip link set up dev %s' % self.dut_ifn,
+        ret, _ = self.dut.cmd('ip link set up dev %s' % self.dut_ifn[0],
                               fail=self.fail_policy)
         if ret == 0:
             self.ifstate = True
-            ret, _ = self.dut.cmd('ip addr replace %s dev %s' % (self.dut_addr,
-                                                                 self.dut_ifn))
+            ret, _ = self.dut.cmd('ip addr replace %s dev %s' %
+                                  (self.dut_addr[0], self.dut_ifn[0]))
 
     def ifdown(self):
-        self.dut.cmd('ip link set down dev %s' % self.dut_ifn,
+        self.dut.cmd('ip link set down dev %s' % self.dut_ifn[0],
                      fail=self.fail_policy)
         self.ifstate = False
 
@@ -65,14 +65,14 @@ class ReconfigTest(CommonNetdevTest):
         if self.ring_curr == config:
             return 0, ""
         ret, out = self.dut.cmd('ethtool -L %s rx %d tx %d combined %d' %
-                                (self.dut_ifn, config[0], config[1], config[2]),
-                                fail=False)
+                                (self.dut_ifn[0],
+                                 config[0], config[1], config[2]), fail=False)
         if ret == 0:
             self.ring_curr = config
         return ret, out
 
     def refresh_ring_config(self):
-        _, out = self.dut.cmd('ethtool -l %s' % (self.dut_ifn))
+        _, out = self.dut.cmd('ethtool -l %s' % (self.dut_ifn[0]))
         params = out.split()
         self.curr['ring_max_rx'] = int(params[7])
         self.curr['ring_max_tx'] = int(params[9])
@@ -87,14 +87,14 @@ class ReconfigTest(CommonNetdevTest):
         if self.desc_curr == config:
             return 0, ""
         ret, out = self.dut.cmd('ethtool -G %s rx %d tx %d' %
-                                (self.dut_ifn, config[0], config[1]),
+                                (self.dut_ifn[0], config[0], config[1]),
                                 fail=False)
         if ret == 0:
             self.desc_curr = config
         return ret, out
 
     def refresh_desc_config(self):
-        _, out = self.dut.cmd('ethtool -g %s' % (self.dut_ifn))
+        _, out = self.dut.cmd('ethtool -g %s' % (self.dut_ifn[0]))
         params = out.split()
         self.curr['rxd_max'] = int(params[7])
         self.curr['txd_max'] = int(params[15])
@@ -130,7 +130,7 @@ class ReconfigTest(CommonNetdevTest):
                   self.curr['ring_comb'] + self.curr['ring_rx'],
                   self.curr['ring_comb'] + self.curr['ring_tx']))
         ret, _ = self.dut.cmd('ip %s link set dev %s xdp %s' %
-                              (force, self.dut_ifn, what),
+                              (force, self.dut_ifn[0], what),
                               fail=(self.fail_policy and not may_fail))
         if ret == 0:
             if should_fail:
@@ -153,7 +153,8 @@ class ReconfigTest(CommonNetdevTest):
                                   (c[0], t[0], c[1], t[1], c[2], t[2]))
 
         # Check the stack queues
-        _, out = self.dut.cmd('ls -v /sys/class/net/%s/queues/' % (self.dut_ifn))
+        _, out = self.dut.cmd('ls -v /sys/class/net/%s/queues/' %
+                              (self.dut_ifn[0]))
         expected_list = ["rx-%d" % x for x in range(0, t[0] + t[2])] + \
                         ["tx-%d" % x for x in range(0, t[1] + t[2])]
         if out.split() != expected_list:
@@ -162,7 +163,7 @@ class ReconfigTest(CommonNetdevTest):
 
         # Check indirection table (should get updated at this point)
         _, out = self.dut.cmd('ethtool -x %s | sed -n "s/^[^:]*:\\([ 0-9]*\\)$/\\1/p"' %
-                              (self.dut_ifn))
+                              (self.dut_ifn[0]))
         indir_tb = map(int, out.split())
         if max(indir_tb) != t[0] + t[2] - 1:
             raise NtiGeneralError("Indirection table entry bad max:%d expected:%d" %
@@ -203,7 +204,7 @@ class ReconfigTest(CommonNetdevTest):
         may_fail = self.mtu_may_fail(mtu, self.xdp_loaded)
 
         ret, _ = self.dut.cmd('ip link set mtu %d dev %s' %
-                              (mtu, self.dut_ifn),
+                              (mtu, self.dut_ifn[0]),
                               fail=(self.fail_policy and not may_fail))
         if ret == 0:
             if should_fail:
@@ -239,9 +240,6 @@ class ReconfigTest(CommonNetdevTest):
         LOG_endsec()
 
     def prepare(self):
-        self.dut_ifn = self.group.eth_x[0]
-        self.dut_addr = self.group.addr_x[0]
-
         self.state_init()
 
         # Check if XDP is available
