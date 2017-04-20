@@ -138,6 +138,10 @@ class CommonTest(Test):
             self.dut.cmd('ifconfig %s %s up' % (self.dut_ifn[i],
                                                 self.dut_addr[i]))
 
+    def ifc_all_down(self):
+        for i in range(0, len(self.dut_ifn)):
+            self.dut.cmd('ip link set %s down' % (self.dut_ifn[i]))
+
     def ifc_skip_if_not_all_up(self):
         for i in range(0, len(self.dut_ifn)):
             _, out = self.dut.cmd('ethtool %s' % (self.dut_ifn[i]))

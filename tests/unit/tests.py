@@ -742,7 +742,7 @@ class LinkSpeedEthtool(CommonNetdevTest):
                                (i, phymod, ethtool))
 
 class AutonegEthtool(CommonNetdevTest):
-    def get_hwinfo_status(self, ifc):
+    def get_hwinfo_status_aneg(self, ifc):
         status = self.dut.get_hwinfo("phy%d.aneg" % (ifc), params='-u')
 
         if status == 'A' or status == '':
@@ -751,6 +751,22 @@ class AutonegEthtool(CommonNetdevTest):
             return False
 
         raise NtiError('Invalid hwinfo aneg status: %s' % (status))
+
+    def get_hwinfo_status_cr(self, ifc):
+        status = self.dut.get_hwinfo("eth%d.crauto" % (ifc), params='-u')
+
+        if status == 'yes' or status == '':
+            return True
+        if status == 'no':
+            return False
+
+        raise NtiError('Invalid hwinfo aneg status: %s' % (status))
+
+    def get_hwinfo_status(self, ifc):
+        if self.dut.get_part_no() == 'AMDA0099-0001':
+            return self.get_hwinfo_status_aneg(ifc)
+        else:
+            return self.get_hwinfo_status_cr(ifc)
 
     def state_check(self):
         i = 0
@@ -786,6 +802,9 @@ class AutonegEthtool(CommonNetdevTest):
             self.state[ifc] = self.dut.ethtool_get_autoneg(ifc)
 
         self.state_check()
+
+        # We need to bring interfaces down before we change settings
+        self.ifc_all_down()
 
         for ifc in self.dut_ifn:
             self.flip_autoneg_status(ifc)

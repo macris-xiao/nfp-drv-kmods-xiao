@@ -213,9 +213,13 @@ class DrvSystem(System):
     def get_part_no(self):
         if self.part_no:
             return self.part_no
-        self.insmod()
+
+        load = not 'nfp' in self._mods
+        if load:
+            self.insmod()
         self.part_no = self.get_hwinfo('assembly.partno')
-        self.rmmod()
+        if load:
+            self.rmmod()
         return self.part_no
 
     def get_fw_name(self):
