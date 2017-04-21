@@ -114,6 +114,7 @@ class SpeedSet(CommonNetdevTest):
                                    (ifc, speeds[0]))
 
                 # Make sure port disappears
+                time.sleep(3) # Reading the eth table may take some time
                 ret, _ = self.dut.cmd('ifconfig %s' % (ifc), fail=False)
                 if ret == 0:
                     raise NtiError("Netdev didn't disappear")
