@@ -142,6 +142,7 @@ EXPORT_SYMBOL(nfp_rtsym_lookup);
 
 /* Implemented in nfp_hwinfo.c */
 
+EXPORT_SYMBOL_GPL(nfp_hwinfo_read);	/* Testing only */
 EXPORT_SYMBOL_GPL(nfp_hwinfo_lookup);	/* Testing only */
 
 /* Implemented in nfp_resource.c */

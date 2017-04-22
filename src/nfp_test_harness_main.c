@@ -238,6 +238,7 @@ static ssize_t nth_write_hwinfo(struct file *file, const char __user *user_buf,
 				size_t count, loff_t *ppos)
 {
 	struct debugfs_blob_wrapper *blob = file->private_data;
+	struct nfp_hwinfo *hwinfo;
 	u8 *data = blob->data;
 	struct nfp_cpp *cpp;
 	const char *value;
@@ -259,16 +260,18 @@ static ssize_t nth_write_hwinfo(struct file *file, const char __user *user_buf,
 
 	memset(nth.hwinfo_val_data, 0, sizeof(nth.hwinfo_val_data));
 
-	value = nfp_hwinfo_lookup(cpp, data);
+	hwinfo = nfp_hwinfo_read(cpp);
+	value = nfp_hwinfo_lookup(hwinfo, data);
 	if (!value) {
 		ret = -EINVAL;
-		goto err_free_cpp;
+		goto err_free;
 	}
 
 	memcpy(nth.hwinfo_val_data, value,
 	       strnlen(value, sizeof(nth.hwinfo_val_data)));
 
-err_free_cpp:
+err_free:
+	kfree(hwinfo);
 	nfp_cpp_free(cpp);
 
 	return ret;
