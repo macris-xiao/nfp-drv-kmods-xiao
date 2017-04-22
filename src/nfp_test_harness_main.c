@@ -172,19 +172,22 @@ static int nth_interface_read(struct seq_file *file, void *data)
 }
 NTH_DECLARE_HANDLER(interface);
 
-NTH_DECLARE_ACTION(cache_flush, nfp_nffw_cache_flush);
 NTH_DECLARE_ACTION_NSP(reset, nfp_nsp_device_soft_reset);
 
 static int nth_rtsym_count_read(struct seq_file *file, void *data)
 {
+	struct nfp_rtsym_table *rtbl;
 	struct nfp_cpp *cpp;
 
 	cpp = nfp_cpp_from_device_id(nth.id);
 	if (!cpp)
 		return -EBUSY;
 
-	seq_printf(file, "%d\n", nfp_rtsym_count(cpp));
+	rtbl = nfp_rtsym_table_read(cpp);
 
+	seq_printf(file, "%d\n", nfp_rtsym_count(rtbl));
+
+	kfree(rtbl);
 	nfp_cpp_free(cpp);
 
 	return 0;
@@ -194,6 +197,7 @@ NTH_DECLARE_HANDLER(rtsym_count);
 static int nth_rtsym_dump_read(struct seq_file *file, void *data)
 {
 	const struct nfp_rtsym *rtsym;
+	struct nfp_rtsym_table *rtbl;
 	struct nfp_cpp *cpp;
 	int i;
 
@@ -201,10 +205,13 @@ static int nth_rtsym_dump_read(struct seq_file *file, void *data)
 	if (!cpp)
 		return -EBUSY;
 
-	i = 0;
-	while ((rtsym = nfp_rtsym_get(cpp, i++)))
-	       seq_printf(file, "%s\n", rtsym->name);
+	rtbl = nfp_rtsym_table_read(cpp);
 
+	i = 0;
+	while ((rtsym = nfp_rtsym_get(rtbl, i++)))
+		seq_printf(file, "%s\n", rtsym->name);
+
+	kfree(rtbl);
 	nfp_cpp_free(cpp);
 
 	return 0;
@@ -279,6 +286,7 @@ static ssize_t nth_write_rtsym(struct file *file, const char __user *user_buf,
 {
 	struct debugfs_blob_wrapper *blob = file->private_data;
 	const struct nfp_rtsym *value;
+	struct nfp_rtsym_table *rtbl;
 	u8 *data = blob->data;
 	struct nfp_cpp *cpp;
 	int srcu_idx;
@@ -297,18 +305,21 @@ static ssize_t nth_write_rtsym(struct file *file, const char __user *user_buf,
 	if (!cpp)
 		return -EBUSY;
 
+	rtbl = nfp_rtsym_table_read(cpp);
+
 	memset(nth.rtsym_val_data, 0, sizeof(nth.rtsym_val_data));
 
-	value = nfp_rtsym_lookup(cpp, data);
+	value = nfp_rtsym_lookup(rtbl, data);
 	if (!value) {
 		ret = -EINVAL;
-		goto err_free_cpp;
+		goto err_free;
 	}
 
 	memcpy(nth.rtsym_val_data, value->name,
 	       strnlen(value->name, sizeof(nth.rtsym_val_data)));
 
-err_free_cpp:
+err_free:
+	kfree(rtbl);
 	nfp_cpp_free(cpp);
 
 	return ret;
@@ -773,8 +784,6 @@ static int __init nth_init(void)
 	fail |= !debugfs_create_blob("hwinfo_val", 0400, nth.dir,
 				     &nth.hwinfo_val);
 
-	fail |= !debugfs_create_file("cache_flush", 0400, nth.dir,
-				     NULL, &nth_cache_flush_ops);
 	fail |= !debugfs_create_file("rtsym_count", 0400, nth.dir,
 				     NULL, &nth_rtsym_count_ops);
 	fail |= !debugfs_create_file("rtsym_dump", 0400, nth.dir,

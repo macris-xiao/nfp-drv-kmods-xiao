@@ -372,11 +372,11 @@ class RTSymTest(CommonTest):
     def __init__(self, src, dut, group=None, name="", summary=None):
         CommonTest.__init__(self, src, dut, group, name, summary)
 
-        self.fws = [('rm_rts_3', 3), ('rm_rts_17', 17), (None, -5),
+        self.fws = [('rm_rts_3', 3), ('rm_rts_17', 17), (None, -22),
                     ('rm1_rts_100', 100),
                     # MIPv2 not supported, yet
-                    ('rm2_rts_100', -5),
-                    ('rts_100', -5),
+                    ('rm2_rts_100', -22),
+                    ('rts_100', -22),
                     ('rm_rts_17', 17), ('rm_rts_1', 1),
                     ('rm_rts_0', 0), ('rm_rts_2', 2),
                     ('rm_rts_100', 100)]
@@ -450,7 +450,7 @@ class RTSymTest(CommonTest):
         M.insmod(reset=True)
         M.insmod(module="nth")
 
-        self.check_cnt('insmod', -5)
+        self.check_cnt('insmod', -22)
 
         self.test_all()
         self.test_all(user_space_load=False)
