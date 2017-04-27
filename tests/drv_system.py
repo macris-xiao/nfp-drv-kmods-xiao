@@ -46,6 +46,7 @@ class DrvSystem(System):
         self.mod_nth = os.path.join(self.tmpdir, 'nfp_test_harness.ko')
         self.cp_to(self.grp.nthkmod, self.mod_nth)
 
+        self.cmd('modprobe devlink; modprobe vxlan', fail=False)
         self._mods = set()
 
     def copy_bpf_samples(self):
