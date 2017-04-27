@@ -837,12 +837,7 @@ class MtuFlbufCheck(CommonNetdevTest):
             self.dut.cmd('ip link set dev %s mtu %d' % (self.dut_ifn[0], mtu))
             bmtu = self.get_bar_mtu()
             bflbufsz = self.get_bar_flbufsz()
-            brxoffset = self.get_bar_rx_offset()
-
-            if brxoffset == 0:
-                rxoffset = 64
-            else:
-                rxoffset = brxoffset
+            rxoffset = self.get_bar_rx_offset()
 
             if has_xdp:
                 xdp_off = 256 - rxoffset
