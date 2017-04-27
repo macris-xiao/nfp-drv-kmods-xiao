@@ -178,6 +178,7 @@ class NFPKmodBPF(NFPKmodGrp):
         M = self.dut
 
         # Init DUT
+        M.cmd('ethtool -G %s rx 512 tx 512' % (self.eth_x[0]))
         M.cmd('ifconfig %s %s promisc up' % (self.eth_x[0], self.addr_x[0]))
         M.cmd('ip addr add %s dev %s' % (self.addr_v6_x[0], self.eth_x[0]))
 

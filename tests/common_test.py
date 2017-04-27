@@ -136,6 +136,7 @@ class CommonTest(Test):
 
     def ifc_all_up(self):
         for i in range(0, len(self.dut_ifn)):
+            self.dut.cmd('ethtool -G %s rx 512 tx 512' % (self.dut_ifn[i]))
             self.dut.cmd('ifconfig %s %s up' % (self.dut_ifn[i],
                                                 self.dut_addr[i]))
 
