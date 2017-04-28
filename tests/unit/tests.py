@@ -348,6 +348,7 @@ class RTSymTest(CommonTest):
     def check_cnt(self, name, exp):
         val = self.dut.dfs_read('nth/rtsym_count')
         if int(val) != exp:
+            self.dut.dfs_read('nth/rtsym_dump')
             raise NtiGeneralError('RTSym count not %d (%s, %s)' % \
                                   (exp, name, val))
 

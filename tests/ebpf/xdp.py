@@ -96,7 +96,10 @@ class XDPadjBase(XDPTest):
 
         for p in result_pkts:
             if str(p) != exp_pkt:
-                self.log('Bad packet', str(p) + "\n\n" + exp_pkt)
+                self.log('Bad packet',
+                         ':'.join(x.encode('hex') for x in str(p))
+                         + "\n\n" +
+                         ':'.join(x.encode('hex') for x in exp_pkt))
                 raise NtiError("Packet doesn't match")
 
     def std_pkt(self, size=96):
