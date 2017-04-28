@@ -71,7 +71,7 @@ uninstall:
 	depmod $(DEPMOD_PATH) $(KVER)
 
 test_prepare:
-	$(MAKE) -C tests/samples/mefw
+	$(MAKE) -C tests/samples/mefw -j1
 	$(MAKE) -C tests/samples/bpf
 	$(MAKE) -C tests/samples/xdp
 	$(MAKE) $(COMMON_ARGS) CONFIG_NFP=n CONFIG_NFP_TEST_HARNESS=m
