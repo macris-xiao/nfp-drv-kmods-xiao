@@ -2,24 +2,22 @@
 
 int xdp_prog1(struct xdp_md *xdp) {
 	unsigned char *data, *data2;
+	unsigned int t;
 
 	data2 =	data = (void *)(unsigned long)xdp->data;
-	if (data + 64 > (unsigned char *)(unsigned long)xdp->data_end)
+	if (data + 60 > (unsigned char *)(unsigned long)xdp->data_end)
 		return XDP_ABORTED;
 
-	data2 += 6;
+	t = *(unsigned *)(data + 0);
+	*(unsigned *)(data + 0) = *(unsigned *)(data + 6);
+	*(unsigned *)(data + 6) = t;
 
-	*data2 ^= *data; *data ^= *data2; *data2 ^= *data; data++; data2++;
-	*data2 ^= *data; *data ^= *data2; *data2 ^= *data; data++; data2++;
-	*data2 ^= *data; *data ^= *data2; *data2 ^= *data; data++; data2++;
-
-	*data2 ^= *data; *data ^= *data2; *data2 ^= *data; data++; data2++;
-	*data2 ^= *data; *data ^= *data2; *data2 ^= *data; data++; data2++;
-	*data2 ^= *data; *data ^= *data2; *data2 ^= *data; data++; data2++;
+	t = *(unsigned short *)(data + 4);
+	*(unsigned short *)(data + 4) = *(unsigned short *)(data + 10);
+	*(unsigned short *)(data + 10) = t;
 
 	/* Make ether type invalid */
-	*data2 = 0x12; data2++;
-	*data2 = 0x34; data2++;
+	*(unsigned short *)(data + 12) = 0x3412;
 
 	return XDP_TX;
 }
