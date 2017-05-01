@@ -12,6 +12,7 @@ from netro.tests.tcpdump import TCPDump
 from scapy.all import TCP, UDP, IP, Ether, rdpcap, wrpcap, IPv6, ICMP, Raw
 from ..common_test import *
 from ..drv_grp import NFPKmodGrp
+from ..drv_system import NfpNfdCtrl
 
 ###############################################################################
 # Base classes
@@ -255,6 +256,24 @@ class XDPfailShort(XDPtxBase):
 
     def get_prog_name(self):
         return 'adjust_head_fail_short.o'
+
+class XDPfailMaybeLong(XDPtxBase):
+    def get_bar_rx_offset(self):
+        return self.dut.nfd_reg_read_le32(self.dut_ifn[0], NfpNfdCtrl.RX_OFFSET)
+
+    def execute(self):
+        if self.get_bar_rx_offset() == 0:
+            raise NtiSkip("This test doesn't work with dynamic headroom")
+        XDPtxBase.execute(self)
+
+    def get_src_pkt(self):
+        return self.std_pkt()
+
+    def get_exp_pkt(self):
+        return None
+
+    def get_prog_name(self):
+        return 'adjust_head_mfail_long.o'
 
 class XDPfailLong(XDPtxBase):
     def get_src_pkt(self):
