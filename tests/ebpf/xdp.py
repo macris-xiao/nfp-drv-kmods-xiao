@@ -27,7 +27,8 @@ class XDPTest(CommonTest):
         stderr = os.path.join(capture_system.tmpdir, 'tcpdump_err.txt')
         filter_expr = '"not arp and' \
                       ' not ip6 and' \
-                      ' not ether host 01:80:c2:00:00:0e"'
+                      ' not ether host 01:80:c2:00:00:0e and' \
+                      ' not ether host ff:ff:ff:ff:ff:ff"'
         self.tcpdump = TCPDump(capture_system, ifname, dump, resolve=False,
                                direction='in', stderrfn=stderr,
                                filter_expr=filter_expr)
