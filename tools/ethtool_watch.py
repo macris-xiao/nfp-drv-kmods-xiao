@@ -131,7 +131,6 @@ def key_ok(key):
 
 while True:
         clock = now()
-        os.system("clear")
 
         try:
                 out = subprocess.check_output(['ethtool', '-S', IFC])
@@ -142,8 +141,8 @@ while True:
                 time.sleep(0.5)
                 continue
 
-        print("\033[4;1mSTAT % 33s % 19s % 21s\033[0m" %
-              ("RATE", "SESSION", "TOTAL"))
+        pr = "\033[4;1mSTAT % 33s % 19s % 21s\033[0m\n" % \
+             ("RATE", "SESSION", "TOTAL")
         for l in out.split('\n'):
                 s = l.split(':')
                 if len(s) != 2 or s[1] == '':
@@ -170,10 +169,13 @@ while True:
                                 color = '2;' + color
                         color = '\033[' + color
 
-                        print('{:}{:<26} {:>11,} {:>19,} {:>21,}\033[31;0m'.
+                        pr += '{:}{:<26} {:>11,} {:>19,} {:>21,}\033[31;0m\n'. \
                               format(color, key, value - stats[key],
-                                     value - session[key], stats[key]))
+                                     value - session[key], stats[key])
 
                 stats[key] = value
+
+        os.system("clear")
+        sys.stdout.write(pr)
 
         time.sleep(1.0 - (now() - clock) / 1000.0)
