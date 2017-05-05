@@ -410,6 +410,9 @@ done
 	    done
 	    echo "Build with opts=CONFIG_NFP_TEST_HARNESS=m"
 	    make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../linux-next M=`pwd`/src W=1 CONFIG_NFP_TEST_HARNESS=m 2>&1 | tee -a ../build.log
+	    echo "Build with opts=CONFIG_NFP_NET_PF=n CONFIG_NFP_NET_VF=n CONFIG_NFP_DEBUG=y"
+	    make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../linux-next M=`pwd`/src \
+		 W=1 CONFIG_NFP_NET_PF=n CONFIG_NFP_NET_VF=n CONFIG_NFP_DEBUG=y 2>&1 | tee -a ../build.log
 
 	    #
 	    # Check sparse warnings
