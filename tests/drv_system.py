@@ -269,6 +269,13 @@ class DrvSystem(System):
         vals = out.split()
         return int(vals[1], 16) | (int(vals[2], 16) << 32)
 
+    def nfp_phymod_get_speed(self, idx):
+        _, out = self.cmd_phymod('-E | grep -C1 eth%d | tail -1' % (idx))
+
+        speed = re.search(' *(\d*)G', out)
+
+        return int(speed.groups()[0]) * 1000
+
     def bsp_cmd(self, cmd, fail):
         return self.cmd(os.path.join(self.grp.bsppath, 'bin', 'nfp-') + cmd,
                         fail=fail)
