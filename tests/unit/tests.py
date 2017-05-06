@@ -151,6 +151,9 @@ class ResourceTest(CommonNTHTest):
         # Try non-existing resource
         M.dfs_write('resource', "test.xxx", do_fail=True)
 
+        if self.dut.get_part_no() == "AMDA0099-0001":
+            raise NtiSkip("Carbon hoards resources")
+
         _, out = M.cmd_res('-L')
         # Iterate over lines skipping header
         resources = []
