@@ -629,12 +629,16 @@ class KernelLoadTest(CommonTest):
         M.refresh()
         netifs_new = M._netifs
 
-        if len(netifs_new) - len(netifs_old) < 1:
+        if len(netifs_new) - len(netifs_old) != len(self.dut_addr):
             raise NtiGeneralError('Expected one interface created, got %d' %
                                   (len(netifs_new) - len(netifs_old)))
 
-        i = 0
         for ifc in list(set(netifs_new) - set(netifs_old)):
+            if self.dut_ifn.count(ifc) == 0:
+                raise NtiError("Interface %s not present after load" % (ifc))
+
+            i = self.dut_ifn.index(ifc)
+
             _, out = M.cmd('ethtool -i %s' % ifc)
 
             # Ignore other devices if present
@@ -643,11 +647,6 @@ class KernelLoadTest(CommonTest):
 
             M.cmd('ifconfig %s %s up' % (ifc, self.dut_addr[i]))
             self.ping(i)
-            i += 1
-
-        if i != len(self.dut_addr):
-            raise NtiGeneralError('Bad number of interfaces %d %d' %
-                                  (i, len(self.dut_addr)))
 
         # See if after kernel load SR-IOV limit was set correctly
         M.cmd('ls /dev/nfp-cpp-*', fail=False)
