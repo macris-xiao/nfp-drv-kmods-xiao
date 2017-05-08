@@ -132,7 +132,7 @@ class XDPpassBase(XDPadjBase):
 class XDPtunBase(XDPTest):
     def prepare(self):
         self.tun_name = 'ipip1'
-        self.tun_ip_sub = '10.9.1.'
+        self.tun_ip_sub = self.group.tun_net
 
 ###############################################################################
 # Simple tests
@@ -364,8 +364,8 @@ class XDPadjHeadDecIpIp(XDPtunBase):
         self.ping6(0)
 
         cmd = 'ping %s1 -c5 -i0.05 -W2 -I %s' % (self.tun_ip_sub, self.tun_name)
-        cmd += '; hping3 -c 5 %s1 -a 10.9.1.2 -I %s' % \
-               (self.tun_ip_sub, self.tun_name)
+        cmd += '; hping3 -c 5 %s1 -a %s2 -I %s' % \
+               (self.tun_ip_sub, self.tun_ip_sub, self.tun_name)
         cmd += ' || true'
         result_pkts = self.tcpdump_cmd(self.src, self.src_ifn[0], self.src, cmd)
 
@@ -410,8 +410,8 @@ class XDPadjHeadEncIpIp(XDPtunBase):
 
         cmd = 'ping %s1 -c5 -i0.05 -W2 -I %s' % \
               (self.tun_ip_sub, self.src_ifn[0])
-        cmd += '; hping3 -c 5 %s1 -a 10.9.1.2 -I %s' % \
-               (self.tun_ip_sub, self.tun_name)
+        cmd += '; hping3 -c 5 %s1 -a %s2 -I %s' % \
+               (self.tun_ip_sub, self.tun_ip_sub, self.tun_name)
         cmd += ' || true'
         result_pkts = self.tcpdump_cmd(self.src, self.src_ifn[0], self.src, cmd)
 

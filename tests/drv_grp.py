@@ -52,6 +52,9 @@ class NFPKmodGrp(netro.testinfra.Group):
         ('rm_fw_dir', [False, "Allow test code to remove the "
                               "/lib/firmware/netronome directory if present"]),
         ('upstream_drv', [False, "Use upstream/installed driver"]),
+        ('tun_net', [True, "Tunnel subnet to use. First 3 octets of an IPv4 "
+                           "subnet to use on tunnels (e.g. '10.9.1.') incl "
+                           "the trailing dot."])
     ])
     _config["DUT"] = collections.OrderedDict([
         ("name", [True, "Host name of the DUT (can also be <user>@<host> or "
@@ -98,6 +101,7 @@ class NFPKmodGrp(netro.testinfra.Group):
         self.noclean = False
         self.rm_fw_dir = False
         self.upstream_drv = True
+        self.tun_net = None
 
         self.dut = None
         self.pci_id = None
@@ -229,6 +233,8 @@ class NFPKmodGrp(netro.testinfra.Group):
             self.rm_fw_dir = self.cfg.getboolean("General", "rm_fw_dir")
         if self.cfg.has_option("General", "upstream_drv"):
             self.upstream_drv = self.cfg.getboolean("General", "upstream_drv")
+        if self.cfg.has_option("General", "tun_net"):
+            self.tun_net = self.cfg.get("General", "tun_net")
 
         # DUT
         self.eth_x = self.cfg.get("DUT", "ethX").split()
