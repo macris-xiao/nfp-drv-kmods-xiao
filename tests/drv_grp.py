@@ -147,6 +147,37 @@ class NFPKmodGrp(netro.testinfra.Group):
 
         if not self.dut:
             return
+
+        # Setup Host A IPs
+        cmd = ''
+        for i in range(len(self.eth_a)):
+            cmd += 'ip link set dev %s down;' % (self.eth_a[i])
+            cmd += 'ip addr flush dev %s;' % (self.eth_a[i])
+            cmd += 'ip -6 addr flush dev %s;' % (self.eth_a[i])
+            cmd += 'ip addr add dev %s %s;' % (self.eth_a[i], self.addr_a[i])
+            cmd += 'ip addr add dev %s %s;' % (self.eth_a[i], self.addr_v6_a[i])
+            cmd += 'ip link set dev %s up;' % (self.eth_a[i])
+        self.host_a.cmd(cmd)
+
+        # Clean systems from "tun_net" IPs
+        cmd = ''
+        _, out = self.host_a.cmd('ip a | grep %s' % (self.tun_net), fail=False)
+        for line in out.split('\n'):
+            p = line.split()
+            if len(p) < 5:
+                continue
+            cmd += 'ip a d %s dev %s;' % (p[1], p[4])
+        # Clean the "tun_net" neigh entries
+        _, out = self.host_a.cmd('ip ne show to %s0/24' % (self.tun_net))
+        for line in out.split('\n'):
+            p = line.split()
+            if len(p) < 3:
+                continue
+            cmd += 'ip link set dev %s down;' % (p[2])
+            cmd += 'ip link set dev %s up;' % (p[2])
+        if cmd:
+            self.host_a.cmd(cmd)
+
         self.dut.cmd('lsmod | grep nfp_test_harness && rmmod nfp_test_harness', fail=False)
         self.dut.cmd('lsmod | grep nfp && rmmod nfp', fail=False)
         ret, _ = self.dut.cmd('ls /lib/firmware/netronome', fail=False)
@@ -276,13 +307,7 @@ class NFPKmodGrp(netro.testinfra.Group):
            len(self.eth_x) != len(self.addr_x) or \
            len(self.eth_x) != len(self.addr_v6_x):
             raise NtiGeneralError('ERROR: Config has different number of addresses and interfaces')
-        for i in range(0, len(self.eth_a)):
-            cmd = ''
-            cmd += 'ip addr add dev %s %s' % (self.eth_a[i], self.addr_a[i])
-            cmd += '; ip addr add dev %s %s' % (self.eth_a[i],
-                                                self.addr_v6_a[i])
-            cmd += '; ip link set dev %s up' % (self.eth_a[i])
-            self.host_a.cmd(cmd)
+
         return
 
     def bpf_capable(self):
