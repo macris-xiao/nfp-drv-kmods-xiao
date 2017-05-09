@@ -8,6 +8,7 @@ BPF base test class
 import netro.testinfra
 from netro.testinfra.test import *
 from netro.testinfra.nrt_result import NrtResult
+from netro.testinfra.nti_exceptions import NtiError
 from common_test import *
 
 class eBPFtest(CommonTest):
@@ -42,8 +43,8 @@ class eBPFtest(CommonTest):
 
     def validate_cntr(self, d, name, t0, t1):
         if not d[name] in range(t0, t1):
-            raise StrException("%s stat is wrong (%d, %d) -> %d" %
-                               (name, t0, t1, d[name]))
+            raise NtiError("%s stat is wrong (%d, %d) -> %d" %
+                           (name, t0, t1, d[name]))
 
     def validate_cntr_pair(self, d, name, t):
         self.validate_cntr(d, '%s_pkts' % name, t[0], t[1])
@@ -51,9 +52,9 @@ class eBPFtest(CommonTest):
 
     def validate_cntr_e2e(self, diff, e_name, t_name):
         if diff.ethtool[e_name] != diff.ethtool[t_name]:
-            raise StrException("e2e %s != %s (%d, %d)" %
-                               (e_name, t_name, diff.ethtool[e_name],
-                                diff.ethtool[t_name]))
+            raise NtiError("e2e %s != %s (%d, %d)" %
+                           (e_name, t_name, diff.ethtool[e_name],
+                            diff.ethtool[t_name]))
 
     def validate_cntr_e2e_pair(self, diff, e_name, t_name):
         self.validate_cntr_e2e(diff, '%s_pkts' % e_name, '%s_pkts' % t_name)
@@ -61,9 +62,9 @@ class eBPFtest(CommonTest):
 
     def validate_cntr_e2t(self, diff, e_name, t_name):
         if diff.ethtool[e_name] != diff.tc_ing[t_name]:
-            raise StrException("e2t %s != %s (%d, %d)" %
-                               (e_name, t_name, diff.ethtool[e_name],
-                                diff.tc_ing[t_name]))
+            raise NtiError("e2t %s != %s (%d, %d)" %
+                           (e_name, t_name, diff.ethtool[e_name],
+                            diff.tc_ing[t_name]))
 
     def validate_cntr_e2t_pair(self, diff, e_name, t_name):
         self.validate_cntr_e2t(diff, '%s_pkts' % e_name, '%s_pkts' % t_name)
