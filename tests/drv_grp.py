@@ -159,6 +159,13 @@ class NFPKmodGrp(netro.testinfra.Group):
             cmd += 'ip link set dev %s up;' % (self.eth_a[i])
         self.host_a.cmd(cmd)
 
+        # Disable DAD on Host A
+        cmd = ''
+        for ifc in self.eth_a:
+            cmd += 'sysctl -w net.ipv6.conf.%s.accept_dad=0;' % (ifc)
+            cmd += 'sysctl -w net.ipv6.conf.%s.dad_transmits=0;' % (ifc)
+        self.host_a.cmd(cmd)
+
         # Clean systems from "tun_net" IPs
         cmd = ''
         _, out = self.host_a.cmd('ip a | grep %s' % (self.tun_net), fail=False)

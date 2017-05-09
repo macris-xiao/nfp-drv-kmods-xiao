@@ -186,6 +186,13 @@ class NFPKmodBPF(NFPKmodGrp):
 
         M = self.dut
 
+        # Disable DAD
+        cmd = ''
+        for ifc in self.eth_x:
+            cmd += 'sysctl -w net.ipv6.conf.%s.accept_dad=0;' % (ifc)
+            cmd += 'sysctl -w net.ipv6.conf.%s.dad_transmits=0;' % (ifc)
+        M.cmd(cmd)
+
         # Init DUT
         M.cmd('ethtool -G %s rx 512 tx 512' % (self.eth_x[0]))
         M.cmd('ifconfig %s %s promisc up' % (self.eth_x[0], self.addr_x[0]))
