@@ -193,11 +193,13 @@ class NFPKmodBPF(NFPKmodGrp):
         ifcfg = _parse_ifconfig(out)
         self.hwaddr_x = ifcfg["hwaddr"]
         self.mtu_x = ifcfg["mtu"]
+        self.promisc_x = out.find("PROMISC") != -1
 
         _, out = self.host_a.cmd("ifconfig %s" % self.eth_a[0])
         ifcfg = _parse_ifconfig(out)
         self.hwaddr_a = ifcfg["hwaddr"]
         self.mtu_a = ifcfg["mtu"]
+        self.promisc_a = out.find("PROMISC") != -1
 
         # add static arp entries to speed up drop tests
         self.host_a.cmd('ip neigh add %s lladdr %s dev %s' %
@@ -442,8 +444,10 @@ class eBPFredir(eBPFtest):
                           summary=summary)
 
     def execute(self):
-        self.dut.cmd('ip link set dev %s promisc on' % (self.dut_ifn[0]))
-        self.src.cmd('ip link set dev %s promisc on' % (self.src_ifn[0]))
+        if not self.group.promisc_x:
+            self.dut.cmd('ip link set dev %s promisc on' % (self.dut_ifn[0]))
+        if not self.group.promisc_a:
+            self.src.cmd('ip link set dev %s promisc on' % (self.src_ifn[0]))
 
         self.src.cp_to(os.path.join(self.group.samples_trafgen, 'redir.txf'),
                        self.group.tmpdir)
@@ -454,25 +458,29 @@ class eBPFredir(eBPFtest):
                      (os.path.join(self.group.tmpdir, 'redir.txf'),
                       self.src_ifn[0]))
 
-        time.sleep(0.15)
+        time.sleep(0.2)
         new_src_stats = self.src.netifs[self.src_ifn[0]].stats()
 
         counts = (10, 12, 900, 1050)
         self.validate_cntrs(rx_t=counts, app1_all=True)
 
-        self.dut.cmd('ip link set dev %s promisc off' % (self.dut_ifn[0]))
-        self.src.cmd('ip link set dev %s promisc off' % (self.src_ifn[0]))
+        if not self.group.promisc_x:
+            self.dut.cmd('ip link set dev %s promisc off' % (self.dut_ifn[0]))
+        if not self.group.promisc_a:
+            self.src.cmd('ip link set dev %s promisc off' % (self.src_ifn[0]))
 
         # Note: this assumes Fortville, sorry :(
         end_stats = new_src_stats - old_src_stats
         if not end_stats.ethtool['port.rx_size_127'] in range(counts[0],
                                                               counts[1]):
-            raise NtiGeneralError("src rx packets (%d)" % \
-                               (end_stats.ethtool['port.rx_size_127']))
+            raise NtiGeneralError("src rx packets (%d vs %d,%d)" % \
+                               (end_stats.ethtool['port.rx_size_127'],
+                                counts[0], counts[1]))
         if not end_stats.ethtool['port.rx_bytes'] in range(counts[2],
                                                            counts[3]):
-            raise NtiGeneralError("src rx bytes (%d)" % \
-                               (end_stats.ethtool['port.rx_bytes']))
+            raise NtiGeneralError("src rx bytes (%d vs %d,%d)" % \
+                               (end_stats.ethtool['port.rx_bytes'],
+                                counts[0], counts[1]))
 
 class eBPFda(eBPFtest):
     def __init__(self, src, dut, obj_name, stat, tc_flags="da skip_sw",
