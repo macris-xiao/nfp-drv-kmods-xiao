@@ -57,6 +57,13 @@ class NFPKmodBPF(NFPKmodGrp):
             self._tests[t[0]] = t[1](src, dut, group=self, name=t[0],
                                      summary=t[2])
 
+        TS = (('bpf_fallback', 'store.o', '', 'Check SW fallback'),
+        )
+
+        for t in TS:
+            self._tests[t[0]] = eBPFtest(src, dut, obj_name=t[1], tc_flags=t[2],
+                                         group=self, name=t[0], summary=t[3])
+
         # Direct action tests
         DA = (('bpf_da_DROP', 'da_2_drop.o', 1),
               ('bpf_da_STOL', 'da_4_nuke.o', None),
@@ -88,7 +95,6 @@ class NFPKmodBPF(NFPKmodGrp):
               ('bpf_bad_ptr', 'validate_ptr_type.o', 'skip_sw'),
               ('bpf_store', 'store.o', 'skip_sw'),
               ('bpf_maps', 'maps.o', 'skip_sw'),
-              ('bpf_fallback', 'store.o', ''),
         )
 
         for t in TF:
