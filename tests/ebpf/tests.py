@@ -6,6 +6,7 @@ BPF test group for the NFP Linux drivers.
 """
 
 import os
+import time
 import netro.testinfra
 from netro.testinfra.nti_exceptions import NtiGeneralError
 from netro.testinfra.system import _parse_ifconfig
@@ -444,14 +445,16 @@ class eBPFredir(eBPFtest):
         self.dut.cmd('ip link set dev %s promisc on' % (self.dut_ifn[0]))
         self.src.cmd('ip link set dev %s promisc on' % (self.src_ifn[0]))
 
-        self.src.cp_to('lib/redir.txf', '/tmp/')
+        self.src.cp_to(os.path.join(self.group.samples_trafgen, 'redir.txf'),
+                       self.group.tmpdir)
 
         old_src_stats = self.src.netifs[self.src_ifn[0]].stats()
 
-        self.src.cmd('trafgen  --conf /tmp/redir.txf  -o %s -n 10' %
-                      (self.src_ifn[0]))
+        self.src.cmd('trafgen  --conf %s  -o %s -n 10' %
+                     (os.path.join(self.group.tmpdir, 'redir.txf'),
+                      self.src_ifn[0]))
 
-        sleep(0.15)
+        time.sleep(0.15)
         new_src_stats = self.src.netifs[self.src_ifn[0]].stats()
 
         counts = (10, 12, 900, 1050)

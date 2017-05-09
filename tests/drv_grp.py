@@ -283,6 +283,7 @@ class NFPKmodGrp(netro.testinfra.Group):
         if self.cfg.has_option("DUT", "samples"):
             self.samples = self.cfg.get("DUT", "samples")
             self.mefw = os.path.join(self.samples, 'mefw')
+            self.samples_trafgen = os.path.join(self.samples, 'trafgen')
             self.samples_bpf = os.path.join(self.samples, 'bpf')
             self.samples_xdp = os.path.join(self.samples, 'xdp')
         if self.cfg.has_option("DUT", "serial"):
