@@ -265,9 +265,9 @@ class eBPFpass(eBPFtest):
                           summary=summary)
 
     def execute(self):
-        self.ping()
-        self.ping6()
-        self.tcpping()
+        self.ping(port=0)
+        self.ping6(port=0)
+        self.tcpping(port=0)
 
         counts = (30, 38, 3200, 3700)
         self.validate_cntrs(rx_t=counts, pass_all=True)
@@ -278,9 +278,9 @@ class eBPFdrop(eBPFtest):
                           group=group, name=name, summary=summary)
 
     def execute(self):
-        self.ping(fail=False)
-        self.ping6(fail=False)
-        self.tcpping(fail=False)
+        self.ping(port=0, fail=False)
+        self.ping6(port=0, fail=False)
+        self.tcpping(port=0, fail=False)
 
         counts = (30, 38, 3200, 3700)
         self.validate_cntrs(rx_t=counts, app1_all=True)
@@ -293,9 +293,9 @@ class eBPFmark(eBPFtest):
                           summary=summary)
 
     def execute(self):
-        self.ping()
-        self.ping6()
-        self.tcpping()
+        self.ping(port=0)
+        self.ping6(port=0)
+        self.tcpping(port=0)
 
         counts = (30, 38, 3200, 3700)
         self.validate_cntrs(rx_t=counts, pass_all=True, mark_all=True)
@@ -308,23 +308,23 @@ class eBPF4ctx(eBPFtest):
                           summary=summary)
 
     def execute(self):
-        self.ping()
-        self.ping6()
-        self.tcpping()
+        self.ping(port=0)
+        self.ping6(port=0)
+        self.tcpping(port=0)
 
         counts = (30, 38, 3200, 3700)
         self.validate_cntrs(rx_t=counts, pass_all=True)
 
-        self.ping(size=200, pattern="00", fail=False)
-        self.ping(size=200, pattern="11", fail=False)
-        self.ping(size=200, pattern="77", fail=False)
+        self.ping(port=0, size=200, pattern="00", fail=False)
+        self.ping(port=0, size=200, pattern="11", fail=False)
+        self.ping(port=0, size=200, pattern="77", fail=False)
 
         counts = (30, 36, 7200, 7500)
         self.validate_cntrs(rx_t=counts, app1_all=True)
 
-        self.ping(size=200, pattern="22")
-        self.ping(size=200, pattern="55")
-        self.ping(size=200, pattern="66")
+        self.ping(port=0, size=200, pattern="22")
+        self.ping(port=0, size=200, pattern="55")
+        self.ping(port=0, size=200, pattern="66")
 
         counts = (30, 36, 7200, 7500)
         self.validate_cntrs(rx_t=counts, pass_all=True)
@@ -341,14 +341,14 @@ class eBPFtcp58(eBPFtest):
                           group=group, name=name, summary=summary)
 
     def execute(self):
-        self.ping()
-        self.ping6()
-        self.tcpping(sport=58, dport=100)
+        self.ping(port=0)
+        self.ping6(port=0)
+        self.tcpping(port=0, sport=58, dport=100)
 
         counts = (30, 38, 3200, 3700)
         self.validate_cntrs(rx_t=counts, pass_all=True)
 
-        self.tcpping(sport=100, dport=58)
+        self.tcpping(port=0, sport=100, dport=58)
 
         counts = (10, 12, 1040, 1200)
         self.validate_cntrs(rx_t=counts, exact_filter=True)
@@ -359,17 +359,17 @@ class eBPFjeq_jgt(eBPFtest):
                           group=group, name=name, summary=summary)
 
     def execute(self):
-        self.ping(pattern="aa")
-        self.ping(size=100)
-        self.ping(size=100, pattern="a0")
-        self.ping(size=100, pattern="af")
+        self.ping(port=0, pattern="aa")
+        self.ping(port=0, size=100)
+        self.ping(port=0, size=100, pattern="a0")
+        self.ping(port=0, size=100, pattern="af")
 
         counts = (40, 48, 5200, 5700)
         self.validate_cntrs(rx_t=counts, pass_all=True)
 
-        self.ping(size=100, pattern="aa", fail=False)
-        self.ping(size=100, pattern="bb", fail=False)
-        self.ping(size=100, pattern="cc", fail=False)
+        self.ping(port=0, size=100, pattern="aa", fail=False)
+        self.ping(port=0, size=100, pattern="bb", fail=False)
+        self.ping(port=0, size=100, pattern="cc", fail=False)
 
         counts = (30, 34, 4260, 4400)
         self.validate_cntrs(rx_t=counts, exact_filter=True)
@@ -380,16 +380,16 @@ class eBPFjneq(eBPFtest):
                           group=group, name=name, summary=summary)
 
     def execute(self):
-        self.ping()
-        self.ping(pattern="aa")
-        self.ping(size=100, pattern="aa")
+        self.ping(port=0)
+        self.ping(port=0, pattern="aa")
+        self.ping(port=0, size=100, pattern="aa")
 
         counts = (30, 38, 3300, 3600)
         self.validate_cntrs(rx_t=counts, pass_all=True)
 
-        self.ping(size=100, fail=False)
-        self.ping(size=100, pattern="bb", fail=False)
-        self.ping(size=100, pattern="cc", fail=False)
+        self.ping(port=0, size=100, fail=False)
+        self.ping(port=0, size=100, pattern="bb", fail=False)
+        self.ping(port=0, size=100, pattern="cc", fail=False)
 
         counts = (30, 38, 4260, 4600)
         self.validate_cntrs(rx_t=counts, exact_filter=True)
@@ -403,28 +403,28 @@ class eBPFabort(eBPFtest):
 
     def execute(self):
         # Too short to hit filters or marking
-        self.ping()
-        self.ping6()
-        self.tcpping()
+        self.ping(port=0)
+        self.ping6(port=0)
+        self.tcpping(port=0)
 
         counts = (30, 38, 3200, 3700)
         self.validate_cntrs(rx_t=counts, pass_all=True)
 
         # Just about too short but would hit the filter
-        self.ping(size=162, pattern="aa")
+        self.ping(port=0, size=162, pattern="aa")
 
         counts = (10, 13, 2000, 2200)
         self.validate_cntrs(rx_t=counts, pass_all=True)
 
         # Will hit the mark but too short for second filter
-        self.ping(size=500)
+        self.ping(port=0, size=500)
 
         counts = (10, 13, 5400, 5600)
         self.validate_cntrs(rx_t=counts, pass_all=True, mark_all=True)
 
         # Will hit the filter
-        self.ping(size=163, pattern="aa", fail=False)
-        self.ping(size=1100, pattern="aa", fail=False)
+        self.ping(port=0, size=163, pattern="aa", fail=False)
+        self.ping(port=0, size=1100, pattern="aa", fail=False)
 
         counts = (20, 23, 13470, 14000)
         self.validate_cntrs(rx_t=counts, exact_filter=True)
@@ -483,9 +483,9 @@ class eBPFda(eBPFtest):
     def execute(self):
         do_fail = self.stat == 2 or self.stat == 4 or self.stat == 5
 
-        self.ping(fail=do_fail)
-        self.ping6(fail=do_fail)
-        self.tcpping(fail=do_fail)
+        self.ping(port=0, fail=do_fail)
+        self.ping6(port=0, fail=do_fail)
+        self.tcpping(port=0, fail=do_fail)
 
         counts = (30, 38, 3200, 3700)
         self.validate_cntrs(rx_t=counts, pass_all=self.stat == 0,
