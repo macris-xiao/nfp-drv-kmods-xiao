@@ -150,6 +150,19 @@ class CommonTest(Test):
             if out.find('Link detected: yes') == -1:
                 raise NtiSkip("Interface %s is not up" % (self.dut_ifn[i]))
 
+    def tc_bpf_load(self, obj=None, flags=None):
+        if not obj:
+            obj = self.obj_name
+        if not flags:
+            flags = self.tc_flags
+
+        obj_full = os.path.join(self.dut.bpf_samples_dir, obj)
+        cmd = 'tc filter add dev %s parent ffff:  bpf obj %s %s %s' % \
+              (self.dut_ifn[0], obj_full, flags, self.act)
+
+        ret, _ = self.dut.cmd(cmd, fail=False)
+        return ret
+
     def xdp_start(self, prog):
         return self.dut.cmd('ip -force link set dev %s xdp obj %s sec ".text"' %
                             (self.dut_ifn[0],

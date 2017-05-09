@@ -184,6 +184,9 @@ class NFPKmodBPF(NFPKmodGrp):
         M.cmd('ifconfig %s %s promisc up' % (self.eth_x[0], self.addr_x[0]))
         M.cmd('ip addr add %s dev %s' % (self.addr_v6_x[0], self.eth_x[0]))
 
+        # Make sure NTI knows the NFP interface exists
+        M.refresh()
+
         # stash hwaddrs for traffic generation
         _, out = self.dut.cmd("ifconfig %s" % self.eth_x[0])
         ifcfg = _parse_ifconfig(out)
@@ -231,32 +234,7 @@ class NFPKmodBPF(NFPKmodGrp):
 ###########################################################################
 
 class eBPFcapa(CommonTest):
-    """Test class for eBPF"""
-    # Information applicable to all subclasses
-    _gen_info = """
-    eBPF capability test
-    """
-
-    def __init__(self, src, dut, group=None, name="", summary=None):
-        """
-        @dut:        A tuple of System and interface name of DUT
-        @group:      Test group this test belongs to
-        @name:       Name for this test instance
-        @summary:    Optional one line summary for the test
-        """
-        Test.__init__(self, group, name, summary)
-
-        self.src = None
-        self.src_ifn = None
-
-        if dut[0]:
-            # src and dst maybe None if called without config file for list
-            self.src = dut[0]
-            self.src_addr = dut[1]
-            self.src_ifn = dut[2]
-        return
-
-    def run(self):
+    def execute(self):
         """
         Check eBPF offload capability
         """
@@ -286,7 +264,7 @@ class eBPFpass(eBPFtest):
                           tc_flags=tc_flags, group=group, name=name,
                           summary=summary)
 
-    def run_ebpf(self):
+    def execute(self):
         self.ping()
         self.ping6()
         self.tcpping()
@@ -299,7 +277,7 @@ class eBPFdrop(eBPFtest):
         eBPFtest.__init__(self, src, dut, obj_name="drop.o",
                           group=group, name=name, summary=summary)
 
-    def run_ebpf(self):
+    def execute(self):
         self.ping(fail=False)
         self.ping6(fail=False)
         self.tcpping(fail=False)
@@ -314,7 +292,7 @@ class eBPFmark(eBPFtest):
                           tc_flags=tc_flags, group=group, name=name,
                           summary=summary)
 
-    def run_ebpf(self):
+    def execute(self):
         self.ping()
         self.ping6()
         self.tcpping()
@@ -329,7 +307,7 @@ class eBPF4ctx(eBPFtest):
                           tc_flags=tc_flags, group=group, name=name,
                           summary=summary)
 
-    def run_ebpf(self):
+    def execute(self):
         self.ping()
         self.ping6()
         self.tcpping()
@@ -362,7 +340,7 @@ class eBPFtcp58(eBPFtest):
         eBPFtest.__init__(self, src, dut, obj_name="tcp58.o",
                           group=group, name=name, summary=summary)
 
-    def run_ebpf(self):
+    def execute(self):
         self.ping()
         self.ping6()
         self.tcpping(sport=58, dport=100)
@@ -380,7 +358,7 @@ class eBPFjeq_jgt(eBPFtest):
         eBPFtest.__init__(self, src, dut, obj_name="jeq_jgt.o",
                           group=group, name=name, summary=summary)
 
-    def run_ebpf(self):
+    def execute(self):
         self.ping(pattern="aa")
         self.ping(size=100)
         self.ping(size=100, pattern="a0")
@@ -401,7 +379,7 @@ class eBPFjneq(eBPFtest):
         eBPFtest.__init__(self, src, dut, obj_name="jneq.o",
                           group=group, name=name, summary=summary)
 
-    def run_ebpf(self):
+    def execute(self):
         self.ping()
         self.ping(pattern="aa")
         self.ping(size=100, pattern="aa")
@@ -423,7 +401,7 @@ class eBPFabort(eBPFtest):
                           tc_flags=tc_flags, group=group, name=name,
                           summary=summary)
 
-    def run_ebpf(self):
+    def execute(self):
         # Too short to hit filters or marking
         self.ping()
         self.ping6()
@@ -462,7 +440,7 @@ class eBPFredir(eBPFtest):
                           tc_flags=tc_flags, act=act, group=group, name=name,
                           summary=summary)
 
-    def run_ebpf(self):
+    def execute(self):
         self.dut.cmd('ip link set dev %s promisc on' % (self.dut_ifn[0]))
         self.src.cmd('ip link set dev %s promisc on' % (self.src_ifn[0]))
 
@@ -502,7 +480,7 @@ class eBPFda(eBPFtest):
         self.stat = stat
 
 
-    def run_ebpf(self):
+    def execute(self):
         do_fail = self.stat == 2 or self.stat == 4 or self.stat == 5
 
         self.ping(fail=do_fail)
@@ -519,7 +497,7 @@ class eBPFflags(eBPFtest):
         eBPFtest.__init__(self, src, dut, obj_name="pass.o", tc_flags="",
                           group=group, name=name, summary=summary)
 
-    def run_ebpf(self):
+    def execute(self):
         # The default one in this class should have no skip flags
         _, out = self.dut.cmd('tc filter show dev %s ingress' % (self.dut_ifn[0]))
         if out.find('skip_') != -1:
@@ -530,7 +508,7 @@ class eBPFflags(eBPFtest):
             self.dut.cmd('tc filter del dev %s ingress protocol all pref 49151 bpf' %
                          (self.dut_ifn[0]))
 
-            ret = self.filter_load(flags=flag)
+            ret = self.tc_bpf_load(flags=flag)
             if ret:
                 return NrtResult(name=self.name,
                                  testtype=self.__class__.__name__,
@@ -551,10 +529,10 @@ class eBPFtc_off(eBPFtest):
                           tc_flags="skip_hw", group=group, name=name,
                           summary=summary)
 
-    def run_ebpf(self):
+    def execute(self):
         self.dut.cmd('ethtool -K %s hw-tc-offload off' % (self.dut_ifn[0]))
 
-        ret = self.filter_load(flags="skip_sw")
+        ret = self.tc_bpf_load(flags="skip_sw")
         if ret == 0:
             raise NtiGeneralError("loaded hw-only filter with tc offloads disabled")
 
@@ -564,8 +542,8 @@ class eBPFtwo_prog(eBPFtest):
                           tc_flags="skip_sw", group=group, name=name,
                           summary=summary)
 
-    def run_ebpf(self):
-        ret = self.filter_load(flags="skip_sw")
+    def execute(self):
+        ret = self.tc_bpf_load(flags="skip_sw")
         if ret == 0:
             raise NtiGeneralError("loaded more than one filter")
 
@@ -575,9 +553,9 @@ class eBPFmtu(eBPFtest):
                           tc_flags="skip_hw", group=group, name=name,
                           summary=summary)
 
-    def run_ebpf(self):
+    def execute(self):
         self.dut.cmd('ifconfig %s mtu 3000' % (self.dut_ifn[0]))
-        ret = self.filter_load(flags="skip_sw")
+        ret = self.tc_bpf_load(flags="skip_sw")
         self.dut.cmd('ifconfig %s mtu 1500' % (self.dut_ifn[0]))
 
         if ret == 0:
@@ -589,9 +567,9 @@ class eBPFharden(eBPFtest):
                           tc_flags="skip_sw", group=group, name=name,
                           summary=summary)
 
-    def run_ebpf(self):
+    def execute(self):
         self.dut.cmd('sysctl net.core.bpf_jit_enable=1; sysctl net.core.bpf_jit_harden=2')
-        ret = self.filter_load(flags="skip_sw")
+        ret = self.tc_bpf_load(flags="skip_sw")
         self.dut.cmd('sysctl net.core.bpf_jit_enable=0; sysctl net.core.bpf_jit_harden=0')
         if ret == 0:
             raise NtiGeneralError("loaded filter with hardening")

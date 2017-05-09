@@ -7,8 +7,10 @@ BPF base test class
 
 import netro.testinfra
 from netro.testinfra.test import *
+from netro.testinfra.nrt_result import NrtResult
+from common_test import *
 
-class eBPFtest(Test):
+class eBPFtest(CommonTest):
     """Test class for eBPF"""
     # Information applicable to all subclasses
     _gen_info = """
@@ -27,21 +29,12 @@ class eBPFtest(Test):
         @name:       Name for this test instance
         @summary:    Optional one line summary for the test
         """
-        Test.__init__(self, group, name, summary)
+        CommonTest.__init__(self, src, dut, group, name, summary)
 
-        self.src = None
-        self.src_ifn = None
         self.act = act
 
         if dut[0]:
             # src and dst maybe None if called without config file for list
-            self.dut = dut[0]
-            self.dut_addr = dut[1]
-            self.dut_ifn = dut[2]
-            self.dut_addr6 = dut[3]
-            self.src = src[0]
-            self.src_addr = src[1]
-            self.src_ifn = src[2]
             self.obj_name = obj_name
             self.tc_flags = tc_flags
             self.should_fail = should_fail
@@ -127,19 +120,7 @@ class eBPFtest(Test):
                 self.validate_cntr_pair(diff.tc_ing, 'tc_49151', NO_PKTS)
 
 
-    def filter_load(self, obj=None, flags=None):
-        if not obj:
-            obj = self.obj_name
-        if not flags:
-            flags = self.tc_flags
-
-        ret, _ = self.dut.cmd('tc filter add dev %s parent ffff:  bpf obj %s %s %s' %
-                              (self.dut_ifn[0], obj, flags, self.act),
-                              fail=False)
-        return ret
-
-
-    def start(self):
+    def prepare(self):
         """
         Prepare for running eBPF test
         """
@@ -150,14 +131,14 @@ class eBPFtest(Test):
         self.dut.cmd('tc qdisc add dev %s ingress' % (self.dut_ifn[0]))
         self.dut.cmd('tc filter add dev %s parent ffff:  handle 0xcafe fw action pass' % (self.dut_ifn[0]))
 
-        ret = self.filter_load()
+        ret = self.tc_bpf_load()
 
         if ret and not self.should_fail:
-            self.stop()
+            self.cleanup()
             return NrtResult(name=self.name, testtype=self.__class__.__name__,
                              passed=False, comment="Unable to load filter")
         if not ret and self.should_fail:
-            self.stop()
+            self.cleanup()
             return NrtResult(name=self.name, testtype=self.__class__.__name__,
                              passed=False, comment="Loading this filter should fail")
 
@@ -166,32 +147,8 @@ class eBPFtest(Test):
         return None
 
 
-    def stop(self):
+    def cleanup(self):
         """
         Clean up after eBPF test
         """
         self.dut.cmd('tc qdisc del dev %s ingress' % self.dut_ifn[0])
-
-
-    def run_ebpf(self):
-        pass # Implement this in inheriting classes
-
-
-    def run(self):
-        res = self.start()
-        if res:
-            return res
-
-        try:
-            self.run_ebpf()
-        except StrException as e:
-            res = NrtResult(name=self.name, testtype=self.__class__.__name__,
-                            passed=False, comment=e.v)
-
-        self.stop()
-
-        if res:
-            return res
-
-        return NrtResult(name=self.name, testtype=self.__class__.__name__,
-                         passed=True)
