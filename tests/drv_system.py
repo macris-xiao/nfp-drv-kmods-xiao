@@ -69,6 +69,21 @@ class DrvSystem(System):
 
         return
 
+    def count_our_netdevs(self):
+        cmd = 'ls /sys/bus/pci/devices/%s/net/ | wc -l' % self.grp.pci_dbdf
+
+        _, out = self.cmd(cmd)
+
+        return int(out)
+
+    def devlink_split(self, index, count, fail=True):
+        return self.cmd('devlink port split pci/%s/%d count %d' %
+                        (self.grp.pci_dbdf, index, count), fail=fail)
+
+    def devlink_unsplit(self, index, fail=True):
+        return self.cmd('devlink port unsplit pci/%s/%d' %
+                        (self.grp.pci_dbdf, index), fail=fail)
+
     def ethtool_get_autoneg(self, ifc):
         _, out = self.cmd('ethtool %s | grep Auto-negotiation' % (ifc))
 

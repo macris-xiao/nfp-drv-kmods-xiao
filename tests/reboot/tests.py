@@ -5,6 +5,7 @@
 Unit test group for the NFP Linux driver tests which require a reboot.
 """
 
+import random
 import netro.testinfra
 from netro.testinfra.test import *
 from ..drv_grp import NFPKmodGrp
@@ -29,6 +30,8 @@ class NFPKmodReboot(NFPKmodGrp):
         src = (self.host_a, self.addr_a, self.eth_a, self.addr_v6_a)
 
         T = (('set_speed', SpeedSet, "Flip speed and reboot machine"),
+             ('port_split', DevlinkSplit,
+              "Split/unspliet port and reboot in between"),
         )
 
         for t in T:
@@ -146,3 +149,130 @@ class SpeedSet(CommonNetdevTest):
             if speeds[0] == cur_speed:
                 return
             speeds = speeds[1:] + speeds[:1]
+
+class DevlinkSplit(CommonNetdevTest):
+    def check_fails_split(self, idx, bad_counts):
+        for count in bad_counts:
+            ret, _ = self.dut.devlink_split(idx, count, fail=False)
+            if ret == 0:
+                raise NtiError('Split %d to %d did not fail' % (idx, count))
+
+    def check_fails_unsplit(self, idx):
+        ret, _ = self.dut.devlink_unsplit(idx, fail=False)
+        if ret == 0:
+            raise NtiError('Unsplit %d did not fail' % (idx))
+
+    def check_all_fails(self, idx, bad_counts):
+        self.check_fails_split(idx, bad_counts)
+        self.check_fails_unsplit(idx)
+
+    def unsplit_check(self, card_info):
+        cur_cnt = self.dut.count_our_netdevs()
+        bad_ports = range(cur_cnt, cur_cnt + 2)
+        if card_info[0] > 1:
+            bad_ports.append(0) # fail because of order
+        bad_ports.append(-1)
+
+        if cur_cnt != card_info[0] * card_info[1]:
+            raise NtiError('Netdev counts not %d' % (cur_cnt))
+
+        for i in range(-1, cur_cnt + 2):
+            self.check_fails_split(i, range(-1, 9))
+
+        for i in bad_ports:
+            self.check_fails_unsplit(i)
+
+    def unsplit(self, card_info):
+        for i in list(reversed(range(0, card_info[0]))):
+            # Pick the unsplit port at random. Remember NFP's special numbering.
+            no_ports = card_info[0]
+            ex_ports = card_info[1] - 1
+            first_bo_port = no_ports + ex_ports * i
+            idxs = range(first_bo_port, first_bo_port + ex_ports)
+            idxs.append(i)
+
+            self.dut.devlink_unsplit(random.choice(idxs))
+
+        cur_cnt = self.dut.count_our_netdevs()
+        if cur_cnt:
+            raise NtiError('Not all netdevs disappeared %d left' % (cur_cnt))
+
+    def split_check(self, card_info):
+        cur_cnt = self.dut.count_our_netdevs()
+        bad_ports = range(cur_cnt, cur_cnt + 2)
+        if card_info[0] > 1:
+            bad_ports.append(cur_cnt - 1) # fail because of order
+        bad_ports.append(-1)
+
+        if cur_cnt != card_info[0]:
+            raise NtiError('Netdev counts not %d' % (cur_cnt))
+
+        for i in bad_ports:
+            self.check_fails_split(i, range(-1, 9))
+
+        for i in range(-1, cur_cnt + 2):
+            self.check_fails_unsplit(i)
+
+    def split(self, card_info):
+        for i in range(0, card_info[0]):
+            self.dut.devlink_split(i, card_info[1])
+
+        cur_cnt = self.dut.count_our_netdevs()
+        if cur_cnt:
+            raise NtiError('Not all netdevs disappeared %d left' % (cur_cnt))
+
+    def reboot(self, partno, card_info, split):
+        if split:
+            media = '_%dx%d' % (card_info[0] * card_info[1], card_info[2])
+        else:
+            media = '_%dx%d' % (card_info[0], card_info[1] * card_info[2])
+
+        fwname = 'nic_' + partno + media + '.nffw'
+
+        CommonNetdevTest.reboot(self, fwname)
+
+    def netdev_execute(self):
+        if not self.dut.netdevfw_dir:
+            raise NtiSkip('This test requires "netdevfw_dir" in the config')
+
+        # Check for old NSP
+        if self.dut.get_nsp_ver(self.dut_ifn[0]) < 15:
+            self.check_fails_all(all_speeds)
+            return
+
+        supported_splits = {
+            "AMDA0081-0001"	:	(1, 4, 10),
+            "AMDA0097-0001"	:	(2, 4, 10),
+        }
+
+        partno = self.dut.get_hwinfo('assembly.partno')
+        cur_cnt = self.dut.count_our_netdevs()
+
+        # All cards not in supported_splits can't do splits
+        if not partno in supported_splits:
+            for i in range(-1, cur_cnt + 2):
+                self.check_all_fails(i, range(-1, 9))
+            return
+
+        card_info = supported_splits[partno]
+        n_ports = card_info[0]
+        divisor = card_info[1]
+
+        # Make sure all ports have the same count (simplify things)
+        if cur_cnt != n_ports and cur_cnt % divisor != 0:
+            raise NtiError("Ports don't all have the same split")
+
+        if cur_cnt != n_ports:
+            self.unsplit_check(card_info)
+            self.unsplit(card_info)
+            self.reboot(partno, card_info, False)
+
+        self.split_check(card_info)
+        self.split(card_info)
+        self.reboot(partno, card_info, True)
+        self.unsplit_check(card_info)
+
+        if cur_cnt == n_ports:
+            self.unsplit(card_info)
+            self.reboot(partno, card_info, False)
+            self.split_check(card_info)
