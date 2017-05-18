@@ -3,6 +3,7 @@
 ##
 
 import os
+import time
 from netro.testinfra.nrt_result import NrtResult
 from netro.testinfra.nti_exceptions import NtiGeneralError
 from netro.testinfra.test import Test
@@ -252,3 +253,25 @@ class CommonNetdevTest(CommonTest):
 
     def cleanup(self):
         self.dut.reset_mods()
+
+    def reboot(self):
+        self.dut.reset_mods()
+        self.dut.cmd('reboot')
+        # Give it time to go down
+        time.sleep(10)
+
+        ret = -1
+        wait = 400
+        while ret != 0:
+            ret, _ = self.src.cmd('ping -W 1 -c 1 %s' % (self.dut.host),
+                                  fail=False)
+            wait -= 1
+            if wait == 0:
+                raise NtiError('Waiting for reboot timed out')
+
+        # Give it time to come up
+        time.sleep(5)
+
+        self.dut.__init__(self.dut.host, self.dut.grp)
+        self.group._init()
+        self.netdev_prep()
