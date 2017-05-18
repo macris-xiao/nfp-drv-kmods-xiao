@@ -196,7 +196,7 @@ class NFPKmodGrp(netro.testinfra.Group):
 
         self.dut.insmod()
 
-        _, out = self.dut.cmd('lspci -d "19ee:" | cut -d" " -f1')
+        _, out = self.dut.cmd('lspci -D -d "19ee:" | cut -d" " -f1')
         devices = out.split()
 
         # Resolve serial if given
@@ -215,7 +215,7 @@ class NFPKmodGrp(netro.testinfra.Group):
                 if serial != self.serial:
                     continue
 
-                cmd = 'ls /sys/bus/pci/devices/0000:%s/cpp' % (devices[i])
+                cmd = 'ls /sys/bus/pci/devices/%s/cpp' % (devices[i])
                 cmd += ' | sed -n "s/nfp-dev-cpp.\([0-9]*\)/\\1/p"'
                 _, num = self.dut.cmd(cmd)
 
@@ -226,7 +226,8 @@ class NFPKmodGrp(netro.testinfra.Group):
                                       self.serial)
 
         # Figure out PCI ID
-        self.pci_id = devices[self.nfp]
+        self.pci_id = devices[self.nfp][5:]
+        self.pci_dbdf = devices[self.nfp]
 
         self.tmpdir = self.host_a.make_temp_dir()
 
