@@ -231,14 +231,19 @@ class CommonNTHTest(CommonTest):
 
 
 class CommonNetdevTest(CommonTest):
-    def netdev_prep(self):
+    def netdev_prep(self, fwname=None):
         M = self.dut
+
+        if not fwname:
+            fwname = self.group.netdevfw
+        else:
+            fwname = os.path.join(self.dut.netdevfw_dir, fwname)
 
         M.insmod(netdev=True, userspace=True)
         ret, _ = M.cmd_rtsym('_pf0_net_bar0', fail=False)
         if ret != 0:
             M.nffw_unload()
-            M.nffw_load('%s' % self.group.netdevfw)
+            M.nffw_load('%s' % fwname)
             M.rmmod()
             M.insmod(netdev=True, userspace=True)
 
@@ -254,7 +259,7 @@ class CommonNetdevTest(CommonTest):
     def cleanup(self):
         self.dut.reset_mods()
 
-    def reboot(self):
+    def reboot(self, fwname=None):
         self.dut.reset_mods()
         self.dut.cmd('reboot')
         # Give it time to go down
@@ -274,4 +279,4 @@ class CommonNetdevTest(CommonTest):
 
         self.dut.__init__(self.dut.host, self.dut.grp)
         self.group._init()
-        self.netdev_prep()
+        self.netdev_prep(fwname=fwname)

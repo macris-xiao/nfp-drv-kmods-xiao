@@ -26,6 +26,7 @@ class DrvSystem(System):
 
         self.part_no = None
         self.fw_name = None
+        self.netdevfw_dir = None
         self.grp = grp
         self.tmpdir = self.make_temp_dir()
 
@@ -45,6 +46,9 @@ class DrvSystem(System):
         self.cp_to(self.grp.nfpkmod, self.mod)
         self.mod_nth = os.path.join(self.tmpdir, 'nfp_test_harness.ko')
         self.cp_to(self.grp.nthkmod, self.mod_nth)
+        if self.grp.netdevfw_dir:
+            self.netdevfw_dir = os.path.join(self.tmpdir, "netdevfw")
+            self.cp_to(self.grp.netdevfw_dir, self.netdevfw_dir)
 
         self.cmd('modprobe devlink; modprobe vxlan', fail=False)
         self._mods = set()
