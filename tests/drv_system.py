@@ -139,6 +139,14 @@ class DrvSystem(System):
         LOG_endsec()
         return
 
+    def refresh_nfp_id(self, dbdf):
+        ret, out = self.cmd('ls /sys/bus/pci/devices/%s/cpp' % (dbdf),
+                            fail=False)
+        if ret != 0 and not self.grp.nfp is None:
+            return
+
+        self.grp.nfp = int(re.search('nfp-dev-cpp\.(\d*)', out).group(1))
+
     def insmod(self, module=None, netdev=False, userspace=None, reset=None,
                params='', fail=True):
         if not module:
@@ -153,14 +161,19 @@ class DrvSystem(System):
             params += ' nfp_reset=%d' % reset
 
         ret, out = self.cmd('insmod %s %s' % (module, params), fail=fail)
-        # Store the module name for cleanup
         if ret == 0:
+            # Store the module name for cleanup
             m = os.path.basename(module)
             m = os.path.splitext(m)[0]
             self._mods.add(m)
-        # Select the NFP if it's NTH
-        if module == self.mod_nth:
-            self.dfs_write('nth/id', self.grp.nfp)
+
+            # Make sure we have up-to-date NFP id
+            if m == 'nfp' and hasattr(self.grp, 'pci_dbdf') and \
+               (not netdev or userspace):
+                self.refresh_nfp_id(self.grp.pci_dbdf)
+            # Select the NFP if it's NTH
+            elif module == self.mod_nth:
+                self.dfs_write('nth/id', self.grp.nfp)
         return ret, out
 
     def rmmod(self, module="nfp"):

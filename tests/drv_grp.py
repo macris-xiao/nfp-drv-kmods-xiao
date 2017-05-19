@@ -217,19 +217,15 @@ class NFPKmodGrp(netro.testinfra.Group):
                 if serial != self.serial:
                     continue
 
-                cmd = 'ls /sys/bus/pci/devices/%s/cpp' % (devices[i])
-                cmd += ' | sed -n "s/nfp-dev-cpp.\([0-9]*\)/\\1/p"'
-                _, num = self.dut.cmd(cmd)
-
-                self.nfp = int(num)
+                # Figure out IDs
+                self.dut.refresh_nfp_id(devices[i])
+                self.pci_id = devices[i][5:]
+                self.pci_dbdf = devices[i]
+                break
 
             if self.nfp is None:
                 raise NtiGeneralError("Couldn't find device is SN: %s" %
                                       self.serial)
-
-        # Figure out PCI ID
-        self.pci_id = devices[self.nfp][5:]
-        self.pci_dbdf = devices[self.nfp]
 
         self.tmpdir = self.host_a.make_temp_dir()
 
