@@ -57,7 +57,9 @@ class NFPKmodUnit(NFPKmodGrp):
              ('ethtool_aneg', AutonegEthtool,
               "Test setting autonegotiation with ethtool"),
              ('mtu_flbufsz_check', MtuFlbufCheck,
-              "Check if driver sets correct fl_bufsz and mtu")
+              "Check if driver sets correct fl_bufsz and mtu"),
+             ('devlink_port_show', DevlinkPortsShow,
+              "Check basic devlink port output"),
         )
 
         for t in T:
@@ -869,3 +871,48 @@ class MtuFlbufCheck(CommonNetdevTest):
         self.check(True)
 
         self.xdp_stop()
+
+class DevlinkPortsShow(CommonNetdevTest):
+    def netdev_execute(self):
+        if self.kernel_min(4, 6):
+            raise NtiSkip("Devlink needs kernel 4.6 or newer")
+
+        dev = "pci/%s" % (self.group.pci_dbdf)
+
+        _, phy = self.dut.cmd_phymod('-E | grep "^eth"')
+        ports = [l.split() for l in phy.split('\n') if l != ""]
+
+        _, dl = self.dut.cmd('devlink port show | grep %s' % (dev))
+        dl_ports = [l.split() for l in dl.split('\n') if l != ""]
+
+        if len(ports) != len(dl_ports):
+            raise NtiError("Unexpected port count bsp:%d vs devlink:%d" %
+                           (len(ports), len(dl_ports)))
+
+        for p in ports:
+            # Decode phymod output
+            ethX  = p[0]
+            label = p[2]
+            mac   = p[3]
+
+            port = re.match("eth(\d*):", ethX).group(1)
+
+            labels = re.match('"(\d*)\.(\d*)"', label).groups()
+            main_port = labels[0]
+            subport   = labels[1]
+
+            # Get netdev and verify it has right MAC addr
+            cmd = 'devlink port show %s/%s' % (dev, port)
+            _, dl_port = self.dut.cmd(cmd)
+
+            netdev = re.match(".*netdev (\w*).*", dl_port).group(1)
+            self.dut.cmd('ip link show dev %s | grep %s' % (netdev, mac))
+
+            # Check split group
+            if dl_port.find('split') != -1:
+                split = re.match(".*split_group (\w*).*", dl_port).group(1)
+                if split != main_port:
+                    raise NtiError("Split group %s, should be %s" %
+                                   (split, main_port))
+            elif subport != "0":
+                raise NtiError("Split group not reported for non-0th subport")

@@ -79,6 +79,9 @@ class Tools(CommonTest):
         ret, _ = self.dut.cmd('hping3 -h', fail=False)
         if ret:
             raise NtiGeneralError("hping3 not installed on DUT")
+        ret, _ = self.dut.cmd('devlink', fail=False)
+        if ret:
+            raise NtiGeneralError("devlink not installed on DUT")
 
 class Mefw(CommonTest):
     def execute(self):
