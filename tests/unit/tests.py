@@ -533,6 +533,12 @@ class NetdevTest(CommonDrvTest):
         if not ret:
             raise NtiGeneralError('SR-IOV VF limit not obeyed')
 
+        if max_vfs > 0:
+            _, out = M.cmd('cat /sys/bus/pci/devices/%s/sriov_totalvfs' %
+                           (self.group.pci_dbdf))
+            if int(out) != max_vfs:
+                raise NtiError("SR-IOV VF limit not reported")
+
 class PhysPortName(CommonNetdevTest):
     def prepare(self):
         return self.kernel_min(4, 1)
