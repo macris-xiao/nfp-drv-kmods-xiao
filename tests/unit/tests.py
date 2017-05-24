@@ -40,6 +40,7 @@ class NFPKmodUnit(NFPKmodGrp):
              ('nsp_eth_table', NspEthTable, "Test NSP ETH table functions"),
              ('hwinfo', HWInfoTest, 'Test in-kernel HWInfo interface'),
              ('bsp_version', BspVerTest, "Test NSP BSP Version function"),
+             ('sensors', SensorsTest, "Test Hwmon sensors functionality"),
              ('rtsym', RTSymTest, 'Test in-kernel RT-Sym interface'),
              ('fw_names', FwSearchTest, "Test FW requested by the driver"),
              ('sriov', SriovTest, 'Test SR-IOV sysfs interface'),
@@ -328,6 +329,44 @@ class BspVerTest(CommonDrvTest):
                 raise NtiGeneralError('bad bsp version format: %s' % ver)
             if False == all(c in '0123456789abcdefABCDEF' for c in comp[i]):
                 raise NtiGeneralError('bad bsp version format (char): %s' % ver)
+
+class SensorsTest(CommonDrvTest):
+    def get_attr(self, array, attr):
+        for s in array :
+            if attr in s :
+                return s
+        raise NtiError('didn\'t find attr: %s', attr)
+
+    def execute(self):
+        M = self.dut
+
+        M.insmod()
+        self.nsp_min(15)
+
+        ret, out = M.cmd('sensors -u nfp-pci-%s%s' %
+                         (self.group.pci_id[0:2], self.group.pci_id[3:5]))
+        if ret != 0:
+            raise NtiError('sensors not found')
+        lines = out.splitlines()
+
+        temp = float(self.get_attr(lines, "temp1_input").split(':')[1])
+        high = float(self.get_attr(lines, "temp1_max").split(':')[1])
+        crit = float(self.get_attr(lines, "temp1_crit").split(':')[1])
+
+        if int(high) != 95:
+                raise NtiError('invalid high temp val')
+        if int(crit) != 105:
+                raise NtiError('invalid crit temp val')
+        if int(temp) < 15 or int(temp) > 80:
+                raise NtiError('invalid temp')
+
+        power = float(self.get_attr(lines, "power1_input").split(':')[1])
+        power_lim = float(self.get_attr(lines, "power1_max").split(':')[1])
+
+        if int(power) < 5 or int(power) > 25 :
+                raise NtiError('invalid power limit')
+        if int(power_lim) != 25:
+                raise NtiError('invalid power val')
 
 class RTSymTest(CommonTest):
     def __init__(self, src, dut, group=None, name="", summary=None):
