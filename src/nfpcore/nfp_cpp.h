@@ -231,15 +231,6 @@ static inline int NFP_CPP_STEPPING_decode(const char *_str_major_minor)
 #define NFP_CPP_MODEL_IS_6000(model)		     \
 	(NFP_CPP_MODEL_CHIP_of(model) == 0x6200)
 
-/**
- * \brief NFP_CPP_MODEL_IS_3800 - Check for the NFP3800 family of devices
- *
- * @param[in]	model	NFP CPP model id
- * @return		true if model is in the NFP3800 family, false otherwise.
- */
-#define NFP_CPP_MODEL_IS_3800(model)		     \
-	(NFP_CPP_MODEL_CHIP_of(model) == 0x3800) 
-
 /* NFP Interface types - logical interface for this CPP connection
  * 4 bits are reserved for interface type.
  */ 
