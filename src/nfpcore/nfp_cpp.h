@@ -229,12 +229,11 @@ static inline int NFP_CPP_STEPPING_decode(const char *_str_major_minor)
  * Return:      true if model is in the NFP6000 family, false otherwise.
  */
 #define NFP_CPP_MODEL_IS_6000(model)		     \
-	((0x4000 <= NFP_CPP_MODEL_CHIP_of(model)) && \
-	 (NFP_CPP_MODEL_CHIP_of(model) < 0x7000))
+	(NFP_CPP_MODEL_CHIP_of(model) == 0x6200)
 
 /* NFP Interface types - logical interface for this CPP connection
  * 4 bits are reserved for interface type.
- */
+ */ 
 #define NFP_CPP_INTERFACE_TYPE_INVALID      0x0
 #define NFP_CPP_INTERFACE_TYPE_PCI          0x1
 #define NFP_CPP_INTERFACE_TYPE_ARM          0x2
