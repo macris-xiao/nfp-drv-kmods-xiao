@@ -195,6 +195,27 @@ class XDPcmp(XDPTest):
         self.tcpping(0)
         self.ping6(0)
 
+class XDPpassDPArd(XDPpassBase):
+    def get_src_pkt(self):
+        pkt = ''
+        for b in self.group.hwaddr_x[0].split(':'):
+            pkt += chr(int('0x' + b, 16))
+        for b in self.group.hwaddr_a[0].split(':'):
+            pkt += chr(int('0x' + b, 16))
+        pkt += '\x12\x23\x00\x00'
+
+        pkt += '\xaa' * 16
+        pkt += '\x01\x02\x03\x04\x05\x06\x07\x08'
+        pkt += '\xbb' * 32
+
+        return pkt
+
+    def get_exp_pkt(self):
+        return self.get_src_pkt()
+
+    def get_prog_name(self):
+        return 'dpa_read.o'
+
 ###############################################################################
 # TX tests
 ###############################################################################
