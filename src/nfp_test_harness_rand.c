@@ -207,7 +207,8 @@ static ssize_t nth_rand_r_write(struct file *file, const char __user *user_buf,
 			addr = nth_rand_addr(size);
 			nth_update_rand_state(&entry, 'a', addr, size);
 
-			res = nfp_cpp_area_alloc_acquire(cpp, dst, addr, size);
+			res = nfp_cpp_area_alloc_acquire(cpp, NULL,
+							 dst, addr, size);
 			if (!res) {
 				pr_err("ERR: Alloc/acquire area failed!\n");
 				continue;
