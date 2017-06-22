@@ -672,13 +672,15 @@ static inline void devlink_free(struct devlink *p)
 }
 #endif
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 7, 0)
+#if VER_VANILLA_LT(4, 7) || VER_RHEL_LT(7, 4)
 static inline void
 netif_trans_update(struct net_device *netdev)
 {
 	netdev->trans_start = jiffies;
 }
+#endif
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 7, 0)
 static inline int
 debugfs_use_file_start(const void *a, const void *b)
 {
