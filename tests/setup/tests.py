@@ -48,11 +48,14 @@ class NFPKmodSetup(NFPKmodGrp):
                                           "Test the setup for XDP")
         self._tests['python'] = PythonTest(src, dut, self, 'python',
                                            "Test Python installation")
+        self._tests['bpf_tools'] = \
+                BPFSetupToolsTest(src, dut, self, 'bpf_tools',
+                                  "Test if BPF tools are present")
         return
 
 
 import os
-from netro.testinfra.nti_exceptions import NtiGeneralError
+from netro.testinfra.nti_exceptions import NtiError, NtiGeneralError
 from netro.testinfra.nrt_result import NrtResult
 
 class Insmod(CommonDrvTest):
@@ -137,3 +140,9 @@ class PythonTest(CommonTest):
     def execute(self):
         self.read_sym_nffw('nfd_cfg_pf0_num_ports')
         self.read_sym_nffw('blabla_bad_symbol')
+
+class BPFSetupToolsTest(CommonTest):
+    def execute(self):
+        ret, _ = self.dut.cmd('ip link set lo xdpoffload off', fail=False)
+        if ret != 2:
+            raise NtiError("ip link doesn't have xdp offload mode support")
