@@ -216,6 +216,9 @@ class CommonDrvTest(CommonTest):
 
 class CommonNTHTest(CommonTest):
     def execute(self):
+        if self.group.upstream_drv:
+            raise NtiSkip("NTH test on upstream")
+
         M = self.dut
 
         M.insmod()

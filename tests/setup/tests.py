@@ -55,11 +55,11 @@ from netro.testinfra.nrt_result import NrtResult
 
 class Insmod(CommonDrvTest):
     def execute(self):
-        ret, _ = self.dut.cmd('insmod %s' % (self.dut.mod), fail=False)
+        ret, _ = self.dut.insmod(fail=False)
         if ret != 0:
             raise NtiGeneralError("Couldn't load the module")
 
-        ret, _ = self.dut.cmd('insmod %s' % (self.dut.mod_nth), fail=False)
+        ret, _ = self.dut.insmod('nth', fail=False)
         if ret != 0:
             raise NtiGeneralError("Couldn't load the test module")
 

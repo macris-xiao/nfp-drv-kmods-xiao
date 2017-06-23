@@ -9,6 +9,7 @@ import os
 import netro.testinfra
 from netro.testinfra.system import *
 from netro.testinfra.nti_exceptions import NtiGeneralError
+from common_test import NtiSkip
 
 class NfpNfdCtrl:
     MTU        = 0x18
@@ -42,10 +43,15 @@ class DrvSystem(System):
             self.dfs_dir = dfs_mount.split()[2]
 
         # Copy driver and firmware images
-        self.mod = os.path.join(self.tmpdir, 'nfp.ko')
-        self.cp_to(self.grp.nfpkmod, self.mod)
-        self.mod_nth = os.path.join(self.tmpdir, 'nfp_test_harness.ko')
-        self.cp_to(self.grp.nthkmod, self.mod_nth)
+        if self.grp.upstream_drv:
+            self.mod = self.grp.nfpkmod
+            self.mod_nth = ''
+        else:
+            self.mod = os.path.join(self.tmpdir, 'nfp.ko')
+            self.cp_to(self.grp.nfpkmod, self.mod)
+            self.mod_nth = os.path.join(self.tmpdir, 'nfp_test_harness.ko')
+            self.cp_to(self.grp.nthkmod, self.mod_nth)
+
         if self.grp.netdevfw_dir:
             self.netdevfw_dir = os.path.join(self.tmpdir, "netdevfw")
             self.cp_to(self.grp.netdevfw_dir, self.netdevfw_dir)
@@ -164,16 +170,24 @@ class DrvSystem(System):
 
     def insmod(self, module=None, netdev=False, userspace=None, reset=None,
                params='', fail=True):
-        if not module:
+        if not module or module == 'nfp':
             module = self.mod
+
+            if not netdev is None:
+                params += ' nfp_pf_netdev=%d' % netdev
+            if not userspace is None:
+                params += ' nfp_dev_cpp=%d' % userspace
+            if not reset is None:
+                params += ' nfp_reset=%d' % reset
+
+            if self.grp.upstream_drv and params != '':
+                raise NtiSkip("Upstream has no params")
+
         elif module == "nth":
             module = self.mod_nth
-        if module == self.mod and not netdev is None:
-            params += ' nfp_pf_netdev=%d' % netdev
-        if module == self.mod and not userspace is None:
-            params += ' nfp_dev_cpp=%d' % userspace
-        if module == self.mod and not reset is None:
-            params += ' nfp_reset=%d' % reset
+
+            if self.grp.upstream_drv:
+                raise NtiSkip("Upstream has no NTH")
 
         ret, out = self.cmd('insmod %s %s' % (module, params), fail=fail)
         if ret == 0:

@@ -101,7 +101,7 @@ class NFPKmodGrp(netro.testinfra.Group):
         # If no config was provided these will be None.
         self.noclean = False
         self.rm_fw_dir = False
-        self.upstream_drv = True
+        self.upstream_drv = False
         self.tun_net = None
 
         self.dut = None
@@ -196,8 +196,6 @@ class NFPKmodGrp(netro.testinfra.Group):
             else:
                 raise NtiGeneralError('ERROR: driver tests require standard firmware directory to not be present!   Please remove the /lib/firmware/netronome/ directory!')
 
-        self.dut.insmod()
-
         _, out = self.dut.cmd('lspci -D -d "19ee:" | cut -d" " -f1')
         devices = out.split()
 
@@ -218,12 +216,11 @@ class NFPKmodGrp(netro.testinfra.Group):
                     continue
 
                 # Figure out IDs
-                self.dut.refresh_nfp_id(devices[i])
                 self.pci_id = devices[i][5:]
                 self.pci_dbdf = devices[i]
                 break
 
-            if self.nfp is None:
+            if self.pci_id is None:
                 raise NtiGeneralError("Couldn't find device is SN: %s" %
                                       self.serial)
 
@@ -298,6 +295,9 @@ class NFPKmodGrp(netro.testinfra.Group):
             self.serial = self.cfg.get("DUT", "serial")
         if self.cfg.has_option("DUT", "bsppath"):
             self.bsppath = self.cfg.get("DUT", "bsppath")
+
+        if self.upstream_drv:
+            self.nfpkmod = '/lib/modules/`uname -r`/kernel/drivers/net/ethernet/netronome/nfp/nfp.ko'
 
         self.dut = DrvSystem(self.cfg.get("DUT", "name"), self,
                              quick=self.quick)

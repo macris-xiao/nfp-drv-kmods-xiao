@@ -84,9 +84,11 @@ class Modinfo(CommonTest):
         entries = ['v000019EEd00006003sv000019EEsd',
                    'v000019EEd00004000sv000019EEsd',
                    'v000019EEd00006000sv000019EEsd',
-                   'v000019EEd00006010sv000019EEsd']
+                   'netronome/nic_AMDA0081-0001_1x40.nffw']
 
-        entries += ["netronome/%s" % self.dut.get_fw_name()]
+        if not self.group.upstream_drv:
+            entries += ['v000019EEd00006010sv000019EEsd',
+                        "netronome/%s" % self.dut.get_fw_name()]
 
         _, out = cmd_log('modinfo %s' % (self.group.nfpkmod))
 
