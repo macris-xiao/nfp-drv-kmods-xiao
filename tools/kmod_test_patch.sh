@@ -244,6 +244,8 @@ done
     kernels=
 
     ! [ -d "linux-next.git" ] && git clone git://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git linux-next.git
+    ! [ -d "linux.git" ] && git clone --reference linux-next.git git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git linux.git
+
     (
 	cd linux-next.git/
 	git checkout master
@@ -279,6 +281,16 @@ done
 	    linux32 make CC=$DEFAULT_CC O=../linux-next-32bit/ local_defconfig
 	fi
 	make CC=$DEFAULT_CC O=../linux-next-32bit/ -j$NJ
+
+	#
+	# Prepare linux.git
+	#
+	cd ../linux.git/
+	git checkout master
+	git fetch --all
+	git reset --hard origin/master
+
+	build_kernel . ../linux
 
 	#
 	# Prepare nfp ARM build
@@ -389,6 +401,11 @@ done
 	    echo > ../build.log
 	    make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../linux-next M=`pwd`/src W=1 2>&1 | tee -a ../build.log
 	    make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../linux-next-32bit M=`pwd`/src W=1 2>&1 | tee -a ../build.log
+
+	    #
+	    # Build in linux
+	    #
+	    make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../linux M=`pwd`/src W=1 2>&1 | tee -a ../build.log
 
 	    #
 	    # Build with different configs
