@@ -142,7 +142,7 @@ class DrvSystem(System):
         if ifc:
             _, out = self.cmd('ethtool -i %s' % (ifc))
 
-            sp_ver = re.search('sp:([0-9.]*)', out)
+            sp_ver = re.search('firmware-version: [^ ]* (\d*\.\d*)', out)
             if not sp_ver:
                 raise NtiError("Can't get NSP version - ethtool output invalid")
 

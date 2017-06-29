@@ -769,7 +769,8 @@ class BSPDiag(CommonTest):
         M.refresh()
         netifs_new = M._netifs
 
-        regx_sp = re.compile('.*sp:(\d*\.\d*).*', re.M | re.S)
+        regx_sp = re.compile('.*firmware-version: [^ ]* (\d*\.\d*).*',
+                             re.M | re.S)
         for ifc in list(set(netifs_new) - set(netifs_old)):
             _, out = M.cmd('ethtool -i %s' % ifc)
 
