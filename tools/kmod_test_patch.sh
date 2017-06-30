@@ -31,7 +31,7 @@
 #
 
 # Environment version
-BUILD_ENV_VERSION=1
+BUILD_ENV_VERSION=2
 # Number of parallel builds
 [ -z "$NJ" ] && NJ=$(grep processor /proc/cpuinfo | wc -l)
 # Oldest kernel for which to test (in 3-digit format, 300 is 3.0, 303 is 3.3,
@@ -81,6 +81,7 @@ function local_kernel_config() {
     echo CONFIG_PCI_MSI=y
     echo CONFIG_NET=y
     echo CONFIG_NETDEVICES=y
+    echo CONFIG_NET_SWITCHDEV=y
     echo CONFIG_NET_CORE=y
     echo CONFIG_INET=y
     echo CONFIG_VXLAN=y
