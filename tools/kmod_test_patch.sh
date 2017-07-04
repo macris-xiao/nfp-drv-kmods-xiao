@@ -206,6 +206,7 @@ trap cleanup EXIT
 #
 
 skip_check_cnt=0
+next_cflags=CFLAGS_metadata.o=-Wno-implicit-fallthrough # ignore jhash.h warns
 
 # Parse options
 prev_p_cnt=$#
@@ -400,13 +401,13 @@ done
 	    # Build in linux-next
 	    #
 	    echo > ../build.log
-	    make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../linux-next M=`pwd`/src W=1 2>&1 | tee -a ../build.log
-	    make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../linux-next-32bit M=`pwd`/src W=1 2>&1 | tee -a ../build.log
+	    make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../linux-next M=`pwd`/src W=1 $next_cflags 2>&1 | tee -a ../build.log
+	    make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../linux-next-32bit M=`pwd`/src W=1 $next_cflags 2>&1 | tee -a ../build.log
 
 	    #
 	    # Build in linux
 	    #
-	    make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../linux M=`pwd`/src W=1 2>&1 | tee -a ../build.log
+	    make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../linux M=`pwd`/src W=1 $next_cflags 2>&1 | tee -a ../build.log
 
 	    #
 	    # Build with different configs
@@ -424,13 +425,13 @@ done
 		done
 
 		echo "Build with opts=$b_opts"
-		make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../linux-next M=`pwd`/src W=1 $b_opts 2>&1 | tee -a ../build.log
+		make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../linux-next M=`pwd`/src W=1 $next_cflags $b_opts 2>&1 | tee -a ../build.log
 	    done
 	    echo "Build with opts=CONFIG_NFP_TEST_HARNESS=m"
-	    make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../linux-next M=`pwd`/src W=1 CONFIG_NFP_TEST_HARNESS=m 2>&1 | tee -a ../build.log
+	    make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../linux-next M=`pwd`/src W=1 $next_cflags CONFIG_NFP_TEST_HARNESS=m 2>&1 | tee -a ../build.log
 	    echo "Build with opts=CONFIG_NFP_NET_PF=n CONFIG_NFP_NET_VF=n CONFIG_NFP_DEBUG=y"
 	    make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../linux-next M=`pwd`/src \
-		 W=1 CONFIG_NFP_NET_PF=n CONFIG_NFP_NET_VF=n CONFIG_NFP_DEBUG=y 2>&1 | tee -a ../build.log
+		 W=1 $next_cflags CONFIG_NFP_NET_PF=n CONFIG_NFP_NET_VF=n CONFIG_NFP_DEBUG=y 2>&1 | tee -a ../build.log
 
 	    #
 	    # Check sparse warnings
