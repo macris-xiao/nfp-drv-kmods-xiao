@@ -184,13 +184,8 @@ class DevlinkSplit(CommonNetdevTest):
 
     def unsplit(self, card_info):
         for i in list(reversed(range(0, card_info[0]))):
-            # Pick the unsplit port at random. Remember NFP's special numbering.
-            no_ports = card_info[0]
-            ex_ports = card_info[1] - 1
-            first_bo_port = no_ports + ex_ports * i
-            idxs = range(first_bo_port, first_bo_port + ex_ports)
-            idxs.append(i)
-
+            # Pick the unsplit port at random.
+            idxs = range(i * card_info[1], (i + 1) * card_info[1])
             self.dut.devlink_unsplit(random.choice(idxs))
 
         cur_cnt = self.dut.count_our_netdevs()
@@ -199,7 +194,8 @@ class DevlinkSplit(CommonNetdevTest):
 
     def split_check(self, card_info):
         cur_cnt = self.dut.count_our_netdevs()
-        bad_ports = range(cur_cnt, cur_cnt + 2)
+        bad_ports = [x for x in range(1, (cur_cnt + 1) * card_info[1])
+                        if x % card_info[1] != 0]
         if card_info[0] > 1:
             bad_ports.append(cur_cnt - 1) # fail because of order
         bad_ports.append(-1)
@@ -214,7 +210,7 @@ class DevlinkSplit(CommonNetdevTest):
             self.check_fails_unsplit(i)
 
     def split(self, card_info):
-        for i in range(0, card_info[0]):
+        for i in [x * card_info[1] for x in range(0, card_info[0])]:
             self.dut.devlink_split(i, card_info[1])
 
         cur_cnt = self.dut.count_our_netdevs()
