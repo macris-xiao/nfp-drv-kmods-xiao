@@ -61,6 +61,8 @@ class NFPKmodUnit(NFPKmodGrp):
               "Check if driver sets correct fl_bufsz and mtu"),
              ('devlink_port_show', DevlinkPortsShow,
               "Check basic devlink port output"),
+             ('port_config', IfConfigDownTest,
+              "Check interface operable after FW load with combinations of ifup/ifdown"),
         )
 
         for t in T:
@@ -961,3 +963,126 @@ class DevlinkPortsShow(CommonNetdevTest):
                                    (split, main_port))
             elif subport != "0":
                 raise NtiError("Split group not reported for non-0th subport")
+
+class IfConfigDownTest(CommonNetdevTest):
+    def wait_for_link_netdev(self, iface):
+        for i in range(0, 10):
+            ret, _ = self.dut.cmd('ip link show dev %s | grep LOWER_UP' %
+                                  (iface), fail=False)
+            if ret == 0:
+                return
+            time.sleep(0.2)
+
+        raise NtiError("Timeout waiting for UP on interface %s" % (iface))
+
+    def wait_for_link(self, iface, mac_addr):
+        for i in range(0, 16):
+            time.sleep(0.5)
+            _, nsp_state = self.dut.cmd_nsp(' -E | grep -EA1 "MAC:\s+%s" | grep -o "[+-]Link" | tr -d "\n"' %
+                                            mac_addr)
+            if nsp_state == "+Link":
+                self.wait_for_link_netdev(iface)
+                return
+
+        raise NtiError("Timeout waiting for Link on interface %s" % (iface))
+
+    def do_check_port(self, iface, mac_addr, expected_state):
+        _, nsp_state = self.dut.cmd_nsp(' -E | grep -EA1 "MAC:\s+%s" | grep -o "[+-]Configured" | tr -d "\n"' %
+                                        mac_addr)
+        if nsp_state != expected_state:
+            raise NtiError('Expected interface %s to be %s, got %s' %
+                           (iface, expected_state, nsp_state))
+
+    def check_other_ports(self, entry_to_exclude, list, expected_state):
+        for entry in list:
+            if entry[0] != entry_to_exclude[0]:
+                self.do_check_port(entry[0], entry[1], expected_state)
+
+    def check_other_ports_up(self, entry_to_exclude, list):
+        for entry in list:
+            if entry[0] != entry_to_exclude[0]:
+                self.do_check_port(entry[0], entry[1], "+Configured")
+                self.ping(entry[2])
+
+    def check_other_ports_down(self, entry_to_exclude, list):
+        for entry in list:
+            if entry[0] != entry_to_exclude[0]:
+                self.do_check_port(entry[0], entry[1], "-Configured")
+
+    def check_port_up(self, port_tuple):
+        iface = port_tuple[0]
+        mac_addr = port_tuple[1]
+        port = port_tuple[2]
+
+        self.dut.cmd('ifconfig %s up' % iface)
+        self.do_check_port(iface, mac_addr, "+Configured")
+        self.wait_for_link(iface, mac_addr)
+        self.ping(port)
+
+    def check_port_down(self, port_tuple):
+        iface = port_tuple[0]
+        mac_addr = port_tuple[1]
+
+        self.dut.cmd('ifconfig %s down' % iface)
+        self.do_check_port(iface, mac_addr, "-Configured")
+
+    def netdev_execute(self):
+        _, bsp_ver = self.dut.cmd_hwinfo('| awk -F "." "/bsp.version=/ {print \$4}" | tr -d "*"')
+        if int(bsp_ver,16) < 0x02003c:
+            raise NtiSkip("BSP NSP version of at least 0x02003c required to execute test.")
+
+        nsp_ifaces = ""
+        for port_index in range(0, len(self.dut_ifn)):
+            nsp_ifaces += "eth%d " % port_index
+
+        port_mac_tuple_list = []
+        for port in range(0, len(self.dut_ifn)):
+            iface = self.dut_ifn[port]
+            _, mac_addr = self.dut.cmd('cat /sys/class/net/%s/address | tr -d "\n"' %
+                                       iface)
+            port_mac_tuple_list.append((iface, mac_addr, port))
+
+        # Check for consistent interaction between userspace tools and netdev
+        # state
+        _, nsp_state = self.dut.cmd_nsp(' -C -config %s' % nsp_ifaces)
+        for entry in port_mac_tuple_list:
+            self.check_port_down(entry)
+
+        _, nsp_state = self.dut.cmd_nsp(' -C +config %s' % nsp_ifaces)
+        for entry in port_mac_tuple_list:
+            self.check_port_up(entry)
+
+        # Check netdev state on each port with other ports expected in the
+        # opposite state
+        for entry in port_mac_tuple_list:
+            self.check_port_down(entry)
+            self.check_other_ports_up(entry, port_mac_tuple_list)
+            self.check_port_up(entry)
+
+        self.ifc_all_down()
+        for entry in port_mac_tuple_list:
+            self.check_port_up(entry)
+            self.check_other_ports_down(entry, port_mac_tuple_list)
+            self.check_port_down(entry)
+
+        # If there is only a single port, the next tests don't test anything
+        # different.
+        if len(port_mac_tuple_list) == 1:
+            return
+
+        # Reorder the tests to check for port dependencies
+        for entry in reversed(port_mac_tuple_list):
+            self.check_port_up(entry)
+            self.check_other_ports_down(entry, port_mac_tuple_list)
+            self.check_port_down(entry)
+
+        for entry in reversed(port_mac_tuple_list):
+            self.check_port_up(entry)
+
+        for entry in reversed(port_mac_tuple_list):
+            self.check_port_down(entry)
+            self.check_other_ports_up(entry, port_mac_tuple_list)
+            self.check_port_up(entry)
+
+        for entry in reversed(port_mac_tuple_list):
+            self.check_port_down(entry)
