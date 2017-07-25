@@ -206,7 +206,6 @@ trap cleanup EXIT
 #
 
 skip_check_cnt=0
-next_cflags=CFLAGS_metadata.o=-Wno-implicit-fallthrough # ignore jhash.h warns
 
 # Parse options
 prev_p_cnt=$#
