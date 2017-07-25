@@ -948,8 +948,10 @@ class DevlinkPortsShow(CommonNetdevTest):
             main_port = labels[0]
             subport   = labels[1]
 
+            lane = re.match("NBI\d*.(\d*).*", p[1]).groups()[0]
+
             # Get netdev and verify it has right MAC addr
-            cmd = 'devlink port show %s/%s' % (dev, port)
+            cmd = 'devlink port show %s/%s' % (dev, lane)
             _, dl_port = self.dut.cmd(cmd)
 
             netdev = re.match(".*netdev (\w*).*", dl_port).group(1)
