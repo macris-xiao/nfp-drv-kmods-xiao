@@ -465,43 +465,58 @@ class FwSearchTest(CommonDrvTest):
     def prepare(self):
         return self.kernel_min(3, 17)
 
+    def dev_dmesg(self):
+        _, out = self.dut.cmd('dmesg -c | grep %s' % (self.group.pci_dbdf))
+        return out
+
     def execute(self):
         M = self.dut
 
         # Clean the old dmesg info
         M.cmd('dmesg -c')
 
+        _, out = M.cmd('lspci -s %s -vv' % self.group.pci_id)
+        DSN = re.search("Device Serial Number (.*)", out).group(1)
+
+        names = []
+        names.append("serial-%s.nffw" % (DSN))
+        names.append("pci-%s.nffw" % (self.group.pci_dbdf))
+        names.append(M.get_fw_name())
+
+        probe_fail_str = "nfp: probe of %s failed with error -" % \
+                         (self.group.pci_dbdf)
+
         # By default we should not look for FW
         M.insmod()
-        _, out = M.cmd('dmesg -c')
+        out = self.dev_dmesg()
         if out.find('Direct firmware load for ') != -1:
             raise NtiGeneralError('nfp.ko looking for firmware')
-
-        fw_name = M.get_fw_name()
         M.rmmod()
 
         # Request nfp.ko to look for some FW
         M.insmod(params="nfp6000_firmware=_bad_fw_name")
-        _, out = M.cmd('dmesg -c')
+        out = self.dev_dmesg()
         if out.find('Direct firmware load for _bad_fw_name') == -1:
             raise NtiGeneralError('nfp.ko should be looking for firmware')
         M.rmmod()
 
         # Make load fail
         M.insmod(params="nfp6000_firmware=_bad_fw_name fw_load_required=1")
-        _, out = M.cmd('dmesg -c')
-        if out.find('nfp: probe of ') == -1:
+        out = self.dev_dmesg()
+        if out.find(probe_fail_str) == -1:
             raise NtiGeneralError('nfp.ko should fail to load without FW')
         M.rmmod()
 
         # Check what netdev will look for
         M.insmod(netdev=True, params="fw_load_required=1")
-        _, out = M.cmd('dmesg -c')
-        if out.find('nfp: probe of ') == -1:
+        out = self.dev_dmesg()
+        if out.find(probe_fail_str) == -1:
             raise NtiGeneralError('nfp.ko should fail to load without FW')
-        if out.find('Direct firmware load for netronome/%s' % (fw_name)) == -1:
-            raise NtiGeneralError('nfp.ko netdev not looking for part FW (%s)' %
-                                  (fw_name))
+
+        for name in names:
+            if out.find('netronome/%s: not found' % (name)) == -1:
+                raise NtiGeneralError('nfp.ko netdev not looking FW %s' %
+                                      (name))
         M.rmmod()
 
 class SriovTest(CommonDrvTest):
