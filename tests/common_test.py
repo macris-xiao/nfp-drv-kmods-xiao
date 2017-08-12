@@ -2,8 +2,13 @@
 ## Copyright (C) 2016-2017,  Netronome Systems, Inc.  All rights reserved.
 ##
 
+import binascii
 import os
 import time
+
+from elftools.elf.elffile import ELFFile
+from elftools.elf.sections import SymbolTableSection
+
 from netro.testinfra.nrt_result import NrtResult
 from netro.testinfra.nti_exceptions import NtiGeneralError
 from netro.testinfra.test import Test
@@ -208,6 +213,49 @@ class CommonTest(Test):
         if ret == 0 and not fail:
             raise NtiGeneralError("Could TCP ping endpoint")
 
+    def read_sym_nffw(self, name, nffw_path=None):
+        if not nffw_path:
+            nffw_path = self.group.netdevfw
+
+        with open(nffw_path, 'rb') as f:
+            elf = ELFFile(f)
+
+            for section in elf.iter_sections():
+                if not isinstance(section, SymbolTableSection):
+                    continue
+
+                sl = section.get_symbol_by_name(name)
+                if not sl:
+                    self.log('NFFW symbol lookup: ' + name, '\nnot found\n')
+                    return None
+                if len(sl) > 1:
+                    raise NtiError('multiple symbols found for ' + name)
+
+                symbol = sl[0]
+
+                sec = elf.get_section(symbol['st_shndx'])
+
+                start = symbol['st_value'] - sec['sh_addr']
+                end = start + symbol['st_size']
+
+                value = sec.data()[start:end]
+
+                LOG_sec('NFFW symbol lookup: ' + name)
+                LOG('section idx:\t' + str(symbol['st_shndx']))
+                LOG('size:\t\t' + str(symbol['st_size']))
+                LOG('position:\t\t' + hex(symbol['st_value']))
+                LOG('section start:\t' + hex(sec['sh_addr']))
+                LOG('symbol off:\t' + hex(start))
+                LOG('symbol off end:\t' + hex(end))
+
+                LOG('\nValue:\n')
+                LOG(binascii.hexlify(value))
+
+                LOG_endsec()
+
+                return value
+
+        raise NtiError('no symbol section in NFFW file ' + nffw_path)
 
 class CommonDrvTest(CommonTest):
     def cleanup(self):

@@ -46,6 +46,8 @@ class NFPKmodSetup(NFPKmodGrp):
                                           "Test the setup for BPF")
         self._tests['xdp'] = XDPSetupTest(src, dut, self, 'xdp',
                                           "Test the setup for XDP")
+        self._tests['python'] = PythonTest(src, dut, self, 'python',
+                                           "Test Python installation")
         return
 
 
@@ -119,3 +121,8 @@ class XDPSetupTest(CommonTest):
     def run(self):
         return NrtResult(name=self.name, passed=self.group.xdp_capable(),
                          testtype=self.__class__.__name__)
+
+class PythonTest(CommonTest):
+    def execute(self):
+        self.read_sym_nffw('nfd_cfg_pf0_num_ports')
+        self.read_sym_nffw('blabla_bad_symbol')
