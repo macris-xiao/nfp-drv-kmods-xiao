@@ -4,6 +4,7 @@
 
 import binascii
 import os
+import struct
 import time
 
 from elftools.elf.elffile import ELFFile
@@ -261,6 +262,15 @@ class CommonTest(Test):
                 return value
 
         raise NtiError('no symbol section in NFFW file ' + nffw_path)
+
+    def read_scalar_nffw(self, name, nffw_path=None):
+        raw = self.read_sym_nffw(name, nffw_path)
+        value = struct.unpack("<Q", raw)[0]
+
+        LOG_sec("NFFW scalar lookup: " + name + " = " + str(value))
+        LOG_endsec()
+
+        return value
 
     # Load the driver, with non-upstream mode don't spawn netdev,
     # in upstream mode do, since it's the only way there.

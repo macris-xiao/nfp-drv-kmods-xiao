@@ -585,7 +585,6 @@ class NetdevTest(CommonDrvTest):
         M.refresh()
 
         netifs_new = len(M._netifs)
-        M.rmmod()
 
         if netifs_new <= netifs_old:
             raise NtiGeneralError('Interfaces was:%s is:%d, expected new ones' %
@@ -699,7 +698,7 @@ class KernelLoadTest(CommonTest):
 
         M.refresh()
         netifs_old = M._netifs
-        M.insmod(netdev=True, userspace=True)
+        M.insmod(netdev=None)
         time.sleep(1)
         M.refresh()
         netifs_new = M._netifs
@@ -731,8 +730,7 @@ class KernelLoadTest(CommonTest):
             self.ping(i)
 
         # See if after kernel load SR-IOV limit was set correctly
-        M.cmd('ls /dev/nfp-cpp-*', fail=False)
-        max_vfs = M.get_rtsym_scalar('nfd_vf_cfg_max_vfs')
+        max_vfs = self.read_scalar_nffw('nfd_vf_cfg_max_vfs')
         ret, _ = M.cmd('echo %d > /sys/bus/pci/devices/0000:%s/sriov_numvfs' %
                        (max_vfs + 1, self.group.pci_id), fail=False)
         if not ret:
@@ -746,7 +744,7 @@ class KernelLoadTest(CommonTest):
 
         M.cmd('mkdir -p /lib/firmware/netronome')
 
-        self.load_test(M.get_fw_name())
+        self.load_test(M.get_fw_name_any())
 
     def cleanup(self):
         self.dut.cmd('rm -rf /lib/firmware/netronome')

@@ -300,6 +300,12 @@ class DrvSystem(System):
         _, data = self.cmd_hwinfo(params + ' ' + what)
         return data.split('=')[1].strip()
 
+    def get_fw_name_any(self):
+        if self.grp.upstream_drv:
+            return self.get_fw_name_serial()
+        else:
+            return self.get_fw_name()
+
     def get_fw_name_serial(self):
         if self.fw_name_serial:
             return self.fw_name_serial
