@@ -353,7 +353,7 @@ class SensorsTest(CommonDrvTest):
     def execute(self):
         M = self.dut
 
-        M.insmod()
+        self.drv_load_any()
         self.nsp_min(15)
 
         ret, out = M.cmd('sensors -u nfp-pci-%s%s' %
