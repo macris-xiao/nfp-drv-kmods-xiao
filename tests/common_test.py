@@ -152,6 +152,8 @@ class CommonTest(Test):
 
     def ifc_skip_if_not_all_up(self):
         for i in range(0, len(self.dut_ifn)):
+            self.dut.link_wait(self.dut_ifn[i])
+
             _, out = self.dut.cmd('ethtool %s' % (self.dut_ifn[i]))
             if out.find('Link detected: yes') == -1:
                 raise NtiSkip("Interface %s is not up" % (self.dut_ifn[i]))
