@@ -602,7 +602,7 @@ class NetdevTest(CommonDrvTest):
             if int(out) != max_vfs:
                 raise NtiError("SR-IOV VF limit not reported")
 
-class PhysPortName(CommonNetdevTest):
+class PhysPortName(CommonNonUpstreamTest):
     def prepare(self):
         return self.kernel_min(4, 1)
 
@@ -807,7 +807,7 @@ class BSPDiag(CommonTest):
         self.dut.cmd('rm -rf /lib/firmware/netronome')
         self.dut.reset_mods()
 
-class LinkSpeedEthtool(CommonNetdevTest):
+class LinkSpeedEthtool(CommonNonUpstreamTest):
     def netdev_execute(self):
         _, phy = self.dut.cmd_phymod('-E | grep "^eth"')
         phy = phy.strip().split('\n')
@@ -829,7 +829,7 @@ class LinkSpeedEthtool(CommonNetdevTest):
                 raise NtiError("On port %d phymod reports:%d ethtool:%d" %
                                (i, phymod, ethtool))
 
-class AutonegEthtool(CommonNetdevTest):
+class AutonegEthtool(CommonNonUpstreamTest):
     def get_hwinfo_status_aneg(self, ifc):
         status = self.dut.get_hwinfo("phy%d.aneg" % (ifc), params='-u')
 
@@ -951,7 +951,7 @@ class MtuFlbufCheck(CommonNetdevTest):
 
         self.xdp_stop()
 
-class DevlinkPortsShow(CommonNetdevTest):
+class DevlinkPortsShow(CommonNonUpstreamTest):
     def netdev_execute(self):
         if self.kernel_min(4, 6):
             raise NtiSkip("Devlink needs kernel 4.6 or newer")
@@ -998,7 +998,7 @@ class DevlinkPortsShow(CommonNetdevTest):
             elif subport != "0":
                 raise NtiError("Split group not reported for non-0th subport")
 
-class IfConfigDownTest(CommonNetdevTest):
+class IfConfigDownTest(CommonNonUpstreamTest):
     def wait_for_link_netdev(self, iface):
         self.dut.link_wait(iface)
 

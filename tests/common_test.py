@@ -381,3 +381,10 @@ class CommonNetdevTest(CommonTest):
         self.dut.__init__(self.dut.host, self.dut.grp)
         self.group._init()
         self.netdev_prep(fwname=fwname)
+
+class CommonNonUpstreamTest(CommonNetdevTest):
+    def execute(self):
+        if self.group.upstream_drv:
+            raise NtiSkip('BSP tools upstream')
+
+        CommonNetdevTest.execute(self)
