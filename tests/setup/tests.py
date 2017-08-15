@@ -70,6 +70,9 @@ class DebugFSSetupTest(CommonNTHTest):
 
 class Tools(CommonTest):
     def execute(self):
+        # We need to set the NFP id for hwinfo to something, without actually
+        # loading the module it will be None
+        self.group.nfp = 0
         ret, _ = self.dut.cmd_hwinfo('-h', fail=False)
         if ret:
             raise NtiGeneralError("BSP tools not installed")
