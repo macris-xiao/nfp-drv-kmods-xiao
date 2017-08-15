@@ -294,6 +294,33 @@ class CommonTest(Test):
 
         M.insmod(netdev=None)
 
+    # Load the driver for netdev operation.
+    def drv_load_netdev_conserving(self, fwname):
+        # In upstream mode, just load the driver, there are no tricks
+        # to pull off.
+        if self.group.upstream_drv:
+            self.drv_load_any()
+            return
+
+        # With non-upstream driver, load the module, see if FW is already there,
+        # if it isn't load it manually so that the driver won't reset it.
+        M = self.dut
+
+        if not fwname:
+            fwname = self.group.netdevfw
+        else:
+            fwname = os.path.join(self.dut.netdevfw_dir, fwname)
+
+        M.insmod(netdev=True, userspace=True)
+        ret, _ = M.cmd_rtsym('_pf0_net_bar0', fail=False)
+        if ret != 0:
+            M.nffw_unload()
+            M.nffw_load('%s' % fwname)
+            M.rmmod()
+            M.insmod(netdev=True, userspace=True)
+
+        M.insmod(module="nth")
+
 class CommonDrvTest(CommonTest):
     def cleanup(self):
         self.dut.reset_mods()
@@ -321,23 +348,7 @@ class CommonNTHTest(CommonTest):
 
 class CommonNetdevTest(CommonTest):
     def netdev_prep(self, fwname=None):
-        M = self.dut
-
-        if not fwname:
-            fwname = self.group.netdevfw
-        else:
-            fwname = os.path.join(self.dut.netdevfw_dir, fwname)
-
-        M.insmod(netdev=True, userspace=True)
-        ret, _ = M.cmd_rtsym('_pf0_net_bar0', fail=False)
-        if ret != 0:
-            M.nffw_unload()
-            M.nffw_load('%s' % fwname)
-            M.rmmod()
-            M.insmod(netdev=True, userspace=True)
-
-        M.insmod(module="nth")
-
+        self.drv_load_netdev_conserving(fwname)
         self.ifc_all_up()
 
     def execute(self):
