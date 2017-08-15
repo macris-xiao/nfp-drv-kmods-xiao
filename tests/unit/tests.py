@@ -158,9 +158,6 @@ class ResourceTest(CommonNTHTest):
         # Try non-existing resource
         M.dfs_write('resource', "test.xxx", do_fail=True)
 
-        if self.dut.get_part_no() == "AMDA0099-0001":
-            raise NtiSkip("Carbon hoards resources")
-
         _, out = M.cmd_res('-L')
         # Iterate over lines skipping header
         resources = []
@@ -184,11 +181,23 @@ class ResourceTest(CommonNTHTest):
         random.seed(1234)
         random.shuffle(resources)
 
+        locked = []
         for i in range(0, len(resources)):
-            M.dfs_write('nth/resource', resources[i][0], timeout=5)
+            name = resources[i][0]
+
+            mismatch = M.dfs_write('nth/resource', name, timeout=5,
+                                   do_fail=None)
+
             rescs = M.dfs_read_raw('nth/resource')
             _, out = M.cmd_res('-L')
-            self.resources_validate(resources[:i+1], rescs, out)
+
+            if mismatch and re.search("%s.*LOCKED arm" % name, out):
+                self.log("ARM locked %s" % (name),
+                         "Skip resource %s, locked by the ARM" % (name))
+                continue
+
+            locked.append(resources[i])
+            self.resources_validate(locked, rescs, out)
 
         # Try non-existing resource on filled table
         M.dfs_write('nth/resource', "test.xxx", do_fail=True)
@@ -200,7 +209,7 @@ class ResourceTest(CommonNTHTest):
         M.dfs_write('nth/resource', resources[0][0], do_fail=True, timeout=2)
 
         # Release all resources and see if locks are freed
-        for i in range(0, len(resources)):
+        for i in range(0, len(locked)):
             M.dfs_write('nth/resource', i)
 
         _, out = M.cmd_res('-L')

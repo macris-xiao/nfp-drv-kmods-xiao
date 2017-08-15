@@ -278,10 +278,11 @@ class DrvSystem(System):
             cmd = ('timeout %d ' % (timeout)) + cmd
         ret, data = self.cmd(cmd, fail=False)
         failed = ret != 0
-        if failed != do_fail:
+        if do_fail is not None and failed != do_fail:
             raise NtiGeneralError('DebugFS write fail mismatch for file %s' \
                                   ' (did:%s, wanted:%s)' % \
                                   (path, failed, do_fail))
+        return failed != do_fail
 
     def get_hwinfo(self, what, params=''):
         _, data = self.cmd_hwinfo(params + ' ' + what)
