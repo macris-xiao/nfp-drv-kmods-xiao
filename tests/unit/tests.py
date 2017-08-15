@@ -327,7 +327,7 @@ class BspVerTest(CommonDrvTest):
         # Clean the old dmesg info
         M.cmd('dmesg -c')
 
-        M.insmod()
+        self.drv_load_any()
         self.nsp_min(16)
 
         cmd  = 'dmesg | grep "nfp 0000:%s"' % (self.group.pci_id)
@@ -486,11 +486,8 @@ class FwSearchTest(CommonDrvTest):
         # Clean the old dmesg info
         M.cmd('dmesg -c')
 
-        _, out = M.cmd('lspci -s %s -vv' % self.group.pci_id)
-        DSN = re.search("Device Serial Number (.*)", out).group(1)
-
         names = []
-        names.append("serial-%s.nffw" % (DSN))
+        names.append(M.get_fw_name_serial())
         names.append("pci-%s.nffw" % (self.group.pci_dbdf))
         names.append(M.get_fw_name())
 

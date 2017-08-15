@@ -28,6 +28,7 @@ class DrvSystem(System):
 
         self.part_no = None
         self.fw_name = None
+        self.fw_name_serial = None
         self.netdevfw_dir = None
         self.grp = grp
         self.tmpdir = self.make_temp_dir()
@@ -59,6 +60,7 @@ class DrvSystem(System):
 
         self.cmd('modprobe devlink; modprobe vxlan', fail=False)
         self._mods = set()
+        self._dirs = set()
 
     def copy_bpf_samples(self):
         if hasattr(self, 'bpf_samples_dir'):
@@ -193,6 +195,9 @@ class DrvSystem(System):
 
         self.grp.nfp = int(re.search('nfp-dev-cpp\.(\d*)', out).group(1))
 
+    def rm_dir_on_clean(self, path):
+        self._dirs.add(path)
+
     def insmod(self, module=None, netdev=False, userspace=None, reset=None,
                params='', fail=True):
         if not module or module == 'nfp':
@@ -206,6 +211,8 @@ class DrvSystem(System):
                 params += ' nfp_reset=%d' % reset
 
             if self.grp.upstream_drv and params != '':
+                LOG_sec ("SKIP nfp.ko %s" % (params))
+                LOG_endsec()
                 raise NtiSkip("Upstream has no params")
 
         elif module == "nth":
@@ -223,7 +230,7 @@ class DrvSystem(System):
 
             # Make sure we have up-to-date NFP id
             if m == 'nfp' and hasattr(self.grp, 'pci_dbdf') and \
-               (not netdev or userspace):
+               (netdev == False or userspace):
                 self.refresh_nfp_id(self.grp.pci_dbdf)
             # Select the NFP if it's NTH
             elif module == self.mod_nth:
@@ -240,6 +247,11 @@ class DrvSystem(System):
         while self._mods:
             m = self._mods.pop()
             self.rmmod(module=m)
+
+    def reset_dirs(self):
+        while self._dirs:
+            d = self._dirs.pop()
+            self.cmd('rm -r ' + d)
 
     def nfd_reg_read_le32(self, ifc, offset, count=1):
         # Dump the NFD BAR using ethtool into a giant hex string
@@ -287,6 +299,16 @@ class DrvSystem(System):
     def get_hwinfo(self, what, params=''):
         _, data = self.cmd_hwinfo(params + ' ' + what)
         return data.split('=')[1].strip()
+
+    def get_fw_name_serial(self):
+        if self.fw_name_serial:
+            return self.fw_name_serial
+
+        _, out = self.cmd('lspci -s %s -vv' % self.grp.pci_id)
+        DSN = re.search("Device Serial Number (.*)", out).group(1)
+
+        self.fw_name_serial = "serial-%s.nffw" % (DSN)
+        return self.fw_name_serial
 
     def get_part_no(self):
         if self.part_no:

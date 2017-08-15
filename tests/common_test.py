@@ -135,7 +135,10 @@ class CommonTest(Test):
                              passed=None, comment=comment)
 
     def nsp_min(self, exp_ver):
-        nsp_ver = self.dut.get_nsp_ver()
+        if self.group.upstream_drv:
+            nsp_ver = self.dut.get_nsp_ver(ifc=self.dut_ifn[0])
+        else:
+            nsp_ver = self.dut.get_nsp_ver()
         if nsp_ver < exp_ver:
             raise NtiSkip("NSP version %d, test requires %d" %
                           (nsp_ver, exp_ver))
@@ -259,9 +262,32 @@ class CommonTest(Test):
 
         raise NtiError('no symbol section in NFFW file ' + nffw_path)
 
+    # Load the driver, with non-upstream mode don't spawn netdev,
+    # in upstream mode do, since it's the only way there.
+    def drv_load_any(self):
+        M = self.dut
+
+        if not self.group.upstream_drv:
+            M.insmod()
+            return
+
+        # Upstream mode
+        # Copy the FW over
+        if self.group.netdevfw:
+            M.cmd('mkdir -p /lib/firmware/netronome')
+            M.cp_to(self.group.netdevfw,
+                    '/lib/firmware/netronome/%s' % (M.get_fw_name_serial()))
+        else:
+            M.cp_to(self.dut.netdevfw_dir, '/lib/firmware/netronome')
+
+        M.rm_dir_on_clean('/lib/firmware/netronome')
+
+        M.insmod(netdev=None)
+
 class CommonDrvTest(CommonTest):
     def cleanup(self):
         self.dut.reset_mods()
+        self.dut.reset_dirs()
 
 
 class CommonNTHTest(CommonTest):
@@ -311,6 +337,7 @@ class CommonNetdevTest(CommonTest):
 
     def cleanup(self):
         self.dut.reset_mods()
+        self.dut.reset_dirs()
 
     def reboot(self, fwname=None):
         self.dut.reset_mods()
