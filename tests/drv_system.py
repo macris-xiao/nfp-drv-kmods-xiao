@@ -6,9 +6,10 @@ Driver DUT class
 """
 
 import os
+import time
 import netro.testinfra
 from netro.testinfra.system import *
-from netro.testinfra.nti_exceptions import NtiGeneralError
+from netro.testinfra.nti_exceptions import NtiError, NtiGeneralError
 from common_test import NtiSkip
 
 class NfpNfdCtrl:
@@ -81,6 +82,30 @@ class DrvSystem(System):
         _, out = self.cmd(cmd)
 
         return int(out)
+
+    def link_wait(self, ifc, timeout=6):
+        tgt_time = time.time() + timeout
+        up_time = 0
+
+        while True:
+            ret, _ = self.cmd('ip link show dev %s | grep LOWER_UP' %
+                              (ifc), fail=False)
+
+            now = time.time()
+            # Carbon triggers spurious up events, which are followed by an
+            # immediate down.  We need to make sure link is stable for at
+            # least half a second.
+            if ret == 0:
+                if up_time == 0:
+                    up_time = now
+                if now - up_time >= 0.5:
+                    return
+            else:
+                up_time = 0
+
+            if now >= tgt_time:
+                raise NtiError("Timeout waiting for UP on interface %s" % (ifc))
+            time.sleep(0.1)
 
     def devlink_split(self, index, count, fail=True):
         return self.cmd('devlink port split pci/%s/%d count %d' %

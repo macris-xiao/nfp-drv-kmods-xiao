@@ -702,11 +702,11 @@ class KernelLoadTest(CommonTest):
             raise NtiGeneralError('Expected one interface created, got %d' %
                                   (len(netifs_new) - len(netifs_old)))
 
-        for ifc in list(set(netifs_new) - set(netifs_old)):
+        new_ifcs = list(set(netifs_new) - set(netifs_old))
+
+        for ifc in new_ifcs:
             if self.dut_ifn.count(ifc) == 0:
                 raise NtiError("Interface %s not present after load" % (ifc))
-
-            i = self.dut_ifn.index(ifc)
 
             _, out = M.cmd('ethtool -i %s' % ifc)
 
@@ -714,7 +714,14 @@ class KernelLoadTest(CommonTest):
             if not re.search(self.group.pci_id, out):
                 continue
 
+            i = self.dut_ifn.index(ifc)
             M.cmd('ifconfig %s %s up' % (ifc, self.dut_addr[i]))
+
+        for ifc in new_ifcs:
+            self.dut.link_wait(ifc)
+
+        for ifc in new_ifcs:
+            i = self.dut_ifn.index(ifc)
             self.ping(i)
 
         # See if after kernel load SR-IOV limit was set correctly
@@ -985,14 +992,7 @@ class DevlinkPortsShow(CommonNetdevTest):
 
 class IfConfigDownTest(CommonNetdevTest):
     def wait_for_link_netdev(self, iface):
-        for i in range(0, 10):
-            ret, _ = self.dut.cmd('ip link show dev %s | grep LOWER_UP' %
-                                  (iface), fail=False)
-            if ret == 0:
-                return
-            time.sleep(0.2)
-
-        raise NtiError("Timeout waiting for UP on interface %s" % (iface))
+        self.dut.link_wait(iface)
 
     def wait_for_link(self, iface, mac_addr):
         for i in range(0, 16):
