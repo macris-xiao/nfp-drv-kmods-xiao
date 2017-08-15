@@ -757,12 +757,15 @@ class BSPDiag(CommonTest):
         M.cmd('mkdir -p /lib/firmware/netronome')
 
         M.cp_to(self.group.netdevfw,
-                '/lib/firmware/netronome/%s' % M.get_fw_name())
+                '/lib/firmware/netronome/%s' % M.get_fw_name_any())
 
         M.refresh()
         netifs_old = M._netifs
-        M.insmod(netdev=True, userspace=True)
+
+        userspace = None if self.group.upstream_drv else True
+        M.insmod(netdev=None, userspace=userspace)
         time.sleep(1)
+
         M.refresh()
         netifs_new = M._netifs
 
@@ -778,12 +781,13 @@ class BSPDiag(CommonTest):
             if not ver_m:
                 raise NtiGeneralError("Ethtool does not report NSP ABI")
 
-            ver = ver_m.groups()[0]
-            _, cmd_ver = M.cmd_nsp('-v')
-            cmd_ver = cmd_ver.split('\n')[0]
+            if not self.group.upstream_drv:
+                ver = ver_m.groups()[0]
+                _, cmd_ver = M.cmd_nsp('-v')
+                cmd_ver = cmd_ver.split('\n')[0]
 
-            if cmd_ver != ver:
-                raise NtiGeneralError("NSP ABI version does not match ethtool:'%s' user space:'%s'" % (ver, cmd_ver))
+                if cmd_ver != ver:
+                    raise NtiGeneralError("NSP ABI version does not match ethtool:'%s' user space:'%s'" % (ver, cmd_ver))
 
             # Try dumps which shouldn't work
             bad_ethtool_dumps = (1, 3, 0xffffffff)
