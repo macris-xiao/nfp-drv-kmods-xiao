@@ -929,15 +929,19 @@ class MtuFlbufCheck(CommonNetdevTest):
                 xdp_off = 0
 
             fl_bufsz = xdp_off + rxoffset + 14 + 8 + mtu
+            if rxoffset == 0:
+                fl_bufsz += 64
+
             fl_bufsz = (fl_bufsz + 63) & ~63
             fl_bufsz -= xdp_off
 
             self.log("vals", [mtu, bmtu, rxoffset, bflbufsz, fl_bufsz])
 
             if mtu != bmtu:
-                raise NtiError("MTU doesn't match BAR: %d vs %d" % (mtu, bmtu))
+                raise NtiError("MTU doesn't match BAR (was:%d expect:%d)" %
+                               (mtu, bmtu))
             if fl_bufsz != bflbufsz:
-                raise NtiError("FL_BUFSZ doesn't match BAR: %d vs %d" %
+                raise NtiError("FL_BUFSZ doesn't match BAR (was:%d expect:%d)" %
                                (fl_bufsz, bflbufsz))
 
     def netdev_execute(self):
