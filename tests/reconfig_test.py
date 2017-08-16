@@ -248,6 +248,9 @@ class ReconfigTest(CommonNetdevTest):
         self.has_xdp = ret == 0
 
     def netdev_execute(self):
+        if len(self.vnics) != len(self.nfp_netdevs):
+            raise NtiSkip("Can't deal with representors")
+
         self.netdev_wait()
 
         # Get real max tx queues
