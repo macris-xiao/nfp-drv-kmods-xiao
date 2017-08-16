@@ -6,6 +6,7 @@ import binascii
 import os
 import struct
 import time
+import re
 
 from elftools.elf.elffile import ELFFile
 from elftools.elf.sections import SymbolTableSection
@@ -349,8 +350,36 @@ class CommonNTHTest(CommonTest):
 
 class CommonNetdevTest(CommonTest):
     def netdev_prep(self, fwname=None):
+        LOG_sec("NFP netdev test prep")
+        # Load the driver and remember which interfaces got spawned
+        self.dut._get_netifs()
+        netifs_old = self.dut._netifs
+
         self.drv_load_netdev_conserving(fwname)
+
+        self.dut._get_netifs()
+        netifs_new = self.dut._netifs
+
+        # All netdevs
+        self.nfp_netdevs = list(set(netifs_new) - set(netifs_old))
+
+        # vNIC netdevs
+        self.vnics = []
+        for ifc in self.nfp_netdevs:
+            _, out = self.dut.cmd('ethtool -i %s' % ifc)
+            if re.search(self.group.pci_id, out):
+                self.vnics.append(ifc)
+
+        for ifc in self.nfp_netdevs:
+            self.dut.cmd('ifconfig %s up' % (ifc))
         self.ifc_all_up()
+
+        LOG_endsec() # NFP netdev test prep
+
+        LOG_sec("NFP netdevs")
+        LOG("all: " + str(self.nfp_netdevs))
+        LOG("vnics: " + str(self.vnics))
+        LOG_endsec()
 
     def execute(self):
         self.netdev_prep()
@@ -358,8 +387,10 @@ class CommonNetdevTest(CommonTest):
         self.netdev_execute()
 
     def cleanup(self):
+        LOG_sec("NFP netdev test cleanup")
         self.dut.reset_mods()
         self.dut.reset_dirs()
+        LOG_endsec()
 
     def reboot(self, fwname=None):
         self.dut.reset_mods()

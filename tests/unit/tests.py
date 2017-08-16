@@ -914,19 +914,19 @@ class AutonegEthtool(CommonNonUpstreamTest):
 
 class MtuFlbufCheck(CommonNetdevTest):
     def get_bar_rx_offset(self):
-        return self.dut.nfd_reg_read_le32(self.dut_ifn[0], NfpNfdCtrl.RX_OFFSET)
+        return self.dut.nfd_reg_read_le32(self.vnics[0], NfpNfdCtrl.RX_OFFSET)
 
     def get_bar_mtu(self):
-        return self.dut.nfd_reg_read_le32(self.dut_ifn[0], NfpNfdCtrl.MTU)
+        return self.dut.nfd_reg_read_le32(self.vnics[0], NfpNfdCtrl.MTU)
 
     def get_bar_flbufsz(self):
-        return self.dut.nfd_reg_read_le32(self.dut_ifn[0], NfpNfdCtrl.FLBUFSZ)
+        return self.dut.nfd_reg_read_le32(self.vnics[0], NfpNfdCtrl.FLBUFSZ)
 
     def check(self, has_xdp):
         check_mtus = [1500, 1024, 2049, 2047, 2048 - 32, 2048 - 64]
 
         for mtu in check_mtus:
-            self.dut.cmd('ip link set dev %s mtu %d' % (self.dut_ifn[0], mtu))
+            self.dut.cmd('ip link set dev %s mtu %d' % (self.vnics[0], mtu))
             bmtu = self.get_bar_mtu()
             bflbufsz = self.get_bar_flbufsz()
             rxoffset = self.get_bar_rx_offset()
