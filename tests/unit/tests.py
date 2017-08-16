@@ -707,29 +707,32 @@ class KernelLoadTest(CommonTest):
         M.refresh()
         netifs_new = M._netifs
 
-        if len(netifs_new) - len(netifs_old) != len(self.dut_addr):
-            raise NtiGeneralError('Expected one interface created, got %d' %
-                                  (len(netifs_new) - len(netifs_old)))
+        if len(netifs_new) - len(netifs_old) < len(self.dut_addr):
+            raise NtiGeneralError('Expected %d interfaces created, got %d' %
+                                  (len(self.dut_addr),
+                                   len(netifs_new) - len(netifs_old)))
 
         new_ifcs = list(set(netifs_new) - set(netifs_old))
 
+        not_present = filter(lambda x: x not in new_ifcs, self.dut_ifn)
+        if len(not_present):
+            raise NtiError("Interfaces not present after load: " +
+                           str(not_present))
+
         for ifc in new_ifcs:
-            if self.dut_ifn.count(ifc) == 0:
-                raise NtiError("Interface %s not present after load" % (ifc))
-
-            _, out = M.cmd('ethtool -i %s' % ifc)
-
-            # Ignore other devices if present
-            if not re.search(self.group.pci_id, out):
+            # Ignore possible VF/PF representors and vNICs, but bring them up.
+            # One of them may be our CPU port.
+            if ifc not in self.dut_ifn:
+                self.dut.cmd('ifconfig %s up' % (ifc))
                 continue
 
             i = self.dut_ifn.index(ifc)
             M.cmd('ifconfig %s %s up' % (ifc, self.dut_addr[i]))
 
-        for ifc in new_ifcs:
+        for ifc in self.dut_ifn:
             self.dut.link_wait(ifc)
 
-        for ifc in new_ifcs:
+        for ifc in self.dut_ifn:
             i = self.dut_ifn.index(ifc)
             self.ping(i)
 
