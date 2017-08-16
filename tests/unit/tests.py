@@ -633,6 +633,10 @@ class PhysPortName(CommonNonUpstreamTest):
 
             if pci_id[5:] != self.group.pci_id:
                 continue
+            if not re.match("^p\d*$", port_name) and \
+               not re.match("^p\d*s\d*$", port_name):
+                continue
+
             found += 1
 
             labels = re.search('%s (\d*)\.(\d*)' % ethaddr, tbl)
