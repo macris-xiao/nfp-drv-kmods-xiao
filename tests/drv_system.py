@@ -229,9 +229,19 @@ class DrvSystem(System):
             self._mods.add(m)
 
             # Make sure we have up-to-date NFP id
-            if m == 'nfp' and hasattr(self.grp, 'pci_dbdf') and \
-               (netdev == False or userspace):
-                self.refresh_nfp_id(self.grp.pci_dbdf)
+            if m == 'nfp' and hasattr(self.grp, 'pci_dbdf'):
+                # Unbind all the devices apart from the one we are testing
+                _, out = self.cmd('ls /sys/bus/pci/drivers/nfp/')
+                for s in out.split():
+                    if not s.startswith("0000:"):
+                        continue
+                    if s == self.grp.pci_dbdf:
+                        continue
+                    self.cmd('echo %s > /sys/bus/pci/drivers/nfp/unbind' % (s))
+
+                if netdev == False or userspace:
+                    self.refresh_nfp_id(self.grp.pci_dbdf)
+
             # Select the NFP if it's NTH
             elif module == self.mod_nth:
                 self.dfs_write('nth/id', self.grp.nfp)
