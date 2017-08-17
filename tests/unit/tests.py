@@ -54,6 +54,7 @@ class NFPKmodUnit(NFPKmodGrp):
              ('kernel_fw_load', KernelLoadTest, "Test kernel firmware loader"),
              ('bsp_diag', BSPDiag, "Test the basic BSP diagnostics"),
              ('channel_reconfig', ChannelReconfig, "Ethtool channel reconfig"),
+             ('ethtool_drvinfo', DrvInfoEthtool, "Ethtool -i test"),
              ('ethtool_get_speed', LinkSpeedEthtool, "Ethtool get settings"),
              ('ethtool_aneg', AutonegEthtool,
               "Test setting autonegotiation with ethtool"),
@@ -814,6 +815,107 @@ class BSPDiag(CommonTest):
     def cleanup(self):
         self.dut.cmd('rm -rf /lib/firmware/netronome')
         self.dut.reset_mods()
+
+class DrvInfoEthtool(CommonNetdevTest):
+    def check_common(self, info):
+        yes = [ "supports-statistics" ]
+        no = [ "supports-test", "supports-eeprom-access",
+               "supports-priv-flags" ]
+
+        for i in yes:
+            if info[i] != "yes":
+                raise NtiError(i + ": " + info[i] + ", expected yes")
+        for i in no:
+            if info[i] != "no":
+                raise NtiError(i + ": " + info[i] + ", expected no")
+
+        if info["expansion-rom-version"]:
+            raise NtiError("Expansion Rom reported")
+        if len(info["version"]) < 4:
+            raise NtiError("Version not reported")
+
+    def check_common_vnic(self, info):
+        if info["supports-register-dump"] != "yes":
+            raise NtiError("vNIC without register dump")
+        if not info["firmware-version"].startswith("0.0."):
+            raise NtiError("Bad NFD version")
+
+        self.check_common(info)
+
+    def check_info_repr(self, info):
+        LOG("\n\nChecking Representor Info\n")
+
+        if info["driver"] != "nfp":
+            raise NtiError("Driver not reported as nfp")
+        if info["supports-register-dump"] != "no":
+            raise NtiError("Representor with register dump")
+        if info["bus-info"]:
+            raise NtiError("Representor with bus info")
+
+        fw_ver = info["firmware-version"].strip().split(' ')
+        if len(fw_ver) != 4:
+            raise NtiError("FW version has %d items, expected 4" %
+                           (len(fw_ver)))
+
+        self.check_common(info)
+
+    def check_info_vf(self, info):
+        LOG("\n\nChecking VF Info\n")
+
+        if info["driver"] != "nfp_netvf":
+            raise NtiError("Driver not reported as nfp_netvf")
+        if not info["bus-info"]:
+            raise NtiError("VF without bus info")
+
+        fw_ver = info["firmware-version"].strip().split(' ')
+        if len(fw_ver) != 1:
+            raise NtiError("FW version has %d items, expected 1" %
+                           (len(fw_ver)))
+
+        self.check_common_vnic(info)
+
+    def check_info_pf(self, info):
+        LOG("\n\nChecking PF Info\n")
+
+        if info["driver"] != "nfp":
+            raise NtiError("Driver not reported as nfp")
+        if info["bus-info"] != self.group.pci_dbdf:
+            raise NtiError("Incorrect bus info")
+
+        fw_ver = info["firmware-version"].strip().split(' ')
+        if len(fw_ver) != 4:
+            raise NtiError("FW version has %d items, expected 4" %
+                           (len(fw_ver)))
+
+        self.check_common_vnic(info)
+
+    def netdev_execute(self):
+        # Enable VFs if supported
+        max_vfs = self.read_scalar_nffw('nfd_vf_cfg_max_vfs')
+        if max_vfs > 0:
+            self.dut.cmd('modprobe -r vfio_pci')
+            ret, _ = self.dut.cmd('echo %d > /sys/bus/pci/devices/0000:%s/sriov_numvfs' %
+                                  (1, self.group.pci_id))
+
+        netifs_old = self.dut._netifs
+        self.dut._get_netifs()
+        new_ifcs = list(set(self.dut._netifs) - set(netifs_old))
+
+        for ifc in new_ifcs:
+            info = ethtool_drvinfo(self.dut, ifc)
+            if info["driver"] == "nfp":
+                self.check_info_repr(info)
+            elif info["driver"] == "nfp_netvf":
+                self.check_info_vf(info)
+            else:
+                raise NtiError("Driver not reported")
+
+        for ifc in self.nfp_netdevs:
+            info = ethtool_drvinfo(self.dut, ifc)
+            if info["bus-info"]:
+                self.check_info_pf(info)
+            else:
+                self.check_info_repr(info)
 
 class LinkSpeedEthtool(CommonNonUpstreamTest):
     def netdev_execute(self):

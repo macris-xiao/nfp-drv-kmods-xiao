@@ -33,6 +33,21 @@ class NtiSkip(Exception):
         return repr(self.msg)
 
 ###############################################################################
+# Helper functions
+###############################################################################
+def ethtool_drvinfo(host, ifc):
+    _, out = host.cmd('ethtool -i %s' % (ifc))
+
+    ret = {}
+
+    lines = out.split('\n')
+    for l in lines:
+        vals = l.split(': ')
+        ret[vals[0]] = ': '.join(vals[1:])
+
+    return ret
+
+###############################################################################
 # Test with cleanup
 ###############################################################################
 class CommonTest(Test):
