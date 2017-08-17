@@ -58,6 +58,7 @@ class NFPKmodUnit(NFPKmodGrp):
              ('ethtool_get_speed', LinkSpeedEthtool, "Ethtool get settings"),
              ('ethtool_aneg', AutonegEthtool,
               "Test setting autonegotiation with ethtool"),
+             ('ethtool_stats', StatsEthtool, "Ethtool stats"),
              ('mtu_flbufsz_check', MtuFlbufCheck,
               "Check if driver sets correct fl_bufsz and mtu"),
              ('devlink_port_show', DevlinkPortsShow,
@@ -890,16 +891,7 @@ class DrvInfoEthtool(CommonNetdevTest):
         self.check_common_vnic(info)
 
     def netdev_execute(self):
-        # Enable VFs if supported
-        max_vfs = self.read_scalar_nffw('nfd_vf_cfg_max_vfs')
-        if max_vfs > 0:
-            self.dut.cmd('modprobe -r vfio_pci')
-            ret, _ = self.dut.cmd('echo %d > /sys/bus/pci/devices/0000:%s/sriov_numvfs' %
-                                  (1, self.group.pci_id))
-
-        netifs_old = self.dut._netifs
-        self.dut._get_netifs()
-        new_ifcs = list(set(self.dut._netifs) - set(netifs_old))
+        new_ifcs = self.spawn_vf_netdev()
 
         for ifc in new_ifcs:
             info = ethtool_drvinfo(self.dut, ifc)
@@ -1013,6 +1005,102 @@ class AutonegEthtool(CommonNonUpstreamTest):
             self.flip_autoneg_status(ifc)
 
         self.state_check()
+
+class StatsEthtool(CommonNetdevTest):
+    def check_sw_stats_present(self, keys):
+        if len(filter(lambda x: x.startswith('rvec_'), keys)) < 3:
+            raise NtiError("rvec stats missing")
+        if 'hw_rx_csum_ok' not in keys:
+            raise NtiError("SW stats missing")
+
+    def check_vnic_stats_present(self, keys):
+        keys = filter(lambda x: x.startswith('dev_') or x.startswith('bpf_'),
+                      keys)
+        if len(keys) != 26:
+            raise NtiError("Expected 26 vNIC stats, got %d" % (len(keys)))
+
+    def check_vnic_queue_stats_present(self, keys):
+        if len(filter(lambda x: x.startswith('txq_'), keys)) < 2:
+            raise NtiError("txq stats missing")
+        if len(filter(lambda x: x.startswith('rxq_'), keys)) < 2:
+            raise NtiError("rxq stats missing")
+
+    def check_mac_stats_present(self, keys):
+        keys = filter(lambda x: x.startswith('mac.'), keys)
+
+        expected = 59 if self.mac_stats else 0
+
+        if len(keys) != expected:
+            raise NtiError("Expected %d MAC stats, got %d" %
+                           (expected, len(keys)))
+
+    def netdev_execute(self):
+        # Spawn VFs so that we test the entire gamut
+        vf_ifcs = self.spawn_vf_netdev()
+
+        # Check if FW supports MAC stats
+        self.mac_stats = self.read_sym_nffw('_mac_stats') is not None
+
+        all_netdevs = vf_ifcs + self.nfp_netdevs
+        names = {}
+        stats = {}
+        infos = {}
+        for ifc in all_netdevs:
+            _, out = self.dut.cmd('cat /sys/class/net/%s/phys_port_name || echo'
+                                  % (ifc))
+            names[ifc] = out.strip()
+
+            infos[ifc] = ethtool_drvinfo(self.dut, ifc)
+            stats[ifc] = ethtool_stats(self.dut, ifc)
+
+        LOG_sec("Checking statistics")
+
+        for ifc in all_netdevs:
+            keys = stats[ifc].keys()
+
+            # VF vNIC or PF vNIC (not a physical port vNIC)
+            if names[ifc] == "":
+                self.check_sw_stats_present(keys)
+                self.check_vnic_stats_present(keys)
+                self.check_vnic_queue_stats_present(keys)
+
+                LOG("Bare vNIC (PF representor/VF) OK: " + ifc)
+                continue
+
+            # PF/VF representor
+            if re.match('^pf\d*', names[ifc]):
+                self.check_vnic_stats_present(keys)
+
+                if not all([x.startswith('dev_') or x.startswith('bpf_')
+                            for x in keys]):
+                    raise NtiError("VF representor has non-BAR stats")
+
+                LOG("VF representor OK: " + ifc)
+                continue
+
+            # Physical port representor
+            if re.match('^p\d*$', names[ifc]) and infos[ifc]["bus-info"] == "":
+                self.check_mac_stats_present(keys)
+
+                if not all([x.startswith('mac.') for x in keys]):
+                    raise NtiError("MAC representor has non-MAC stats")
+
+                LOG("Physical port representor OK: " + ifc)
+                continue
+
+            # Physical port vNIC
+            if re.match('^p\d*$', names[ifc]) and infos[ifc]["bus-info"] != "":
+                self.check_sw_stats_present(keys)
+                self.check_vnic_stats_present(keys)
+                self.check_vnic_queue_stats_present(keys)
+                self.check_mac_stats_present(keys)
+
+                LOG("Physical port vNIC OK: " + ifc)
+                continue
+
+            raise NtiError("Unknown netdev type: " + ifc)
+
+        LOG_endsec()
 
 class MtuFlbufCheck(CommonNetdevTest):
     def get_bar_rx_offset(self):

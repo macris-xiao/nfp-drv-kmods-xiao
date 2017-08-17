@@ -14,6 +14,7 @@ from elftools.elf.sections import SymbolTableSection
 from netro.testinfra.nrt_result import NrtResult
 from netro.testinfra.nti_exceptions import NtiGeneralError
 from netro.testinfra.test import Test
+from netro.testinfra.system import _parse_ethtool
 from netro.testinfra import LOG_init, LOG_sec, LOG, LOG_endsec, CMD
 
 ###############################################################################
@@ -46,6 +47,11 @@ def ethtool_drvinfo(host, ifc):
         ret[vals[0]] = ': '.join(vals[1:])
 
     return ret
+
+def ethtool_stats(host, ifc):
+    _, out = host.cmd('ethtool -S %s' % (ifc))
+
+    return _parse_ethtool(out)
 
 ###############################################################################
 # Test with cleanup
@@ -364,6 +370,19 @@ class CommonNTHTest(CommonTest):
 
 
 class CommonNetdevTest(CommonTest):
+    def spawn_vf_netdev(self):
+        # Enable VFs if supported
+        max_vfs = self.read_scalar_nffw('nfd_vf_cfg_max_vfs')
+        if max_vfs > 0:
+            self.dut.cmd('modprobe -r vfio_pci')
+            ret, _ = self.dut.cmd('echo %d > /sys/bus/pci/devices/0000:%s/sriov_numvfs' %
+                                  (1, self.group.pci_id))
+
+        netifs_old = self.dut._netifs
+        self.dut._get_netifs()
+
+        return list(set(self.dut._netifs) - set(netifs_old))
+
     def netdev_prep(self, fwname=None):
         LOG_sec("NFP netdev test prep")
         # Load the driver and remember which interfaces got spawned
@@ -381,8 +400,8 @@ class CommonNetdevTest(CommonTest):
         # vNIC netdevs
         self.vnics = []
         for ifc in self.nfp_netdevs:
-            _, out = self.dut.cmd('ethtool -i %s' % ifc)
-            if re.search(self.group.pci_id, out):
+            info = ethtool_drvinfo(self.dut, ifc)
+            if info["bus-info"] == self.group.pci_dbdf:
                 self.vnics.append(ifc)
 
         for ifc in self.nfp_netdevs:
