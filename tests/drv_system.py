@@ -16,6 +16,7 @@ class NfpNfdCtrl:
     MTU        = 0x18
     FLBUFSZ    = 0x1c
     VERSION    = 0x30
+    MAX_MTU    = 0x44
     RX_OFFSET  = 0x50
 
 class DrvSystem(System):

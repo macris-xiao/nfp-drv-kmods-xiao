@@ -207,14 +207,16 @@ class CommonTest(Test):
         return self.dut.cmd('ip -force link set dev %s xdp off' %
                             (self.dut_ifn[0]))
 
-    def ping(self, port, count=10, size=0, pattern="", fail=True):
+    def ping(self, port, count=10, size=0, pattern="", ival="0.05", fail=True):
         opts = ""
         if size:
             opts = opts + "-s %d " % (size)
         if pattern:
             opts = opts + "-p %s " % (pattern)
+        if ival:
+            opts = opts + "-i %s " % (ival)
 
-        ret, _ = self.src.cmd('ping -c %d -i0.05 -W2 %s -I %s %s' %
+        ret, _ = self.src.cmd('ping -c %d -W2 %s -I %s %s' %
                               (count, opts, self.src_ifn[port],
                                self.dut_addr[port][:-3]), fail=False)
         if ret and fail:
