@@ -318,6 +318,7 @@ class CommonTest(Test):
         M.rm_dir_on_clean('/lib/firmware/netronome')
 
         M.insmod(netdev=None)
+        self.dut.cmd('udevadm settle')
 
     # Load the driver for netdev operation.
     def drv_load_netdev_conserving(self, fwname):
@@ -344,6 +345,7 @@ class CommonTest(Test):
             M.nffw_load('%s' % fwname)
             M.rmmod()
             M.insmod(netdev=True, userspace=True)
+        self.dut.cmd('udevadm settle')
 
         M.insmod(module="nth")
 
@@ -382,6 +384,7 @@ class CommonNetdevTest(CommonTest):
                                   (1, self.group.pci_id))
 
         netifs_old = self.dut._netifs
+        self.dut.cmd("udevadm settle")
         self.dut._get_netifs()
 
         return list(set(self.dut._netifs) - set(netifs_old))
