@@ -55,6 +55,9 @@ class DrvSystem(System):
             self.mod_nth = os.path.join(self.tmpdir, 'nfp_test_harness.ko')
             self.cp_to(self.grp.nthkmod, self.mod_nth)
 
+        if self.grp.netdevfw:
+            self.cp_to(self.grp.netdevfw, self.tmpdir)
+
         if self.grp.netdevfw_dir:
             self.netdevfw_dir = os.path.join(self.tmpdir, "netdevfw")
             self.cp_to(self.grp.netdevfw_dir, self.netdevfw_dir)

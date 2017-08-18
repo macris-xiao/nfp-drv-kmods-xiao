@@ -332,7 +332,8 @@ class CommonTest(Test):
         M = self.dut
 
         if not fwname:
-            fwname = self.group.netdevfw
+            fwname = os.path.join(self.dut.tmpdir,
+                                  os.path.basename(self.group.netdevfw))
         else:
             fwname = os.path.join(self.dut.netdevfw_dir, fwname)
 
