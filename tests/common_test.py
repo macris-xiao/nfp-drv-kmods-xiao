@@ -266,16 +266,29 @@ class CommonTest(Test):
 
                 sec = elf.get_section(symbol['st_shndx'])
 
-                start = symbol['st_value'] - sec['sh_addr']
-                end = start + symbol['st_size']
-
-                value = sec.data()[start:end]
-
                 LOG_sec('NFFW symbol lookup: ' + name)
                 LOG('section idx:\t' + str(symbol['st_shndx']))
                 LOG('size:\t\t' + str(symbol['st_size']))
                 LOG('position:\t\t' + hex(symbol['st_value']))
                 LOG('section start:\t' + hex(sec['sh_addr']))
+                LOG('section len:\t' + hex(sec['sh_size']))
+                LOG('section type:\t' + sec['sh_type'])
+
+                # Most likely a BSS section
+                if sec['sh_type'] == 'SHT_NOBITS':
+                    LOG_endsec()
+                    return bytearray(symbol['st_size'])
+
+                start = symbol['st_value'] - sec['sh_addr']
+                end = start + symbol['st_size']
+
+                if end > sec['sh_size']:
+                    LOG_endsec()
+                    raise NtiError("Symbol %s extends past the end of section"
+                                   % (name))
+
+                value = sec.data()[start:end]
+
                 LOG('symbol off:\t' + hex(start))
                 LOG('symbol off end:\t' + hex(end))
 
