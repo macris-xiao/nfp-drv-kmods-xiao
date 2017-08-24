@@ -396,11 +396,18 @@ class DrvSystem(System):
                         fail=fail)
 
     def nffw_load(self, fw, fail=True):
-        return self.bsp_cmd('nffw load -n %d %s' %
-                        (self.grp.nfp, fw), fail=fail)
+        if self.kernel_ver.find("debug") == -1:
+            cmd = 'nffw load -n %d %s'
+        else:
+            cmd = 'nsp -n %d -F %s'
+        return self.bsp_cmd(cmd % (self.grp.nfp, fw), fail=fail)
 
     def nffw_unload(self, fail=True):
-        return self.bsp_cmd('nffw unload -n %d' % (self.grp.nfp), fail=fail)
+        if self.kernel_ver.find("debug") == -1:
+            cmd = 'nffw unload -n %d'
+        else:
+            cmd = 'nsp -n %d -R'
+        return self.bsp_cmd(cmd % (self.grp.nfp), fail=fail)
 
     def cmd_reg(self, cmd, fail=True):
         return self.bsp_cmd('reg -n %d %s' % (self.grp.nfp, cmd), fail=fail)
