@@ -968,11 +968,11 @@ class AutonegEthtool(CommonNonUpstreamTest):
             hwinfo = self.get_hwinfo_status(i)
 
             if self.state[ifc] != ethtool:
-                raise NtiError('ethtool reports state: %d expeted: %d' %
+                raise NtiError('ethtool reports state: %d expected: %d' %
                                (ethtool, self.state[ifc]))
 
             if self.state[ifc] != hwinfo:
-                raise NtiError('hwinfo reports state: %d expeted: %d' %
+                raise NtiError('hwinfo reports state: %d expected: %d' %
                                (hwinfo, self.state[ifc]))
 
             i += 1
