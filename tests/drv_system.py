@@ -241,7 +241,8 @@ class DrvSystem(System):
                         continue
                     if s == self.grp.pci_dbdf:
                         continue
-                    self.cmd('echo %s > /sys/bus/pci/drivers/nfp/unbind' % (s))
+                    self.cmd('echo %s > /sys/bus/pci/drivers/nfp/unbind' % (s),
+                             fail=False)
 
                 if netdev == False or userspace:
                     self.refresh_nfp_id(self.grp.pci_dbdf)
