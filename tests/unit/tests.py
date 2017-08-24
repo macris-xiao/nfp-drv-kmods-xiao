@@ -1258,6 +1258,15 @@ class MtuFlbufCheck(CommonNetdevTest):
 
         self.check(False)
 
+        if self.kernel_min(4, 8):
+            return
+        ret, _ = self.dut.cmd('ls %s' %
+                              (os.path.join(self.dut.xdp_samples_dir,
+                                            'pass.o')),
+                              fail=False)
+        if ret != 0:
+            raise NtiSkip('XDP samples not found')
+
         self.xdp_start('pass.o')
 
         self.check(True)
