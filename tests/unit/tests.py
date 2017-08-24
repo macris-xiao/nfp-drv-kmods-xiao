@@ -576,7 +576,9 @@ class NetdevTest(CommonDrvTest):
 
         # Check FW loading from the user space
         M.insmod(reset=True)
-        M.nffw_load('%s' % self.group.netdevfw)
+        M.nffw_load(os.path.join(self.dut.tmpdir,
+                                 os.path.basename(self.group.netdevfw)))
+
         max_vfs = M.get_rtsym_scalar('nfd_vf_cfg_max_vfs')
         M.rmmod()
 
