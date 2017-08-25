@@ -66,6 +66,7 @@ class NFPKmodUnit(NFPKmodGrp):
               "Check basic devlink port output"),
              ('port_config', IfConfigDownTest,
               "Check interface operable after FW load with combinations of ifup/ifdown"),
+             ('sriov_ndos', SriovNDOs, 'Test SR-IOV VF config NDO functions'),
         )
 
         for t in T:
@@ -532,11 +533,9 @@ class FwSearchTest(CommonDrvTest):
 
 class SriovTest(CommonDrvTest):
     def sriov_set(self, num=0):
-        M = self.dut
-
-        M.cmd('echo %s > /sys/bus/pci/devices/0000:%s/sriov_numvfs' %
-              (num, self.group.pci_id))
-        _, out = M.cmd('lspci -d 19ee:6003 | wc -l')
+        self.dut.cmd('echo %s > /sys/bus/pci/devices/0000:%s/sriov_numvfs' %
+                     (num, self.group.pci_id))
+        _, out = self.dut.cmd('lspci -d 19ee:6003 | wc -l')
         got = int(out)
         if got != num:
             raise NtiGeneralError('Incorrect SR-IOV number got:%d want:%d' %
@@ -569,6 +568,144 @@ class SriovTest(CommonDrvTest):
                        (self.group.pci_id), fail=False)
         if ret == 0:
             raise NtiGeneralError('Incorrect SR-IOV number "65" allowed')
+
+class SriovNDOs(CommonNetdevTest):
+    def gen_macs(self, num_macs=10):
+        macs = []
+        while len(macs) < num_macs:
+            bytes = [random.randint(0x0,0xff) for i in range(5)]
+            mac = '02:%02x:%02x:%02x:%02x:%02x' % tuple(bytes)
+            if mac not in macs:
+                macs.append(mac)
+        return macs
+
+    def test_sriov_ndo(self, pfn, num_vfs, vf_idx, ndo_param, ndo_arg, regex,
+                       report_vf, do_fail=False):
+        M = self.dut
+        do_fail = do_fail or vf_idx >= num_vfs
+        report_vf = report_vf and vf_idx < num_vfs
+
+        cmd = 'ip link set %s vf %d %s %s' % (pfn, vf_idx, ndo_param, ndo_arg)
+        ret, _ = M.cmd(cmd, fail=False)
+        if bool(ret) != bool(do_fail):
+            raise NtiGeneralError('Mismatch with command %s (ret:%d fail:%d)' %
+                                  (cmd, ret, bool(do_fail)))
+
+        _, out = M.cmd('ip link show %s' % pfn)
+
+        vf_cfg = re.search(r'vf %d .*$' % vf_idx, out, re.MULTILINE)
+        if vf_cfg is None == report_vf:
+            raise NtiError("Reporting VF %d expected: %d, was: %d" %
+                           (vf_idx, report_vf, not vf_cfg is None))
+        if not report_vf:
+            return
+        vf_cfg = vf_cfg.group(0)
+        # Exit early if set failed
+        if ret:
+            return
+        vf_got = re.search(regex, vf_cfg).group(1)
+        if vf_got != ndo_arg:
+            raise NtiGeneralError('SR-IOV VF NDO(%s) failed got:%s want:%s' %
+                                  (ndo_param, vf_got, ndo_arg))
+
+    def test_one_ifc(self, ifc, max_vfs, num_vfs, caps):
+        # Whether ip link should report the info
+        ret, _ = self.dut.cmd('ls /sys/bus/pci/devices/%s/net/%s' %
+                              (self.group.pci_dbdf, ifc), fail=False)
+        report = ret == 0
+        # Whether interface is the VF
+        info = ethtool_drvinfo(self.dut, ifc)
+        is_vf = info["driver"] == "nfp_netvf"
+
+        # Test SR-IOV ndo functions
+        random.seed(1234)
+        vf_macs = self.gen_macs(num_vfs + 1)
+        for vf_idx in range(0, num_vfs + 1):
+            self.test_sriov_ndo(ifc, num_vfs, vf_idx, 'mac', vf_macs[vf_idx],
+                                'MAC ([0-9a-f:]+),', report, ~caps & 1 or is_vf)
+            # TODO: test unset vlan (0)?
+            self.test_sriov_ndo(ifc, num_vfs, vf_idx, 'vlan',
+                                str(random.randint(1,4095)),
+                                'vlan (\d+),', report, ~caps & 2 or is_vf)
+            self.test_sriov_ndo(ifc, num_vfs, vf_idx, 'spoofchk',
+                                random.choice(['on', 'off']),
+                                'spoof checking (\w+),', report,
+                                ~caps & 4 or is_vf)
+            self.test_sriov_ndo(ifc, num_vfs, vf_idx, 'state',
+                                random.choice(['auto', 'enable', 'disable']),
+                                'link-state (\w+)', report, ~caps & 8 or is_vf)
+
+            bad_cmds = (
+                ("mac ff:00:00:00:00:01", "Broadcast MAC accepted"),
+                ("vlan 1 proto 802.1ad", "802.1ad proto accepted"),
+                ("vlan 1 qos 8", "Invalid QoS accepted: 8"),
+                ("vlan 4096", "Invalid VLAN accepted: 4096"),
+            )
+
+            for cmd in bad_cmds:
+                ret, _ = self.dut.cmd('ip link set %s vf %d %s' %
+                                  (ifc, vf_idx, cmd[0]), fail=False)
+                if ret == 0:
+                    raise NtiError(cmd[1])
+
+        if max_vfs == 0:
+            _, out = self.dut.cmd('ip link show %s' % ifc)
+            if out.find(' vf ') != -1:
+                raise NtiError("ip link reports VFs")
+
+    def netdev_execute(self):
+        # We have no way to read the cap upstream right now,
+        # hardcode the project capabilities
+        sriov_caps = (
+            { "name" : "flow", "caps" : 0x03, "reprs" : True },
+            { "name" : "cNIC", "caps" : 0x0f, "reprs" : False },
+        )
+
+        info = ethtool_drvinfo(self.dut, self.nfp_netdevs[0])
+        caps = None
+        reprs = 0
+        LOG_sec("Checking app name")
+        LOG(info["firmware-version"])
+        for sc in sriov_caps:
+            if info["firmware-version"].find(sc["name"]) != -1:
+                caps = sc["caps"]
+                reprs = sc["reprs"]
+                LOG("Identified as app %s" % sc["name"])
+                break
+        if caps is None:
+            caps = 0
+            LOG("App not identified")
+        LOG_endsec()
+
+        max_vfs = self.read_scalar_nffw('nfd_vf_cfg_max_vfs')
+
+        if not self.group.upstream_drv and max_vfs > 0:
+            rcaps = self.dut.get_rtsym_scalar("_pf0_net_vf_cfg2:0")
+            if caps != rcaps:
+                raise NtiError("Got caps: %d expected: %d" %
+                               (rcaps, caps))
+
+        # Enable VFs if supported
+        if max_vfs > 0:
+            self.dut.cmd('modprobe -r vfio_pci')
+            self.dut.cmd('echo %d > /sys/bus/pci/devices/0000:%s/sriov_numvfs' %
+                         (1, self.group.pci_id))
+
+        netifs_old = self.dut._netifs
+        self.dut.cmd("udevadm settle")
+        self.dut._get_netifs()
+
+        vf_ifcs =  list(set(self.dut._netifs) - set(netifs_old))
+        num_vfs = len(vf_ifcs) / (1 + reprs)
+        if len(vf_ifcs) != bool(max_vfs) + reprs:
+            raise NtiError("max VFs supported: %d, new ifcs: %d has_reprs: %d" %
+                           (max_vfs, len(vf_ifcs), reprs))
+
+        for pfn in self.nfp_netdevs:
+            self.test_one_ifc(pfn, max_vfs, num_vfs, caps)
+        for ifc in vf_ifcs:
+            self.test_one_ifc(ifc, max_vfs, num_vfs, caps)
+
 
 class NetdevTest(CommonDrvTest):
     def execute(self):

@@ -381,8 +381,16 @@ class DrvSystem(System):
         if ret:
             return ~0
 
-        vals = out.split()
-        return int(vals[1], 16) | (int(vals[2], 16) << 32)
+        value = 0
+        words = out.split()
+        for word in words[1:]:
+            value = int(word, 16) | value << 32
+
+        LOG_sec("CPP RTsym lookup '%s'" % symbol)
+        LOG("value: %d" % value)
+        LOG_endsec()
+
+        return value
 
     def nfp_phymod_get_speed(self, idx):
         _, out = self.cmd_phymod('-E | grep -C1 eth%d | tail -1' % (idx))
