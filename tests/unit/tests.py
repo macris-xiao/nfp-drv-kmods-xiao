@@ -970,7 +970,7 @@ class DrvInfoEthtool(CommonNetdevTest):
             if info[i] != "no":
                 raise NtiError(i + ": " + info[i] + ", expected no")
 
-        if info["expansion-rom-version"]:
+        if self.dut.kernel_ver_ge(4, 0) and info["expansion-rom-version"]:
             raise NtiError("Expansion Rom reported")
         if len(info["version"]) < 4:
             raise NtiError("Version not reported")
