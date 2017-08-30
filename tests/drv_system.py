@@ -383,7 +383,7 @@ class DrvSystem(System):
 
         value = 0
         words = out.split()
-        for word in words[1:]:
+        for word in reversed(words[1:]):
             value = int(word, 16) | value << 32
 
         LOG_sec("CPP RTsym lookup '%s'" % symbol)
