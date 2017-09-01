@@ -41,7 +41,7 @@ class XDPTest(CommonTest):
         self.tcpdump.stop()
 
         # Dump the packets to logs for debug
-        capture_system.cmd('tcpdump -r ' + dump)
+        capture_system.cmd('tcpdump -xxvvv -r ' + dump)
 
         # Check the result
         capture_system.cp_from(dump, pcap_res)
