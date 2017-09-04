@@ -11,9 +11,9 @@ from ..common_test import CommonNetdevTest
 from ..drv_grp import NFPKmodGrp
 import os
 
-#pylint cannot find TCP, IP, IPv6, Dot1Q in scapy for some reason
+#pylint cannot find TCP, UDP, IP, IPv6, Dot1Q in scapy for some reason
 #pylint: disable=no-name-in-module
-from scapy.all import TCP, IP, IPv6, Dot1Q
+from scapy.all import TCP, UDP, IP, IPv6, Dot1Q
 
 ###########################################################################
 # Flower Unit Tests
@@ -38,6 +38,7 @@ class NFPKmodFlower(NFPKmodGrp):
              ('flower_match_vlan', FlowerMatchVLAN, "Checks basic flower vlan match capabilities"),
              ('flower_match_ipv4', FlowerMatchIPv4, "Checks basic flower ipv4 match capabilities"),
              ('flower_match_ipv6', FlowerMatchIPv6, "Checks basic flower ipv6 match capabilities"),
+             ('flower_match_tcp', FlowerMatchTCP, "Checks basic flower tcp match capabilities"),
         )
 
         for t in T:
@@ -196,6 +197,46 @@ class FlowerMatchIPv6(FlowerBase):
         pkt_cnt = 100
         exp_pkt_cnt = 0
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IPv6(src='10::10', dst='11::11')/TCP()/Raw('\x00'*64)
+        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+
+        self.cleanup_filter(iface)
+
+class FlowerMatchTCP(FlowerBase):
+    def netdev_execute(self):
+        iface, ingress = self.configure_flower()
+
+        # Hit test
+        match = 'ip flower ip_proto tcp dst_port 2000'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        pkt_cnt = 100
+        exp_pkt_cnt = 100
+        pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP(dport=2000)/Raw('\x00'*64)
+        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+
+        self.cleanup_filter(iface)
+
+        # Miss test - miss on port number
+        match = 'ip flower ip_proto tcp dst_port 4000'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        pkt_cnt = 100
+        exp_pkt_cnt = 0
+        pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP(dport=2000)/Raw('\x00'*64)
+        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+
+        self.cleanup_filter(iface)
+
+        # Miss test - miss on prototype
+        match = 'ip flower ip_proto tcp dst_port 2000'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        pkt_cnt = 100
+        exp_pkt_cnt = 0
+        pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/UDP(dport=2000)/Raw('\x00'*64)
         self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
 
         self.cleanup_filter(iface)
