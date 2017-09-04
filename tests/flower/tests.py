@@ -11,9 +11,9 @@ from ..common_test import CommonNetdevTest
 from ..drv_grp import NFPKmodGrp
 import os
 
-#pylint cannot find TCP or IP in scapy for some reason
+#pylint cannot find TCP, IP, Dot1Q in scapy for some reason
 #pylint: disable=no-name-in-module
-from scapy.all import TCP, IP
+from scapy.all import TCP, IP, Dot1Q
 
 ###########################################################################
 # Flower Unit Tests
@@ -35,6 +35,7 @@ class NFPKmodFlower(NFPKmodGrp):
         src = (self.host_a, self.addr_a, self.eth_a, self.addr_v6_a)
 
         T = (('flower_match_mac', FlowerMatchMAC, "Checks basic flower mac match capabilities"),
+             ('flower_match_vlan', FlowerMatchVLAN, "Checks basic flower vlan match capabilities"),
         )
 
         for t in T:
@@ -109,6 +110,34 @@ class FlowerMatchMAC(FlowerBase):
         pkt_cnt = 100
         exp_pkt_cnt = 0
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP()/TCP()/Raw('\x00'*64)
+        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+
+        self.cleanup_filter(iface)
+
+class FlowerMatchVLAN(FlowerBase):
+    def netdev_execute(self):
+        iface, ingress = self.configure_flower()
+
+        # Hit test
+        match = '802.1Q flower vlan_id 600'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        pkt_cnt = 100
+        exp_pkt_cnt = 100
+        pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/Dot1Q(vlan=600)/IP()/TCP()/Raw('\x00'*64)
+        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+
+        self.cleanup_filter(iface)
+
+        # Miss test
+        match = '802.1Q flower vlan_id 1200'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        pkt_cnt = 100
+        exp_pkt_cnt = 0
+        pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/Dot1Q(vlan=600)/IP()/TCP()/Raw('\x00'*64)
         self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
 
         self.cleanup_filter(iface)
