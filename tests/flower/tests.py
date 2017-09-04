@@ -6,10 +6,14 @@ Flower test group for the NFP Linux drivers.
 """
 
 from netro.testinfra.nti_exceptions import NtiError
-from scapy.all import Ether, wrpcap
+from scapy.all import Raw, Ether, wrpcap
 from ..common_test import CommonNetdevTest
 from ..drv_grp import NFPKmodGrp
 import os
+
+#pylint cannot find TCP or IP in scapy for some reason
+#pylint: disable=no-name-in-module
+from scapy.all import TCP, IP
 
 ###########################################################################
 # Flower Unit Tests
@@ -30,7 +34,8 @@ class NFPKmodFlower(NFPKmodGrp):
         dut = (self.dut, self.addr_x, self.eth_x, self.addr_v6_x)
         src = (self.host_a, self.addr_a, self.eth_a, self.addr_v6_a)
 
-        T = ()
+        T = (('flower_match_mac', FlowerMatchMAC, "Checks basic flower mac match capabilities"),
+        )
 
         for t in T:
             self._tests[t[0]] = t[1](src, dut, self, t[0], t[2])
@@ -79,3 +84,31 @@ class FlowerBase(CommonNetdevTest):
             raise NtiError('Counter missmatch. Expected: %s, Got: %s' % (exp_cnt, stats.tc_ing['tc_49152_pkt']))
         if int(stats.tc_ing['tc_49152_bytes']) != exp_bytes:
             raise NtiError('Counter missmatch. Expected: %s, Got: %s' % (exp_bytes, stats.tc_ing['tc_49152_bytes']))
+
+class FlowerMatchMAC(FlowerBase):
+    def netdev_execute(self):
+        iface, ingress = self.configure_flower()
+
+        # Hit test
+        match = 'ip flower dst_mac 02:12:23:34:45:56'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        pkt_cnt = 100
+        exp_pkt_cnt = 100
+        pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP()/TCP()/Raw('\x00'*64)
+        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+
+        self.cleanup_filter(iface)
+
+        # Miss test
+        match = 'ip flower dst_mac 02:42:42:42:42:42'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        pkt_cnt = 100
+        exp_pkt_cnt = 0
+        pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP()/TCP()/Raw('\x00'*64)
+        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+
+        self.cleanup_filter(iface)
