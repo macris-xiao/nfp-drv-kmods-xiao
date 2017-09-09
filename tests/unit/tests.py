@@ -39,13 +39,13 @@ class NFPKmodUnit(NFPKmodGrp):
              ('resource', ResourceTest, 'Test in-kernel resource table interface'),
              ('nsp_eth_table', NspEthTable, "Test NSP ETH table functions"),
              ('hwinfo', HWInfoTest, 'Test in-kernel HWInfo interface'),
-             ('bsp_version', BspVerTest, "Test NSP BSP Version function"),
-             ('sensors', SensorsTest, "Test Hwmon sensors functionality"),
              ('rtsym', RTSymTest, 'Test in-kernel RT-Sym interface'),
              ('fw_names', FwSearchTest, "Test FW requested by the driver"),
              ('sriov', SriovTest, 'Test SR-IOV sysfs interface'),
              ('netdev', NetdevTest, "Test netdev loading"),
              # Tests which assume netdev FW to be loaded
+             ('bsp_version', BspVerTest, "Test NSP BSP Version function"),
+             ('sensors', SensorsTest, "Test Hwmon sensors functionality"),
              ('phys_port_name', PhysPortName, "Test port naming"),
              ('params_incompat', ParamsIncompatTest,
               "Test if incompatible parameter combinations are rejected"),
@@ -324,44 +324,36 @@ class HWInfoTest(CommonNTHTest):
         shuffle(keys)
         self.hwinfo_check(keys, vals)
 
-class BspVerTest(CommonDrvTest):
-    def execute(self):
-        M = self.dut
-
-        # Clean the old dmesg info
-        M.cmd('dmesg -c')
-
-        self.drv_load_any()
+class BspVerTest(CommonNetdevTest):
+    def netdev_execute(self):
         self.nsp_min(16)
 
-        cmd  = 'dmesg | grep "nfp 0000:%s"' % (self.group.pci_id)
+        cmd  = 'dmesg | tac | sed -n "1,/nfp: NFP PCIe Driver/p"'
+        cmd += ' | grep "nfp 0000:%s"' % (self.group.pci_id)
         cmd += ' | grep -o "BSP: .*" | cut -c 6- | tr -d "\n"'
-        _, ver = M.cmd(cmd)
+        _, ver = self.dut.cmd(cmd)
         comp = ver.split('.')
         if len(comp) != 3:
-            raise NtiGeneralError('bad bsp version format: %s %d' %
-                                  (ver, len(comp)))
+            raise NtiError('bad bsp version format: %s %d' % (ver, len(comp)))
         for i in range(3):
             if len(comp[i]) != 6:
-                raise NtiGeneralError('bad bsp version format: %s' % ver)
+                raise NtiError('bad bsp version format: %s' % ver)
             if False == all(c in '0123456789abcdefABCDEF' for c in comp[i]):
-                raise NtiGeneralError('bad bsp version format (char): %s' % ver)
+                raise NtiError('bad bsp version format (char): %s' % ver)
 
-class SensorsTest(CommonDrvTest):
+class SensorsTest(CommonNetdevTest):
     def get_attr(self, array, attr):
         for s in array :
             if attr in s :
                 return s
         raise NtiError('didn\'t find attr: %s', attr)
 
-    def execute(self):
-        M = self.dut
-
-        self.drv_load_any()
+    def netdev_execute(self):
         self.nsp_min(15)
 
-        ret, out = M.cmd('sensors -u nfp-pci-%s%s' %
-                         (self.group.pci_id[0:2], self.group.pci_id[3:5]))
+        ret, out = self.dut.cmd('sensors -u nfp-pci-%s%s' %
+                                (self.group.pci_id[0:2],
+                                 self.group.pci_id[3:5]))
         if ret != 0:
             raise NtiError('sensors not found')
         lines = out.splitlines()
@@ -1392,6 +1384,7 @@ class MtuFlbufCheck(CommonNetdevTest):
         if ret != 0:
             raise NtiSkip('XDP samples not found')
 
+        self.dut.cmd('ethtool -L %s rx 0 tx 0 combined 1' % (self.vnics[0]))
         self.xdp_start('pass.o')
 
         self.check(True)
