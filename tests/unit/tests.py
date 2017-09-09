@@ -505,20 +505,6 @@ class FwSearchTest(CommonDrvTest):
             raise NtiGeneralError('nfp.ko looking for firmware')
         M.rmmod()
 
-        # Request nfp.ko to look for some FW
-        M.insmod(params="nfp6000_firmware=_bad_fw_name")
-        out = self.dev_dmesg()
-        if out.find('Direct firmware load for _bad_fw_name') == -1:
-            raise NtiGeneralError('nfp.ko should be looking for firmware')
-        M.rmmod()
-
-        # Make load fail
-        M.insmod(params="nfp6000_firmware=_bad_fw_name fw_load_required=1")
-        out = self.dev_dmesg()
-        if out.find(probe_fail_str) == -1:
-            raise NtiGeneralError('nfp.ko should fail to load without FW')
-        M.rmmod()
-
         # Check what netdev will look for
         M.insmod(netdev=True, params="fw_load_required=1")
         out = self.dev_dmesg()
@@ -806,8 +792,7 @@ class ParamsIncompatTest(CommonTest):
         M = self.dut
 
         # Check incompatible module param combinations
-        bad_combs = ('nfp_pf_netdev=1 nfp6000_firmware="random"',
-                     'nfp_pf_netdev=1 nfp_mon_event=1',
+        bad_combs = ('nfp_pf_netdev=1 nfp_mon_event=1',
                      'nfp_pf_netdev=1 nfp_fallback=1 nfp_dev_cpp=0')
 
         for p in bad_combs:
