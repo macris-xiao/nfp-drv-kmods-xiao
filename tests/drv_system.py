@@ -202,7 +202,7 @@ class DrvSystem(System):
     def rm_dir_on_clean(self, path):
         self._dirs.add(path)
 
-    def insmod(self, module=None, netdev=False, userspace=None, reset=None,
+    def insmod(self, module=None, netdev=False, userspace=None,
                params='', fail=True):
         if not module or module == 'nfp':
             module = self.mod
@@ -211,8 +211,6 @@ class DrvSystem(System):
                 params += ' nfp_pf_netdev=%d' % netdev
             if not userspace is None:
                 params += ' nfp_dev_cpp=%d' % userspace
-            if not reset is None:
-                params += ' nfp_reset=%d' % reset
 
             if self.grp.upstream_drv and params != '':
                 LOG_sec ("SKIP nfp.ko %s" % (params))
@@ -262,6 +260,9 @@ class DrvSystem(System):
         while self._mods:
             m = self._mods.pop()
             self.rmmod(module=m)
+
+    def nfp_reset(self):
+        self.cmd_nsp("-R")
 
     def reset_dirs(self):
         while self._dirs:

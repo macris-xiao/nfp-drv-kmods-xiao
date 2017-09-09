@@ -464,7 +464,8 @@ class RTSymTest(CommonTest):
         M.cmd('mkdir -p /lib/firmware/netronome')
         M.cp_to(self.group.mefw, '/lib/firmware/netronome/')
 
-        M.insmod(reset=True)
+        M.insmod()
+        M.nfp_reset()
         M.insmod(module="nth")
 
         self.check_cnt('insmod', -22)
@@ -534,7 +535,8 @@ class SriovTest(CommonDrvTest):
         M.cmd('modprobe vfio_pci')
         M.cmd('echo 19ee 6003 > /sys/bus/pci/drivers/vfio-pci/new_id')
 
-        M.insmod(reset=True)
+        M.insmod()
+        M.nfp_reset()
         _, out = M.cmd('cat /sys/bus/pci/devices/0000:%s/sriov_totalvfs' %
                        (self.group.pci_id))
         out = out.strip()
@@ -698,7 +700,8 @@ class NetdevTest(CommonDrvTest):
         M = self.dut
 
         # Check FW loading from the user space
-        M.insmod(reset=True)
+        M.insmod()
+        M.nfp_reset()
         M.nffw_load(os.path.join(self.dut.tmpdir,
                                  os.path.basename(self.group.netdevfw)))
 
