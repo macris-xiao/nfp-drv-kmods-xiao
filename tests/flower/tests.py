@@ -40,6 +40,7 @@ class NFPKmodFlower(NFPKmodGrp):
              ('flower_match_ipv6', FlowerMatchIPv6, "Checks basic flower ipv6 match capabilities"),
              ('flower_match_tcp', FlowerMatchTCP, "Checks basic flower tcp match capabilities"),
              ('flower_match_udp', FlowerMatchUDP, "Checks basic flower udp match capabilities"),
+             ('flower_match_vxlan', FlowerMatchVXLAN, "Checks basic flower vxlan match capabilities"),
         )
 
         for t in T:
@@ -72,7 +73,7 @@ class FlowerBase(CommonNetdevTest):
         M = self.dut
         M.cmd('tc filter del dev %s parent ffff:' % iface)
 
-    def test_filter(self, interface, ingress, pkt, send_cnt, exp_cnt):
+    def test_filter(self, interface, ingress, pkt, send_cnt, exp_cnt, pkt_len_diff=0):
         M = self.dut
         A = self.src
         pcap_local = os.path.join(self.group.tmpdir, 'pcap')
@@ -83,7 +84,7 @@ class FlowerBase(CommonNetdevTest):
         self.src.mv_to(pcap_local, pcap_src)
         A.cmd("tcpreplay --intf1=%s --pps=100 --loop=%s -K %s " % (ingress, send_cnt, pcap_src))
 
-        exp_bytes = (len(pkt) + len(Ether()))*exp_cnt
+        exp_bytes = (len(pkt) + len(Ether()) + pkt_len_diff)*exp_cnt
         stats = M.netifs[interface].stats(get_tc_ing=True)
         if int(stats.tc_ing['tc_49152_pkts']) != exp_cnt:
             raise NtiError('Counter missmatch. Expected: %s, Got: %s' % (exp_cnt, stats.tc_ing['tc_49152_pkt']))
@@ -278,6 +279,71 @@ class FlowerMatchUDP(FlowerBase):
         pkt_cnt = 100
         exp_pkt_cnt = 0
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP(dport=4000)/Raw('\x00'*64)
+        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+
+        self.cleanup_filter(iface)
+
+class FlowerMatchVXLAN(FlowerBase):
+    def netdev_execute(self):
+        iface, ingress = self.configure_flower()
+        M = self.dut
+        A = self.src
+
+        src_ip = self.src_addr[0].split('/')[0]
+        dut_ip = self.dut_addr[0].split('/')[0]
+
+        _, src_mac = A.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.src_ifn[0])
+        _, dut_mac = M.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.dut_ifn[0])
+
+        # Hit test - match all vxlan fields and decap
+        match = 'ip flower enc_src_ip %s enc_dst_ip %s enc_dst_port 4789 enc_key_id 123' % (src_ip, dut_ip)
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+        pkt_cnt = 100
+        exp_pkt_cnt = 100
+
+        # VXLAN header with VNI 123
+        vxlan_header = '\x08\x00\x00\x00\x00\x00\x7b\x00'
+        enc_pkt = Ether(src="aa:bb:cc:dd:ee:ff",dst="01:02:03:04:05:06")/IP()/TCP()/Raw('\x00'*64)
+        vxlan_header += str(enc_pkt)
+        pkt = Ether(src=src_mac,dst=dut_mac)/IP(src=src_ip, dst=dut_ip)/UDP(sport=44534, dport=4789)/vxlan_header
+        pkt_diff = len(Ether()) + len(IP()) + len(UDP()) + 8
+        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt, -pkt_diff)
+
+        self.cleanup_filter(iface)
+
+        # Miss test - incorrect enc ip src
+        match = 'ip flower enc_src_ip 1.1.1.1 enc_dst_ip %s enc_dst_port 4789 enc_key_id 123' % (dut_ip)
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        pkt_cnt = 100
+        exp_pkt_cnt = 0
+
+        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+
+        self.cleanup_filter(iface)
+
+        # Miss test - incorrect enc ip dst
+        match = 'ip flower enc_src_ip %s enc_dst_ip 1.1.1.1 enc_dst_port 4789 enc_key_id 123' % (src_ip)
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        pkt_cnt = 100
+        exp_pkt_cnt = 0
+
+        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+
+        self.cleanup_filter(iface)
+
+        # Miss test - incorrect VNI
+        match = 'ip flower enc_src_ip %s enc_dst_ip %s enc_dst_port 4789 enc_key_id 124' % (src_ip, dut_ip)
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        pkt_cnt = 100
+        exp_pkt_cnt = 0
+
         self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
 
         self.cleanup_filter(iface)
