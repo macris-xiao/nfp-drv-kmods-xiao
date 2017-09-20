@@ -42,6 +42,7 @@ class NFPKmodFlower(NFPKmodGrp):
              ('flower_match_tcp', FlowerMatchTCP, "Checks basic flower tcp match capabilities"),
              ('flower_match_udp', FlowerMatchUDP, "Checks basic flower udp match capabilities"),
              ('flower_match_vxlan', FlowerMatchVXLAN, "Checks basic flower vxlan match capabilities"),
+             ('flower_vxlan_whitelist', FlowerVxlanWhitelist, "Checks that unsupported vxlan rules are not offloaded"),
              ('flower_action_encap_vxlan', FlowerActionVXLAN, "Checks basic flower vxlan encapsulation action capabilities"),
         )
 
@@ -63,13 +64,17 @@ class FlowerBase(CommonNetdevTest):
         M.refresh()
         return iface, ingress
 
-    def install_filter(self, iface, match, action):
+    def install_filter(self, iface, match, action, in_hw=True):
         M = self.dut
         M.cmd('tc filter add dev %s parent ffff: protocol %s action %s' % (iface, match, action))
 
         _, ret_str = M.cmd('tc filter show dev %s parent ffff: | grep not_in_hw' % iface, fail=False)
         if 'not_in_hw' in ret_str:
-            raise NtiError('match: %s; action: %s. Not installed in hardware.' % (match, action))
+            if in_hw:
+                raise NtiError('match: %s; action: %s. Not installed in hardware.' % (match, action))
+        else:
+            if not in_hw:
+                raise NtiError('match: %s; action: %s. Installed in hardware.' % (match, action))
 
     def cleanup_filter(self, iface):
         M = self.dut
@@ -400,6 +405,47 @@ class FlowerMatchVXLAN(FlowerBase):
         self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
 
         self.cleanup_filter(iface)
+
+class FlowerVxlanWhitelist(FlowerBase):
+    def netdev_execute(self):
+        iface, _ = self.configure_flower()
+        M = self.dut
+
+        # Check that vxlan without a specified destination IP is installed in software only (not_in_hw)
+        match = 'ip flower enc_src_ip 10.0.0.2 enc_dst_port 5789'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action, False)
+        self.cleanup_filter(iface)
+
+        # Check that vxlan with masked destination IP is installed in software only (not_in_hw)
+        match = 'ip flower enc_src_ip 10.0.0.2 enc_dst_ip 10.0.0.1/24 enc_dst_port 4789'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action, False)
+        self.cleanup_filter(iface)
+
+        # Check that vxlan without a specified destination port is installed in software only (not_in_hw)
+        match = 'ip flower enc_src_ip 10.0.0.2 enc_dst_ip 10.0.0.1'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action, False)
+        self.cleanup_filter(iface)
+
+        # Check that vxlan with destination port != 4789 is installed in software only (not_in_hw)
+        match = 'ip flower enc_src_ip 10.0.0.2 enc_dst_ip 10.0.0.1 enc_dst_port 5789'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action, False)
+        self.cleanup_filter(iface)
+
+        # Check that multiple vxlan tunnel output is installed in software only (not_in_hw)
+        M.cmd('ip link add vxlan0 type vxlan id 123 dev %s dstport 4789' % self.dut_ifn[0])
+        M.cmd('ip link add vxlan1 type vxlan id 125 dev %s dstport 4789' % self.dut_ifn[0])
+        M.cmd('ifconfig vxlan0 up')
+        M.cmd('ifconfig vxlan1 up')
+        match = 'ip flower ip_proto tcp'
+        action = 'tunnel_key set id 123 src_ip 10.0.0.1 dst_ip 10.0.0.2 dst_port 4789 action mirred egress mirror dev vxlan0 action mirred egress redirect dev vxlan1'
+        self.install_filter(iface, match, action, False)
+        self.cleanup_filter(iface)
+        M.cmd('ip link delete vxlan0')
+        M.cmd('ip link delete vxlan1')
 
 class FlowerActionVXLAN(FlowerBase):
     def netdev_execute(self):
