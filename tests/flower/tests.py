@@ -6,14 +6,15 @@ Flower test group for the NFP Linux drivers.
 """
 
 from netro.testinfra.nti_exceptions import NtiError
-from scapy.all import Raw, Ether, wrpcap
+from netro.testinfra.system import cmd_log
 from ..common_test import CommonNetdevTest
 from ..drv_grp import NFPKmodGrp
+from time import sleep
 import os
 
 #pylint cannot find TCP, UDP, IP, IPv6, Dot1Q in scapy for some reason
 #pylint: disable=no-name-in-module
-from scapy.all import TCP, UDP, IP, IPv6, Dot1Q
+from scapy.all import Raw, Ether, rdpcap, wrpcap, TCP, UDP, IP, IPv6, Dot1Q
 
 ###########################################################################
 # Flower Unit Tests
@@ -90,6 +91,57 @@ class FlowerBase(CommonNetdevTest):
             raise NtiError('Counter missmatch. Expected: %s, Got: %s' % (exp_cnt, stats.tc_ing['tc_49152_pkt']))
         if int(stats.tc_ing['tc_49152_bytes']) != exp_bytes:
             raise NtiError('Counter missmatch. Expected: %s, Got: %s' % (exp_bytes, stats.tc_ing['tc_49152_bytes']))
+
+    def test_packet(self, ingress, send_pkt, exp_pkt, dump_filter=''):
+        M = self.dut
+        A = self.src
+        dump_local = os.path.join('/tmp/', 'pcap-dump-%s' % (self.name))
+        self.capture_packs(ingress, send_pkt, dump_local, dump_filter)
+        test_pkt = rdpcap(dump_local)
+        A.cmd("rm %s" % dump_local)
+        if str(exp_pkt) != str(test_pkt[0]):
+            print "Expected:"
+            exp_pkt.show()
+            print "Got:"
+            test_pkt[0].show()
+            raise NtiError('Packet missmatch')
+
+    def capture_packs(self, ingress, send_pkt, pack_dump, dump_filter=''):
+        M = self.dut
+        A = self.src
+        pcap_local = os.path.join(self.group.tmpdir, 'pcap_%s_input' %(self.name))
+        pcap_src = os.path.join('/tmp/', 'pcap_%s_src' %(self.name))
+
+        # Grab packets on egress interface - Assume packets are being mirrored
+        # Start TCPdump - Would want to use built-in NTI class here,
+        # but it does not provide us with al the required features
+        A.cmd("tcpdump -U -i %s -w %s -Q in %s " % (ingress, pack_dump, dump_filter), background=True)
+
+        wrpcap(pcap_local, send_pkt)
+        cmd_log('scp -q %s %s:%s' % (pcap_local, A.rem, pcap_src))
+        sleep(1)
+        A.cmd("tcpreplay --intf1=%s --pps=100 --loop=100 -K %s " % (ingress, pcap_src))
+        sleep(1)
+
+        A.cmd("killall -KILL tcpdump")
+        A.cmd("rm %s" % pcap_src)
+
+    def pcap_check_bytes(self, exp_cnt, cap_packs, pkt, pkt_len_diff=0):
+        if len(cap_packs) != exp_cnt:
+            raise NtiError('Pcap count missmatch. Expected: %s, Got: %s' % (exp_cnt, len(cap_packs)))
+        exp_bytes = (len(pkt) + len(Ether()) + pkt_len_diff)*exp_cnt
+        total_bytes = 0
+        for p in cap_packs:
+            total_bytes += len(p) + len(Ether())
+        if total_bytes != exp_bytes:
+            raise NtiError('Pcap byte missmatch. Expected: %s, Got: %s' % (exp_bytes, total_bytes))
+
+    def pcap_cmp_pkt_bytes(self, pack_cap, exp_field, offset):
+        # offset is in bytes but packet treated as hex string so double offset
+        offset *= 2
+        for p in pack_cap:
+            if str(p).encode("hex")[offset:offset+len(exp_field)] != exp_field:
+                raise NtiError('Bad byte match for %s at offset %s  - %s' % (exp_field, offset, str(p).encode("hex")[offset:offset+len(exp_field)]))
 
 class FlowerMatchMAC(FlowerBase):
     def netdev_execute(self):
