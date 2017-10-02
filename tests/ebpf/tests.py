@@ -313,7 +313,67 @@ class NFPKmodBPF(NFPKmodAppGrp):
                 'Packet read cache optimisation (cache invalidation)'),
                ('xdp_tx_pkt_cache_5', XDPpktcache5,
                 'Packet read cache optimisation (negative offsets)'),
+               ('xdp_atomic_inc32', XDPatomicCnt32, 'xdp_atomic32 counter'),
+               ('xdp_atomic_inc64', XDPatomicCnt64, 'xdp_atomic64 counter'),
+               ('xdp_atomic_inc32_nonzero', XDPatomicCnt32NonZero,
+                'xdp_atomic32 counter starting from an offset'),
+               ('xdp_atomic_inc64_nonzero', XDPatomicCnt64NonZero,
+                'xdp_atomic64 counter starting from an offset'),
+               ('xdp_atomic_inc32_ovfl', XDPatomicCnt32Ovfl,
+                'xdp_atomic32 counter overflow'),
+               ('xdp_atomic_inc64_ovfl', XDPatomicCnt64Ovfl,
+                'xdp_atomic64 counter overflow'),
+               ('xdp_atomic_inc32_data', XDPatomicCnt32Data,
+                'xdp_atomic32 counter by data from packet'),
+               ('xdp_atomic_inc64_data', XDPatomicCnt64Data,
+                'xdp_atomic64 counter by data from packet'),
+               ('xdp_atomic_inc32_long', XDPatomicCnt32Long,
+                'xdp_atomic32 counter by 16bit + 1'),
+               ('xdp_atomic_inc64_long', XDPatomicCnt64Long,
+                'xdp_atomic64 counter by 16bit + 1'),
+               ('xdp_atomic_inc32_data32', XDPatomicCnt32Data32,
+                'xdp_atomic32 counter by 32bit data from packet'),
+               ('xdp_atomic_inc64_data32', XDPatomicCnt64Data32,
+                'xdp_atomic64 counter by 32bit data from packet'),
+               ('xdp_atomic_unalign4', XDPLoadFailTest, 'Unaligned atomic32'),
+               ('xdp_atomic_unalign8', XDPLoadFailTest, 'Unaligned atomic64'),
+               ('xdp_atomic_short_val', XDPLoadFailTest,
+                'Atomic64 beyond value'),
+               ('xdp_atomic_pkt', XDPLoadFailTest, 'Atomic on packet'),
+               ('xdp_atomic_stack', XDPLoadNoOffloadTest, 'Atomic on stack'),
+               ('xdp_atomic_adj32', XDPatomicCnt32Adj,
+                'Atomic32 check adjacent parts of value'),
+               ('xdp_atomic_adj64', XDPatomicCnt64Adj,
+                'Atomic64 check adjacent parts of value'),
+               ('xdp_atomic_off32', XDPatomicCnt32AdjShort,
+                'Atomic32 check xadd at a offset'),
+               ('xdp_atomic_off64', XDPatomicCnt64AdjShort,
+                'Atomic64 check xadd at a offset'),
+               ('xdp_atomic_mul32', XDPatomicCntMulti32,
+                'Atomic32 multiple adds'),
+               ('xdp_atomic_mul64', XDPatomicCntMulti64,
+                'Atomic64 multiple adds'),
         )
+
+        for i in (0, 1, 3, 7, 8, 11):
+            name = 'xdp_atomic_read%d' % i
+            summary = "Atomic32 can't be read (offset %d)" % i
+            if i in range(4, 8):
+                cl = XDPLoadNoOffloadTest
+            else:
+                cl = XDPLoadTest
+            self._tests[name] = cl(src, dut, group=self, name=name,
+                                   summary=summary)
+
+        for i in (7, 8, 12, 16):
+            name = 'xdp_atomic_read64_%d' % i
+            summary = "Atomic64 can't be read (offset %d)" % i
+            if i in range(8, 16):
+                cl = XDPLoadNoOffloadTest
+            else:
+                cl = XDPLoadTest
+            self._tests[name] = cl(src, dut, group=self, name=name,
+                                   summary=summary)
 
         for t in XDP:
             self._tests[t[0]] = t[1](src, dut, group=self, name=t[0],

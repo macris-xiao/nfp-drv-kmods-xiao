@@ -693,3 +693,153 @@ class XDParrayUpdateFlagsAndDelete(XDPupdateFlagsAndDelete):
 class XDPhtabUpdateFlagsAndDelete(XDPupdateFlagsAndDelete):
     def get_prog_name(self):
         return 'map_htab_update_delete.o'
+
+################################################################################
+# Base classes - atomic adds
+################################################################################
+
+class XDPatomicCnt(MapTest):
+    def get_params(self):
+        # cnt start, cnt type, step, prog name, value off, value end
+        return 0, 'I', 1, '', 0, 4
+
+    def execute(self):
+        cnt, cntT, step, prog, vstart, vend = self.get_params()
+        self.xdp_start(prog, mode=self.group.xdp_mode())
+
+        m = self.bpftool_maps_get()[0]
+
+        if cnt != 0:
+            self.dut.bpftool("map update id %d key %s value %s" %
+                             (m["id"], int2str("I", 0), int2str(cntT, cnt)))
+
+        pkt = self.std_pkt()
+        pcap_src = self.prep_pcap(pkt)
+        self.test_with_traffic(pcap_src, self.std_pkt(),
+                               (self.dut, self.dut_ifn[0], self.src))
+
+        elems = self.bpftool_map_dump(m)
+        assert_equal(1, len(elems), "Map elements")
+        val = elems[0]["value"]
+        for i in val[:vstart] + val[vend:]:
+            assert_equal('0x00', i, "Adjacent value in map")
+        val = str2int(val[vstart:vend])
+        # Don't check values if overflow may have happened
+        type_max = 1 << (vend - vstart) * 8
+        mask = type_max - 1
+        if cnt + 120 * step < type_max:
+            assert_ge(cnt + 100 * step & mask, val, "Counter value")
+            assert_lt(cnt + 120 * step & mask, val, "Counter value")
+
+    def cleanup(self):
+        self.xdp_stop(mode=self.group.xdp_mode())
+
+class XDPatomicCntMulti(MapTest):
+    def get_params(self):
+        # len, prog name
+        return 0, prog
+
+    def execute(self):
+        length, prog = self.get_params()
+        self.xdp_start(prog, mode=self.group.xdp_mode())
+
+        m = self.bpftool_maps_get()[0]
+
+        pkt = self.std_pkt()
+        pcap_src = self.prep_pcap(pkt)
+        self.test_with_traffic(pcap_src, self.std_pkt(),
+                               (self.dut, self.dut_ifn[0], self.src))
+
+        elems = self.bpftool_map_dump(m)
+        assert_equal(1, len(elems), "Map elements")
+        val = []
+        for i in range(3):
+            part = elems[0]["value"][i * length:(i + 1) * length]
+            val.append(str2int(part))
+
+        step = int('0x' + 'f1' * (length - 1), 16)
+        assert_ge(200, val[0], "Counter value[0]")
+        assert_lt(220, val[0], "Counter value[0]")
+        assert_ge(100, val[1], "Counter value[1]")
+        assert_lt(120, val[1], "Counter value[1]")
+        assert_ge(200 * step, val[2], "Counter value[2]")
+        assert_lt(220 * step, val[2], "Counter value[2]")
+
+    def cleanup(self):
+        self.xdp_stop(mode=self.group.xdp_mode())
+
+################################################################################
+# Actual test classes - atomic adds
+################################################################################
+
+class XDPatomicCnt32(XDPatomicCnt):
+    def get_params(self):
+        return 0, 'I', 1, 'map_atomic32.o', 0, 4
+
+class XDPatomicCnt64(XDPatomicCnt):
+    def get_params(self):
+        return 0, 'Q', 1, 'map_atomic.o', 0, 8
+
+class XDPatomicCnt32NonZero(XDPatomicCnt):
+    def get_params(self):
+        return 0xfffffff, 'I', 1, 'map_atomic32.o', 0, 4
+
+class XDPatomicCnt64NonZero(XDPatomicCnt):
+    def get_params(self):
+        return 0xfffffffffffffff, 'Q', 1, 'map_atomic.o', 0, 8
+
+class XDPatomicCnt32Ovfl(XDPatomicCnt):
+    def get_params(self):
+        return 0xffffffff, 'I', 1, 'map_atomic32.o', 0, 4
+
+class XDPatomicCnt64Ovfl(XDPatomicCnt):
+    def get_params(self):
+        return 0xffffffffffffffff, 'Q', 1, 'map_atomic.o', 0, 8
+
+class XDPatomicCnt32Data(XDPatomicCnt):
+    def get_params(self):
+        return 0, 'I', 0xf1, 'map_atomic_data32.o', 0, 4
+
+class XDPatomicCnt64Data(XDPatomicCnt):
+    def get_params(self):
+        return 0, 'Q', 0xf1, 'map_atomic_data.o', 0, 8
+
+class XDPatomicCnt32Long(XDPatomicCnt):
+    def get_params(self):
+        return 0, 'I', 0x10000, 'map_atomic_65k32.o', 0, 4
+
+class XDPatomicCnt64Long(XDPatomicCnt):
+    def get_params(self):
+        return 0, 'Q', 0x10000, 'map_atomic_65k.o', 0, 8
+
+class XDPatomicCnt32Data32(XDPatomicCnt):
+    def get_params(self):
+        return 0, 'I', 0xf1f1f1, 'map_atomic_data32_32.o', 0, 4
+
+class XDPatomicCnt64Data32(XDPatomicCnt):
+    def get_params(self):
+        return 0, 'Q', 0xf1f1f1f1f1f1f1, 'map_atomic_data32_64.o', 0, 8
+
+class XDPatomicCnt32Adj(XDPatomicCnt):
+    def get_params(self):
+        return 0, 'I', 0xf1f1f1f1, 'map_atomic_adj32.o', 4, 8
+
+class XDPatomicCnt64Adj(XDPatomicCnt):
+    def get_params(self):
+        return 0, 'Q', 0xf1f1f1f1f1f1f1f1, 'map_atomic_adj.o', 8, 16
+
+class XDPatomicCnt32AdjShort(XDPatomicCnt):
+    def get_params(self):
+        return 0, 'I', 0xf1f1f1, 'map_atomic_adj_short32.o', 4, 8
+
+class XDPatomicCnt64AdjShort(XDPatomicCnt):
+    def get_params(self):
+        return 0, 'Q', 0xf1f1f1f1f1f1f1, 'map_atomic_adj_short.o', 8, 16
+
+class XDPatomicCntMulti32(XDPatomicCntMulti):
+    def get_params(self):
+        return 4, 'map_atomic_multi32.o'
+
+class XDPatomicCntMulti64(XDPatomicCntMulti):
+    def get_params(self):
+        return 8, 'map_atomic_multi64.o'
