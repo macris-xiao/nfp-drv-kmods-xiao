@@ -78,6 +78,9 @@ class Tools(CommonTest):
         ret, _ = self.dut.cmd_hwinfo('-h', fail=False)
         if ret:
             raise NtiGeneralError("BSP tools not installed")
+        ret, _ = self.dut.cmd_hwinfo('-h 2>&1 | grep " -Z"', fail=False)
+        if ret:
+            raise NtiGeneralError("BSP tools too old, -Z not supported")
         ret, _ = self.src.cmd('hping3 -h', fail=False)
         if ret:
             raise NtiGeneralError("hping3 not installed on SRC")

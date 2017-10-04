@@ -400,41 +400,42 @@ class DrvSystem(System):
 
         return int(speed.groups()[0]) * 1000
 
-    def bsp_cmd(self, cmd, fail):
-        return self.cmd(os.path.join(self.grp.bsppath, 'bin', 'nfp-') + cmd,
-                        fail=fail)
+    def bsp_cmd(self, cmd, params, fail):
+        full_cmd  = os.path.join(self.grp.bsppath, 'bin', 'nfp-') + cmd
+        full_cmd += ' -Z %s ' % (self.grp.pci_dbdf)
+        full_cmd += params
+
+        return self.cmd(full_cmd, fail=fail)
 
     def nffw_load(self, fw, fail=True):
         if self.kernel_ver.find("debug") == -1:
-            cmd = 'nffw load -n %d %s'
+            return self.bsp_cmd('nffw load', fw, fail=fail)
         else:
-            cmd = 'nsp -n %d -F %s'
-        return self.bsp_cmd(cmd % (self.grp.nfp, fw), fail=fail)
+            return self.cmd_nsp('-F ' + fw, fail=fail)
 
     def nffw_unload(self, fail=True):
         if self.kernel_ver.find("debug") == -1:
-            cmd = 'nffw unload -n %d'
+            return self.bsp_cmd('nffw unload', '', fail=fail)
         else:
-            cmd = 'nsp -n %d -R'
-        return self.bsp_cmd(cmd % (self.grp.nfp), fail=fail)
+            return self.cmd_nsp('-R', fail=fail)
 
     def cmd_reg(self, cmd, fail=True):
-        return self.bsp_cmd('reg -n %d %s' % (self.grp.nfp, cmd), fail=fail)
+        return self.bsp_cmd('reg', cmd, fail=fail)
 
     def cmd_res(self, cmd, fail=True):
-        return self.bsp_cmd('res -n %d %s' % (self.grp.nfp, cmd), fail=fail)
+        return self.bsp_cmd('res', cmd, fail=fail)
 
     def cmd_rtsym(self, cmd, fail=True):
-        return self.bsp_cmd('rtsym -n %d %s' % (self.grp.nfp, cmd), fail=fail)
+        return self.bsp_cmd('rtsym', cmd, fail=fail)
 
     def cmd_hwinfo(self, cmd, fail=True):
-        return self.bsp_cmd('hwinfo -n %d %s' % (self.grp.nfp, cmd), fail=fail)
+        return self.bsp_cmd('hwinfo', cmd, fail=fail)
 
     def cmd_phymod(self, cmd, fail=True):
-        return self.bsp_cmd('phymod -n %d %s' % (self.grp.nfp, cmd), fail=fail)
+        return self.bsp_cmd('phymod', cmd, fail=fail)
 
     def cmd_nsp(self, cmd, fail=True):
-        return self.bsp_cmd('nsp -n %d %s' % (self.grp.nfp, cmd), fail=fail)
+        return self.bsp_cmd('nsp', cmd, fail=fail)
 
     def cmd_media(self, cmd='', fail=True):
-        return self.bsp_cmd('media -n %d %s' % (self.grp.nfp, cmd), fail=fail)
+        return self.bsp_cmd('media', cmd, fail=fail)
