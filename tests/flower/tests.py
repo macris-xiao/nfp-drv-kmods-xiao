@@ -42,6 +42,7 @@ class NFPKmodFlower(NFPKmodGrp):
              ('flower_match_tcp', FlowerMatchTCP, "Checks basic flower tcp match capabilities"),
              ('flower_match_udp', FlowerMatchUDP, "Checks basic flower udp match capabilities"),
              ('flower_match_vxlan', FlowerMatchVXLAN, "Checks basic flower vxlan match capabilities"),
+             ('flower_match_whitelist', FlowerMatchWhitelist, "Checks basic flower match whitelisting"),
              ('flower_vxlan_whitelist', FlowerVxlanWhitelist, "Checks that unsupported vxlan rules are not offloaded"),
              ('flower_action_encap_vxlan', FlowerActionVXLAN, "Checks basic flower vxlan encapsulation action capabilities"),
         )
@@ -406,6 +407,76 @@ class FlowerMatchVXLAN(FlowerBase):
 
         self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
 
+        self.cleanup_filter(iface)
+
+class FlowerMatchWhitelist(FlowerBase):
+    def netdev_execute(self):
+        iface, _ = self.configure_flower()
+
+        # Check that ARP tip match is installed in software only (not_in_hw)
+        match = 'arp flower arp_tip 40.42.44.46'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action, False)
+        self.cleanup_filter(iface)
+
+        # Check that ARP sip match is installed in software only (not_in_hw)
+        match = 'arp flower arp_sip 40.42.44.46'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action, False)
+        self.cleanup_filter(iface)
+
+        # Check that ARP op match is installed in software only (not_in_hw)
+        match = 'arp flower arp_op reply'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action, False)
+        self.cleanup_filter(iface)
+
+        # Check that ARP tha match is installed in software only (not_in_hw)
+        match = 'arp flower arp_tha 02:01:21:12:22:11'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action, False)
+        self.cleanup_filter(iface)
+
+        # Check that ARP sha match is installed in software only (not_in_hw)
+        match = 'arp flower arp_sha 02:11:22:21:12:01'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action, False)
+        self.cleanup_filter(iface)
+
+        # Check that Entunnel src ip match is installed in software only (not_in_hw)
+        match = 'ip flower enc_src_ip 10.10.10.10'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action, False)
+        self.cleanup_filter(iface)
+
+        # Check that Entunnel dst ip match is installed in software only (not_in_hw)
+        match = 'ip flower enc_dst_ip 20.20.20.20'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action, False)
+        self.cleanup_filter(iface)
+
+        # Check that Entunnel key id match is installed in software only (not_in_hw)
+        match = 'ip flower enc_key_id 100'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action, False)
+        self.cleanup_filter(iface)
+
+        # Check that icmp type match is installed in software only (not_in_hw)
+        match = 'ip flower ip_proto icmp type 2'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action, False)
+        self.cleanup_filter(iface)
+
+        # Check that icmp code match is installed in software only (not_in_hw)
+        match = 'ip flower ip_proto icmp code 1'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action, False)
+        self.cleanup_filter(iface)
+
+        # Check that tcp_flags match is installed in software only (not_in_hw)
+        match = 'ip flower ip_proto tcp tcp_flags 2'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action, False)
         self.cleanup_filter(iface)
 
 class FlowerVxlanWhitelist(FlowerBase):
