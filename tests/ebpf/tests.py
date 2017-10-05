@@ -241,6 +241,8 @@ class NFPKmodBPF(NFPKmodGrp):
             raise NtiGeneralError('SRC already has tmp dir')
         self.host_a.tmpdir = self.host_a.make_temp_dir()
 
+        for i in range(0, len(self.eth_x)):
+            self.dut.link_wait(self.eth_x[i])
         return
 
     def _fini(self):

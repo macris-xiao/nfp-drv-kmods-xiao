@@ -92,17 +92,23 @@ class XDPadjBase(XDPTest):
         if exp_pkt is None:
             exp_num = 0
 
-        if len(result_pkts) != exp_num:
+        if len(result_pkts) < exp_num or len(result_pkts) > exp_num + 5:
             raise NtiError('Captured %d packets, expected %d' %
                            (len(result_pkts), exp_num))
 
+        found = 0
         for p in result_pkts:
-            if str(p) != exp_pkt:
+            if str(p) == exp_pkt:
+                found += 1
+            else:
                 self.log('Bad packet',
                          ':'.join(x.encode('hex') for x in str(p))
                          + "\n\n" +
                          ':'.join(x.encode('hex') for x in exp_pkt))
-                raise NtiError("Packet doesn't match")
+
+        if found != exp_num:
+            raise NtiError("Found %d packets, was looking for %d" %
+                           (found, exp_num))
 
     def std_pkt(self, size=96):
         pkt = ''
