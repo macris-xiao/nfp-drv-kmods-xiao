@@ -1,5 +1,7 @@
 LLVM_VERSION ?= -4.0
 LLVM := $(shell clang$(LLVM_VERSION) --version)
+CLANG_FLAGS ?= -W -Wall \
+	-Wno-compare-distinct-pointer-types
 
 SRCS=$(wildcard *.c)
 OBJS=$(patsubst %.c,%.o,$(SRCS))
@@ -8,7 +10,7 @@ Q ?= @
 
 %.o: %.c
 	@echo "\tLLVM BUILD $@"
-	$(Q) clang$(LLVM_VERSION) $(INCLUDE_DIRS) -O2 -emit-llvm -c $< -W -Wall -o $(patsubst %.o,%.llvm,$@)
+	$(Q) clang$(LLVM_VERSION) $(INCLUDE_DIRS) -O2 -emit-llvm -c $< $(CLANG_FLAGS) -o $(patsubst %.o,%.llvm,$@)
 	$(Q) llc$(LLVM_VERSION) -march=bpf -filetype=obj -o $@ $(patsubst %.o,%.llvm,$@)
 	$(Q) rm $(patsubst %.o,%.llvm,$@)
 

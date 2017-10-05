@@ -198,14 +198,16 @@ class CommonTest(Test):
         ret, _ = self.dut.cmd(cmd, fail=False)
         return ret
 
-    def xdp_start(self, prog):
-        return self.dut.cmd('ip -force link set dev %s xdp obj %s sec ".text"' %
-                            (self.dut_ifn[0],
-                             os.path.join(self.dut.xdp_samples_dir, prog)))
+    def xdp_start(self, prog, mode=""):
+        prog_path = os.path.join(self.dut.xdp_samples_dir, prog)
+        cmd = 'ip -force link set dev %s xdp%s obj %s sec ".text"' % \
+              (self.dut_ifn[0], mode, prog_path)
 
-    def xdp_stop(self):
-        return self.dut.cmd('ip -force link set dev %s xdp off' %
-                            (self.dut_ifn[0]))
+        return self.dut.cmd(cmd)
+
+    def xdp_stop(self, mode=""):
+        return self.dut.cmd('ip -force link set dev %s xdp%s off' %
+                            (self.dut_ifn[0], mode))
 
     def ping(self, port, count=10, size=0, pattern="", ival="0.05", fail=True):
         opts = ""

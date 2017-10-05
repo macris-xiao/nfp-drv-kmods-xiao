@@ -36,6 +36,7 @@ class NFPKmodBPF(NFPKmodGrp):
         src = (self.host_a, self.addr_a, self.eth_a, self.addr_v6_a)
 
         T = (('bpf_capa', eBPFcapa, "eBPF capability test"),
+             ('bpf_refcnt', eBPFrefcnt, "eBPF refcount test"),
              ('bpf_pass', eBPFpass, "eBPF pass all filter"),
              ('bpf_drop', eBPFdrop, "eBPF drop all filter"),
              ('bpf_mark', eBPFmark, "eBPF mark all filter"),
@@ -272,6 +273,64 @@ class eBPFcapa(CommonTest):
 
         return NrtResult(name=self.name, testtype=self.__class__.__name__,
                          passed=passed, comment=comment)
+
+class eBPFrefcnt(eBPFtest):
+    def __init__(self, src, dut, tc_flags="skip_sw", group=None, name="",
+                 summary=None):
+        eBPFtest.__init__(self, src, dut, obj_name="pass.o",
+                          tc_flags=tc_flags, group=group, name=name,
+                          summary=summary)
+
+        # NTI list tests
+        if self.dut is None:
+            return
+
+        if self.has_bpf_objects():
+            raise NtiError('eBPF objects exist before test start')
+
+    def has_bpf_objects(self):
+        _, maps = self.dut.cmd('bpftool map | wc -l')
+        _, progs = self.dut.cmd('bpftool progs | wc -l')
+
+        return maps.strip() != '0' or progs.strip() != '0'
+
+    def check_xdp(self, obj, mode):
+        self.xdp_start(obj, mode=mode)
+        self.xdp_stop(mode=mode)
+        if self.has_bpf_objects():
+            raise NtiError('eBPF objects after XDP%s with %s' % (mode, obj))
+
+    def test_xdp(self):
+        self.check_xdp("pass.o", mode="drv")
+        self.check_xdp("map_ro_hash.o", mode="drv")
+
+        self.check_xdp("pass.o", mode="offload")
+        # TODO: add when map offload lands
+        #self.check_xdp("map_ro_hash.o", mode="offload")
+
+    def execute(self):
+        # The TC offload will be loaded by the eBPFtest base class
+        eBPFtest.cleanup(self)
+        if self.has_bpf_objects():
+            raise NtiError('eBPF objects after TC offload')
+
+        self.test_xdp()
+
+        # Check two ports at the same time
+        if len(self.dut_ifn) < 2:
+            return
+
+        self.xdp_start("pass.o", port=1, mode="drv")
+        self.test_xdp()
+        self.xdp_stop(port=1, mode="drv")
+
+        # Check with offload on one port
+        self.xdp_start("pass.o", port=1, mode="offload")
+        self.test_xdp()
+        self.xdp_stop(port=1, mode="offload")
+
+    def cleanup(self):
+        pass
 
 class eBPFpass(eBPFtest):
     def __init__(self, src, dut, tc_flags="skip_sw", group=None, name="",
