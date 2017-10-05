@@ -44,6 +44,8 @@ class NFPKmodFlower(NFPKmodGrp):
              ('flower_match_tcp', FlowerMatchTCP, "Checks basic flower tcp match capabilities"),
              ('flower_match_udp', FlowerMatchUDP, "Checks basic flower udp match capabilities"),
              ('flower_match_mpls', FlowerMatchMPLS, "Checks basic flower mpls match capabilities"),
+             ('flower_match_ttl', FlowerMatchTTL, "Checks basic flower ttl match capabilities"),
+             ('flower_match_tos', FlowerMatchTOS, "Checks basic flower tos match capabilities"),
              ('flower_match_vxlan', FlowerMatchVXLAN, "Checks basic flower vxlan match capabilities"),
              ('flower_match_whitelist', FlowerMatchWhitelist, "Checks basic flower match whitelisting"),
              ('flower_vxlan_whitelist', FlowerVxlanWhitelist, "Checks that unsupported vxlan rules are not offloaded"),
@@ -436,6 +438,62 @@ class FlowerMatchMPLS(FlowerBase):
         pkt_cnt = 100
         exp_pkt_cnt = 0
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/MPLS(label=1111)/Raw('\x00'*64)
+        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+
+        self.cleanup_filter(iface)
+
+class FlowerMatchTTL(FlowerBase):
+    def netdev_execute(self):
+        iface, ingress = self.configure_flower()
+
+        # Hit test - IPv4
+        match = 'ip flower ip_ttl 30'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        pkt_cnt = 100
+        exp_pkt_cnt = 100
+        pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11', ttl=30)/TCP()/Raw('\x00'*64)
+        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+
+        self.cleanup_filter(iface)
+
+        # Miss test -IP IPv4
+        match = 'ip flower ip_ttl 20'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        pkt_cnt = 100
+        exp_pkt_cnt = 0
+        pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11', ttl=30)/TCP()/Raw('\x00'*64)
+        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+
+        self.cleanup_filter(iface)
+
+class FlowerMatchTOS(FlowerBase):
+    def netdev_execute(self):
+        iface, ingress = self.configure_flower()
+
+        # Hit test - IPv4
+        match = 'ip flower ip_tos 10'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        pkt_cnt = 100
+        exp_pkt_cnt = 100
+        pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11', tos=10)/TCP()/Raw('\x00'*64)
+        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+
+        self.cleanup_filter(iface)
+
+        # Miss test -IPv4
+        match = 'ip flower ip_tos 15'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        pkt_cnt = 100
+        exp_pkt_cnt = 0
+        pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11', tos=30)/TCP()/Raw('\x00'*64)
         self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
 
         self.cleanup_filter(iface)
