@@ -40,6 +40,7 @@ class NFPKmodBPF(NFPKmodGrp):
 
         XDP = (('xdp_pass', XDPpass, 'XDP pass test'),
                ('xdp_drop', XDPdrop, 'XDP drop test'),
+               ('xdp_multi_port', XDPmultiPort, 'XDP on multi port cards'),
                ('xdp_pass_adj_head', XDPpassAdjZero,
                 'XDP adjust head by zero pass test'),
                ('xdp_pass_adj_head_twice', XDPpassAdjTwice,

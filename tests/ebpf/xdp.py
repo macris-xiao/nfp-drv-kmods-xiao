@@ -164,6 +164,30 @@ class XDPdrop(XDPTest):
         self.tcpping(0, should_fail=True)
         self.ping6(0, should_fail=True)
 
+class XDPmultiPort(XDPTest):
+    def execute(self):
+        n_ports = len(self.dut_ifn)
+
+        if n_ports < 2:
+            raise NtiSkip("single port card")
+
+        for p in range(0, n_ports):
+            self.xdp_start('drop.o', port=p, mode=self.group.xdp_mode())
+
+        for p in range(0, n_ports):
+            self.xdp_start('pass.o', port=p, mode=self.group.xdp_mode())
+
+            self.ping(port=p)
+            self.tcpping(port=p)
+            self.ping6(port=p)
+
+            self.ping(port=int(not p), should_fail=True)
+            self.tcpping(port=int(not p), should_fail=True)
+            self.ping6(port=int(not p), should_fail=True)
+
+            self.xdp_start('drop.o', port=p, mode=self.group.xdp_mode())
+
+
 ###############################################################################
 # TX tests
 ###############################################################################
