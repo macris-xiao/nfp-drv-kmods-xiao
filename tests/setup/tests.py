@@ -117,11 +117,19 @@ class Sriov(CommonTest):
 
 class BPFSetupTest(CommonTest):
     def run(self):
+        ret, _ = self.dut.cmd('bpftool', fail=False)
+        if ret:
+            raise NtiError("bpftool not installed on DUT")
+
         return NrtResult(name=self.name, passed=self.group.bpf_capable(),
                          testtype=self.__class__.__name__)
 
 class XDPSetupTest(CommonTest):
     def run(self):
+        ret, _ = self.dut.cmd('bpftool', fail=False)
+        if ret:
+            raise NtiError("bpftool not installed on DUT")
+
         return NrtResult(name=self.name, passed=self.group.xdp_capable(),
                          testtype=self.__class__.__name__)
 
