@@ -160,9 +160,9 @@ class XDPdrop(XDPTest):
 
         self.xdp_start('drop.o', mode=self.group.xdp_mode())
 
-        self.ping(0, fail=False)
-        self.tcpping(0, fail=False)
-        self.ping6(0, fail=False)
+        self.ping(0, should_fail=True)
+        self.tcpping(0, should_fail=True)
+        self.ping6(0, should_fail=True)
 
 ###############################################################################
 # TX tests

@@ -87,8 +87,7 @@ class NFPKmodBPF(NFPKmodGrp):
              ('bpf_mark', eBPFmark, "eBPF mark all filter"),
              ('bpf_abort', eBPFabort, "eBPF abort all filter"),
              ('bpf_redirect', eBPFredir, "eBPF redirect all filter"),
-             ('bpf_4ctx', eBPFmark, "eBPF ME 4 context mode test"),
-             ('bpf_tcp58', eBPFmark, "eBPF filter on TCP port 58"),
+             ('bpf_tcp58', eBPFtcp58, "eBPF filter on TCP port 58"),
              ('bpf_jeq_jgt', eBPFjeq_jgt, "eBPF JEQ JGT branch test"),
              ('bpf_jneq', eBPFjneq, "eBPF JNE branch test"),
              ('bpf_tc_gen_flags', eBPFflags, 'iproute/cls_bpf flag reporting'),
@@ -356,7 +355,7 @@ class eBPFpass(eBPFtest):
         self.ping6(port=0)
         self.tcpping(port=0)
 
-        counts = (30, 38, 3200, 3700)
+        counts = (30, 42, 3200, 4500)
         self.validate_cntrs(rx_t=counts, pass_all=True)
 
 class eBPFdrop(eBPFtest):
@@ -365,11 +364,11 @@ class eBPFdrop(eBPFtest):
                           group=group, name=name, summary=summary)
 
     def execute(self):
-        self.ping(port=0, fail=False)
-        self.ping6(port=0, fail=False)
-        self.tcpping(port=0, fail=False)
+        self.ping(port=0, should_fail=True)
+        self.ping6(port=0, should_fail=True)
+        self.tcpping(port=0, should_fail=True)
 
-        counts = (30, 38, 3200, 3700)
+        counts = (30, 42, 3200, 4500)
         self.validate_cntrs(rx_t=counts, app1_all=True)
 
 class eBPFmark(eBPFtest):
@@ -379,48 +378,17 @@ class eBPFmark(eBPFtest):
                           tc_flags=tc_flags, group=group, name=name,
                           summary=summary)
 
+    def prepare(self):
+        return NrtResult(name=self.name, testtype=self.__class__.__name__,
+                         passed=None, comment="pkt mark support dropped")
+
     def execute(self):
         self.ping(port=0)
         self.ping6(port=0)
         self.tcpping(port=0)
 
-        counts = (30, 38, 3200, 3700)
+        counts = (30, 42, 3200, 4500)
         self.validate_cntrs(rx_t=counts, pass_all=True, mark_all=True)
-
-class eBPF4ctx(eBPFtest):
-    def __init__(self, src, dut, tc_flags="skip_sw", group=None, name="",
-                 summary=None):
-        eBPFtest.__init__(self, src, dut, obj_name="4ctx.o",
-                          tc_flags=tc_flags, group=group, name=name,
-                          summary=summary)
-
-    def execute(self):
-        self.ping(port=0)
-        self.ping6(port=0)
-        self.tcpping(port=0)
-
-        counts = (30, 38, 3200, 3700)
-        self.validate_cntrs(rx_t=counts, pass_all=True)
-
-        self.ping(port=0, size=200, pattern="00", fail=False)
-        self.ping(port=0, size=200, pattern="11", fail=False)
-        self.ping(port=0, size=200, pattern="77", fail=False)
-
-        counts = (30, 36, 7200, 7500)
-        self.validate_cntrs(rx_t=counts, app1_all=True)
-
-        self.ping(port=0, size=200, pattern="22")
-        self.ping(port=0, size=200, pattern="55")
-        self.ping(port=0, size=200, pattern="66")
-
-        counts = (30, 36, 7200, 7500)
-        self.validate_cntrs(rx_t=counts, pass_all=True)
-
-        _, out = self.dut.cmd_reg('mecsr:i34.me9.CtxEnables')
-        if out.find('InUseContexts=0x1') == -1:
-            raise NtiGeneralError('InUseContexts not set to 0x1')
-        if out.find('CtxEnables.CtxEnables=0x55') == -1:
-            raise NtiGeneralError('CtxEnables not set to 0x55')
 
 class eBPFtcp58(eBPFtest):
     def __init__(self, src, dut, group=None, name="", summary=None):
@@ -432,12 +400,12 @@ class eBPFtcp58(eBPFtest):
         self.ping6(port=0)
         self.tcpping(port=0, sport=58, dport=100)
 
-        counts = (30, 38, 3200, 3700)
+        counts = (30, 38, 3200, 4000)
         self.validate_cntrs(rx_t=counts, pass_all=True)
 
-        self.tcpping(port=0, sport=100, dport=58)
+        self.tcpping(port=0, sport=100, dport=58, should_fail=True)
 
-        counts = (10, 12, 1040, 1200)
+        counts = (10, 16, 1080, 1800)
         self.validate_cntrs(rx_t=counts, exact_filter=True)
 
 class eBPFjeq_jgt(eBPFtest):
@@ -451,14 +419,14 @@ class eBPFjeq_jgt(eBPFtest):
         self.ping(port=0, size=100, pattern="a0")
         self.ping(port=0, size=100, pattern="af")
 
-        counts = (40, 48, 5200, 5700)
+        counts = (40, 48, 5400, 6500)
         self.validate_cntrs(rx_t=counts, pass_all=True)
 
-        self.ping(port=0, size=100, pattern="aa", fail=False)
-        self.ping(port=0, size=100, pattern="bb", fail=False)
-        self.ping(port=0, size=100, pattern="cc", fail=False)
+        self.ping(port=0, size=100, pattern="aa", should_fail=True)
+        self.ping(port=0, size=100, pattern="bb", should_fail=True)
+        self.ping(port=0, size=100, pattern="cc", should_fail=True)
 
-        counts = (30, 34, 4260, 4400)
+        counts = (30, 38, 4380, 5200)
         self.validate_cntrs(rx_t=counts, exact_filter=True)
 
 class eBPFjneq(eBPFtest):
@@ -471,14 +439,14 @@ class eBPFjneq(eBPFtest):
         self.ping(port=0, pattern="aa")
         self.ping(port=0, size=100, pattern="aa")
 
-        counts = (30, 38, 3300, 3600)
+        counts = (30, 42, 3200, 4500)
         self.validate_cntrs(rx_t=counts, pass_all=True)
 
-        self.ping(port=0, size=100, fail=False)
-        self.ping(port=0, size=100, pattern="bb", fail=False)
-        self.ping(port=0, size=100, pattern="cc", fail=False)
+        self.ping(port=0, size=100, should_fail=True)
+        self.ping(port=0, size=100, pattern="bb", should_fail=True)
+        self.ping(port=0, size=100, pattern="cc", should_fail=True)
 
-        counts = (30, 38, 4260, 4600)
+        counts = (30, 38, 4380, 5200)
         self.validate_cntrs(rx_t=counts, exact_filter=True)
 
 class eBPFabort(eBPFtest):
@@ -488,13 +456,17 @@ class eBPFabort(eBPFtest):
                           tc_flags=tc_flags, group=group, name=name,
                           summary=summary)
 
+    def prepare(self):
+        return NrtResult(name=self.name, testtype=self.__class__.__name__,
+                         passed=None, comment="pkt mark support dropped")
+
     def execute(self):
         # Too short to hit filters or marking
         self.ping(port=0)
         self.ping6(port=0)
         self.tcpping(port=0)
 
-        counts = (30, 38, 3200, 3700)
+        counts = (30, 38, 3200, 3850)
         self.validate_cntrs(rx_t=counts, pass_all=True)
 
         # Just about too short but would hit the filter
@@ -506,12 +478,12 @@ class eBPFabort(eBPFtest):
         # Will hit the mark but too short for second filter
         self.ping(port=0, size=500)
 
-        counts = (10, 13, 5400, 5600)
+        counts = (10, 13, 5400, 5700)
         self.validate_cntrs(rx_t=counts, pass_all=True, mark_all=True)
 
         # Will hit the filter
-        self.ping(port=0, size=163, pattern="aa", fail=False)
-        self.ping(port=0, size=1100, pattern="aa", fail=False)
+        self.ping(port=0, size=163, pattern="aa", should_fail=True)
+        self.ping(port=0, size=1100, pattern="aa", should_fail=True)
 
         counts = (20, 23, 13470, 14000)
         self.validate_cntrs(rx_t=counts, exact_filter=True)
@@ -533,19 +505,14 @@ class eBPFredir(eBPFtest):
         if not self.group.promisc_a:
             self.src.cmd('ip link set dev %s promisc on' % (self.src_ifn[0]))
 
-        self.src.cp_to(os.path.join(self.group.samples_trafgen, 'redir.txf'),
-                       self.group.tmpdir)
-
         old_src_stats = self.src.netifs[self.src_ifn[0]].stats()
 
-        self.src.cmd('trafgen  --conf %s  -o %s -n 10' %
-                     (os.path.join(self.group.tmpdir, 'redir.txf'),
-                      self.src_ifn[0]))
+        self.tcpping(port=0, should_fail=True)
 
         time.sleep(0.2)
         new_src_stats = self.src.netifs[self.src_ifn[0]].stats()
 
-        counts = (10, 12, 900, 1050)
+        counts = (10, 20, 900, 2000)
         self.validate_cntrs(rx_t=counts, app1_all=True)
 
         if not self.group.promisc_x:
@@ -553,18 +520,26 @@ class eBPFredir(eBPFtest):
         if not self.group.promisc_a:
             self.src.cmd('ip link set dev %s promisc off' % (self.src_ifn[0]))
 
-        # Note: this assumes Fortville, sorry :(
         end_stats = new_src_stats - old_src_stats
-        if not end_stats.ethtool['port.rx_size_127'] in range(counts[0],
-                                                              counts[1]):
-            raise NtiGeneralError("src rx packets (%d vs %d,%d)" % \
-                               (end_stats.ethtool['port.rx_size_127'],
-                                counts[0], counts[1]))
-        if not end_stats.ethtool['port.rx_bytes'] in range(counts[2],
-                                                           counts[3]):
-            raise NtiGeneralError("src rx bytes (%d vs %d,%d)" % \
-                               (end_stats.ethtool['port.rx_bytes'],
-                                counts[0], counts[1]))
+
+        # Fortville
+        if end_stats.ethtool.has_key('port.rx_size_127'):
+            vendor_rx_127 = 'port.rx_size_127'
+            vendor_rx = 'port.rx_bytes'
+        # Connect X4
+        elif end_stats.ethtool.has_key('rx_65_to_127_bytes_phy'):
+            vendor_rx_127 = 'rx_65_to_127_bytes_phy'
+            vendor_rx = 'rx_bytes_phy'
+        else:
+            raise NtiError("Unsupported NIC vendor")
+
+        if not end_stats.ethtool[vendor_rx_127] in range(counts[0], counts[1]):
+            raise NtiError("src rx packets (%d vs %d,%d)" % \
+                           (end_stats.ethtool[vendor_rx_127],
+                            counts[0], counts[1]))
+        if not end_stats.ethtool[vendor_rx] in range(counts[2], counts[3]):
+            raise NtiError("src rx bytes (%d vs %d,%d)" % \
+                           (end_stats.ethtool[vendor_rx], counts[2], counts[3]))
 
 class eBPFda(eBPFtest):
     def __init__(self, src, dut, obj_name, stat, tc_flags="da skip_sw",
@@ -574,15 +549,14 @@ class eBPFda(eBPFtest):
                           summary=summary)
         self.stat = stat
 
-
     def execute(self):
-        do_fail = self.stat == 2 or self.stat == 4 or self.stat == 5
+        do_fail = self.stat == None or self.stat == 1
 
-        self.ping(port=0, fail=do_fail)
-        self.ping6(port=0, fail=do_fail)
-        self.tcpping(port=0, fail=do_fail)
+        self.ping(port=0, should_fail=do_fail)
+        self.ping6(port=0, should_fail=do_fail)
+        self.tcpping(port=0, should_fail=do_fail)
 
-        counts = (30, 38, 3200, 3700)
+        counts = (30, 42, 3200, 4500)
         self.validate_cntrs(rx_t=counts, pass_all=self.stat == 0,
                             app1_all=self.stat == 1, app2_all=self.stat == 2,
                             app3_all=self.stat == 3)

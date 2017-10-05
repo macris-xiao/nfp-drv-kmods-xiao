@@ -209,7 +209,8 @@ class CommonTest(Test):
         return self.dut.cmd('ip -force link set dev %s xdp%s off' %
                             (self.dut_ifn[0], mode))
 
-    def ping(self, port, count=10, size=0, pattern="", ival="0.05", fail=True):
+    def ping(self, port, count=10, size=0, pattern="", ival="0.05",
+             should_fail=False):
         opts = ""
         if size:
             opts = opts + "-s %d " % (size)
@@ -221,30 +222,31 @@ class CommonTest(Test):
         ret, _ = self.src.cmd('ping -c %d -W2 %s -I %s %s' %
                               (count, opts, self.src_ifn[port],
                                self.dut_addr[port][:-3]), fail=False)
-        if ret and fail:
+        if ret and should_fail == False:
             raise NtiGeneralError("Couldn't ping endpoint")
-        if ret == 0 and not fail:
+        if ret == 0 and should_fail == True:
             raise NtiGeneralError("Could ping endpoint")
+        return ret
 
-
-    def ping6(self, port, count=10, fail=True):
+    def ping6(self, port, count=10, should_fail=False):
         ret, _ = self.src.cmd('ping6 -c %d -i0.1 -W5 -I %s %s' %
                               (count, self.src_ifn[port],
                                self.dut_addr_v6[port][:-3]), fail=False)
-        if ret and fail:
+        if ret and should_fail == False:
             raise NtiGeneralError("Couldn't ping6 endpoint")
-        if ret == 0 and not fail:
+        if ret == 0 and should_fail == True:
             raise NtiGeneralError("Could ping6 endpoint")
+        return ret
 
-
-    def tcpping(self, port, count=10, sport=100, dport=58, fail=True):
+    def tcpping(self, port, count=10, sport=100, dport=58, should_fail=False):
         ret, _ = self.src.cmd('hping3 %s --fast -c %d -s %d -p %d -d 50 -k --syn' %
                               (self.dut_addr[port][:-3], count, sport, dport),
                               fail=False)
-        if ret != 0 and fail:
+        if ret and should_fail == False:
             raise NtiGeneralError("Couldn't TCP ping endpoint")
-        if ret == 0 and not fail:
+        if ret == 0 and should_fail == True:
             raise NtiGeneralError("Could TCP ping endpoint")
+        return ret
 
     def read_sym_nffw(self, name, nffw_path=None):
         if not nffw_path:
