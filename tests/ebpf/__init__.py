@@ -3,6 +3,6 @@
 ##
 """ Test classes used by NFP Linux drivers eBPF tests """
 
-from tests import NFPKmodBPF
+from tests import NFPKmodBPF, NFPKmodXDPdrv
 
-__all__ = ["ebpf"]
+__all__ = ["ebpf", "xdpdrv"]

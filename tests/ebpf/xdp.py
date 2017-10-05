@@ -49,7 +49,7 @@ class XDPTest(CommonTest):
         return rdpcap(pcap_res)
 
     def cleanup(self):
-        self.xdp_stop()
+        self.xdp_stop(self.group.xdp_mode())
 
 class XDPadjBase(XDPTest):
     def get_src_pkt(self):
@@ -77,7 +77,7 @@ class XDPadjBase(XDPTest):
         # Make sure there is connectivity
         self.ping(0)
         # Install XDP prog
-        self.xdp_start(self.get_prog_name())
+        self.xdp_start(self.get_prog_name(), mode=self.group.xdp_mode())
 
         cmd = "tcpreplay --intf1=%s --pps=100 --loop=100 -K %s " % \
               (self.src_ifn[0], pcap_src)
@@ -140,7 +140,7 @@ class XDPtunBase(XDPTest):
 
 class XDPpass(XDPTest):
     def execute(self):
-        self.xdp_start('pass.o')
+        self.xdp_start('pass.o', mode=self.group.xdp_mode())
 
         self.ping(0)
         self.tcpping(0)
@@ -152,7 +152,7 @@ class XDPdrop(XDPTest):
         self.tcpping(0)
         self.ping6(0)
 
-        self.xdp_start('drop.o')
+        self.xdp_start('drop.o', mode=self.group.xdp_mode())
 
         self.ping(0, fail=False)
         self.tcpping(0, fail=False)
@@ -356,7 +356,7 @@ class XDPadjHeadDecIpIp(XDPtunBase):
         self.dut.cmd('ip neig replace %s2 dev %s lladdr %s' %
                      (self.tun_ip_sub, self.dut_ifn[0], self.group.hwaddr_a))
 
-        self.xdp_start('adjust_head_dec_ip.o')
+        self.xdp_start('adjust_head_dec_ip.o', mode=self.group.xdp_mode())
 
         # Check normal communication
         self.ping(0)
@@ -384,7 +384,7 @@ class XDPadjHeadDecIpIp(XDPtunBase):
             raise NtiError('Got TCP responses: %d, expected 5' % (cnt_tcp))
 
     def cleanup(self):
-        self.xdp_stop()
+        self.xdp_stop(self.group.xdp_mode())
         self.dut.cmd('ip addr del %s1/24 dev %s' %
                      (self.tun_ip_sub, self.dut_ifn[0]), fail=False)
         self.dut.cmd('ip neig del %s2 dev %s' %
@@ -406,7 +406,7 @@ class XDPadjHeadEncIpIp(XDPtunBase):
         self.src.cmd('ip neig replace %s1 dev %s lladdr %s' %
                      (self.tun_ip_sub, self.src_ifn[0], self.group.hwaddr_x))
 
-        self.xdp_start('adjust_head_prep_ip.o')
+        self.xdp_start('adjust_head_prep_ip.o', mode=self.group.xdp_mode())
 
         cmd = 'ping %s1 -c5 -i0.05 -W2 -I %s' % \
               (self.tun_ip_sub, self.src_ifn[0])
@@ -430,7 +430,7 @@ class XDPadjHeadEncIpIp(XDPtunBase):
             raise NtiError('Got TCP responses: %d, expected 5' % (cnt_tcp))
 
     def cleanup(self):
-        self.xdp_stop()
+        self.xdp_stop(self.group.xdp_mode())
         self.src.cmd('ip addr del %s1/24 dev %s' %
                      (self.tun_ip_sub, self.src_ifn[0]), fail=False)
         self.src.cmd('ip neig del %s2 dev %s' %

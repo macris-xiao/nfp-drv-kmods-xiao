@@ -5,7 +5,7 @@
 import netro.testinfra
 from setup import NFPKmodSetup
 from unit import NFPKmodUnit
-from ebpf import NFPKmodBPF
+from ebpf import NFPKmodBPF, NFPKmodXDPdrv
 from rand import NFPKmodRand, NFPKmodRandErr
 from reboot import NFPKmodReboot
 from flower import NFPKmodFlower
@@ -20,6 +20,7 @@ class Project(netro.testinfra.Project):
     _groups = { "setup" : NFPKmodSetup,
                 "unit" :  NFPKmodUnit,
                 "ebpf" :  NFPKmodBPF,
+                "xdpdrv" :  NFPKmodXDPdrv,
                 "rand" :  NFPKmodRand,
                 "rand_err" : NFPKmodRandErr,
                 "reboot" :   NFPKmodReboot ,

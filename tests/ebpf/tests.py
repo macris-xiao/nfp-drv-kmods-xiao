@@ -31,9 +31,54 @@ class NFPKmodBPF(NFPKmodGrp):
         NFPKmodGrp.__init__(self, name=name, cfg=cfg, quick=quick,
                             dut_object=dut_object)
 
+    def xdp_mode(self):
+        return "offload"
+
     def populate_tests(self):
         dut = (self.dut, self.addr_x, self.eth_x, self.addr_v6_x)
         src = (self.host_a, self.addr_a, self.eth_a, self.addr_v6_a)
+
+        XDP = (('xdp_pass', XDPpass, 'XDP pass test'),
+               ('xdp_drop', XDPdrop, 'XDP drop test'),
+               ('xdp_pass_adj_head', XDPpassAdjZero,
+                'XDP adjust head by zero pass test'),
+               ('xdp_pass_adj_head_twice', XDPpassAdjTwice,
+                'XDP adjust head to initial position pass test'),
+               ('xdp_pass_adj_head_undersize', XDPpassAdjUndersized,
+                'XDP adjust head to leave 14B test'),
+               ('xdp_pass_adj_head_oversize', XDPpassOversized,
+                'XDP pass oversized packet test'),
+               ('xdp_pass_ipip_dec', XDPadjHeadDecIpIp,
+                'Decapsulate IPIP with XDP'),
+               ('xdp_pass_ipip_enc', XDPadjHeadEncIpIp,
+                'Encapsulate IPIP with XDP'),
+               ('xdp_tx', XDPtx, 'XDP tx test'),
+               ('xdp_tx_adj_head_trunc', XDPtrunc2B,
+                'XDP adjust head trunc 2B test'),
+               ('xdp_tx_adj_head_trunc_to_hdr', XDPtruncTo14B,
+                'XDP adjust head trunc to MAC header test'),
+               ('xdp_tx_adj_head_prep', XDPprepMAC,
+                'XDP adjust head prep MAC header test'),
+               ('xdp_tx_adj_head_prep_max', XDPprep256B,
+                'XDP adjust head prep 256B header test'),
+               ('xdp_tx_adj_head_prep_short', XDPfailShort,
+                'XDP adjust head prep fail test (short)'),
+               ('xdp_tx_adj_head_prep_long', XDPfailMaybeLong,
+                'XDP adjust head prep fail test (long)'),
+               ('xdp_tx_adj_head_prep_very_long', XDPfailLong,
+                'XDP adjust head prep fail test (very long)'),
+               ('xdp_tx_adj_head_prep_max_mtu', XDPprep256Bmtu,
+                'XDP adjust head prep 256B to make an MTU-sized packet test'),
+               ('xdp_tx_adj_head_prep_max_oversize', XDPfailOversized,
+                'XDP adjust head prep 256B on MTU-sized packet test'),
+        )
+
+        for t in XDP:
+            self._tests[t[0]] = t[1](src, dut, group=self, name=t[0],
+                                     summary=t[2])
+
+        if self.xdp_mode() == "drv":
+            return
 
         T = (('bpf_capa', eBPFcapa, "eBPF capability test"),
              ('bpf_refcnt', eBPFrefcnt, "eBPF refcount test"),
@@ -118,45 +163,6 @@ class NFPKmodBPF(NFPKmodGrp):
                 eBPFtest(src, dut, t[1], tc_flags="da skip_sw", act="",
                          should_fail=True, group=self, name=tn,
                          summary='Direct action %s fail test' % (t[0]))
-
-        XDP = (('xdp_pass', XDPpass, 'XDP pass test'),
-               ('xdp_drop', XDPdrop, 'XDP drop test'),
-               ('xdp_pass_adj_head', XDPpassAdjZero,
-                'XDP adjust head by zero pass test'),
-               ('xdp_pass_adj_head_twice', XDPpassAdjTwice,
-                'XDP adjust head to initial position pass test'),
-               ('xdp_pass_adj_head_undersize', XDPpassAdjUndersized,
-                'XDP adjust head to leave 14B test'),
-               ('xdp_pass_adj_head_oversize', XDPpassOversized,
-                'XDP pass oversized packet test'),
-               ('xdp_pass_ipip_dec', XDPadjHeadDecIpIp,
-                'Decapsulate IPIP with XDP'),
-               ('xdp_pass_ipip_enc', XDPadjHeadEncIpIp,
-                'Encapsulate IPIP with XDP'),
-               ('xdp_tx', XDPtx, 'XDP tx test'),
-               ('xdp_tx_adj_head_trunc', XDPtrunc2B,
-                'XDP adjust head trunc 2B test'),
-               ('xdp_tx_adj_head_trunc_to_hdr', XDPtruncTo14B,
-                'XDP adjust head trunc to MAC header test'),
-               ('xdp_tx_adj_head_prep', XDPprepMAC,
-                'XDP adjust head prep MAC header test'),
-               ('xdp_tx_adj_head_prep_max', XDPprep256B,
-                'XDP adjust head prep 256B header test'),
-               ('xdp_tx_adj_head_prep_short', XDPfailShort,
-                'XDP adjust head prep fail test (short)'),
-               ('xdp_tx_adj_head_prep_long', XDPfailMaybeLong,
-                'XDP adjust head prep fail test (long)'),
-               ('xdp_tx_adj_head_prep_very_long', XDPfailLong,
-                'XDP adjust head prep fail test (very long)'),
-               ('xdp_tx_adj_head_prep_max_mtu', XDPprep256Bmtu,
-                'XDP adjust head prep 256B to make an MTU-sized packet test'),
-               ('xdp_tx_adj_head_prep_max_oversize', XDPfailOversized,
-                'XDP adjust head prep 256B on MTU-sized packet test'),
-        )
-
-        for t in XDP:
-            self._tests[t[0]] = t[1](src, dut, group=self, name=t[0],
-                                     summary=t[2])
 
     def driver_load(self):
         M = self.dut
@@ -245,6 +251,10 @@ class NFPKmodBPF(NFPKmodGrp):
 
         NFPKmodGrp._fini(self)
         return
+
+class NFPKmodXDPdrv(NFPKmodBPF):
+    def xdp_mode(self):
+        return "drv"
 
 ###########################################################################
 # Tests
