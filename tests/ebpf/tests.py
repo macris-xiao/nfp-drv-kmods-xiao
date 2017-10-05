@@ -200,40 +200,48 @@ class NFPKmodBPF(NFPKmodGrp):
         M.cmd(cmd)
 
         # Init DUT
-        M.cmd('ethtool -G %s rx 512 tx 512' % (self.eth_x[0]))
-        M.cmd('ifconfig %s %s promisc up' % (self.eth_x[0], self.addr_x[0]))
-        M.cmd('ip addr add %s dev %s' % (self.addr_v6_x[0], self.eth_x[0]))
+        for p in range(0, len(self.eth_x)):
+            M.cmd('ethtool -G %s rx 512 tx 512' % (self.eth_x[p]))
+            M.cmd('ifconfig %s %s promisc up' % (self.eth_x[p], self.addr_x[p]))
+            M.cmd('ip addr add %s dev %s' % (self.addr_v6_x[p], self.eth_x[p]))
 
         # Make sure NTI knows the NFP interface exists
         M.refresh()
 
         # stash hwaddrs for traffic generation
-        _, out = self.dut.cmd("ifconfig %s" % self.eth_x[0])
-        ifcfg = _parse_ifconfig(out)
-        self.hwaddr_x = ifcfg["hwaddr"]
-        self.mtu_x = ifcfg["mtu"]
-        self.promisc_x = out.find("PROMISC") != -1
+        self.hwaddr_x = []
+        self.mtu_x = []
+        self.promisc_x = []
+        self.hwaddr_a = []
+        self.mtu_a = []
+        self.promisc_a = []
+        for p in range(0, len(self.eth_x)):
+            _, out = self.dut.cmd("ifconfig %s" % self.eth_x[p])
+            ifcfg = _parse_ifconfig(out)
+            self.hwaddr_x.append(ifcfg["hwaddr"])
+            self.mtu_x.append(ifcfg["mtu"])
+            self.promisc_x.append(out.find("PROMISC") != -1)
 
-        _, out = self.host_a.cmd("ifconfig %s" % self.eth_a[0])
-        ifcfg = _parse_ifconfig(out)
-        self.hwaddr_a = ifcfg["hwaddr"]
-        self.mtu_a = ifcfg["mtu"]
-        self.promisc_a = out.find("PROMISC") != -1
+            _, out = self.host_a.cmd("ifconfig %s" % self.eth_a[p])
+            ifcfg = _parse_ifconfig(out)
+            self.hwaddr_a.append(ifcfg["hwaddr"])
+            self.mtu_a.append(ifcfg["mtu"])
+            self.promisc_a.append(out.find("PROMISC") != -1)
 
-        # add static arp entries to speed up drop tests
-        self.host_a.cmd('ip neigh add %s lladdr %s dev %s' %
-                        (self.addr_x[0][:-3], self.hwaddr_x, self.eth_a[0]),
-                        fail=False)
-        self.host_a.cmd('ip neigh add %s lladdr %s dev %s' %
-                        (self.addr_v6_x[0][:-3], self.hwaddr_x, self.eth_a[0]),
-                        fail=False)
+            # add static arp entries to speed up drop tests
+            self.host_a.cmd('ip neigh add %s lladdr %s dev %s' %
+                            (self.addr_x[p][:-3], self.hwaddr_x[p],
+                             self.eth_a[p]), fail=False)
+            self.host_a.cmd('ip neigh add %s lladdr %s dev %s' %
+                            (self.addr_v6_x[p][:-3], self.hwaddr_x[p],
+                             self.eth_a[p]), fail=False)
+
+            # Make sure MTUs match just in case
+            if self.mtu_a[p] != self.mtu_x[p]:
+                raise NtiError("Device MTUs don't match %s vs %s" %
+                               (self.mtu_a[p], self.mtu_x[p]))
 
         M.copy_bpf_samples()
-
-        # Make sure MTUs match just in case
-        if self.mtu_a != self.mtu_x:
-            raise NtiError("Device MTUs don't match %s vs %s" % (self.mtu_a,
-                                                                 self.mtu_x))
 
         # SRC needs a tmp dir too
         if hasattr(self.host_a, 'tmpdir'):
@@ -500,9 +508,9 @@ class eBPFredir(eBPFtest):
                           summary=summary)
 
     def execute(self):
-        if not self.group.promisc_x:
+        if not self.group.promisc_x[0]:
             self.dut.cmd('ip link set dev %s promisc on' % (self.dut_ifn[0]))
-        if not self.group.promisc_a:
+        if not self.group.promisc_a[0]:
             self.src.cmd('ip link set dev %s promisc on' % (self.src_ifn[0]))
 
         old_src_stats = self.src.netifs[self.src_ifn[0]].stats()
@@ -515,9 +523,9 @@ class eBPFredir(eBPFtest):
         counts = (10, 20, 900, 2000)
         self.validate_cntrs(rx_t=counts, app1_all=True)
 
-        if not self.group.promisc_x:
+        if not self.group.promisc_x[0]:
             self.dut.cmd('ip link set dev %s promisc off' % (self.dut_ifn[0]))
-        if not self.group.promisc_a:
+        if not self.group.promisc_a[0]:
             self.src.cmd('ip link set dev %s promisc off' % (self.src_ifn[0]))
 
         end_stats = new_src_stats - old_src_stats

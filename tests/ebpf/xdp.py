@@ -49,7 +49,7 @@ class XDPTest(CommonTest):
         return rdpcap(pcap_res)
 
     def cleanup(self):
-        self.xdp_stop(self.group.xdp_mode())
+        self.xdp_stop(mode=self.group.xdp_mode())
 
 class XDPadjBase(XDPTest):
     def get_src_pkt(self):
@@ -112,9 +112,9 @@ class XDPadjBase(XDPTest):
 
     def std_pkt(self, size=96):
         pkt = ''
-        for b in self.group.hwaddr_x.split(':'):
+        for b in self.group.hwaddr_x[0].split(':'):
             pkt += chr(int('0x' + b, 16))
-        for b in self.group.hwaddr_a.split(':'):
+        for b in self.group.hwaddr_a[0].split(':'):
             pkt += chr(int('0x' + b, 16))
         pkt += '\x12\x22'
 
@@ -174,9 +174,9 @@ class XDPtx(XDPtxBase):
 
     def get_exp_pkt(self):
         pkt = ''
-        for b in self.group.hwaddr_a.split(':'):
+        for b in self.group.hwaddr_a[0].split(':'):
             pkt += chr(int('0x' + b, 16))
-        for b in self.group.hwaddr_x.split(':'):
+        for b in self.group.hwaddr_x[0].split(':'):
             pkt += chr(int('0x' + b, 16))
         pkt += '\x12\x34'
 
@@ -243,7 +243,7 @@ class XDPprep256B(XDPtxBase):
 
 class XDPprep256Bmtu(XDPtxBase):
     def get_src_pkt(self):
-        return self.std_pkt(size=(self.group.mtu_x + 14 - 256))
+        return self.std_pkt(size=(self.group.mtu_x[0] + 14 - 256))
 
     def get_exp_pkt(self):
         pkt = self.get_src_pkt()
@@ -294,7 +294,7 @@ class XDPfailLong(XDPtxBase):
 
 class XDPfailOversized(XDPtxBase):
     def get_src_pkt(self):
-        return self.std_pkt(size=(self.group.mtu_x + 14))
+        return self.std_pkt(size=(self.group.mtu_x[0] + 14))
 
     def get_exp_pkt(self):
         return None
@@ -339,7 +339,7 @@ class XDPpassAdjUndersized(XDPpassBase):
 
 class XDPpassOversized(XDPpassBase):
     def get_src_pkt(self):
-        return self.std_pkt(size=(self.group.mtu_x + 14))
+        return self.std_pkt(size=(self.group.mtu_x[0] + 14))
 
     def get_exp_pkt(self):
         pkt = self.get_src_pkt()
@@ -360,7 +360,7 @@ class XDPadjHeadDecIpIp(XDPtunBase):
         self.dut.cmd('ip addr replace %s1/24 dev %s' %
                      (self.tun_ip_sub, self.dut_ifn[0]))
         self.dut.cmd('ip neig replace %s2 dev %s lladdr %s' %
-                     (self.tun_ip_sub, self.dut_ifn[0], self.group.hwaddr_a))
+                     (self.tun_ip_sub, self.dut_ifn[0], self.group.hwaddr_a[0]))
 
         self.xdp_start('adjust_head_dec_ip.o', mode=self.group.xdp_mode())
 
@@ -390,7 +390,7 @@ class XDPadjHeadDecIpIp(XDPtunBase):
             raise NtiError('Got TCP responses: %d, expected 5' % (cnt_tcp))
 
     def cleanup(self):
-        self.xdp_stop(self.group.xdp_mode())
+        self.xdp_stop(mode=self.group.xdp_mode())
         self.dut.cmd('ip addr del %s1/24 dev %s' %
                      (self.tun_ip_sub, self.dut_ifn[0]), fail=False)
         self.dut.cmd('ip neig del %s2 dev %s' %
@@ -410,7 +410,7 @@ class XDPadjHeadEncIpIp(XDPtunBase):
         self.src.cmd('ip addr replace %s2/24 dev %s' %
                      (self.tun_ip_sub, self.src_ifn[0]))
         self.src.cmd('ip neig replace %s1 dev %s lladdr %s' %
-                     (self.tun_ip_sub, self.src_ifn[0], self.group.hwaddr_x))
+                     (self.tun_ip_sub, self.src_ifn[0], self.group.hwaddr_x[0]))
 
         self.xdp_start('adjust_head_prep_ip.o', mode=self.group.xdp_mode())
 
@@ -436,7 +436,7 @@ class XDPadjHeadEncIpIp(XDPtunBase):
             raise NtiError('Got TCP responses: %d, expected 5' % (cnt_tcp))
 
     def cleanup(self):
-        self.xdp_stop(self.group.xdp_mode())
+        self.xdp_stop(mode=self.group.xdp_mode())
         self.src.cmd('ip addr del %s1/24 dev %s' %
                      (self.tun_ip_sub, self.src_ifn[0]), fail=False)
         self.src.cmd('ip neig del %s2 dev %s' %
