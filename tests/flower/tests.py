@@ -88,14 +88,16 @@ class FlowerBase(CommonNetdevTest):
 
         #Here we could consider using sendp(pkt, iface=ingress, count=send_cnt) instead
         wrpcap(pcap_local, pkt)
-        self.src.mv_to(pcap_local, pcap_src)
+        cmd_log('scp -q %s %s:%s' % (pcap_local, A.rem, pcap_src))
         A.cmd("tcpreplay --intf1=%s --pps=100 --loop=%s -K %s " % (ingress, send_cnt, pcap_src))
 
-        exp_bytes = (len(pkt) + len(Ether()) + pkt_len_diff)*exp_cnt
+        exp_bytes = (len(pkt) + len(Ether()))*exp_cnt
+        lo_exp_cnt = exp_cnt - 10
+        lo_exp_exp_bytes = (len(pkt) + len(Ether()))*(exp_cnt - 10)
         stats = M.netifs[interface].stats(get_tc_ing=True)
-        if int(stats.tc_ing['tc_49152_pkts']) != exp_cnt:
-            raise NtiError('Counter missmatch. Expected: %s, Got: %s' % (exp_cnt, stats.tc_ing['tc_49152_pkt']))
-        if int(stats.tc_ing['tc_49152_bytes']) != exp_bytes:
+        if int(stats.tc_ing['tc_49152_pkts']) < lo_exp_cnt or int(stats.tc_ing['tc_49152_pkts']) > exp_cnt:
+            raise NtiError('Counter missmatch. Expected: %s, Got: %s' % (exp_cnt, stats.tc_ing['tc_49152_pkts']))
+        if int(stats.tc_ing['tc_49152_bytes']) < lo_exp_exp_bytes or int(stats.tc_ing['tc_49152_bytes']) > exp_bytes:
             raise NtiError('Counter missmatch. Expected: %s, Got: %s' % (exp_bytes, stats.tc_ing['tc_49152_bytes']))
 
     def test_packet(self, ingress, send_pkt, exp_pkt, dump_filter=''):
