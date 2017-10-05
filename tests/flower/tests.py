@@ -15,6 +15,8 @@ import os
 #pylint cannot find TCP, UDP, IP, IPv6, Dot1Q in scapy for some reason
 #pylint: disable=no-name-in-module
 from scapy.all import Raw, Ether, rdpcap, wrpcap, TCP, UDP, IP, IPv6, Dot1Q
+#You need latest scapy to import from contrib
+from scapy.contrib.mpls import MPLS
 
 ###########################################################################
 # Flower Unit Tests
@@ -41,6 +43,7 @@ class NFPKmodFlower(NFPKmodGrp):
              ('flower_match_ipv6', FlowerMatchIPv6, "Checks basic flower ipv6 match capabilities"),
              ('flower_match_tcp', FlowerMatchTCP, "Checks basic flower tcp match capabilities"),
              ('flower_match_udp', FlowerMatchUDP, "Checks basic flower udp match capabilities"),
+             ('flower_match_mpls', FlowerMatchMPLS, "Checks basic flower mpls match capabilities"),
              ('flower_match_vxlan', FlowerMatchVXLAN, "Checks basic flower vxlan match capabilities"),
              ('flower_match_whitelist', FlowerMatchWhitelist, "Checks basic flower match whitelisting"),
              ('flower_vxlan_whitelist', FlowerVxlanWhitelist, "Checks that unsupported vxlan rules are not offloaded"),
@@ -405,6 +408,34 @@ class FlowerMatchVXLAN(FlowerBase):
         pkt_cnt = 100
         exp_pkt_cnt = 0
 
+        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+
+        self.cleanup_filter(iface)
+
+class FlowerMatchMPLS(FlowerBase):
+    def netdev_execute(self):
+        iface, ingress = self.configure_flower()
+
+        # Hit test
+        match = 'mpls flower mpls_label 1111'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        pkt_cnt = 100
+        exp_pkt_cnt = 100
+        pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/MPLS(label=1111)/Raw('\x00'*64)
+        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+
+        self.cleanup_filter(iface)
+
+        # Miss test
+        match = 'mpls flower mpls_label 2222'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        pkt_cnt = 100
+        exp_pkt_cnt = 0
+        pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/MPLS(label=1111)/Raw('\x00'*64)
         self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
 
         self.cleanup_filter(iface)
