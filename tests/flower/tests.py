@@ -54,6 +54,7 @@ class NFPKmodFlower(NFPKmodGrp):
              ('flower_action_set_ipv4', FlowerActionSetIPv4, "Checks basic flower set IPv4 action capabilities"),
              ('flower_action_set_ipv6', FlowerActionSetIPv6, "Checks basic flower set IPv6 action capabilities"),
              ('flower_action_set_udp', FlowerActionSetUDP, "Checks basic flower set UDP action capabilities"),
+             ('flower_action_set_tcp', FlowerActionSetTCP, "Checks basic flower set TCP action capabilities"),
         )
 
         for t in T:
@@ -932,6 +933,57 @@ class FlowerActionSetUDP(FlowerBase):
         dump_fil=''
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/UDP(sport=2222,dport=4444)/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/UDP(sport=4000,dport=4444)/Raw('\x00'*64)
+        self.test_packet(ingress, pkt, exp_pkt, dump_fil)
+
+        self.cleanup_filter(iface)
+
+class FlowerActionSetTCP(FlowerBase):
+    def netdev_execute(self):
+        iface, ingress = self.configure_flower()
+
+        # Test Output Action
+        match = 'ip flower'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
+        exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
+        self.test_packet(ingress, pkt, exp_pkt)
+
+        self.cleanup_filter(iface)
+
+        # Test Set SRC and DST TCP
+        match = 'ip flower ip_proto tcp'
+        action = 'pedit ex munge tcp sport set 4282 munge tcp dport set 8242 pipe mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        dump_fil=''
+        pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP(sport=1000,dport=2000)/Raw('\x00'*64)
+        exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP(sport=4282,dport=8242)/Raw('\x00'*64)
+        self.test_packet(ingress, pkt, exp_pkt, dump_fil)
+
+        self.cleanup_filter(iface)
+
+        # Test Set DST TCP
+        match = 'ip flower ip_proto tcp'
+        action = 'pedit ex munge tcp dport set 2000 pipe mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        dump_fil=''
+        pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP(sport=2222,dport=4444)/Raw('\x00'*64)
+        exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP(sport=2222,dport=2000)/Raw('\x00'*64)
+        self.test_packet(ingress, pkt, exp_pkt, dump_fil)
+
+        self.cleanup_filter(iface)
+
+        # Test Set SRC UDP
+        match = 'ip flower ip_proto tcp'
+        action = 'pedit ex munge tcp sport set 4000 pipe mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        dump_fil=''
+        pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP(sport=2222,dport=4444)/Raw('\x00'*64)
+        exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP(sport=4000,dport=4444)/Raw('\x00'*64)
         self.test_packet(ingress, pkt, exp_pkt, dump_fil)
 
         self.cleanup_filter(iface)
