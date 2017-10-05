@@ -327,6 +327,29 @@ class XDPfailOversized(XDPtxBase):
         return 'adjust_head_prep_256.o'
 
 ###############################################################################
+# packet mod + PASS
+###############################################################################
+
+class XDPshifts(XDPpassBase):
+    def get_src_pkt(self):
+        return self.std_pkt()
+
+    def get_exp_pkt(self):
+        pkt = self.get_src_pkt()
+        M = (1 << 64) - 1
+
+        return pkt[0:16] + \
+                 struct.pack('<Q', 0x1122334455667788 << 32 & M) + \
+                 struct.pack('<Q', 0x1122334455667788 >> 32 & M) + \
+                 struct.pack('<Q', 0x1122334455667788 >>  7 & M) + \
+                 struct.pack('<Q', 0x1122334455667788 <<  7 & M) + \
+                 struct.pack('<Q', 0x1122334455667788 << 45 & M) + \
+               pkt[56:]
+
+    def get_prog_name(self):
+        return 'shifts.o'
+
+###############################################################################
 # xdp_adjust_head() + PASS
 ###############################################################################
 
