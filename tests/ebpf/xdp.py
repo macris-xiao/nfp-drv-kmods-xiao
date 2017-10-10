@@ -356,6 +356,32 @@ class XDPshifts(XDPpassBase):
     def get_prog_name(self):
         return 'shifts.o'
 
+class XDPswap(XDPpassBase):
+    def get_src_pkt(self):
+        std_mac_hdr = self.std_pkt()
+        pkt = std_mac_hdr[0:14]
+
+        pkt += "".join([chr(i) for i in range(80)])
+
+        return pkt
+
+    def get_exp_pkt(self):
+        pkt = self.get_src_pkt()
+
+        pkt = pkt[0:14] + \
+              ''.join(reversed(pkt[14:16])) + \
+              ''.join(reversed(pkt[16:20])) + \
+              ''.join(reversed(pkt[20:28])) + \
+              ''.join(reversed(pkt[28:30])) + '\x00' * 6 + \
+              ''.join(reversed(pkt[36:40])) + '\x00' * 4 + \
+              pkt[44:]
+
+        return pkt
+
+    def get_prog_name(self):
+        return 'swap.o'
+
+
 ###############################################################################
 # xdp_adjust_head() + PASS
 ###############################################################################

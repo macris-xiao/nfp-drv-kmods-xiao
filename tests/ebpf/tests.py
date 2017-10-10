@@ -74,6 +74,7 @@ class NFPKmodBPF(NFPKmodGrp):
                 'XDP adjust head prep 256B on MTU-sized packet test'),
                ('xdp_shifts', XDPshifts, 'XDP test of shift operations'),
                ('xdp_cmp', XDPcmp, "Test compare instructions"),
+               ('xdp_swap', XDPswap, 'Perform byte swaps'),
         )
 
         for t in XDP:
