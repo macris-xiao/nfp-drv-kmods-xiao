@@ -49,7 +49,7 @@ class XDPTest(CommonTest):
         return rdpcap(pcap_res)
 
     def cleanup(self):
-        self.xdp_stop(mode=self.group.xdp_mode())
+        self.xdp_reset()
 
 class XDPadjBase(XDPTest):
     def get_src_pkt(self):

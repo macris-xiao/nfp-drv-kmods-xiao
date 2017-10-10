@@ -356,7 +356,7 @@ class eBPFrefcnt(eBPFtest):
         self.xdp_stop(port=1, mode="offload")
 
     def cleanup(self):
-        pass
+        self.xdp_reset()
 
 class eBPFpass(eBPFtest):
     def __init__(self, src, dut, tc_flags="skip_sw", group=None, name="",

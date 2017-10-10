@@ -95,6 +95,8 @@ class CommonTest(Test):
         self.dut_addr = dut[1]
         self.dut_ifn = dut[2]
         self.dut_addr_v6 = dut[3]
+
+        self.active_xdp = [None] * len(self.dut_ifn)
         return
 
     def prepare(self):
@@ -203,11 +205,22 @@ class CommonTest(Test):
         cmd = 'ip -force link set dev %s xdp%s obj %s sec ".text"' % \
               (self.dut_ifn[port], mode, prog_path)
 
-        return self.dut.cmd(cmd)
+        ret, out = self.dut.cmd(cmd)
+        # Record what we added so we can reset in case of error
+        self.active_xdp[port] = mode
+
+        return ret, out
 
     def xdp_stop(self, port=0, mode=""):
+        self.active_xdp[port] = None
+
         return self.dut.cmd('ip -force link set dev %s xdp%s off' %
                             (self.dut_ifn[port], mode))
+
+    def xdp_reset(self):
+        for p in range(0, len(self.active_xdp)):
+            if not self.active_xdp[p] is None:
+                self.xdp_stop(port=p, mode=self.active_xdp[p])
 
     def ping(self, port, count=10, size=0, pattern="", ival="0.05",
              should_fail=False):
