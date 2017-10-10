@@ -187,6 +187,13 @@ class XDPmultiPort(XDPTest):
 
             self.xdp_start('drop.o', port=p, mode=self.group.xdp_mode())
 
+class XDPcmp(XDPTest):
+    def execute(self):
+        self.xdp_start('compares.o', mode=self.group.xdp_mode())
+
+        self.ping(0)
+        self.tcpping(0)
+        self.ping6(0)
 
 ###############################################################################
 # TX tests
