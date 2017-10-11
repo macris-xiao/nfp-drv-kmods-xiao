@@ -76,6 +76,8 @@ class NFPKmodBPF(NFPKmodGrp):
                ('xdp_cmp', XDPcmp, "Test compare instructions"),
                ('xdp_swap', XDPswap, 'Perform byte swaps'),
                ('xdp_dpa_rd', XDPpassDPArd, 'XDP direct packet access test'),
+               ('xdp_dpa_wr', XDPpassDPAwr,
+                'XDP direct packet access write test'),
         )
 
         for t in XDP:

@@ -216,6 +216,19 @@ class XDPpassDPArd(XDPpassBase):
     def get_prog_name(self):
         return 'dpa_read.o'
 
+class XDPpassDPAwr(XDPpassBase):
+    def get_exp_pkt(self):
+        pkt = self.get_src_pkt()
+        implant = '\xee\xbb\xdd\xdd\xff\xff\xff\xff'
+        pkt = pkt[:32] + implant + '\xbb' + implant + pkt[49:]
+        return pkt
+
+    def get_exp_pkt(self):
+        return self.get_src_pkt()
+
+    def get_prog_name(self):
+        return 'dpa_write.o'
+
 ###############################################################################
 # TX tests
 ###############################################################################
