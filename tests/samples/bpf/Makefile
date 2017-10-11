@@ -1,4 +1,4 @@
-LLVM_VERSION ?= -6.0
+LLVM_VERSION ?= -4.0
 LLVM := $(shell clang$(LLVM_VERSION) --version)
 CLANG_FLAGS ?= -W -Wall \
 	-Wno-compare-distinct-pointer-types
@@ -16,7 +16,7 @@ Q ?= @
 
 %.o: %.S
 	@echo "\tLLVM MC $@"
-	$(Q) llvm-mc$(LLVM_VERSION) -assemble -arch=bpf $< -filetype=obj -o $@
+	$(Q) llvm-mc-6.0 -assemble -arch=bpf $< -filetype=obj -o $@
 
 ifeq ($(LLVM),)
 all:
