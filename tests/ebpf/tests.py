@@ -170,34 +170,12 @@ class NFPKmodBPF(NFPKmodGrp):
                          should_fail=True, group=self, name=tn,
                          summary='Direct action %s fail test' % (t[0]))
 
-    def driver_load(self):
-        M = self.dut
-
-        if not self.upstream_drv:
-            # Try to see if FW is already loaded
-            M.insmod(netdev=True, userspace=True)
-            ret, _ = M.cmd_rtsym('_pf0_net_bar0', fail=False)
-            if ret == 0:
-                return
-
-            M.rmmod()
-
-        # If not use kernel loader
-        M.cmd('mkdir -p /lib/firmware/netronome')
-        M.cp_to(self.netdevfw, '/lib/firmware/netronome/%s' % M.get_fw_name())
-
-        if self.upstream_drv:
-            M.cmd('modprobe nfp')
-        else:
-            M.insmod(netdev=True, userspace=True)
-
-
     def _init(self):
         NFPKmodGrp._init(self)
 
-        self.driver_load()
-
         M = self.dut
+
+        M.drv_load_netdev_conserving(fwname=None)
 
         # Disable DAD
         cmd = ''
