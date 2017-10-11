@@ -256,6 +256,54 @@ class DrvSystem(System):
             self._mods.remove(module)
         return ret, out
 
+    # Load the driver, with non-upstream mode don't spawn netdev,
+    # in upstream mode do, since it's the only way there.
+    def drv_load_any(self):
+        if not self.grp.upstream_drv:
+            self.insmod()
+            return
+
+        # Upstream mode
+        # Copy the FW over
+        if self.grp.netdevfw:
+            self.cmd('mkdir -p /lib/firmware/netronome')
+            self.cp_to(self.grp.netdevfw,
+                       '/lib/firmware/netronome/' + self.get_fw_name_serial())
+        else:
+            self.cp_to(self.netdevfw_dir, '/lib/firmware/netronome')
+
+        self.rm_dir_on_clean('/lib/firmware/netronome')
+
+        self.insmod(netdev=None)
+        self.cmd('udevadm settle')
+
+    # Load the driver for netdev operation.
+    def drv_load_netdev_conserving(self, fwname):
+        # In upstream mode, just load the driver, there are no tricks
+        # to pull off.
+        if self.grp.upstream_drv:
+            self.drv_load_any()
+            return
+
+        # With non-upstream driver, load the module, see if FW is already there,
+        # if it isn't load it manually so that the driver won't reset it.
+        if not fwname:
+            fwname = os.path.join(self.tmpdir,
+                                  os.path.basename(self.grp.netdevfw))
+        else:
+            fwname = os.path.join(self.netdevfw_dir, fwname)
+
+        self.insmod(netdev=True, userspace=True)
+        ret, _ = self.cmd_rtsym('_pf0_net_bar0', fail=False)
+        if ret != 0:
+            self.nffw_unload()
+            self.nffw_load('%s' % fwname)
+            self.rmmod()
+            self.insmod(netdev=True, userspace=True)
+        self.cmd('udevadm settle')
+
+        self.insmod(module="nth")
+
     def reset_mods(self):
         while self._mods:
             m = self._mods.pop()

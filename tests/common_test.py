@@ -327,58 +327,6 @@ class CommonTest(Test):
 
         return value
 
-    # Load the driver, with non-upstream mode don't spawn netdev,
-    # in upstream mode do, since it's the only way there.
-    def drv_load_any(self):
-        M = self.dut
-
-        if not self.group.upstream_drv:
-            M.insmod()
-            return
-
-        # Upstream mode
-        # Copy the FW over
-        if self.group.netdevfw:
-            M.cmd('mkdir -p /lib/firmware/netronome')
-            M.cp_to(self.group.netdevfw,
-                    '/lib/firmware/netronome/%s' % (M.get_fw_name_serial()))
-        else:
-            M.cp_to(self.dut.netdevfw_dir, '/lib/firmware/netronome')
-
-        M.rm_dir_on_clean('/lib/firmware/netronome')
-
-        M.insmod(netdev=None)
-        self.dut.cmd('udevadm settle')
-
-    # Load the driver for netdev operation.
-    def drv_load_netdev_conserving(self, fwname):
-        # In upstream mode, just load the driver, there are no tricks
-        # to pull off.
-        if self.group.upstream_drv:
-            self.drv_load_any()
-            return
-
-        # With non-upstream driver, load the module, see if FW is already there,
-        # if it isn't load it manually so that the driver won't reset it.
-        M = self.dut
-
-        if not fwname:
-            fwname = os.path.join(self.dut.tmpdir,
-                                  os.path.basename(self.group.netdevfw))
-        else:
-            fwname = os.path.join(self.dut.netdevfw_dir, fwname)
-
-        M.insmod(netdev=True, userspace=True)
-        ret, _ = M.cmd_rtsym('_pf0_net_bar0', fail=False)
-        if ret != 0:
-            M.nffw_unload()
-            M.nffw_load('%s' % fwname)
-            M.rmmod()
-            M.insmod(netdev=True, userspace=True)
-        self.dut.cmd('udevadm settle')
-
-        M.insmod(module="nth")
-
 class CommonDrvTest(CommonTest):
     def cleanup(self):
         self.dut.reset_mods()
@@ -425,7 +373,7 @@ class CommonNetdevTest(CommonTest):
         self.dut._get_netifs()
         netifs_old = self.dut._netifs
 
-        self.drv_load_netdev_conserving(fwname)
+        self.dut.drv_load_netdev_conserving(fwname)
 
         self.dut._get_netifs()
         netifs_new = self.dut._netifs
