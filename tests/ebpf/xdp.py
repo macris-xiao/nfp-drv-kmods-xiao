@@ -19,110 +19,16 @@ from ..drv_system import NfpNfdCtrl
 ###############################################################################
 
 class XDPTest(CommonTest):
-    def tcpdump_cmd(self, capture_system, ifname, cmd_system, cmd):
-        pcap_res = os.path.join(self.group.tmpdir, 'pcap_res')
-
-        # Start TCPdump
-        dump = os.path.join(capture_system.tmpdir, 'dump')
-        stderr = os.path.join(capture_system.tmpdir, 'tcpdump_err.txt')
-        filter_expr = '"not arp and' \
-                      ' not ip6 and' \
-                      ' not ether host 01:80:c2:00:00:0e and' \
-                      ' not ether host ff:ff:ff:ff:ff:ff"'
-        self.tcpdump = TCPDump(capture_system, ifname, dump, resolve=False,
-                               direction='in', stderrfn=stderr,
-                               filter_expr=filter_expr)
-
-        self.tcpdump.start()
-
-        # Run command
-        cmd_system.cmd(cmd)
-
-        self.tcpdump.stop()
-
-        # Dump the packets to logs for debug
-        capture_system.cmd('tcpdump -xxvvv -r ' + dump)
-
-        # Check the result
-        capture_system.cp_from(dump, pcap_res)
-
-        return rdpcap(pcap_res)
-
     def cleanup(self):
         self.xdp_reset()
 
-class XDPadjBase(XDPTest):
-    def get_src_pkt(self):
-        pass
-
-    def get_exp_pkt(self):
-        pass
-
-    def get_prog_name(self):
-        pass
-
-    def get_tcpdump_params(self):
-        pass
-
-    def execute(self):
-        # Prepare packet
-        pkt = self.get_src_pkt()
-
-        pcap_local = os.path.join(self.group.tmpdir, 'pcap')
-        pcap_src = os.path.join(self.src.tmpdir, 'pcap')
-
-        wrpcap(pcap_local, Ether(pkt))
-        self.src.mv_to(pcap_local, pcap_src)
-
-        # Make sure there is connectivity
-        self.ping(0)
-        # Install XDP prog
+class XDPadjBase(CommonPktCompareTest):
+    def install_filter(self):
         self.xdp_start(self.get_prog_name(), mode=self.group.xdp_mode())
+        return 0
 
-        cmd = "tcpreplay --intf1=%s --pps=100 --loop=100 -K %s " % \
-              (self.src_ifn[0], pcap_src)
-
-        tp = self.get_tcpdump_params()
-        result_pkts = self.tcpdump_cmd(tp[0], tp[1], tp[2], cmd)
-
-        # Compute expected packet
-        exp_pkt = self.get_exp_pkt()
-
-        exp_num = 100
-        if exp_pkt is None:
-            exp_num = 0
-
-        if len(result_pkts) < exp_num or len(result_pkts) > exp_num + 5:
-            raise NtiError('Captured %d packets, expected %d' %
-                           (len(result_pkts), exp_num))
-
-        found = 0
-        for p in result_pkts:
-            if str(p) == exp_pkt:
-                found += 1
-            else:
-                self.log('Bad packet',
-                         ':'.join(x.encode('hex') for x in str(p))
-                         + "\n\n" +
-                         ':'.join(x.encode('hex') for x in exp_pkt))
-
-        if found != exp_num:
-            raise NtiError("Found %d packets, was looking for %d" %
-                           (found, exp_num))
-
-    def std_pkt(self, size=96):
-        pkt = ''
-        for b in self.group.hwaddr_x[0].split(':'):
-            pkt += chr(int('0x' + b, 16))
-        for b in self.group.hwaddr_a[0].split(':'):
-            pkt += chr(int('0x' + b, 16))
-        pkt += '\x12\x22'
-
-        pkt += '\xaa'
-        pkt += '\xf1' * (size - 16)
-        pkt += '\x55'
-
-        return pkt
+    def cleanup(self):
+        self.xdp_reset()
 
 class XDPtxBase(XDPadjBase):
     def get_tcpdump_params(self):
