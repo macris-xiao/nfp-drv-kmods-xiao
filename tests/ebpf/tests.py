@@ -170,6 +170,14 @@ class NFPKmodBPF(NFPKmodGrp):
                          should_fail=True, group=self, name=tn,
                          summary='Direct action %s fail test' % (t[0]))
 
+        TCs = (
+            ('tc_dpa_rd', eBPFdpaRD, "DPA read with TC"),
+        )
+
+        for t in TCs:
+            self._tests[t[0]] = t[1](src, dut, group=self, name=t[0],
+                                     summary=t[2])
+
     def _init(self):
         NFPKmodGrp._init(self)
 
@@ -635,3 +643,42 @@ class eBPFharden(eBPFtest):
         self.dut.cmd('sysctl net.core.bpf_jit_enable=0; sysctl net.core.bpf_jit_harden=0')
         if ret == 0:
             raise NtiGeneralError("loaded filter with hardening")
+
+#########################################################################
+# Data passing/comparing tests
+#########################################################################
+
+class eBPFdataTest(CommonPktCompareTest):
+    def get_tcpdump_params(self):
+        return (self.dut, self.dut_ifn[0], self.src)
+
+    def install_filter(self):
+        self.dut.cmd('ethtool -K %s hw-tc-offload on' % (self.dut_ifn[0]))
+        self.dut.cmd('tc qdisc add dev %s ingress' % (self.dut_ifn[0]))
+
+        return self.tc_bpf_load(obj=self.get_prog_name(), flags="skip_sw",
+                                act="action drop")
+
+    def cleanup(self):
+        self.dut.cmd('tc qdisc del dev %s ingress' % self.dut_ifn[0])
+
+class eBPFdpaRD(eBPFdataTest):
+    def get_src_pkt(self):
+        pkt = ''
+        for b in self.group.hwaddr_x[0].split(':'):
+            pkt += chr(int('0x' + b, 16))
+        for b in self.group.hwaddr_a[0].split(':'):
+            pkt += chr(int('0x' + b, 16))
+        pkt += '\x12\x23\x00\x00'
+
+        pkt += '\xaa' * 16
+        pkt += '\x01\x02\x03\x04\x05\x06\x07\x08'
+        pkt += '\xbb' * 32
+
+        return pkt
+
+    def get_exp_pkt(self):
+        return self.get_src_pkt()
+
+    def get_prog_name(self):
+        return 'dpa_read.o'
