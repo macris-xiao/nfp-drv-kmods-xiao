@@ -94,6 +94,7 @@ class NFPKmodBPF(NFPKmodGrp):
              ('bpf_mark', eBPFmark, "eBPF mark all filter"),
              ('bpf_abort', eBPFabort, "eBPF abort all filter"),
              ('bpf_redirect', eBPFredir, "eBPF redirect all filter"),
+             ('bpf_len', eBPFskbLen, "eBPF skb->len test"),
              ('bpf_tcp58', eBPFtcp58, "eBPF filter on TCP port 58"),
              ('bpf_jeq_jgt', eBPFjeq_jgt, "eBPF JEQ JGT branch test"),
              ('bpf_jneq', eBPFjneq, "eBPF JNE branch test"),
@@ -390,6 +391,25 @@ class eBPFmark(eBPFtest):
 
         counts = (30, 42, 3200, 4500)
         self.validate_cntrs(rx_t=counts, pass_all=True, mark_all=True)
+
+class eBPFskbLen(eBPFtest):
+    def __init__(self, src, dut, group=None, name="", summary=None):
+        eBPFtest.__init__(self, src, dut, obj_name="len.o",
+                          group=group, name=name, summary=summary)
+
+    def execute(self):
+        self.ping(port=0)
+        self.ping6(port=0)
+        self.tcpping(port=0)
+
+        counts = (30, 38, 3200, 4000)
+        self.validate_cntrs(rx_t=counts, pass_all=True)
+
+        self.ping(port=0, size=1193, should_fail=True)
+        self.ping(port=0, size=1200, should_fail=True)
+
+        counts = (20, 30, 24850, 26000)
+        self.validate_cntrs(rx_t=counts, exact_filter=True)
 
 class eBPFtcp58(eBPFtest):
     def __init__(self, src, dut, group=None, name="", summary=None):
