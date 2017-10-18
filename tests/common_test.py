@@ -204,12 +204,19 @@ class CommonTest(Test):
         ret, _ = self.dut.cmd(cmd, fail=False)
         return ret
 
-    def xdp_start(self, prog, port=0, mode=""):
+    def xdp_start(self, prog, port=0, mode="", should_fail=False):
         prog_path = os.path.join(self.dut.xdp_samples_dir, prog)
         cmd = 'ip -force link set dev %s xdp%s obj %s sec ".text"' % \
               (self.dut_ifn[port], mode, prog_path)
 
-        ret, out = self.dut.cmd(cmd)
+        ret, out = self.dut.cmd(cmd, fail=False)
+        if ret and should_fail == False:
+            raise NtiError("Couldn't load XDP")
+        if ret == 0 and should_fail == True:
+            raise NtiError("XDP loaded and it shouldn't")
+        if ret != 0:
+            return ret, out
+
         # Record what we added so we can reset in case of error
         self.active_xdp[port] = mode
 

@@ -18,6 +18,11 @@ from ..drv_system import NfpNfdCtrl
 # Helpers
 ###############################################################################
 
+def xdp_test_name_to_prog(test):
+    # Skip the "tests.XXX.xdp_" in name
+    last_dot = test.name.rfind('.')
+    return test.name[last_dot + 5:] + '.o'
+
 def xdp_skip_if_adj_head(test, prog_name):
     if test.group.xdp_mode() == "offload" and \
        prog_name.find("adjust") != -1:
@@ -32,6 +37,19 @@ def xdp_skip_if_adj_head(test, prog_name):
 class XDPTest(CommonTest):
     def cleanup(self):
         self.xdp_reset()
+
+class XDPLoadTest(XDPTest):
+    def execute(self):
+        self.xdp_start(xdp_test_name_to_prog(self), mode=self.group.xdp_mode())
+
+class XDPpassAllNoOffload(XDPTest):
+    def execute(self):
+        mode = self.group.xdp_mode()
+        should_fail = mode == "offload"
+        prog = xdp_test_name_to_prog(self)
+
+        self.xdp_start(prog, mode=mode, should_fail=should_fail)
+        return 0
 
 class XDPadjBase(CommonPktCompareTest):
     def prepare(self):
@@ -55,6 +73,16 @@ class XDPpassBase(XDPadjBase):
     def get_tcpdump_params(self):
         return (self.dut, self.dut_ifn[0], self.src)
 
+class XDPpassAll(XDPpassBase):
+    def get_src_pkt(self):
+        return self.std_pkt()
+
+    def get_exp_pkt(self):
+        return self.std_pkt()
+
+    def get_prog_name(self):
+        return xdp_test_name_to_prog(self)
+
 # XXX: Note tunnel tests are hard-coding inner IPs.  This is slightly bad
 #      but otherwise dealing with generating the XDP programs and correct
 #      IP hdr checksum for Encap would be such a pain...
@@ -68,6 +96,21 @@ class XDPtunBase(XDPTest):
 ###############################################################################
 # Simple tests
 ###############################################################################
+
+class XDPStackLoadTest(XDPTest):
+    def execute(self):
+        mode = self.group.xdp_mode()
+        stack_size = self.dut.nfd_reg_read_le32(self.dut_ifn[0],
+                                                NfpNfdCtrl.BPF_STACK_SZ)
+        stack_size &= 0xff
+        stack_size *= 64
+
+        fail = mode == "offload" and stack_size < 512
+        self.log("Stack size",
+                 "\tstack: %d\n\ttest needs: %d\n\tshould fail: %d\n" %
+                 (stack_size, 512, fail))
+
+        self.xdp_start(xdp_test_name_to_prog(self), mode=mode, should_fail=fail)
 
 class XDPpass(XDPTest):
     def execute(self):
