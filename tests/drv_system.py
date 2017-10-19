@@ -89,7 +89,7 @@ class DrvSystem(System):
 
         return int(out)
 
-    def link_wait(self, ifc, timeout=6):
+    def link_wait(self, ifc, timeout=8):
         tgt_time = time.time() + timeout
         up_time = 0
 
