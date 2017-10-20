@@ -15,6 +15,17 @@ from ..drv_grp import NFPKmodGrp
 from ..drv_system import NfpNfdCtrl
 
 ###############################################################################
+# Helpers
+###############################################################################
+
+def xdp_skip_if_adj_head(test, prog_name):
+    if test.group.xdp_mode() == "offload" and \
+       prog_name.find("adjust") != -1:
+        test.log("SKIP", "Skip because this test uses adjust_head")
+        return NrtResult(name=test.name, testtype=test.__class__.__name__,
+                         passed=None, comment="no adj head support")
+
+###############################################################################
 # Base classes
 ###############################################################################
 
@@ -23,6 +34,9 @@ class XDPTest(CommonTest):
         self.xdp_reset()
 
 class XDPadjBase(CommonPktCompareTest):
+    def prepare(self):
+        return xdp_skip_if_adj_head(self, self.get_prog_name())
+
     def install_filter(self):
         self.xdp_start(self.get_prog_name(), mode=self.group.xdp_mode())
         return 0
@@ -31,6 +45,9 @@ class XDPadjBase(CommonPktCompareTest):
         self.xdp_reset()
 
 class XDPtxBase(XDPadjBase):
+    def prepare(self):
+        return xdp_skip_if_adj_head(self, self.get_prog_name())
+
     def get_tcpdump_params(self):
         return (self.src, self.src_ifn[0], self.src)
 
@@ -45,6 +62,8 @@ class XDPtunBase(XDPTest):
     def prepare(self):
         self.tun_name = 'ipip1'
         self.tun_ip_sub = self.group.tun_net
+
+        return xdp_skip_if_adj_head(self, "adjust")
 
 ###############################################################################
 # Simple tests
