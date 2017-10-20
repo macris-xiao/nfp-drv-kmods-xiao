@@ -149,6 +149,9 @@ class NFPKmodBPF(NFPKmodGrp):
                 'test writes via modified (non-constant) reg'),
                ('xdp_stack_write_unknown_bad_align', XDPpassAllNoOffload,
                 'test writes via modified (non-constant) reg'),
+
+               ('xdp_mov64', XDPpassAll,
+                'test optimization of repetitive mov64'),
         )
 
         for t in XDP:
