@@ -279,7 +279,7 @@ class DrvSystem(System):
         self.cmd('udevadm settle')
 
     # Load the driver for netdev operation.
-    def drv_load_netdev_conserving(self, fwname):
+    def drv_load_netdev_conserving(self, fwname, nth=True):
         # In upstream mode, just load the driver, there are no tricks
         # to pull off.
         if self.grp.upstream_drv:
@@ -303,7 +303,8 @@ class DrvSystem(System):
             self.insmod(netdev=True, userspace=True)
         self.cmd('udevadm settle')
 
-        self.insmod(module="nth")
+        if nth:
+            self.insmod(module="nth")
 
     def reset_mods(self):
         while self._mods:

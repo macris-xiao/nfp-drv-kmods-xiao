@@ -258,7 +258,7 @@ class NFPKmodBPF(NFPKmodGrp):
 
         M = self.dut
 
-        M.drv_load_netdev_conserving(fwname=None)
+        M.drv_load_netdev_conserving(fwname=None, nth=False)
 
         # Disable DAD
         cmd = ''
