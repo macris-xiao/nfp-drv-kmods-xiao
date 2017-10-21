@@ -70,13 +70,23 @@ class eBPFtest(CommonTest):
         self.validate_cntr_e2t(diff, '%s_pkts' % e_name, '%s_pkts' % t_name)
         self.validate_cntr_e2t(diff, '%s_bytes' % e_name, '%s_bytes' % t_name)
 
-    def validate_cntrs(self, rx_t, pass_all=False,
-                       app1_all=False, app2_all=False, app3_all=False,
-                       mark_all=False, exact_filter=False):
+    def _validate_cntrs(self, rx_t, pass_all, app1_all, app2_all, app3_all,
+                        mark_all, exact_filter):
         NO_PKTS=(0, 1, 0, 1)
 
         new_stats = self.dut.netifs[self.dut_ifn[0]].stats(get_tc_ing=True)
         diff = new_stats - self.stats
+
+        LOG_sec("Old counters")
+        LOG(self.stats.pp())
+        LOG_endsec()
+        LOG_sec("New counters")
+        LOG(new_stats.pp())
+        LOG_endsec()
+        LOG_sec("Diff counters")
+        LOG(diff.pp())
+        LOG_endsec()
+
         self.stats = new_stats
 
         self.validate_cntr_pair(diff.ethtool, 'dev_rx', rx_t)
@@ -120,6 +130,16 @@ class eBPFtest(CommonTest):
             else:
                 self.validate_cntr_pair(diff.tc_ing, 'tc_49151', NO_PKTS)
 
+    def validate_cntrs(self, rx_t, pass_all=False,
+                       app1_all=False, app2_all=False, app3_all=False,
+                       mark_all=False, exact_filter=False):
+
+        LOG_sec("Validate counters")
+        self._validate_cntrs(rx_t=rx_t, pass_all=pass_all,
+                             app1_all=app1_all, app2_all=app2_all,
+                             app3_all=app3_all, mark_all=mark_all,
+                             exact_filter=exact_filter)
+        LOG_endsec()
 
     def prepare(self):
         """
