@@ -159,6 +159,8 @@ class NFPKmodBPF(NFPKmodGrp):
                ('xdp_jump_at_last', XDPjumpAtLast, 'The last instruction is jump'),
                ('xdp_tx_memcpy_1', XDPASMmemcpy1,
                 'Opt memory copy (len > 32 && len <= 40 && !4 aligned)'),
+               ('xdp_tx_memcpy_2', XDPASMmemcpy2,
+                'Opt memory copy (len > 40 && !4 aligned)'),
         )
 
         for t in XDP:
