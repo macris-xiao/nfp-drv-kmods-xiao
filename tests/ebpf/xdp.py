@@ -515,6 +515,16 @@ class XDPASMmemcpy9(XDPOPTmemcpy):
     def get_prog_src_file(self):
         return 'opt_memcpy_9.S'
 
+class XDPCmembuiltins(XDPOPTmemcpy):
+    def get_exp_pkt(self):
+        pkt = self.get_src_pkt()
+        pkt = pkt[6:12] + pkt[0:6] + '\x12\x34' + \
+              pkt[22:30] + pkt[24:40] + pkt[38:40] + pkt[44:76] + pkt[72:]
+        return pkt
+
+    def get_prog_name(self):
+        return 'opt_mem_builtins.o'
+
 ###############################################################################
 # xdp_adjust_head() + PASS
 ###############################################################################

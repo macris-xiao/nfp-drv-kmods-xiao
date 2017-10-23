@@ -175,6 +175,8 @@ class NFPKmodBPF(NFPKmodGrp):
                 'Opt memory copy (cross memory access )'),
                ('xdp_tx_memcpy_9', XDPASMmemcpy9,
                 'Opt memory copy (unusal cases)'),
+               ('xdp_tx_mem_builtins', XDPCmembuiltins,
+                'Memory operation builtins tests'),
         )
 
         for t in XDP:
