@@ -157,6 +157,8 @@ class NFPKmodBPF(NFPKmodGrp):
                 'test optimization of repetitive mov64'),
                ('xdp_neg', XDPneg, 'BPF_NEG (ALU and ALU64)'),
                ('xdp_jump_at_last', XDPjumpAtLast, 'The last instruction is jump'),
+               ('xdp_tx_memcpy_1', XDPASMmemcpy1,
+                'Opt memory copy (len > 32 && len <= 40 && !4 aligned)'),
         )
 
         for t in XDP:

@@ -409,6 +409,27 @@ class XDPswap(XDPpassBase):
     def get_prog_name(self):
         return 'swap.o'
 
+class XDPOPTmemcpy(XDPtxBase):
+    def get_src_pkt(self):
+        pkt = ''
+        for b in self.group.hwaddr_x[0].split(':'):
+            pkt += chr(int('0x' + b, 16))
+        for b in self.group.hwaddr_a[0].split(':'):
+            pkt += chr(int('0x' + b, 16))
+        pkt += '\x12\x22'
+
+        pkt += "".join([chr(i) for i in range(80)])
+
+        return pkt
+
+class XDPASMmemcpy1(XDPOPTmemcpy):
+    def get_exp_pkt(self):
+        pkt = self.get_src_pkt()
+        pkt = pkt[6:12] + pkt[0:6] + '\x12\x34' + pkt[47:47+37] + pkt[51:]
+        return pkt
+
+    def get_prog_name(self):
+        return 'opt_memcpy_1.o'
 
 ###############################################################################
 # xdp_adjust_head() + PASS
