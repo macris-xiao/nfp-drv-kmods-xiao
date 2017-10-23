@@ -161,6 +161,8 @@ class NFPKmodBPF(NFPKmodGrp):
                 'Opt memory copy (len > 32 && len <= 40 && !4 aligned)'),
                ('xdp_tx_memcpy_2', XDPASMmemcpy2,
                 'Opt memory copy (len > 40 && !4 aligned)'),
+               ('xdp_tx_memcpy_3', XDPASMmemcpy3,
+                'Opt memory copy (len < 8)'),
         )
 
         for t in XDP:
