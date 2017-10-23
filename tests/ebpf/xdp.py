@@ -425,7 +425,8 @@ class XDPOPTmemcpy(XDPtxBase):
 class XDPASMmemcpy1(XDPOPTmemcpy):
     def get_exp_pkt(self):
         pkt = self.get_src_pkt()
-        pkt = pkt[6:12] + pkt[0:6] + '\x12\x34' + pkt[47:47+37] + pkt[51:]
+        pkt = pkt[6:12] + pkt[0:6] + '\x12\x34' + \
+              pkt[84] + pkt[48:47+37] + pkt[51:]
         return pkt
 
     def get_prog_name(self):

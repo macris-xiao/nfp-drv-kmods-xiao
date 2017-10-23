@@ -127,4 +127,10 @@ xdp_prog1:
 	r2 = *(u8 *)(r1 + 83)
 	*(u8 *)(r1 + 50) = r2
 
+	# r2 is live after the last store instruction in the above sequence,
+	# so the JIT optimization should make sure it contains correct value.
+	# We will check the packet payload to make sure this has happen.
+	r2 += 1
+	*(u8 *)(r1 + 14) = r2
+
 	PREPARE_PACKET_FOOTER
