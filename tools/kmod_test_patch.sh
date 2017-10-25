@@ -244,14 +244,31 @@ done
     bold "Preparing Linux env..."
     kernels=
 
-    ! [ -d "linux-next.git" ] && git clone git://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git linux-next.git
-    ! [ -d "linux.git" ] && git clone --reference linux-next.git git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git linux.git
+    # Upgrade old envs which use linux-next instead of net-next
+    if [ -d "linux-next.git" ]; then
+	bold "Updating old Linux env to use net trees..."
+
+	mv linux-next.git net-next.git
+	(
+	    cd net-next.git/
+
+	    git remote remove origin
+	    git remote add origin git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git
+	)
+	rm -rf linux.git/
+
+	mv linux-next/ net-next/
+	mv linux/ net/
+    fi
+
+    ! [ -d "net-next.git" ] && git clone git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git net-next.git
+    ! [ -d "net.git" ] && git clone --reference net-next.git/ git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git net.git
 
     (
-	cd linux-next.git/
-	git checkout master
+	cd net-next.git/
+
 	git fetch --all
-	git reset --hard origin/master
+	git checkout origin/master
 
 	# Get non-rc version tags in 3-digit format
 	kernel_3d=`git tag | sed -n 's/^v\([0-9]*\).\([0-9]*\)$/\1\2/p' | sed 's/^\([0-9]\)\([0-9]\)$/\10\2/' | sort -n`
@@ -271,27 +288,26 @@ done
 	    build_kernel ../linux-$v/
 	done
 
-	git checkout master
-	build_kernel . ../linux-next
+	git checkout origin/master
+	build_kernel . ../net-next
 
 	#
-	# Prepare 32bit build of linux-next
+	# Prepare 32bit build of net-next
 	#
-	if ! [ -d "../linux-next-32bit" ]; then
-	    linux32 make CC=$DEFAULT_CC O=../linux-next-32bit/ defconfig
-	    linux32 make CC=$DEFAULT_CC O=../linux-next-32bit/ local_defconfig
+	if ! [ -d "../net-next-32bit" ]; then
+	    linux32 make CC=$DEFAULT_CC O=../net-next-32bit/ defconfig
+	    linux32 make CC=$DEFAULT_CC O=../net-next-32bit/ local_defconfig
 	fi
-	make CC=$DEFAULT_CC O=../linux-next-32bit/ -j$NJ
+	make CC=$DEFAULT_CC O=../net-next-32bit/ -j$NJ
 
 	#
-	# Prepare linux.git
+	# Prepare net.git
 	#
-	cd ../linux.git/
-	git checkout master
+	cd ../net.git/
 	git fetch --all
-	git reset --hard origin/master
+	git checkout origin/master
 
-	build_kernel . ../linux
+	build_kernel . ../net
 
 	#
 	# Prepare nfp ARM build
@@ -367,9 +383,9 @@ done
 	    # Run checkpatch
 	    #
 	    if [ $IGNORE_CP -eq 1 ]; then
-		../linux-next.git/scripts/checkpatch.pl --strict $real_path 2>&1 | tee -a ../checkpatch.log
+		../net-next.git/scripts/checkpatch.pl --strict $real_path 2>&1 | tee -a ../checkpatch.log
 	    else
-		../linux-next.git/scripts/checkpatch.pl --strict $real_path
+		../net-next.git/scripts/checkpatch.pl --strict $real_path
 	    fi
 
 	    #
@@ -385,7 +401,7 @@ done
 	    # Check kerneldoc
 	    #
 	    rm -f src/*.mod.c || true
-	    ../linux-next.git/scripts/kernel-doc -man $(find -name '*.c' -or -name '*.h') > /dev/null 2> ../kdoc.log || true
+	    ../net-next.git/scripts/kernel-doc -man $(find -name '*.c' -or -name '*.h') > /dev/null 2> ../kdoc.log || true
 	    sed -i '/warning: no structured comments found/d' ../kdoc.log
 	    kdoc_warnings=$(grep -v nfp_net_ctrl.h ../kdoc.log | wc -l)
 	    check_warn_cnt $kdoc_warnings $INCUMBENT_KDOC_WARNINGS kdoc
@@ -397,16 +413,16 @@ done
 	    check_warn_cnt $nl_warnings $INCUMBENT_NEWLINE_WARNINGS "'line endings in strings'"
 
 	    #
-	    # Build in linux-next
+	    # Build in net-next
 	    #
 	    echo > ../build.log
-	    make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../linux-next M=`pwd`/src W=1 $next_cflags 2>&1 | tee -a ../build.log
-	    make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../linux-next-32bit M=`pwd`/src W=1 $next_cflags 2>&1 | tee -a ../build.log
+	    make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../net-next M=`pwd`/src W=1 $next_cflags 2>&1 | tee -a ../build.log
+	    make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../net-next-32bit M=`pwd`/src W=1 $next_cflags 2>&1 | tee -a ../build.log
 
 	    #
-	    # Build in linux
+	    # Build in net
 	    #
-	    make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../linux M=`pwd`/src W=1 $next_cflags 2>&1 | tee -a ../build.log
+	    make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../net M=`pwd`/src W=1 $next_cflags 2>&1 | tee -a ../build.log
 
 	    #
 	    # Build with different configs
@@ -424,18 +440,18 @@ done
 		done
 
 		echo "Build with opts=$b_opts"
-		make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../linux-next M=`pwd`/src W=1 $next_cflags $b_opts 2>&1 | tee -a ../build.log
+		make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../net-next M=`pwd`/src W=1 $next_cflags $b_opts 2>&1 | tee -a ../build.log
 	    done
 	    echo "Build with opts=CONFIG_NFP_TEST_HARNESS=m"
-	    make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../linux-next M=`pwd`/src W=1 $next_cflags CONFIG_NFP_TEST_HARNESS=m 2>&1 | tee -a ../build.log
+	    make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../net-next M=`pwd`/src W=1 $next_cflags CONFIG_NFP_TEST_HARNESS=m 2>&1 | tee -a ../build.log
 	    echo "Build with opts=CONFIG_NFP_NET_PF=n CONFIG_NFP_NET_VF=n CONFIG_NFP_DEBUG=y"
-	    make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../linux-next M=`pwd`/src \
+	    make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../net-next M=`pwd`/src \
 		 W=1 $next_cflags CONFIG_NFP_NET_PF=n CONFIG_NFP_NET_VF=n CONFIG_NFP_DEBUG=y 2>&1 | tee -a ../build.log
 
 	    #
 	    # Check sparse warnings
 	    #
-	    make CC=$DEFAULT_CC -j$NJ -C ../linux-next M=`pwd`/src C=2 CF=-D__CHECK_ENDIAN__ 2>&1 | tee ../sparse.log
+	    make CC=$DEFAULT_CC -j$NJ -C ../net-next M=`pwd`/src C=2 CF=-D__CHECK_ENDIAN__ 2>&1 | tee ../sparse.log
 	    sparse_warnings=$(grep "\(arning:\|rror:\)" ../sparse.log | wc -l)
 	    check_warn_cnt $sparse_warnings $INCUMBENT_SPARSE_WARNINGS sparse
 
@@ -460,7 +476,7 @@ done
 	    #
 	    # Run coccicheck
 	    #
-	    make CC=$DEFAULT_CC -C ../linux-next M=`pwd`/src coccicheck | tee ../cocci.log
+	    make CC=$DEFAULT_CC -C ../net-next M=`pwd`/src coccicheck | tee ../cocci.log
 	    cocci_warnings=$(grep '^/' ../cocci.log | wc -l)
 	    check_warn_cnt $cocci_warnings $INCUMBENT_COCCI_WARNINGS cocci
 	)
