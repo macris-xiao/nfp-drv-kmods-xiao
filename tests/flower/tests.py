@@ -55,12 +55,32 @@ class NFPKmodFlower(NFPKmodGrp):
              ('flower_action_set_ipv6', FlowerActionSetIPv6, "Checks basic flower set IPv6 action capabilities"),
              ('flower_action_set_udp', FlowerActionSetUDP, "Checks basic flower set UDP action capabilities"),
              ('flower_action_set_tcp', FlowerActionSetTCP, "Checks basic flower set TCP action capabilities"),
+             ('flower_vlan_repr', FlowerVlanRepr, "Checks that unsupported vxlan rules are not offloaded"),
         )
 
         for t in T:
             self._tests[t[0]] = t[1](src, dut, self, t[0], t[2])
 
 class FlowerBase(CommonNetdevTest):
+    def configure_vlan_flower(self):
+        M = self.dut
+        iface = self.dut_ifn[0]
+        ret, _ = self.dut.cmd('cat /sys/class/net/%s/phys_port_name' % (iface), fail=False)
+        if ret:
+            raise NtiError('interface %s is not a valid port' % iface)
+
+        vlan_iface = '%s.100' % (iface)
+        self.dut.cmd('ip link add link %s name %s type vlan id 100' % (iface, vlan_iface), fail=False)
+        self.dut.cmd('ip link set dev %s up' % (vlan_iface), fail=False)
+
+        M.cmd('tc qdisc del dev %s handle ffff: ingress' % vlan_iface, fail=False)
+        M.cmd('tc qdisc add dev %s handle ffff: ingress' % vlan_iface)
+
+        ingress = vlan_iface
+        iface = vlan_iface
+        M.refresh()
+        return iface, ingress
+
     def configure_flower(self):
         M = self.dut
         iface = self.dut_ifn[0]
@@ -986,4 +1006,14 @@ class FlowerActionSetTCP(FlowerBase):
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP(sport=4000,dport=4444)/Raw('\x00'*64)
         self.test_packet(ingress, pkt, exp_pkt, dump_fil)
 
+        self.cleanup_filter(iface)
+
+class FlowerVlanRepr(FlowerBase):
+    def netdev_execute(self):
+        iface, _ = self.configure_vlan_flower()
+
+        # Check that redirects to upper netdevs is installed in software only (not_in_hw)
+        match = 'ip flower'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action, False)
         self.cleanup_filter(iface)
