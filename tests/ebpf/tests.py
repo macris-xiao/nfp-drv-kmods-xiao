@@ -171,6 +171,8 @@ class NFPKmodBPF(NFPKmodGrp):
                 'Opt memory copy (multiple seq, all valid)'),
                ('xdp_tx_memcpy_7', XDPASMmemcpy7,
                 'Opt memory copy (jump into middle of sequence)'),
+               ('xdp_tx_memcpy_8', XDPASMmemcpy8,
+                'Opt memory copy (cross memory access )'),
         )
 
         for t in XDP:
