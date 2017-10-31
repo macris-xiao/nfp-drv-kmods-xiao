@@ -152,6 +152,7 @@ class NFPKmodBPF(NFPKmodGrp):
 
                ('xdp_mov64', XDPpassAll,
                 'test optimization of repetitive mov64'),
+               ('xdp_neg', XDPneg, 'BPF_NEG (ALU and ALU64)'),
         )
 
         for t in XDP:

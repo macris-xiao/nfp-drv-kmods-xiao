@@ -335,6 +335,28 @@ class XDPfailOversized(XDPtxBase):
     def get_prog_name(self):
         return 'adjust_head_prep_256.o'
 
+class XDPneg(XDPtxBase):
+    def get_src_pkt(self):
+        pkt = ''
+        for b in self.group.hwaddr_x[0].split(':'):
+            pkt += chr(int('0x' + b, 16))
+        for b in self.group.hwaddr_a[0].split(':'):
+            pkt += chr(int('0x' + b, 16))
+        pkt += '\x12\x22'
+
+        pkt += "".join([chr(i) for i in range(80)])
+
+        return pkt
+
+    def get_exp_pkt(self):
+        pkt = self.get_src_pkt()
+        pkt = pkt[6:12] + pkt[0:6] + '\x12\x22\xee\xdd' + '\xff' * 2 + \
+              '\x00' * 4 + '\xf8\xf6\xf5\xf4\xf3\xf2\xf1\xf0' + pkt[30:]
+        return pkt
+
+    def get_prog_name(self):
+        return 'neg.o'
+
 ###############################################################################
 # packet mod + PASS
 ###############################################################################
