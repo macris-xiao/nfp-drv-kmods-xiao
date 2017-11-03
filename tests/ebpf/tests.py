@@ -34,6 +34,9 @@ class NFPKmodBPF(NFPKmodGrp):
     def xdp_mode(self):
         return "offload"
 
+    def tc_mode(self):
+        return "dev " + self.eth_x[0] + " skip_sw"
+
     def populate_tests(self):
         dut = (self.dut, self.addr_x, self.eth_x, self.addr_v6_x)
         src = (self.host_a, self.addr_a, self.eth_a, self.addr_v6_a)
@@ -159,6 +162,14 @@ class NFPKmodBPF(NFPKmodGrp):
             self._tests[t[0]] = t[1](src, dut, group=self, name=t[0],
                                      summary=t[2])
 
+        TCs = (
+            ('tc_dpa_rd', eBPFdpaRD, "DPA read with TC"),
+        )
+
+        for t in TCs:
+            self._tests[t[0]] = t[1](src, dut, group=self, name=t[0],
+                                     summary=t[2])
+
         if self.xdp_mode() == "drv":
             return
 
@@ -246,14 +257,6 @@ class NFPKmodBPF(NFPKmodGrp):
                          should_fail=True, group=self, name=tn,
                          summary='Direct action %s fail test' % (t[0]))
 
-        TCs = (
-            ('tc_dpa_rd', eBPFdpaRD, "DPA read with TC"),
-        )
-
-        for t in TCs:
-            self._tests[t[0]] = t[1](src, dut, group=self, name=t[0],
-                                     summary=t[2])
-
     def _init(self):
         NFPKmodGrp._init(self)
 
@@ -333,6 +336,9 @@ class NFPKmodBPF(NFPKmodGrp):
 class NFPKmodXDPdrv(NFPKmodBPF):
     def xdp_mode(self):
         return "drv"
+
+    def tc_mode(self):
+        return "skip_hw"
 
 ###########################################################################
 # Tests
@@ -751,7 +757,9 @@ class eBPFdataTest(CommonPktCompareTest):
         self.dut.cmd('ethtool -K %s hw-tc-offload on' % (self.dut_ifn[0]))
         self.dut.cmd('tc qdisc add dev %s ingress' % (self.dut_ifn[0]))
 
-        return self.tc_bpf_load(obj=self.get_prog_name(), flags="skip_sw da")
+        flags = self.group.tc_mode() + " da"
+
+        return self.tc_bpf_load(obj=self.get_prog_name(), flags=flags)
 
     def cleanup(self):
         self.dut.cmd('tc qdisc del dev %s ingress' % self.dut_ifn[0])

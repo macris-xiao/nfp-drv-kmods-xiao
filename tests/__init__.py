@@ -20,7 +20,7 @@ class Project(netro.testinfra.Project):
     _groups = { "setup" : NFPKmodSetup,
                 "unit" :  NFPKmodUnit,
                 "ebpf" :  NFPKmodBPF,
-                "xdpdrv" :  NFPKmodXDPdrv,
+                "ebpfdrv" :  NFPKmodXDPdrv,
                 "rand" :  NFPKmodRand,
                 "rand_err" : NFPKmodRandErr,
                 "reboot" :   NFPKmodReboot ,

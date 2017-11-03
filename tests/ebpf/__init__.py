@@ -5,4 +5,4 @@
 
 from tests import NFPKmodBPF, NFPKmodXDPdrv
 
-__all__ = ["ebpf", "xdpdrv"]
+__all__ = ["ebpf", "ebpfdrv"]
