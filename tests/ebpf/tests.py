@@ -177,7 +177,6 @@ class NFPKmodBPF(NFPKmodGrp):
              ('bpf_refcnt', eBPFrefcnt, "eBPF refcount test"),
              ('bpf_pass', eBPFpass, "eBPF pass all filter"),
              ('bpf_drop', eBPFdrop, "eBPF drop all filter"),
-             ('bpf_abort', eBPFabort, "eBPF abort all filter"),
              ('bpf_redirect', eBPFredir, "eBPF redirect all filter"),
              ('bpf_len', eBPFskbLen, "eBPF skb->len test"),
              ('bpf_tcp58', eBPFtcp58, "eBPF filter on TCP port 58"),
@@ -536,45 +535,6 @@ class eBPFjneq(eBPFtest):
         self.ping(port=0, size=100, pattern="cc", should_fail=True)
 
         counts = (30, 38, 4380, 5200)
-        self.validate_cntrs(rx_t=counts, exact_filter=True)
-
-class eBPFabort(eBPFtest):
-    def __init__(self, src, dut, tc_flags="skip_sw", group=None, name="",
-                 summary=None):
-        eBPFtest.__init__(self, src, dut, obj_name="abort.o",
-                          tc_flags=tc_flags, group=group, name=name,
-                          summary=summary)
-
-    def prepare(self):
-        return NrtResult(name=self.name, testtype=self.__class__.__name__,
-                         passed=None, comment="pkt mark support dropped")
-
-    def execute(self):
-        # Too short to hit filters or marking
-        self.ping(port=0)
-        self.ping6(port=0)
-        self.tcpping(port=0)
-
-        counts = (30, 38, 3200, 3850)
-        self.validate_cntrs(rx_t=counts, pass_all=True)
-
-        # Just about too short but would hit the filter
-        self.ping(port=0, size=162, pattern="aa")
-
-        counts = (10, 13, 2000, 2200)
-        self.validate_cntrs(rx_t=counts, pass_all=True)
-
-        # Will hit the mark but too short for second filter
-        self.ping(port=0, size=500)
-
-        counts = (10, 13, 5400, 5700)
-        self.validate_cntrs(rx_t=counts, pass_all=True, mark_all=True)
-
-        # Will hit the filter
-        self.ping(port=0, size=163, pattern="aa", should_fail=True)
-        self.ping(port=0, size=1100, pattern="aa", should_fail=True)
-
-        counts = (20, 23, 13470, 14000)
         self.validate_cntrs(rx_t=counts, exact_filter=True)
 
 class eBPFredir(eBPFtest):
