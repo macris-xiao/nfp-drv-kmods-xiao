@@ -227,9 +227,6 @@ class NFPKmodBPF(NFPKmodGrp):
                                      group=self, name=t[0], summary=t[2])
 
         TF = (('bpf_da_and_act', 'pass.o', 'da skip_sw'),
-              ('bpf_bad_ptr', 'validate_ptr_type.o', 'skip_sw'),
-              ('bpf_store', 'store.o', 'skip_sw'),
-              ('bpf_maps', 'maps.o', 'skip_sw'),
         )
 
         for t in TF:
@@ -239,20 +236,15 @@ class NFPKmodBPF(NFPKmodGrp):
                                          summary='Fail with %s %s' % \
                                          (t[1], t[2]))
 
-        TSF = (('tc_mark', 'mark.o'),
-        )
-
-        for t in TSF:
-            self._tests[t[0]] = eBPFsimpleTest(src, dut, obj_name=t[1],
-                                               tc_flags="", should_fail=True,
-                                               group=self, name=t[0],
-                                               summary='Fail with ' + t[1])
-
         DAF = (('tc_da_OK', 'da_0_pass.o'),
                ('tc_da_RECL', 'da_1_pass.o'),
                ('tc_da_PIPE', 'da_3_unspec.o'),
                ('tc_da_REP', 'da_6_unspec.o'),
                ('tc_da_REDIR', 'da_7_redir.o'),
+               ('tc_store', 'store.o'),
+               ('tc_maps', 'maps.o'),
+               ('tc_mark', 'mark.o'),
+               ('tc_bad_ptr', 'validate_ptr_type.o'),
         )
 
         for t in DAF:

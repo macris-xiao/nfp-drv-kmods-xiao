@@ -1,22 +1,12 @@
-#include <stdint.h>
-#include <stdbool.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <asm/types.h>
-#include <linux/in.h>
-#include <linux/if.h>
-#include <linux/if_ether.h>
-#include <linux/ip.h>
-#include <linux/ipv6.h>
-#include <linux/if_tunnel.h>
-#include <linux/filter.h>
 #include <linux/bpf.h>
+#include <linux/filter.h>
+#include <linux/pkt_cls.h>
 
 #include "bpf_api.h"
 #include "bpf_shared.h"
 
-#define TRU 0
-#define DROP ~0U
+#define THRU	TC_ACT_UNSPEC
+#define DROP	TC_ACT_SHOT
 
 struct bpf_elf_map __section("maps") map_drops = {
 	.type=BPF_MAP_TYPE_ARRAY,
@@ -37,5 +27,5 @@ int cls_entry(struct __sk_buff *skb)
 		/* Only this cpu is accessing this element. */
 		(*count)++;
 
-	return TRU;
+	return THRU;
 }
