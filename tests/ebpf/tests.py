@@ -202,13 +202,13 @@ class NFPKmodBPF(NFPKmodGrp):
                                          group=self, name=t[0], summary=t[3])
 
         # Direct action tests
-        DA = (('bpf_da_DROP', 'da_2_drop.o', 1),
-              ('bpf_da_STOL', 'da_4_nuke.o', None),
-              ('bpf_da_QUE', 'da_5_nuke.o', None),
-              ('bpf_da_UNSP', 'da_-1_unspec.o', 0),
-              ('bpf_da_unkn', 'da_8_unspec.o', 0),
-              ('bpf_da_n_unkn', 'da_n_unspec.o', 0),
-              ('bpf_da_abort', 'da_abort.o', 0),
+        DA = (('tc_da_DROP', 'da_2_drop.o', 1),
+              ('tc_da_STOL', 'da_4_nuke.o', None),
+              ('tc_da_QUE', 'da_5_nuke.o', None),
+              ('tc_da_UNSP', 'da_-1_unspec.o', 0),
+              ('tc_da_unkn', 'da_8_unspec.o', 0),
+              ('tc_da_n_unkn', 'da_n_unspec.o', 0),
+              ('tc_da_abort', 'da_abort.o', 0),
         )
 
         for t in DA:
@@ -248,19 +248,18 @@ class NFPKmodBPF(NFPKmodGrp):
                                                group=self, name=t[0],
                                                summary='Fail with ' + t[1])
 
-        DAF = (('OK', 'da_0_pass.o'),
-             ('RECL', 'da_1_pass.o'),
-             ('PIPE', 'da_3_unspec.o'),
-             ('REP', 'da_6_unspec.o'),
-             ('REDIR', 'da_7_redir.o'),
+        DAF = (('tc_da_OK', 'da_0_pass.o'),
+               ('tc_da_RECL', 'da_1_pass.o'),
+               ('tc_da_PIPE', 'da_3_unspec.o'),
+               ('tc_da_REP', 'da_6_unspec.o'),
+               ('tc_da_REDIR', 'da_7_redir.o'),
         )
 
         for t in DAF:
-            tn = 'bpf_da_' + t[0]
-            self._tests[tn] = \
-                eBPFtest(src, dut, t[1], tc_flags="da skip_sw", act="",
-                         should_fail=True, group=self, name=tn,
-                         summary='Direct action %s fail test' % (t[0]))
+            self._tests[t[0]] = \
+                eBPFsimpleTest(src, dut, t[1], tc_flags="da", act="",
+                               should_fail=True, group=self, name=t[0],
+                               summary='Direct action %s fail test' % (t[0]))
 
     def _init(self):
         NFPKmodGrp._init(self)
@@ -590,12 +589,12 @@ class eBPFredir(eBPFtest):
             raise NtiError("src rx bytes (%d vs %d,%d)" % \
                            (end_stats.ethtool[vendor_rx], counts[2], counts[3]))
 
-class eBPFda(eBPFtest):
-    def __init__(self, src, dut, obj_name, stat, tc_flags="da skip_sw",
+class eBPFda(eBPFsimpleTest):
+    def __init__(self, src, dut, obj_name, stat,
                  group=None, name="", summary=None):
-        eBPFtest.__init__(self, src, dut, obj_name=obj_name,
-                          tc_flags=tc_flags, act="", group=group, name=name,
-                          summary=summary)
+        eBPFsimpleTest.__init__(self, src, dut,
+                                obj_name=obj_name, tc_flags="da", act="",
+                                group=group, name=name, summary=summary)
         self.stat = stat
 
     def execute(self):
@@ -605,7 +604,7 @@ class eBPFda(eBPFtest):
         self.ping6(port=0, should_fail=do_fail)
         self.tcpping(port=0, should_fail=do_fail)
 
-        counts = (30, 42, 3200, 4500)
+        counts = (30, 300, 3200, 10000)
         self.validate_cntrs(rx_t=counts, pass_all=self.stat == 0,
                             app1_all=self.stat == 1, app2_all=self.stat == 2,
                             app3_all=self.stat == 3)
