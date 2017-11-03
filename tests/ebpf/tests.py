@@ -177,7 +177,6 @@ class NFPKmodBPF(NFPKmodGrp):
              ('bpf_refcnt', eBPFrefcnt, "eBPF refcount test"),
              ('bpf_pass', eBPFpass, "eBPF pass all filter"),
              ('bpf_drop', eBPFdrop, "eBPF drop all filter"),
-             ('bpf_mark', eBPFmark, "eBPF mark all filter"),
              ('bpf_abort', eBPFabort, "eBPF abort all filter"),
              ('bpf_redirect', eBPFredir, "eBPF redirect all filter"),
              ('bpf_len', eBPFskbLen, "eBPF skb->len test"),
@@ -222,8 +221,6 @@ class NFPKmodBPF(NFPKmodGrp):
         # Test if cls_bpf offload works by default
         DFL = (('bpf_cls_pass_dfl', eBPFpass,
                 'Check if TC pass gets offloaded'),
-               ('bpf_cls_mark_dfl', eBPFmark,
-                'Check if TC mark gets offloaded'),
         )
 
         for t in DFL:
@@ -242,6 +239,15 @@ class NFPKmodBPF(NFPKmodGrp):
                                          group=self, name=t[0],
                                          summary='Fail with %s %s' % \
                                          (t[1], t[2]))
+
+        TSF = (('tc_mark', 'mark.o'),
+        )
+
+        for t in TSF:
+            self._tests[t[0]] = eBPFsimpleTest(src, dut, obj_name=t[1],
+                                               tc_flags="", should_fail=True,
+                                               group=self, name=t[0],
+                                               summary='Fail with ' + t[1])
 
         DAF = (('OK', 'da_0_pass.o'),
              ('RECL', 'da_1_pass.o'),
@@ -453,25 +459,6 @@ class eBPFdrop(eBPFtest):
 
         counts = (30, 42, 3200, 4500)
         self.validate_cntrs(rx_t=counts, app1_all=True)
-
-class eBPFmark(eBPFtest):
-    def __init__(self, src, dut, tc_flags="skip_sw", group=None, name="",
-                 summary=None):
-        eBPFtest.__init__(self, src, dut, obj_name="mark.o",
-                          tc_flags=tc_flags, group=group, name=name,
-                          summary=summary)
-
-    def prepare(self):
-        return NrtResult(name=self.name, testtype=self.__class__.__name__,
-                         passed=None, comment="pkt mark support dropped")
-
-    def execute(self):
-        self.ping(port=0)
-        self.ping6(port=0)
-        self.tcpping(port=0)
-
-        counts = (30, 42, 3200, 4500)
-        self.validate_cntrs(rx_t=counts, pass_all=True, mark_all=True)
 
 class eBPFskbLen(eBPFtest):
     def __init__(self, src, dut, group=None, name="", summary=None):

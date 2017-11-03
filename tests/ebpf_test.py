@@ -173,3 +173,27 @@ class eBPFtest(CommonTest):
         Clean up after eBPF test
         """
         self.dut.cmd('tc qdisc del dev %s ingress' % self.dut_ifn[0])
+
+
+class eBPFsimpleTest(eBPFtest):
+    def prepare(self):
+        cmd  = 'ethtool -K %s hw-tc-offload on; ' % (self.dut_ifn[0])
+        cmd += 'tc qdisc add dev %s ingress' % (self.dut_ifn[0])
+        self.dut.cmd(cmd)
+
+        flags = self.group.tc_mode() + " " + self.tc_flags
+
+        ret = self.tc_bpf_load(obj=self.obj_name, flags=flags, act="")
+
+        if ret and not self.should_fail:
+            self.cleanup()
+            return NrtResult(name=self.name, testtype=self.__class__.__name__,
+                             passed=False, comment="Unable to load filter")
+        if not ret and self.should_fail:
+            self.cleanup()
+            return NrtResult(name=self.name, testtype=self.__class__.__name__,
+                             passed=False, comment="Loading this filter should fail")
+
+        self.stats = self.dut.netifs[self.dut_ifn[0]].stats()
+
+        return None
