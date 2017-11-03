@@ -7,7 +7,7 @@ from setup import NFPKmodSetup
 from unit import NFPKmodUnit
 from ebpf import NFPKmodBPF, NFPKmodXDPdrv
 from rand import NFPKmodRand, NFPKmodRandErr
-from reboot import NFPKmodReboot
+from reload import NFPKmodReload
 from flower import NFPKmodFlower
 from drv_grp import *
 
@@ -23,5 +23,5 @@ class Project(netro.testinfra.Project):
                 "ebpfdrv" :  NFPKmodXDPdrv,
                 "rand" :  NFPKmodRand,
                 "rand_err" : NFPKmodRandErr,
-                "reboot" :   NFPKmodReboot ,
+                "reload" :   NFPKmodReload,
                 "flower" :   NFPKmodFlower }

@@ -2,7 +2,7 @@
 # Copyright (C) 2017,  Netronome Systems, Inc.  All rights reserved.
 #
 """
-Unit test group for the NFP Linux driver tests which require a reboot.
+Unit test group for the NFP Linux driver tests which require a driver reload.
 """
 
 import random
@@ -14,7 +14,7 @@ from ..drv_grp import NFPKmodGrp
 # Unit Tests
 ###########################################################################
 
-class NFPKmodReboot(NFPKmodGrp):
+class NFPKmodReload(NFPKmodGrp):
     """Unit tests for the NFP Linux drivers"""
 
     summary = "Unit tests used for NFP Linux driver."
@@ -29,9 +29,9 @@ class NFPKmodReboot(NFPKmodGrp):
         dut = (self.dut, self.addr_x, self.eth_x, self.addr_v6_x)
         src = (self.host_a, self.addr_a, self.eth_a, self.addr_v6_a)
 
-        T = (('set_speed', SpeedSet, "Flip speed and reboot machine"),
+        T = (('set_speed', SpeedSet, "Flip speed and reload driver"),
              ('port_split', DevlinkSplit,
-              "Split/unspliet port and reboot in between"),
+              "Split/unspliet port and reload driver in between"),
         )
 
         for t in T:
@@ -128,7 +128,7 @@ class SpeedSet(CommonNetdevTest):
                 if ret == 0:
                     raise NtiError("Netdev didn't disappear")
 
-            self.reboot()
+            self.reload_driver()
 
             self.ifc_skip_if_not_all_up()
 
@@ -137,12 +137,12 @@ class SpeedSet(CommonNetdevTest):
 
                 at_speed = self.dut.nfp_phymod_get_speed(i)
                 if at_speed != speeds[0]:
-                    raise NtiError('Phymod speed not %d after reboot on %s' %
+                    raise NtiError('Phymod speed not %d after reload on %s' %
                                    (speeds[0], ifc))
 
                 at_speed = self.dut.ethtool_get_speed(ifc)
                 if at_speed != speeds[0]:
-                    raise NtiError('Speed not %d after reboot on %s' %
+                    raise NtiError('Speed not %d after reload on %s' %
                                    (speeds[0], ifc))
 
             # Check if we are back to where we started
@@ -217,7 +217,7 @@ class DevlinkSplit(CommonNetdevTest):
         if cur_cnt:
             raise NtiError('Not all netdevs disappeared %d left' % (cur_cnt))
 
-    def reboot(self, partno, card_info, split):
+    def reload_driver(self, partno, card_info, split):
         if split:
             media = '_%dx%d' % (card_info[0] * card_info[1], card_info[2])
         else:
@@ -225,7 +225,7 @@ class DevlinkSplit(CommonNetdevTest):
 
         fwname = 'nic_' + partno + media + '.nffw'
 
-        CommonNetdevTest.reboot(self, fwname)
+        CommonNetdevTest.reload_driver(self, fwname)
 
     def netdev_execute(self):
         if not self.dut.netdevfw_dir:
@@ -261,14 +261,14 @@ class DevlinkSplit(CommonNetdevTest):
         if cur_cnt != n_ports:
             self.unsplit_check(card_info)
             self.unsplit(card_info)
-            self.reboot(partno, card_info, False)
+            self.reload_driver(partno, card_info, False)
 
         self.split_check(card_info)
         self.split(card_info)
-        self.reboot(partno, card_info, True)
+        self.reload_driver(partno, card_info, True)
         self.unsplit_check(card_info)
 
         if cur_cnt == n_ports:
             self.unsplit(card_info)
-            self.reboot(partno, card_info, False)
+            self.reload_driver(partno, card_info, False)
             self.split_check(card_info)

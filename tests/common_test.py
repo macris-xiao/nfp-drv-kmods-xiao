@@ -418,7 +418,7 @@ class CommonNetdevTest(CommonTest):
 
         return list(set(self.dut._netifs) - set(netifs_old))
 
-    def netdev_prep(self, fwname=None):
+    def netdev_prep(self, fwname=None, reload_ifc=False):
         LOG_sec("NFP netdev test prep")
         # Load the driver and remember which interfaces got spawned
         self.dut._get_netifs()
@@ -438,6 +438,14 @@ class CommonNetdevTest(CommonTest):
             info = ethtool_drvinfo(self.dut, ifc)
             if info["bus-info"] == self.group.pci_dbdf:
                 self.vnics.append(ifc)
+
+        if (reload_ifc):
+            self.dut_ifn = self.vnics
+
+            # Clear our IP address information.
+            # If the test configuration changed, these no longer have any meaning.
+            self.dut_addr = [0] * len(self.vnics)
+            self.dut_addr_v6 = [0] * len(self.vnics)
 
         for ifc in self.nfp_netdevs:
             self.dut.cmd('ifconfig %s up' % (ifc))
@@ -482,6 +490,11 @@ class CommonNetdevTest(CommonTest):
         self.dut.__init__(self.dut.host, self.dut.grp)
         self.group._init()
         self.netdev_prep(fwname=fwname)
+
+    def reload_driver(self, fwname=None):
+        self.dut.nffw_unload()
+        self.dut.reset_mods()
+        self.netdev_prep(fwname=fwname, reload_ifc=True)
 
 class CommonNonUpstreamTest(CommonNetdevTest):
     def execute(self):
