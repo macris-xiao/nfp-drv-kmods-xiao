@@ -175,27 +175,25 @@ class NFPKmodBPF(NFPKmodGrp):
 
         T = (('bpf_capa', eBPFcapa, "eBPF capability test"),
              ('bpf_refcnt', eBPFrefcnt, "eBPF refcount test"),
-             ('bpf_pass', eBPFpass, "eBPF pass all filter"),
-             ('bpf_drop', eBPFdrop, "eBPF drop all filter"),
-             ('bpf_len', eBPFskbLen, "eBPF skb->len test"),
-             ('bpf_tcp58', eBPFtcp58, "eBPF filter on TCP port 58"),
-             ('bpf_tc_gen_flags', eBPFflags, 'iproute/cls_bpf flag reporting'),
-             ('bpf_tc_offload_disabled', eBPFtc_off,
-              'Check if loading fails if ethtool disabled TC offloads'),
-             ('bpf_two_prog', eBPFtwo_prog, 'Check 2 progs fail'),
              ('bpf_mtu_check', eBPFmtu, 'Check high MTU fails'),
+             ('tc_pass', eBPFpass, "eBPF pass all filter"),
+             ('tc_drop', eBPFdrop, "eBPF drop all filter"),
+             ('tc_len', eBPFskbLen, "eBPF skb->len test"),
+             ('tc_tcp58', eBPFtcp58, "eBPF filter on TCP port 58"),
+             ('tc_gen_flags', eBPFflags, 'iproute/cls_bpf flag reporting'),
+             ('tc_offload_disabled', eBPFtc_off,
+              'Check if loading fails if ethtool disabled TC offloads'),
+             ('tc_two_prog', eBPFtwo_prog, 'Check 2 progs fail'),
         )
 
         for t in T:
             self._tests[t[0]] = t[1](src, dut, group=self, name=t[0],
                                      summary=t[2])
 
-        TS = (('bpf_fallback', 'store.o', '', 'Check SW fallback'),
-        )
-
-        for t in TS:
-            self._tests[t[0]] = eBPFtest(src, dut, obj_name=t[1], tc_flags=t[2],
-                                         group=self, name=t[0], summary=t[3])
+        self._tests['bpf_fallback'] = \
+            eBPFtest(src, dut, obj_name='store.o', mode="",
+                     group=self, name='bpf_fallback',
+                     summary='Check SW fallback')
 
         # Direct action tests
         DA = (('tc_da_DROP', 'da_2_drop.o', 1),
@@ -411,64 +409,66 @@ class eBPFrefcnt(eBPFsimpleTest):
     def cleanup(self):
         self.xdp_reset()
 
-class eBPFpass(eBPFtest):
-    def __init__(self, src, dut, tc_flags="skip_sw", group=None, name="",
-                 summary=None):
-        eBPFtest.__init__(self, src, dut, obj_name="pass.o",
-                          tc_flags=tc_flags, group=group, name=name,
-                          summary=summary)
+class eBPFpass(eBPFsimpleTest):
+    def __init__(self, src, dut, group=None, name="", summary=None):
+        eBPFsimpleTest.__init__(self, src, dut, obj_name="da_-1_unspec.o",
+                                tc_flags="da", act="",
+                                group=group, name=name, summary=summary)
 
     def execute(self):
         self.ping(port=0)
         self.ping6(port=0)
         self.tcpping(port=0)
 
-        counts = (30, 42, 3200, 4500)
+        counts = (30, 300, 3200, 10000)
         self.validate_cntrs(rx_t=counts, pass_all=True)
 
-class eBPFdrop(eBPFtest):
+class eBPFdrop(eBPFsimpleTest):
     def __init__(self, src, dut, group=None, name="", summary=None):
-        eBPFtest.__init__(self, src, dut, obj_name="drop.o",
-                          group=group, name=name, summary=summary)
+        eBPFsimpleTest.__init__(self, src, dut, obj_name="drop.o",
+                                tc_flags="da", act="",
+                                group=group, name=name, summary=summary)
 
     def execute(self):
         self.ping(port=0, should_fail=True)
         self.ping6(port=0, should_fail=True)
         self.tcpping(port=0, should_fail=True)
 
-        counts = (30, 42, 3200, 4500)
+        counts = (30, 300, 3200, 10000)
         self.validate_cntrs(rx_t=counts, app1_all=True)
 
-class eBPFskbLen(eBPFtest):
+class eBPFskbLen(eBPFsimpleTest):
     def __init__(self, src, dut, group=None, name="", summary=None):
-        eBPFtest.__init__(self, src, dut, obj_name="len.o",
-                          group=group, name=name, summary=summary)
+        eBPFsimpleTest.__init__(self, src, dut, obj_name="len.o",
+                                tc_flags="da", act="",
+                                group=group, name=name, summary=summary)
 
     def execute(self):
         self.ping(port=0)
         self.ping6(port=0)
         self.tcpping(port=0)
 
-        counts = (30, 38, 3200, 4000)
+        counts = (30, 300, 3200, 10000)
         self.validate_cntrs(rx_t=counts, pass_all=True)
 
         self.ping(port=0, size=1193, should_fail=True)
         self.ping(port=0, size=1200, should_fail=True)
 
-        counts = (20, 30, 24850, 26000)
+        counts = (20, 300, 24850, 50000)
         self.validate_cntrs(rx_t=counts, exact_filter=True)
 
-class eBPFtcp58(eBPFtest):
+class eBPFtcp58(eBPFsimpleTest):
     def __init__(self, src, dut, group=None, name="", summary=None):
-        eBPFtest.__init__(self, src, dut, obj_name="tcp58.o",
-                          group=group, name=name, summary=summary)
+        eBPFsimpleTest.__init__(self, src, dut, obj_name="tcp58.o",
+                                tc_flags="da", act="",
+                                group=group, name=name, summary=summary)
 
     def execute(self):
         self.ping(port=0)
         self.ping6(port=0)
         self.tcpping(port=0, sport=58, dport=100)
 
-        counts = (30, 38, 3200, 4000)
+        counts = (30, 300, 3200, 10000)
         self.validate_cntrs(rx_t=counts, pass_all=True)
 
         self.tcpping(port=0, sport=100, dport=58, should_fail=True)
@@ -496,23 +496,27 @@ class eBPFda(eBPFsimpleTest):
                             app1_all=self.stat == 1, app2_all=self.stat == 2,
                             app3_all=self.stat == 3)
 
-class eBPFflags(eBPFtest):
+class eBPFflags(eBPFsimpleTest):
     def __init__(self, src, dut, group=None, name="", summary=None):
-        eBPFtest.__init__(self, src, dut, obj_name="pass.o", tc_flags="",
-                          group=group, name=name, summary=summary)
+        eBPFsimpleTest.__init__(self, src, dut, obj_name="pass.o",
+                                tc_flags="da", act="",
+                                group=group, name=name, summary=summary)
 
     def execute(self):
         # The default one in this class should have no skip flags
-        _, out = self.dut.cmd('tc filter show dev %s ingress' % (self.dut_ifn[0]))
+        _, out = self.dut.cmd('tc filter show dev %s ingress' %
+                              (self.dut_ifn[0]))
         if out.find('skip_') != -1:
             raise NtiGeneralError("skip_* flag set when it shouldn't be")
 
         # Check out skip_sw and skip_hw
-        for flag in ("skip_sw", "skip_hw"):
-            self.dut.cmd('tc filter del dev %s ingress protocol all pref 49151 bpf' %
+        for opts in (("skip_sw", 0),
+                     ("skip_hw", None)):
+            self.dut.cmd('tc filter del dev %s ingress protocol all pref 49152 bpf' %
                          (self.dut_ifn[0]))
 
-            ret = self.tc_bpf_load(flags=flag)
+            ret = self.tc_bpf_load(obj=self.obj_name, flags=opts[0], da=True,
+                                   port=opts[1])
             if ret:
                 return NrtResult(name=self.name,
                                  testtype=self.__class__.__name__,
@@ -527,39 +531,39 @@ class eBPFflags(eBPFtest):
                                    (flag))
 
 
-class eBPFtc_off(eBPFtest):
+class eBPFtc_off(eBPFsimpleTest):
     def __init__(self, src, dut, group=None, name="", summary=None):
-        eBPFtest.__init__(self, src, dut, obj_name="pass.o",
-                          tc_flags="skip_hw", group=group, name=name,
-                          summary=summary)
+        eBPFsimpleTest.__init__(self, src, dut, obj_name="pass.o",
+                                tc_flags="da", act="", mode="skip_hw",
+                                group=group, name=name, summary=summary)
 
     def execute(self):
         self.dut.cmd('ethtool -K %s hw-tc-offload off' % (self.dut_ifn[0]))
 
-        ret = self.tc_bpf_load(flags="skip_sw")
+        ret = self.tc_bpf_load(obj=self.obj_name, skip_sw=True, da=True, port=0)
         if ret == 0:
             raise NtiGeneralError("loaded hw-only filter with tc offloads disabled")
 
-class eBPFtwo_prog(eBPFtest):
+class eBPFtwo_prog(eBPFsimpleTest):
     def __init__(self, src, dut, group=None, name="", summary=None):
-        eBPFtest.__init__(self, src, dut, obj_name="pass.o",
-                          tc_flags="skip_sw", group=group, name=name,
-                          summary=summary)
+        eBPFsimpleTest.__init__(self, src, dut, obj_name="pass.o",
+                                tc_flags="da", act="",
+                                group=group, name=name, summary=summary)
 
     def execute(self):
-        ret = self.tc_bpf_load(flags="skip_sw")
+        ret = self.tc_bpf_load(obj=self.obj_name, skip_sw=True, da=True, port=0)
         if ret == 0:
             raise NtiGeneralError("loaded more than one filter")
 
-class eBPFmtu(eBPFtest):
+class eBPFmtu(eBPFsimpleTest):
     def __init__(self, src, dut, group=None, name="", summary=None):
-        eBPFtest.__init__(self, src, dut, obj_name="pass.o",
-                          tc_flags="skip_hw", group=group, name=name,
-                          summary=summary)
+        eBPFsimpleTest.__init__(self, src, dut, obj_name="pass.o",
+                                tc_flags="da", act="", mode="skip_hw",
+                                group=group, name=name, summary=summary)
 
     def execute(self):
         self.dut.cmd('ifconfig %s mtu 3000' % (self.dut_ifn[0]))
-        ret = self.tc_bpf_load(flags="skip_sw")
+        ret = self.tc_bpf_load(obj=self.obj_name, skip_sw=True, da=True, port=0)
         self.dut.cmd('ifconfig %s mtu 1500' % (self.dut_ifn[0]))
 
         if ret == 0:

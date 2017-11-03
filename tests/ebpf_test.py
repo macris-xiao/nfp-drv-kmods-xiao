@@ -138,7 +138,8 @@ class eBPFtest(CommonTest):
         self.dut.cmd('ethtool -K %s hw-tc-offload on' % (self.dut_ifn[0]))
         self.dut.cmd('tc qdisc add dev %s ingress' % (self.dut_ifn[0]))
 
-        ret = self.tc_bpf_load()
+        ret = self.tc_bpf_load(obj=self.obj_name, flags=self.tc_flags,
+                               act=self.act)
 
         if ret and not self.should_fail:
             self.cleanup()

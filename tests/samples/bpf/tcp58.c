@@ -9,14 +9,15 @@
 #include <linux/ip.h>
 #include <linux/ipv6.h>
 #include <linux/if_tunnel.h>
-#include <linux/filter.h>
 #include <linux/bpf.h>
+#include <linux/filter.h>
+#include <linux/pkt_cls.h>
 
 #include "bpf_api.h"
 #include "bpf_shared.h"
 
-#define TRU 0
-#define DROP ~0U
+#define THRU	TC_ACT_UNSPEC
+#define DROP	TC_ACT_SHOT
 
 static int tcp_check_port(struct __sk_buff *skb, __u32 offset)
 {
@@ -24,7 +25,7 @@ static int tcp_check_port(struct __sk_buff *skb, __u32 offset)
 
 	if (tcp_port == 58)
 		return DROP;
-	return TRU;
+	return THRU;
 }
 
 static int l3_ip(struct __sk_buff *skb, __u32 offset)
@@ -34,7 +35,7 @@ static int l3_ip(struct __sk_buff *skb, __u32 offset)
 
 	if (l4_proto == IPPROTO_TCP)
 		return tcp_check_port(skb, offset + sizeof(struct iphdr));
-	return TRU;
+	return THRU;
 }
 
 static int l3_ipv6(struct __sk_buff *skb, __u32 offset)
@@ -44,7 +45,7 @@ static int l3_ipv6(struct __sk_buff *skb, __u32 offset)
 
 	if (l4_proto == IPPROTO_TCP)
 		return tcp_check_port(skb, offset + sizeof(struct iphdr));
-	return TRU;
+	return THRU;
 }
 
 static int l2_to_l3(struct __sk_buff *skb, __u16 proto, __u32 offset)
@@ -54,7 +55,7 @@ static int l2_to_l3(struct __sk_buff *skb, __u16 proto, __u32 offset)
 	else if (proto == ETH_P_IPV6)
 		return l3_ipv6(skb, offset);
 
-	return TRU;
+	return THRU;
 }
 
 static int l2_vlan1(struct __sk_buff *skb, __u32 offset)
