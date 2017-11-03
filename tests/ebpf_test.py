@@ -74,7 +74,7 @@ class eBPFtest(CommonTest):
                         exact_filter):
         NO_PKTS=(0, 1, 0, 1)
 
-        new_stats = self.dut.netifs[self.dut_ifn[0]].stats(get_tc_ing=True)
+        new_stats = self.dut.netifs[self.dut_ifn[0]].stats()
         diff = new_stats - self.stats
 
         LOG_sec("Old counters")
@@ -95,7 +95,6 @@ class eBPFtest(CommonTest):
         if exact_filter:
             filter_t=(rx_t[0], rx_t[0] + 1, rx_t[2], rx_t[2] + 1)
             self.validate_cntr_pair(diff.ethtool, 'bpf_app1', filter_t)
-            self.validate_cntr_pair(diff.tc_ing, 'tc_49152', filter_t)
             return
 
         if pass_all:
@@ -117,13 +116,6 @@ class eBPFtest(CommonTest):
             self.validate_cntr_e2e_pair(diff, 'dev_rx', 'bpf_app3')
         else:
             self.validate_cntr_pair(diff.ethtool, 'bpf_app3', NO_PKTS)
-
-        # Check the TC actions stats
-        if self.act:
-            if app1_all:
-                self.validate_cntr_e2t_pair(diff, 'dev_rx', 'tc_49152')
-            else:
-                self.validate_cntr_pair(diff.tc_ing, 'tc_49152', NO_PKTS)
 
     def validate_cntrs(self, rx_t, pass_all=False,
                        app1_all=False, app2_all=False, app3_all=False,
@@ -156,7 +148,7 @@ class eBPFtest(CommonTest):
             return NrtResult(name=self.name, testtype=self.__class__.__name__,
                              passed=False, comment="Loading this filter should fail")
 
-        self.stats = self.dut.netifs[self.dut_ifn[0]].stats(get_tc_ing=True)
+        self.stats = self.dut.netifs[self.dut_ifn[0]].stats()
 
         return None
 
