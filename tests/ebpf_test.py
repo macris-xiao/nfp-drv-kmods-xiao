@@ -18,8 +18,8 @@ class eBPFtest(CommonTest):
     simple eBPF test
     """
 
-    def __init__(self, src, dut, obj_name="pass.o", tc_flags="skip_sw",
-                 act="action drop", mode=None, should_fail=False,
+    def __init__(self, src, dut, obj_name="pass.o", tc_flags="da",
+                 act="", mode=None, should_fail=False,
                  group=None, name="", summary=None):
         """
         @dut:        A tuple of System and interface name of DUT
@@ -129,41 +129,6 @@ class eBPFtest(CommonTest):
         LOG_endsec()
 
     def prepare(self):
-        """
-        Prepare for running eBPF test
-        """
-        passed = True
-        comment = ''
-
-        self.dut.cmd('ethtool -K %s hw-tc-offload on' % (self.dut_ifn[0]))
-        self.dut.cmd('tc qdisc add dev %s ingress' % (self.dut_ifn[0]))
-
-        ret = self.tc_bpf_load(obj=self.obj_name, flags=self.tc_flags,
-                               act=self.act)
-
-        if ret and not self.should_fail:
-            self.cleanup()
-            return NrtResult(name=self.name, testtype=self.__class__.__name__,
-                             passed=False, comment="Unable to load filter")
-        if not ret and self.should_fail:
-            self.cleanup()
-            return NrtResult(name=self.name, testtype=self.__class__.__name__,
-                             passed=False, comment="Loading this filter should fail")
-
-        self.stats = self.dut.netifs[self.dut_ifn[0]].stats()
-
-        return None
-
-
-    def cleanup(self):
-        """
-        Clean up after eBPF test
-        """
-        self.dut.cmd('tc qdisc del dev %s ingress' % self.dut_ifn[0])
-
-
-class eBPFsimpleTest(eBPFtest):
-    def prepare(self):
         cmd  = 'ethtool -K %s hw-tc-offload on; ' % (self.dut_ifn[0])
         cmd += 'tc qdisc add dev %s ingress' % (self.dut_ifn[0])
         self.dut.cmd(cmd)
@@ -186,3 +151,9 @@ class eBPFsimpleTest(eBPFtest):
         self.stats = self.dut.netifs[self.dut_ifn[0]].stats()
 
         return None
+
+    def cleanup(self):
+        """
+        Clean up after eBPF test
+        """
+        self.dut.cmd('tc qdisc del dev %s ingress' % self.dut_ifn[0])

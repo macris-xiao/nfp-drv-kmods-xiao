@@ -217,12 +217,11 @@ class NFPKmodBPF(NFPKmodGrp):
         )
 
         for t in TF:
-            self._tests[t[0]] = eBPFsimpleTest(src, dut, obj_name=t[1],
-                                               tc_flags=t[2], act=t[3],
-                                               mode=t[4], should_fail=True,
-                                               group=self, name=t[0],
-                                               summary='Fail with %s %s' % \
-                                               (t[1], t[2]))
+            self._tests[t[0]] = eBPFtest(src, dut, obj_name=t[1], tc_flags=t[2],
+                                         act=t[3], mode=t[4], should_fail=True,
+                                         group=self, name=t[0],
+                                         summary='Fail with %s %s' % \
+                                         (t[1], t[2]))
 
         DAF = (('tc_da_OK', 'da_0_pass.o'),
                ('tc_da_RECL', 'da_1_pass.o'),
@@ -237,9 +236,9 @@ class NFPKmodBPF(NFPKmodGrp):
 
         for t in DAF:
             self._tests[t[0]] = \
-                eBPFsimpleTest(src, dut, t[1], tc_flags="da", act="",
-                               should_fail=True, group=self, name=t[0],
-                               summary='Direct action %s fail test' % (t[0]))
+                eBPFtest(src, dut, t[1], should_fail=True, group=self,
+                         name=t[0],
+                         summary='Direct action %s fail test' % (t[0]))
 
     def _init(self):
         NFPKmodGrp._init(self)
@@ -352,11 +351,10 @@ class eBPFcapa(CommonTest):
         return NrtResult(name=self.name, testtype=self.__class__.__name__,
                          passed=passed, comment=comment)
 
-class eBPFrefcnt(eBPFsimpleTest):
+class eBPFrefcnt(eBPFtest):
     def __init__(self, src, dut, group=None, name="", summary=None):
-        eBPFtest.__init__(self, src, dut, obj_name="da_-1_unspec.o",
-                          tc_flags="da", act="", group=group, name=name,
-                          summary=summary)
+        eBPFtest.__init__(self, src, dut,
+                          group=group, name=name, summary=summary)
 
         # NTI list tests
         if self.dut is None:
@@ -409,11 +407,10 @@ class eBPFrefcnt(eBPFsimpleTest):
     def cleanup(self):
         self.xdp_reset()
 
-class eBPFpass(eBPFsimpleTest):
+class eBPFpass(eBPFtest):
     def __init__(self, src, dut, group=None, name="", summary=None):
-        eBPFsimpleTest.__init__(self, src, dut, obj_name="da_-1_unspec.o",
-                                tc_flags="da", act="",
-                                group=group, name=name, summary=summary)
+        eBPFtest.__init__(self, src, dut,
+                          group=group, name=name, summary=summary)
 
     def execute(self):
         self.ping(port=0)
@@ -423,11 +420,10 @@ class eBPFpass(eBPFsimpleTest):
         counts = (30, 300, 3200, 10000)
         self.validate_cntrs(rx_t=counts, pass_all=True)
 
-class eBPFdrop(eBPFsimpleTest):
+class eBPFdrop(eBPFtest):
     def __init__(self, src, dut, group=None, name="", summary=None):
-        eBPFsimpleTest.__init__(self, src, dut, obj_name="drop.o",
-                                tc_flags="da", act="",
-                                group=group, name=name, summary=summary)
+        eBPFtest.__init__(self, src, dut, obj_name="drop.o",
+                          group=group, name=name, summary=summary)
 
     def execute(self):
         self.ping(port=0, should_fail=True)
@@ -437,11 +433,10 @@ class eBPFdrop(eBPFsimpleTest):
         counts = (30, 300, 3200, 10000)
         self.validate_cntrs(rx_t=counts, app1_all=True)
 
-class eBPFskbLen(eBPFsimpleTest):
+class eBPFskbLen(eBPFtest):
     def __init__(self, src, dut, group=None, name="", summary=None):
-        eBPFsimpleTest.__init__(self, src, dut, obj_name="len.o",
-                                tc_flags="da", act="",
-                                group=group, name=name, summary=summary)
+        eBPFtest.__init__(self, src, dut, obj_name="len.o",
+                          group=group, name=name, summary=summary)
 
     def execute(self):
         self.ping(port=0)
@@ -457,11 +452,10 @@ class eBPFskbLen(eBPFsimpleTest):
         counts = (20, 300, 24850, 50000)
         self.validate_cntrs(rx_t=counts, exact_filter=True)
 
-class eBPFtcp58(eBPFsimpleTest):
+class eBPFtcp58(eBPFtest):
     def __init__(self, src, dut, group=None, name="", summary=None):
-        eBPFsimpleTest.__init__(self, src, dut, obj_name="tcp58.o",
-                                tc_flags="da", act="",
-                                group=group, name=name, summary=summary)
+        eBPFtest.__init__(self, src, dut, obj_name="tcp58.o",
+                          group=group, name=name, summary=summary)
 
     def execute(self):
         self.ping(port=0)
@@ -476,12 +470,11 @@ class eBPFtcp58(eBPFsimpleTest):
         counts = (10, 16, 1080, 1800)
         self.validate_cntrs(rx_t=counts, exact_filter=True)
 
-class eBPFda(eBPFsimpleTest):
+class eBPFda(eBPFtest):
     def __init__(self, src, dut, obj_name, stat,
                  group=None, name="", summary=None):
-        eBPFsimpleTest.__init__(self, src, dut,
-                                obj_name=obj_name, tc_flags="da", act="",
-                                group=group, name=name, summary=summary)
+        eBPFtest.__init__(self, src, dut, obj_name=obj_name,
+                          group=group, name=name, summary=summary)
         self.stat = stat
 
     def execute(self):
@@ -496,11 +489,10 @@ class eBPFda(eBPFsimpleTest):
                             app1_all=self.stat == 1, app2_all=self.stat == 2,
                             app3_all=self.stat == 3)
 
-class eBPFflags(eBPFsimpleTest):
+class eBPFflags(eBPFtest):
     def __init__(self, src, dut, group=None, name="", summary=None):
-        eBPFsimpleTest.__init__(self, src, dut, obj_name="pass.o",
-                                tc_flags="da", act="",
-                                group=group, name=name, summary=summary)
+        eBPFtest.__init__(self, src, dut, mode="",
+                          group=group, name=name, summary=summary)
 
     def execute(self):
         # The default one in this class should have no skip flags
@@ -515,7 +507,8 @@ class eBPFflags(eBPFsimpleTest):
             self.dut.cmd('tc filter del dev %s ingress protocol all pref 49152 bpf' %
                          (self.dut_ifn[0]))
 
-            ret = self.tc_bpf_load(obj=self.obj_name, flags=opts[0], da=True,
+            flag=opts[0]
+            ret = self.tc_bpf_load(obj=self.obj_name, flags=flag, da=True,
                                    port=opts[1])
             if ret:
                 return NrtResult(name=self.name,
@@ -531,11 +524,10 @@ class eBPFflags(eBPFsimpleTest):
                                    (flag))
 
 
-class eBPFtc_off(eBPFsimpleTest):
+class eBPFtc_off(eBPFtest):
     def __init__(self, src, dut, group=None, name="", summary=None):
-        eBPFsimpleTest.__init__(self, src, dut, obj_name="pass.o",
-                                tc_flags="da", act="", mode="skip_hw",
-                                group=group, name=name, summary=summary)
+        eBPFtest.__init__(self, src, dut, mode="skip_hw",
+                          group=group, name=name, summary=summary)
 
     def execute(self):
         self.dut.cmd('ethtool -K %s hw-tc-offload off' % (self.dut_ifn[0]))
@@ -544,22 +536,20 @@ class eBPFtc_off(eBPFsimpleTest):
         if ret == 0:
             raise NtiGeneralError("loaded hw-only filter with tc offloads disabled")
 
-class eBPFtwo_prog(eBPFsimpleTest):
+class eBPFtwo_prog(eBPFtest):
     def __init__(self, src, dut, group=None, name="", summary=None):
-        eBPFsimpleTest.__init__(self, src, dut, obj_name="pass.o",
-                                tc_flags="da", act="",
-                                group=group, name=name, summary=summary)
+        eBPFtest.__init__(self, src, dut,
+                          group=group, name=name, summary=summary)
 
     def execute(self):
         ret = self.tc_bpf_load(obj=self.obj_name, skip_sw=True, da=True, port=0)
         if ret == 0:
             raise NtiGeneralError("loaded more than one filter")
 
-class eBPFmtu(eBPFsimpleTest):
+class eBPFmtu(eBPFtest):
     def __init__(self, src, dut, group=None, name="", summary=None):
-        eBPFsimpleTest.__init__(self, src, dut, obj_name="pass.o",
-                                tc_flags="da", act="", mode="skip_hw",
-                                group=group, name=name, summary=summary)
+        eBPFtest.__init__(self, src, dut, mode="skip_hw",
+                          group=group, name=name, summary=summary)
 
     def execute(self):
         self.dut.cmd('ifconfig %s mtu 3000' % (self.dut_ifn[0]))
