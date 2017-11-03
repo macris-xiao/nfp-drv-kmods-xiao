@@ -177,17 +177,13 @@ class NFPKmodBPF(NFPKmodGrp):
              ('bpf_refcnt', eBPFrefcnt, "eBPF refcount test"),
              ('bpf_pass', eBPFpass, "eBPF pass all filter"),
              ('bpf_drop', eBPFdrop, "eBPF drop all filter"),
-             ('bpf_redirect', eBPFredir, "eBPF redirect all filter"),
              ('bpf_len', eBPFskbLen, "eBPF skb->len test"),
              ('bpf_tcp58', eBPFtcp58, "eBPF filter on TCP port 58"),
-             ('bpf_jeq_jgt', eBPFjeq_jgt, "eBPF JEQ JGT branch test"),
-             ('bpf_jneq', eBPFjneq, "eBPF JNE branch test"),
              ('bpf_tc_gen_flags', eBPFflags, 'iproute/cls_bpf flag reporting'),
              ('bpf_tc_offload_disabled', eBPFtc_off,
               'Check if loading fails if ethtool disabled TC offloads'),
              ('bpf_two_prog', eBPFtwo_prog, 'Check 2 progs fail'),
              ('bpf_mtu_check', eBPFmtu, 'Check high MTU fails'),
-             ('bpf_harden', eBPFharden, 'Check hardening makes fail'),
         )
 
         for t in T:
@@ -216,15 +212,6 @@ class NFPKmodBPF(NFPKmodGrp):
                                        name=t[0],
                                        summary='Direct act test with %s' % \
                                        (t[1]))
-
-        # Test if cls_bpf offload works by default
-        DFL = (('bpf_cls_pass_dfl', eBPFpass,
-                'Check if TC pass gets offloaded'),
-        )
-
-        for t in DFL:
-            self._tests[t[0]] = t[1](src, dut, tc_flags="",
-                                     group=self, name=t[0], summary=t[2])
 
         TF = (('tc_da_and_act', 'da_2_drop.o', 'da', 'action drop', None),
               ('tc_legacy_act', 'da_2_drop.o', '', 'action drop', None),
@@ -489,100 +476,6 @@ class eBPFtcp58(eBPFtest):
         counts = (10, 16, 1080, 1800)
         self.validate_cntrs(rx_t=counts, exact_filter=True)
 
-class eBPFjeq_jgt(eBPFtest):
-    def __init__(self, src, dut, group=None, name="", summary=None):
-        eBPFtest.__init__(self, src, dut, obj_name="jeq_jgt.o",
-                          group=group, name=name, summary=summary)
-
-    def execute(self):
-        self.ping(port=0, pattern="aa")
-        self.ping(port=0, size=100)
-        self.ping(port=0, size=100, pattern="a0")
-        self.ping(port=0, size=100, pattern="af")
-
-        counts = (40, 48, 5400, 6500)
-        self.validate_cntrs(rx_t=counts, pass_all=True)
-
-        self.ping(port=0, size=100, pattern="aa", should_fail=True)
-        self.ping(port=0, size=100, pattern="bb", should_fail=True)
-        self.ping(port=0, size=100, pattern="cc", should_fail=True)
-
-        counts = (30, 38, 4380, 5200)
-        self.validate_cntrs(rx_t=counts, exact_filter=True)
-
-class eBPFjneq(eBPFtest):
-    def __init__(self, src, dut, group=None, name="", summary=None):
-        eBPFtest.__init__(self, src, dut, obj_name="jneq.o",
-                          group=group, name=name, summary=summary)
-
-    def execute(self):
-        self.ping(port=0)
-        self.ping(port=0, pattern="aa")
-        self.ping(port=0, size=100, pattern="aa")
-
-        counts = (30, 42, 3200, 4500)
-        self.validate_cntrs(rx_t=counts, pass_all=True)
-
-        self.ping(port=0, size=100, should_fail=True)
-        self.ping(port=0, size=100, pattern="bb", should_fail=True)
-        self.ping(port=0, size=100, pattern="cc", should_fail=True)
-
-        counts = (30, 38, 4380, 5200)
-        self.validate_cntrs(rx_t=counts, exact_filter=True)
-
-class eBPFredir(eBPFtest):
-    def __init__(self, src, dut, tc_flags="skip_sw", group=None, name="",
-                 summary=None):
-        if src[0]: # for ticmd list
-            act = "action mirred egress redirect dev " + dut[2][0]
-        else:
-            act = ""
-        eBPFtest.__init__(self, src, dut, obj_name="drop.o",
-                          tc_flags=tc_flags, act=act, group=group, name=name,
-                          summary=summary)
-
-    def execute(self):
-        if not self.group.promisc_x[0]:
-            self.dut.cmd('ip link set dev %s promisc on' % (self.dut_ifn[0]))
-        if not self.group.promisc_a[0]:
-            self.src.cmd('ip link set dev %s promisc on' % (self.src_ifn[0]))
-
-        old_src_stats = self.src.netifs[self.src_ifn[0]].stats()
-
-        self.tcpping(port=0, should_fail=True)
-
-        time.sleep(0.2)
-        new_src_stats = self.src.netifs[self.src_ifn[0]].stats()
-
-        counts = (10, 20, 900, 2000)
-        self.validate_cntrs(rx_t=counts, app1_all=True)
-
-        if not self.group.promisc_x[0]:
-            self.dut.cmd('ip link set dev %s promisc off' % (self.dut_ifn[0]))
-        if not self.group.promisc_a[0]:
-            self.src.cmd('ip link set dev %s promisc off' % (self.src_ifn[0]))
-
-        end_stats = new_src_stats - old_src_stats
-
-        # Fortville
-        if end_stats.ethtool.has_key('port.rx_size_127'):
-            vendor_rx_127 = 'port.rx_size_127'
-            vendor_rx = 'port.rx_bytes'
-        # Connect X4
-        elif end_stats.ethtool.has_key('rx_65_to_127_bytes_phy'):
-            vendor_rx_127 = 'rx_65_to_127_bytes_phy'
-            vendor_rx = 'rx_bytes_phy'
-        else:
-            raise NtiError("Unsupported NIC vendor")
-
-        if not end_stats.ethtool[vendor_rx_127] in range(counts[0], counts[1]):
-            raise NtiError("src rx packets (%d vs %d,%d)" % \
-                           (end_stats.ethtool[vendor_rx_127],
-                            counts[0], counts[1]))
-        if not end_stats.ethtool[vendor_rx] in range(counts[2], counts[3]):
-            raise NtiError("src rx bytes (%d vs %d,%d)" % \
-                           (end_stats.ethtool[vendor_rx], counts[2], counts[3]))
-
 class eBPFda(eBPFsimpleTest):
     def __init__(self, src, dut, obj_name, stat,
                  group=None, name="", summary=None):
@@ -671,19 +564,6 @@ class eBPFmtu(eBPFtest):
 
         if ret == 0:
             raise NtiGeneralError("loaded hw-only filter with large MTU")
-
-class eBPFharden(eBPFtest):
-    def __init__(self, src, dut, group=None, name="", summary=None):
-        eBPFtest.__init__(self, src, dut, obj_name="pass.o",
-                          tc_flags="skip_sw", group=group, name=name,
-                          summary=summary)
-
-    def execute(self):
-        self.dut.cmd('sysctl net.core.bpf_jit_enable=1; sysctl net.core.bpf_jit_harden=2')
-        ret = self.tc_bpf_load(flags="skip_sw")
-        self.dut.cmd('sysctl net.core.bpf_jit_enable=0; sysctl net.core.bpf_jit_harden=0')
-        if ret == 0:
-            raise NtiGeneralError("loaded filter with hardening")
 
 #########################################################################
 # Data passing/comparing tests
