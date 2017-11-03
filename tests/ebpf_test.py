@@ -168,7 +168,7 @@ class eBPFsimpleTest(eBPFtest):
 
         flags = self.group.tc_mode() + " " + self.tc_flags
 
-        ret = self.tc_bpf_load(obj=self.obj_name, flags=flags, act="")
+        ret = self.tc_bpf_load(obj=self.obj_name, flags=flags, act=self.act)
 
         if ret and not self.should_fail:
             self.cleanup()
