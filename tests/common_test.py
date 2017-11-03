@@ -161,6 +161,12 @@ class CommonTest(Test):
             return NrtResult(name=self.name, testtype=self.__class__.__name__,
                              passed=None, comment=comment)
 
+    def nsp_flash_min(self, exp_ver):
+        nsp_flash_ver = self.dut.get_nsp_flash_ver()
+        if nsp_flash_ver < exp_ver:
+            raise NtiSkip("NSP flash version 0x%x, test requires 0x%x" %
+                          (nsp_flash_ver, exp_ver))
+
     def nsp_min(self, exp_ver):
         if self.group.upstream_drv:
             nsp_ver = self.dut.get_nsp_ver(ifc=self.dut_ifn[0])

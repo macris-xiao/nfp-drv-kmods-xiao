@@ -143,6 +143,15 @@ class DrvSystem(System):
                         (ifc, ifc, speed),
                         include_stderr=True, fail=fail)
 
+    def ethtool_set_fec(self, ifc, fec, fail=True):
+        return self.cmd('ethtool --set-fec %s encoding %s' %
+                        (ifc, fec),
+                        include_stderr=True, fail=fail)
+
+    def ethtool_get_fec(self, ifc, fail=True):
+        return self.cmd('ethtool --show-fec %s' %
+                        (ifc), fail=fail)
+
     def get_nsp_ver(self, ifc=None):
         if ifc:
             _, out = self.cmd('ethtool -i %s' % (ifc))
@@ -165,6 +174,12 @@ class DrvSystem(System):
             raise NtiError("Non-0 major version")
 
         return int(sp_ver[1])
+
+    def get_nsp_flash_ver(self):
+        _, out = self.cmd('dmesg | awk -F "." "/BSP/ {print \$5}" | tail -n1 | tr -d "*"')
+        if out == "":
+            return 0
+        return int(out, 16)
 
     def kernel_ver_ge(self, major, minor):
         return (self.kernel_maj == major and self.kernel_min >= minor) or \

@@ -67,6 +67,7 @@ class NFPKmodUnit(NFPKmodGrp):
              ('port_config', IfConfigDownTest,
               "Check interface operable after FW load with combinations of ifup/ifdown"),
              ('sriov_ndos', SriovNDOs, 'Test SR-IOV VF config NDO functions'),
+             ('fec_modes', FECModesTest, 'Test FEC modes configuration'),
         )
 
         for t in T:
@@ -1494,9 +1495,7 @@ class IfConfigDownTest(CommonNonUpstreamTest):
         self.do_check_port(iface, mac_addr, "-Configured")
 
     def netdev_execute(self):
-        _, bsp_ver = self.dut.cmd_hwinfo('| awk -F "." "/bsp.version=/ {print \$4}" | tr -d "*"')
-        if int(bsp_ver,16) < 0x02003c:
-            raise NtiSkip("BSP NSP version of at least 0x02003c required to execute test.")
+        self.nsp_flash_min(0x02003c)
 
         nsp_ifaces = ""
         for port_index in range(0, len(self.dut_ifn)):
@@ -1553,3 +1552,183 @@ class IfConfigDownTest(CommonNonUpstreamTest):
 
         for entry in reversed(port_mac_tuple_list):
             self.check_port_down(entry)
+
+class FECModesTest(CommonNonUpstreamTest):
+    def check_fec_mode(self, iface, mac_addr, expected_nsp_fec, expected_ethtool_fec):
+        _, nsp_port = self.dut.cmd_nsp('-E | grep -EA3 "MAC:\s+%s"' % mac_addr)
+        nsp_fec = nsp_port.splitlines()[3].split()[1]
+        if nsp_fec != expected_nsp_fec:
+            raise NtiError('Expected interface %s to be %s, got %s' %
+                           (iface, expected_nsp_fec, nsp_fec))
+
+        # This check is not really accurate. The ethtool FEC output is still
+        # somewhat vague at this point, so only check for more or less sane
+        # state.
+        _, ethtool_fec_output = self.dut.ethtool_get_fec(iface)
+        if expected_ethtool_fec == "auto":
+            expected_ethtool_fec = "auto-negotiation: on"
+        if expected_ethtool_fec == "auto off":
+            expected_ethtool_fec = "auto-negotiation: off"
+
+        # The 'off' state is not displayed by this patched version of ethtool.
+        if expected_ethtool_fec != "off":
+            if not re.search(expected_ethtool_fec, ethtool_fec_output.lower(), re.MULTILINE):
+                raise NtiError('Expected interface %s to have %s available in FEC config' %
+                               (iface, expected_ethtool_fec))
+
+    def check_mode_on_other_ports(self, entry_to_exclude, list):
+        for entry in list:
+            if entry[0] != entry_to_exclude[0]:
+                self.check_fec_mode(entry[0], entry[1], "Fec0", "auto-negotiation: on")
+
+    def set_and_check_fec_mode(self, port_tuple, fec, nsp_fec_mode):
+        iface = port_tuple[0]
+        mac_addr = port_tuple[1]
+        port = port_tuple[2]
+
+        self.dut.ethtool_set_fec(iface, fec)
+        self.check_fec_mode(iface, mac_addr, nsp_fec_mode, fec)
+
+        # First we ping with a case that will fail, then we align the
+        # endpoint and expect it to pass.
+        # However, if the DUT is configured for auto FEC detection, the first
+        # ping should succeed.
+        if fec == "off":
+            self.src.cmd("/opt/netronome/bin/nfp-nsp -n1 -C +fec1 eth0 eth1")
+        else:
+            self.src.cmd("/opt/netronome/bin/nfp-nsp -n1 -C +fec3 eth0 eth1")
+
+        # Workaround for NFPBSP-2945
+        should_fail = True
+        if (port == 1) and (fec == "auto"):
+            should_fail = False
+
+        time.sleep(3) # Takes time for NSP to action this command
+        self.ping(port, should_fail=should_fail)
+
+        self.src.cmd("/opt/netronome/bin/nfp-nsp -n1 -C +%s eth0 eth1" % nsp_fec_mode)
+
+        time.sleep(3) # Takes time for NSP to action this command
+        self.ping(port)
+
+    def set_fec_and_expect_to_fail(self, port_tuple, fec):
+        iface = port_tuple[0]
+        mac_addr = port_tuple[1]
+
+        ret, _ = self.dut.ethtool_set_fec(iface, fec, fail=False)
+        if ret == 0:
+            raise NtiError('Expected to fail setting interface %s FEC config to %s, but passed' %
+                           (iface, fec))
+
+    def fec_cleanup(self):
+        if self.dut.get_part_no() == 'AMDA0099-0001':
+            self.dut.cmd_nsp('-C +aneg0 eth0 eth1')
+            self.dut.cmd_nsp('-C +fec0 eth0 eth1')
+
+            self.src.cmd("/opt/netronome/bin/nfp-nsp -n1 -C +aneg0 eth0 eth1")
+            self.src.cmd("/opt/netronome/bin/nfp-nsp -n1 -C +fec0 eth0 eth1")
+
+    def netdev_execute(self):
+        self.nsp_min(22)
+
+        # In order to execute this test, one needs to have an ethtool version
+        # readily available in the PATH of your system that supports FEC mode
+        # configuration. At the time of authoring this test, FEC support in ethtool
+        # has not been available upstream yet, barring some experimental RFC
+        # patches. Refer to:
+        # https://www.mail-archive.com/netdev@vger.kernel.org/msg134138.html
+        ret, _ = self.dut.cmd('ethtool --help | grep -q FEC', False)
+        if ret != 0:
+            raise NtiSkip("Need ethtool FEC support to execute test.")
+
+        port_mac_tuple_list = []
+        for port in range(0, len(self.dut_ifn)):
+            iface = self.dut_ifn[port]
+            _, mac_addr = self.dut.cmd('cat /sys/class/net/%s/address | tr -d "\n"' %
+                                       iface)
+            port_mac_tuple_list.append((iface, mac_addr, port))
+
+        if self.dut.get_part_no() == 'AMDA0099-0001':
+            # Reset the current FEC mode to default, i.e. auto and switch off
+            # autoneg
+            self.dut.cmd_nsp('-C +aneg4 eth0 eth1')
+            self.dut.cmd_nsp('-C +fec0 eth0 eth1')
+
+            # We always disable autoneg on the endpoint.
+            # Since 25G isn't prevalent at the moment, and no other NIC vendor we
+            # use have this feature, assume that the endpoint will be another Carbon.
+            # It assumes that the carbon is NFP #1 on that system.
+            self.src.cmd("/opt/netronome/bin/nfp-nsp -n1 -C +aneg4 eth0 eth1")
+            self.src.cmd("/opt/netronome/bin/nfp-nsp -n1 -C +fec0 eth0 eth1")
+
+        for entry in port_mac_tuple_list:
+            iface = entry[0]
+            mac_addr = entry[1]
+
+            # FEC configuration only available on Carbon
+            if self.dut.get_part_no() == 'AMDA0099-0001':
+                _, supported = self.dut.cmd('ethtool %s | grep -iA2 "Supported FEC"' % iface)
+                if not re.search('None', supported, re.MULTILINE):
+                    raise NtiError('Expected interface %s to have None as supported FEC mode' %
+                                   iface)
+                if not re.search('BaseR', supported, re.MULTILINE):
+                    raise NtiError('Expected interface %s to have BaseR as supported FEC mode' %
+                                   iface)
+                if not re.search('RS', supported, re.MULTILINE):
+                    raise NtiError('Expected interface %s to have RS as supported FEC mode' %
+                                   iface)
+
+                _, advertised = self.dut.cmd('ethtool %s | grep -iA2 "Advertised FEC"' % iface)
+                if not re.search('BaseR', advertised, re.MULTILINE):
+                    raise NtiError('Expected interface %s to have BaseR as advertised FEC mode' %
+                                   iface)
+                if not re.search('RS', advertised, re.MULTILINE):
+                    raise NtiError('Expected interface %s to have RS as advertised FEC mode' %
+                                   iface)
+
+                self.check_fec_mode(iface, mac_addr, "Fec0", "auto")
+                self.check_mode_on_other_ports(entry, port_mac_tuple_list)
+
+                self.set_and_check_fec_mode(entry, "baser", "Fec1")
+                self.check_mode_on_other_ports(entry, port_mac_tuple_list)
+
+                self.set_and_check_fec_mode(entry, "rs", "Fec2")
+                self.check_mode_on_other_ports(entry, port_mac_tuple_list)
+
+                self.set_and_check_fec_mode(entry, "off", "Fec3")
+                self.check_mode_on_other_ports(entry, port_mac_tuple_list)
+
+                self.set_and_check_fec_mode(entry, "auto", "Fec0")
+                self.check_mode_on_other_ports(entry, port_mac_tuple_list)
+            else:
+                # Other non-Carbon cards are expected to only show "None" as the
+                # supported FEC mode. No FEC mode modification is allowed.
+                _, supported = self.dut.cmd('ethtool %s | grep -iA2 "Supported FEC"' % iface)
+                if not re.search('None', supported, re.MULTILINE):
+                    raise NtiError('Expected interface %s to have None as supported FEC mode' %
+                                   iface)
+                if re.search('BaseR', supported, re.MULTILINE):
+                    raise NtiError('Expected interface %s to have BaseR as supported FEC mode' %
+                                   iface)
+                if re.search('RS', supported, re.MULTILINE):
+                    raise NtiError('Expected interface %s to have RS as supported FEC mode' %
+                                   iface)
+
+                _, advertised = self.dut.cmd('ethtool %s | grep -iA2 "Advertised FEC"' % iface)
+                if not re.search('None', advertised, re.MULTILINE):
+                    raise NtiError('Expected interface %s to have None as advertised FEC mode' %
+                                   iface)
+                if re.search('BaseR', advertised, re.MULTILINE):
+                    raise NtiError('Expected interface %s to have BaseR as advertised FEC mode' %
+                                   iface)
+                if re.search('RS', advertised, re.MULTILINE):
+                    raise NtiError('Expected interface %s to have RS as advertised FEC mode' %
+                                   iface)
+
+                self.check_fec_mode(iface, mac_addr, "Fec0", "auto off")
+                self.set_fec_and_expect_to_fail(entry, "baser")
+                self.set_fec_and_expect_to_fail(entry, "rs")
+                self.set_fec_and_expect_to_fail(entry, "off")
+                self.set_fec_and_expect_to_fail(entry, "auto")
+
+        self.fec_cleanup()
