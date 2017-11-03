@@ -71,7 +71,7 @@ class eBPFtest(CommonTest):
         self.validate_cntr_e2t(diff, '%s_bytes' % e_name, '%s_bytes' % t_name)
 
     def _validate_cntrs(self, rx_t, pass_all, app1_all, app2_all, app3_all,
-                        mark_all, exact_filter):
+                        exact_filter):
         NO_PKTS=(0, 1, 0, 1)
 
         new_stats = self.dut.netifs[self.dut_ifn[0]].stats(get_tc_ing=True)
@@ -95,7 +95,7 @@ class eBPFtest(CommonTest):
         if exact_filter:
             filter_t=(rx_t[0], rx_t[0] + 1, rx_t[2], rx_t[2] + 1)
             self.validate_cntr_pair(diff.ethtool, 'bpf_app1', filter_t)
-            self.validate_cntr_pair(diff.tc_ing, 'tc_49151', filter_t)
+            self.validate_cntr_pair(diff.tc_ing, 'tc_49152', filter_t)
             return
 
         if pass_all:
@@ -118,27 +118,21 @@ class eBPFtest(CommonTest):
         else:
             self.validate_cntr_pair(diff.ethtool, 'bpf_app3', NO_PKTS)
 
-        if mark_all:
-            self.validate_cntr_e2t_pair(diff, 'dev_rx', 'tc_49152')
-        else:
-            self.validate_cntr_pair(diff.tc_ing, 'tc_49152', NO_PKTS)
-
         # Check the TC actions stats
         if self.act:
             if app1_all:
-                self.validate_cntr_e2t_pair(diff, 'dev_rx', 'tc_49151')
+                self.validate_cntr_e2t_pair(diff, 'dev_rx', 'tc_49152')
             else:
-                self.validate_cntr_pair(diff.tc_ing, 'tc_49151', NO_PKTS)
+                self.validate_cntr_pair(diff.tc_ing, 'tc_49152', NO_PKTS)
 
     def validate_cntrs(self, rx_t, pass_all=False,
                        app1_all=False, app2_all=False, app3_all=False,
-                       mark_all=False, exact_filter=False):
+                       exact_filter=False):
 
         LOG_sec("Validate counters")
         self._validate_cntrs(rx_t=rx_t, pass_all=pass_all,
                              app1_all=app1_all, app2_all=app2_all,
-                             app3_all=app3_all, mark_all=mark_all,
-                             exact_filter=exact_filter)
+                             app3_all=app3_all, exact_filter=exact_filter)
         LOG_endsec()
 
     def prepare(self):
@@ -150,7 +144,6 @@ class eBPFtest(CommonTest):
 
         self.dut.cmd('ethtool -K %s hw-tc-offload on' % (self.dut_ifn[0]))
         self.dut.cmd('tc qdisc add dev %s ingress' % (self.dut_ifn[0]))
-        self.dut.cmd('tc filter add dev %s parent ffff:  handle 0xcafe fw action pass' % (self.dut_ifn[0]))
 
         ret = self.tc_bpf_load()
 
