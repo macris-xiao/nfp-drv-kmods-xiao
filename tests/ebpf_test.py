@@ -19,8 +19,8 @@ class eBPFtest(CommonTest):
     """
 
     def __init__(self, src, dut, obj_name="pass.o", tc_flags="skip_sw",
-                 act="action drop", should_fail=False, group=None, name="",
-                 summary=None):
+                 act="action drop", mode=None, should_fail=False,
+                 group=None, name="", summary=None):
         """
         @dut:        A tuple of System and interface name of DUT
         @src:	     A tuple of System and interface name of srcoint
@@ -39,6 +39,7 @@ class eBPFtest(CommonTest):
             self.obj_name = obj_name
             self.tc_flags = tc_flags
             self.should_fail = should_fail
+            self.mode = mode
         return
 
     def validate_cntr(self, d, name, t0, t1):
@@ -166,7 +167,9 @@ class eBPFsimpleTest(eBPFtest):
         cmd += 'tc qdisc add dev %s ingress' % (self.dut_ifn[0])
         self.dut.cmd(cmd)
 
-        flags = self.group.tc_mode() + " " + self.tc_flags
+        if self.mode is None:
+            self.mode = self.group.tc_mode()
+        flags = self.mode + " " + self.tc_flags
 
         ret = self.tc_bpf_load(obj=self.obj_name, flags=flags, act=self.act)
 

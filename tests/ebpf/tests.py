@@ -226,14 +226,15 @@ class NFPKmodBPF(NFPKmodGrp):
             self._tests[t[0]] = t[1](src, dut, tc_flags="",
                                      group=self, name=t[0], summary=t[2])
 
-        TF = (('tc_da_and_act', 'da_2_drop.o', 'da', 'action drop'),
-              ('tc_legacy_act', 'da_2_drop.o', '', 'action drop'),
+        TF = (('tc_da_and_act', 'da_2_drop.o', 'da', 'action drop', None),
+              ('tc_legacy_act', 'da_2_drop.o', '', 'action drop', None),
+              ('tc_da_not_for_dev', 'da_2_drop.o', 'da', '', 'skip_sw'),
         )
 
         for t in TF:
             self._tests[t[0]] = eBPFsimpleTest(src, dut, obj_name=t[1],
                                                tc_flags=t[2], act=t[3],
-                                               should_fail=True,
+                                               mode=t[4], should_fail=True,
                                                group=self, name=t[0],
                                                summary='Fail with %s %s' % \
                                                (t[1], t[2]))
