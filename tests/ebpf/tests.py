@@ -751,8 +751,7 @@ class eBPFdataTest(CommonPktCompareTest):
         self.dut.cmd('ethtool -K %s hw-tc-offload on' % (self.dut_ifn[0]))
         self.dut.cmd('tc qdisc add dev %s ingress' % (self.dut_ifn[0]))
 
-        return self.tc_bpf_load(obj=self.get_prog_name(), flags="skip_sw",
-                                act="action drop")
+        return self.tc_bpf_load(obj=self.get_prog_name(), flags="skip_sw da")
 
     def cleanup(self):
         self.dut.cmd('tc qdisc del dev %s ingress' % self.dut_ifn[0])

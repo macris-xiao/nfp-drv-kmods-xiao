@@ -195,7 +195,10 @@ class CommonTest(Test):
         if not flags:
             flags = self.tc_flags
         if act is None:
-            act = self.act
+            if hasattr(self, 'act'):
+                act = self.act
+            else:
+                act = ""
 
         obj_full = os.path.join(self.dut.bpf_samples_dir, obj)
         cmd = 'tc filter add dev %s parent ffff:  bpf obj %s %s %s' % \
