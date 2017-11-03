@@ -365,11 +365,10 @@ class eBPFcapa(CommonTest):
         return NrtResult(name=self.name, testtype=self.__class__.__name__,
                          passed=passed, comment=comment)
 
-class eBPFrefcnt(eBPFtest):
-    def __init__(self, src, dut, tc_flags="skip_sw", group=None, name="",
-                 summary=None):
-        eBPFtest.__init__(self, src, dut, obj_name="pass.o",
-                          tc_flags=tc_flags, group=group, name=name,
+class eBPFrefcnt(eBPFsimpleTest):
+    def __init__(self, src, dut, group=None, name="", summary=None):
+        eBPFtest.__init__(self, src, dut, obj_name="da_-1_unspec.o",
+                          tc_flags="da", act="", group=group, name=name,
                           summary=summary)
 
         # NTI list tests
