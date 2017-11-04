@@ -24,11 +24,14 @@ def xdp_test_name_to_prog(test):
     return test.name[last_dot + 5:] + '.o'
 
 def xdp_skip_if_adj_head(test, prog_name):
-    if test.group.xdp_mode() == "offload" and \
-       prog_name.find("adjust") != -1:
-        test.log("SKIP", "Skip because this test uses adjust_head")
-        return NrtResult(name=test.name, testtype=test.__class__.__name__,
-                         passed=None, comment="no adj head support")
+    if test.group.xdp_mode() != "offload" or \
+       prog_name.find("adjust") == -1 or \
+       test.dut.bpf_caps["adjust_head"]["present"]:
+        return None
+
+    test.log("SKIP", "Skip because this test uses adjust_head")
+    return NrtResult(name=test.name, testtype=test.__class__.__name__,
+                     passed=None, comment="no adj head support")
 
 ###############################################################################
 # Base classes
@@ -52,6 +55,30 @@ class XDPpassAllNoOffload(XDPTest):
         return 0
 
 class XDPadjBase(CommonPktCompareTest):
+    def get_exp_pkt(self):
+        if self.group.xdp_mode() != "offload":
+            return self.get_exp_pkt_raw()
+
+        pkt_in  = self.get_src_pkt()
+        pkt_out = self.get_exp_pkt_raw()
+        if pkt_out is None:
+            return None
+
+        # Size difference in terms of XDP adjust head call parameter
+        adj = len(pkt_in) - len(pkt_out)
+
+        cap = self.dut.bpf_caps["adjust_head"]
+        start_low = cap["off_min"] + cap["guaranteed_sub"]
+        start_hig = cap["off_max"] - cap["guaranteed_add"]
+        # Assume if there is discepancy, the optional prepend is there.
+        start = start_hig
+
+        # Check if the test will fit
+        if start + adj < cap["off_min"] or start + adj > cap["off_max"]:
+            return None
+
+        return pkt_out
+
     def prepare(self):
         return xdp_skip_if_adj_head(self, self.get_prog_name())
 
@@ -63,9 +90,6 @@ class XDPadjBase(CommonPktCompareTest):
         self.xdp_reset()
 
 class XDPtxBase(XDPadjBase):
-    def prepare(self):
-        return xdp_skip_if_adj_head(self, self.get_prog_name())
-
     def get_tcpdump_params(self):
         return (self.src, self.src_ifn[0], self.src)
 
@@ -206,7 +230,7 @@ class XDPtx(XDPtxBase):
     def get_src_pkt(self):
         return self.std_pkt()
 
-    def get_exp_pkt(self):
+    def get_exp_pkt_raw(self):
         pkt = ''
         for b in self.group.hwaddr_a[0].split(':'):
             pkt += chr(int('0x' + b, 16))
@@ -227,7 +251,7 @@ class XDPtrunc2B(XDPtxBase):
     def get_src_pkt(self):
         return self.std_pkt()
 
-    def get_exp_pkt(self):
+    def get_exp_pkt_raw(self):
         pkt = self.get_src_pkt()
         pkt = pkt[6:12] + pkt[0:6] + '\x12\x34' + pkt[16:]
 
@@ -240,7 +264,7 @@ class XDPtruncTo14B(XDPtxBase):
     def get_src_pkt(self):
         return self.std_pkt()
 
-    def get_exp_pkt(self):
+    def get_exp_pkt_raw(self):
         pkt = self.get_src_pkt()
         pkt = pkt[6:12] + pkt[0:6] + '\x12\x34' + '\x00' * 46
 
@@ -253,7 +277,7 @@ class XDPprepMAC(XDPtxBase):
     def get_src_pkt(self):
         return self.std_pkt()
 
-    def get_exp_pkt(self):
+    def get_exp_pkt_raw(self):
         pkt = self.get_src_pkt()
         pkt = pkt[6:12] + pkt[0:6] + '\x12\x34' + pkt
 
@@ -266,7 +290,7 @@ class XDPprep256B(XDPtxBase):
     def get_src_pkt(self):
         return self.std_pkt()
 
-    def get_exp_pkt(self):
+    def get_exp_pkt_raw(self):
         pkt = self.get_src_pkt()
         pkt = pkt[6:12] + pkt[0:6] + '\x12\x34' + '\x00' * 242 + pkt
 
@@ -279,7 +303,7 @@ class XDPprep256Bmtu(XDPtxBase):
     def get_src_pkt(self):
         return self.std_pkt(size=(self.group.mtu_x[0] + 14 - 256))
 
-    def get_exp_pkt(self):
+    def get_exp_pkt_raw(self):
         pkt = self.get_src_pkt()
         pkt = pkt[6:12] + pkt[0:6] + '\x12\x34' + '\x00' * 242 + pkt
 
@@ -292,7 +316,7 @@ class XDPfailShort(XDPtxBase):
     def get_src_pkt(self):
         return self.std_pkt()
 
-    def get_exp_pkt(self):
+    def get_exp_pkt_raw(self):
         return None
 
     def get_prog_name(self):
@@ -310,7 +334,7 @@ class XDPfailMaybeLong(XDPtxBase):
     def get_src_pkt(self):
         return self.std_pkt()
 
-    def get_exp_pkt(self):
+    def get_exp_pkt_raw(self):
         return None
 
     def get_prog_name(self):
@@ -320,7 +344,7 @@ class XDPfailLong(XDPtxBase):
     def get_src_pkt(self):
         return self.std_pkt()
 
-    def get_exp_pkt(self):
+    def get_exp_pkt_raw(self):
         return None
 
     def get_prog_name(self):
@@ -330,7 +354,7 @@ class XDPfailOversized(XDPtxBase):
     def get_src_pkt(self):
         return self.std_pkt(size=(self.group.mtu_x[0] + 14))
 
-    def get_exp_pkt(self):
+    def get_exp_pkt_raw(self):
         return None
 
     def get_prog_name(self):
@@ -534,7 +558,7 @@ class XDPpassAdjZero(XDPpassBase):
     def get_src_pkt(self):
         return self.std_pkt()
 
-    def get_exp_pkt(self):
+    def get_exp_pkt_raw(self):
         return self.get_src_pkt()
 
     def get_prog_name(self):
@@ -544,7 +568,7 @@ class XDPpassAdjTwice(XDPpassBase):
     def get_src_pkt(self):
         return self.std_pkt()
 
-    def get_exp_pkt(self):
+    def get_exp_pkt_raw(self):
         return self.get_src_pkt()
 
     def get_prog_name(self):
@@ -554,7 +578,7 @@ class XDPpassAdjUndersized(XDPpassBase):
     def get_src_pkt(self):
         return self.std_pkt(size=(64 + 14))
 
-    def get_exp_pkt(self):
+    def get_exp_pkt_raw(self):
         pkt = self.get_src_pkt()
         return pkt[:12] + '\x12\x34'
 
@@ -565,7 +589,7 @@ class XDPpassOversized(XDPpassBase):
     def get_src_pkt(self):
         return self.std_pkt(size=(self.group.mtu_x[0] + 14))
 
-    def get_exp_pkt(self):
+    def get_exp_pkt_raw(self):
         pkt = self.get_src_pkt()
         return pkt[:12] + '\x12\x34' + '\x00' * 242 + pkt
 

@@ -5,7 +5,7 @@
 BPF test group for the NFP Linux drivers.
 """
 
-import os
+import os, pprint
 import time
 import netro.testinfra
 from netro.testinfra.nti_exceptions import NtiGeneralError
@@ -15,6 +15,9 @@ from ..common_test import *
 from ..drv_grp import NFPKmodGrp
 from ..ebpf_test import *
 from xdp import *
+
+class BPF_TLV:
+    ADJUST_HEAD		= 2
 
 ###########################################################################
 # Group
@@ -30,6 +33,43 @@ class NFPKmodBPF(NFPKmodGrp):
 
         NFPKmodGrp.__init__(self, name=name, cfg=cfg, quick=quick,
                             dut_object=dut_object)
+
+    def parse_bpf_caps(self):
+        self.dut.bpf_caps = {
+            "adjust_head" : {
+                "present"		: False,
+                "flags"			: 0,
+                "off_min"		: 0,
+                "off_max"		: 0,
+                "guaranteed_sub"	: 0,
+                "guaranteed_add"	: 0,
+            },
+        }
+
+        value = self._tests["xdp_pass"].read_sym_nffw("bpf_capabilities")
+        if value is None:
+            return
+
+        while len(value) > 8:
+            tlv_type = struct.unpack("<I", value[0:4])[0]
+            tlv_len  = struct.unpack("<I", value[4:8])[0]
+            value = value[8:]
+
+            if tlv_type == BPF_TLV.ADJUST_HEAD:
+                cap = self.dut.bpf_caps["adjust_head"]
+
+                cap["present"]	= True
+                cap["flags"]	= struct.unpack("<I", value[0:4])[0]
+                cap["off_min"]	= struct.unpack("<I", value[4:8])[0]
+                cap["off_max"]	= struct.unpack("<I", value[8:12])[0]
+                cap["guaranteed_sub"] = struct.unpack("<I", value[12:16])[0]
+                cap["guaranteed_add"] = struct.unpack("<I", value[16:20])[0]
+
+        pp = pprint.PrettyPrinter()
+
+        LOG_sec("BPF capability TLVs parsed")
+        LOG(pp.pformat(self.dut.bpf_caps))
+        LOG_endsec()
 
     def xdp_mode(self):
         return "offload"
@@ -321,6 +361,8 @@ class NFPKmodBPF(NFPKmodGrp):
                                (self.mtu_a[p], self.mtu_x[p]))
 
         M.copy_bpf_samples()
+
+        self.parse_bpf_caps()
 
         for i in range(0, len(self.eth_x)):
             self.dut.link_wait(self.eth_x[i])
