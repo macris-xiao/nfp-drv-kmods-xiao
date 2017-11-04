@@ -601,3 +601,6 @@ class CommonPktCompareTest(CommonTest):
         if found != exp_num:
             raise NtiError("Found %d packets, was looking for %d" %
                            (found, exp_num))
+
+        LOG_sec("Capture test OK exp: %d got: %d" % (exp_num, found))
+        LOG_endsec()
