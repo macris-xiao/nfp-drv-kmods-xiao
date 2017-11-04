@@ -91,7 +91,8 @@ class XDPtunBase(XDPTest):
         self.tun_name = 'ipip1'
         self.tun_ip_sub = self.group.tun_net
 
-        return xdp_skip_if_adj_head(self, "adjust")
+        return NrtResult(name=self.name, testtype=self.__class__.__name__,
+                         passed=None, comment="test needs work..")
 
 ###############################################################################
 # Simple tests
