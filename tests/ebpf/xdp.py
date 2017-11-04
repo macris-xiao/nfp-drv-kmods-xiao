@@ -93,6 +93,13 @@ class XDPtxBase(XDPadjBase):
     def get_tcpdump_params(self):
         return (self.src, self.src_ifn[0], self.src)
 
+class XDPtxFailBase(XDPtxBase):
+    def get_src_pkt(self):
+        return self.std_pkt()
+
+    def get_exp_pkt_raw(self):
+        return None
+
 class XDPpassBase(XDPadjBase):
     def get_tcpdump_params(self):
         return (self.dut, self.dut_ifn[0], self.src)
@@ -312,17 +319,11 @@ class XDPprep256Bmtu(XDPtxBase):
     def get_prog_name(self):
         return 'adjust_head_prep_256.o'
 
-class XDPfailShort(XDPtxBase):
-    def get_src_pkt(self):
-        return self.std_pkt()
-
-    def get_exp_pkt_raw(self):
-        return None
-
+class XDPfailShort(XDPtxFailBase):
     def get_prog_name(self):
         return 'adjust_head_fail_short.o'
 
-class XDPfailMaybeLong(XDPtxBase):
+class XDPfailMaybeLong(XDPtxFailBase):
     def get_bar_rx_offset(self):
         return self.dut.nfd_reg_read_le32(self.dut_ifn[0], NfpNfdCtrl.RX_OFFSET)
 
@@ -331,22 +332,10 @@ class XDPfailMaybeLong(XDPtxBase):
             raise NtiSkip("This test doesn't work with dynamic headroom")
         XDPtxBase.execute(self)
 
-    def get_src_pkt(self):
-        return self.std_pkt()
-
-    def get_exp_pkt_raw(self):
-        return None
-
     def get_prog_name(self):
         return 'adjust_head_mfail_long.o'
 
-class XDPfailLong(XDPtxBase):
-    def get_src_pkt(self):
-        return self.std_pkt()
-
-    def get_exp_pkt_raw(self):
-        return None
-
+class XDPfailLong(XDPtxFailBase):
     def get_prog_name(self):
         return 'adjust_head_fail_long.o'
 
