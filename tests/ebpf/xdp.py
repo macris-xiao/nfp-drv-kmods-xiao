@@ -323,6 +323,10 @@ class XDPfailShort(XDPtxFailBase):
     def get_prog_name(self):
         return 'adjust_head_fail_short.o'
 
+class XDPfailTwiceShort(XDPtxFailBase):
+    def get_prog_name(self):
+        return 'adjust_head_fail_twice_short.o'
+
 class XDPfailMaybeLong(XDPtxFailBase):
     def get_bar_rx_offset(self):
         return self.dut.nfd_reg_read_le32(self.dut_ifn[0], NfpNfdCtrl.RX_OFFSET)
@@ -338,6 +342,85 @@ class XDPfailMaybeLong(XDPtxFailBase):
 class XDPfailLong(XDPtxFailBase):
     def get_prog_name(self):
         return 'adjust_head_fail_long.o'
+
+class XDPfailTwiceLong(XDPtxFailBase):
+    def get_prog_name(self):
+        return 'adjust_head_fail_twice_long.o'
+
+class XDPfailTwice65k(XDPtxFailBase):
+    def get_prog_name(self):
+        return 'adjust_head_fail_twice_65k.o'
+
+class XDPfailOffloadFar(XDPpassBase):
+    def get_src_pkt(self):
+        return self.std_pkt(size=(self.group.mtu_x[0] + 14 - 256))
+
+    def get_exp_pkt_raw(self):
+        pkt = self.get_src_pkt()
+        return pkt[:14] + pkt[127:]
+
+    def get_prog_name(self):
+        return 'adjust_head_fail_offload_far.o'
+
+class XDPfailOffloadClose(XDPpassBase):
+    def get_src_pkt(self):
+        return self.std_pkt(size=(self.group.mtu_x[0] + 14 - 256))
+
+    def get_exp_pkt_raw(self):
+        pkt = self.get_src_pkt()
+        return pkt[:14] + '\x00' * 80 + pkt
+
+    def get_prog_name(self):
+        return 'adjust_head_fail_offload_close.o'
+
+class XDPpassOffloadFar(XDPpassBase):
+    def get_src_pkt(self):
+        return self.std_pkt(size=(self.group.mtu_x[0] + 14 - 256))
+
+    def get_exp_pkt_raw(self):
+        pkt = self.get_src_pkt()
+        return pkt[:14] + pkt[60:]
+
+    def get_prog_name(self):
+        return 'adjust_head_pass_offload_far.o'
+
+class XDPpassOffloadClose(XDPpassBase):
+    def get_src_pkt(self):
+        if self.group.xdp_mode() == "offload" and \
+           self.dut.bpf_caps["adjust_head"]["guaranteed_sub"] < 84:
+            raise NtiSkip("datapath changed, test expects 84 guaranteed_sub, we have" %
+                          (self.dut.bpf_caps["adjust_head"]["guaranteed_sub"]))
+
+        return self.std_pkt(size=(self.group.mtu_x[0] + 14 - 256))
+
+    def get_exp_pkt_raw(self):
+        pkt = self.get_src_pkt()
+        return pkt[:14] + '\x00' * 70 + pkt
+
+    def get_prog_name(self):
+        return 'adjust_head_pass_offload_close.o'
+
+class XDPpassOffloadFar2(XDPpassBase):
+    def get_src_pkt(self):
+        return self.std_pkt(size=(self.group.mtu_x[0] + 14 - 256))
+
+    def get_exp_pkt_raw(self):
+        pkt = self.get_src_pkt()
+        return pkt[:14] + pkt[126:]
+
+    def get_prog_name(self):
+        return 'adjust_head_pass_offload_far2.o'
+
+class XDPpassOffloadClose2(XDPpassBase):
+    def get_src_pkt(self):
+        return self.std_pkt(size=(self.group.mtu_x[0] + 14 - 256))
+
+    def get_exp_pkt_raw(self):
+        pkt = self.get_src_pkt()
+        return pkt[:14] + '\x00' * 78 + pkt
+
+    def get_prog_name(self):
+        return 'adjust_head_pass_offload_close2.o'
 
 class XDPfailOversized(XDPtxBase):
     def get_src_pkt(self):
