@@ -156,6 +156,7 @@ class NFPKmodBPF(NFPKmodGrp):
                ('xdp_mov64', XDPpassAll,
                 'test optimization of repetitive mov64'),
                ('xdp_neg', XDPneg, 'BPF_NEG (ALU and ALU64)'),
+               ('xdp_jump_at_last', XDPjumpAtLast, 'The last instruction is jump'),
         )
 
         for t in XDP:

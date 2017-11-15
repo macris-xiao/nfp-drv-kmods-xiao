@@ -357,6 +357,10 @@ class XDPneg(XDPtxBase):
     def get_prog_name(self):
         return 'neg.o'
 
+class XDPjumpAtLast(XDPtx):
+    def get_prog_name(self):
+        return 'jump_at_last.o'
+
 ###############################################################################
 # packet mod + PASS
 ###############################################################################
