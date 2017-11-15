@@ -184,6 +184,8 @@ class NFPKmodBPF(NFPKmodGrp):
              ('tc_offload_disabled', eBPFtc_off,
               'Check if loading fails if ethtool disabled TC offloads'),
              ('tc_two_prog', eBPFtwo_prog, 'Check 2 progs fail'),
+             ('bpf_ld_mask_combine', eBPFld_mask_combine,
+              'eBPF ld/mask insn pair combination'),
         )
 
         for t in T:
@@ -589,3 +591,9 @@ class eBPFdpaRD(eBPFdataTest):
 
     def get_prog_name(self):
         return 'dpa_read.o'
+
+# Instruction combine tests are reusing eBPFdrop test infrastructure.
+class eBPFld_mask_combine(eBPFdrop):
+    def __init__(self, src, dut, group=None, name="", summary=None):
+        eBPFtest.__init__(self, src, dut, obj_name="ld_mask_combine.o",
+                          group=group, name=name, summary=summary)
