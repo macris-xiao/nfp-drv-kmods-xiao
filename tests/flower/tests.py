@@ -586,6 +586,7 @@ class FlowerMatchTOS(FlowerBase):
 class FlowerMatchWhitelist(FlowerBase):
     def netdev_execute(self):
         iface, _ = self.configure_flower()
+        M = self.dut
 
         # Check that ARP tip match is installed in software only (not_in_hw)
         match = 'arp flower arp_tip 40.42.44.46'
@@ -652,6 +653,18 @@ class FlowerMatchWhitelist(FlowerBase):
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action, False)
         self.cleanup_filter(iface)
+
+        # Check match offloaded to non repr is rejected even with repr  egress dev
+        M.cmd('ip link add dummy1 type dummy')
+        M.cmd('ifconfig dummy1 up')
+
+        self.add_egress_qdisc('dummy1')
+        match = 'ip flower dst_mac 02:12:23:34:45:56'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter('dummy1', match, action, False)
+        self.cleanup_filter('dummy1')
+        M.cmd('ip link del dummy1')
+        M.cmd('rmmod dummy')
 
 class FlowerVxlanWhitelist(FlowerBase):
     def netdev_execute(self):
