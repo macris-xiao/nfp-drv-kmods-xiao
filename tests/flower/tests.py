@@ -694,17 +694,11 @@ class FlowerActionVXLAN(FlowerBase):
         _, src_mac = A.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.src_ifn[0])
         _, dut_mac = M.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.dut_ifn[0])
 
-        ret,_ = M.cmd('ip link add vxlan0 type vxlan id 123 dev %s dstport 4789' % self.dut_ifn[0])
-        if ret:
-            raise NtiError('failed to add vxlan netdev on %s.' % self.dut_ifn[0])
+        # the destination port is defined by the tc rule - confirmed in both skip_sw and skip_hw
+        M.cmd('ip link add name vxlan0 type vxlan dstport 0 external')
+        M.cmd('ifconfig vxlan0 up')
 
-        ret,_ = M.cmd('ifconfig vxlan0 up')
-        if ret:
-            raise NtiError('failed to up vxlan netdev on %s.' % self.dut_ifn[0])
-
-        ret,_ = M.cmd('arp -i %s -s %s %s' % (self.dut_ifn[0], src_ip, src_mac))
-        if ret:
-            raise NtiError('failed to insert arp entry on  %s.' % self.dut_ifn[0])
+        M.cmd('arp -i %s -s %s %s' % (self.dut_ifn[0], src_ip, src_mac))
 
         # Hit test - match all tcp packets and encap in vxlan
         match = 'ip flower skip_sw ip_proto tcp'
@@ -747,7 +741,7 @@ class FlowerActionVXLAN(FlowerBase):
 
         self.cleanup_filter(iface)
 
-        ret,_ = M.cmd('ip link delete vxlan0')
+        M.cmd('ip link delete vxlan0')
 
 class FlowerActionSetEth(FlowerBase):
     def netdev_execute(self):
