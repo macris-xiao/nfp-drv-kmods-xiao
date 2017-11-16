@@ -122,9 +122,9 @@ class FlowerBase(CommonNetdevTest):
         cmd_log('scp -q %s %s:%s' % (pcap_local, A.rem, pcap_src))
         A.cmd("tcpreplay --intf1=%s --pps=100 --loop=%s -K %s " % (ingress, send_cnt, pcap_src))
 
-        exp_bytes = (len(pkt) + len(Ether()))*exp_cnt
+        exp_bytes = (len(pkt) + len(Ether()) + pkt_len_diff) * exp_cnt
         lo_exp_cnt = exp_cnt - 10
-        lo_exp_exp_bytes = (len(pkt) + len(Ether()))*(exp_cnt - 10)
+        lo_exp_exp_bytes = (len(pkt) + len(Ether()) + pkt_len_diff) * (exp_cnt - 10)
         stats = M.netifs[interface].stats(get_tc_ing=True)
         if int(stats.tc_ing['tc_49152_pkts']) < lo_exp_cnt or int(stats.tc_ing['tc_49152_pkts']) > exp_cnt:
             raise NtiError('Counter missmatch. Expected: %s, Got: %s' % (exp_cnt, stats.tc_ing['tc_49152_pkts']))
