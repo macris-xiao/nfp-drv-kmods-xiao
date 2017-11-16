@@ -690,6 +690,12 @@ class FlowerVxlanWhitelist(FlowerBase):
         self.install_filter('vxlan0', match, action, False)
         self.cleanup_filter('vxlan0')
 
+        # Check that a vxlan tunnel match rule cannot be offloaded to a repr netdev
+        match = 'ip flower enc_src_ip %s enc_dst_ip %s enc_dst_port 4789 enc_key_id 123' % (src_ip, dut_ip)
+        action = 'mirred egress redirect dev vxlan0'
+        self.install_filter(iface, match, action, False)
+        self.cleanup_filter(iface)
+
         # Check that multiple vxlan tunnel output is installed in software only (not_in_hw)
         M.cmd('ip link add vxlan1 type vxlan id 0 dstport 4790')
         M.cmd('ifconfig vxlan1 up')
