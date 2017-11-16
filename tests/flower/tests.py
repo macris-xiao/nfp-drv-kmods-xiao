@@ -95,6 +95,12 @@ class FlowerBase(CommonNetdevTest):
         M.refresh()
         return iface, ingress
 
+    def add_egress_qdisc(self, iface):
+        M = self.dut
+        M.cmd('tc qdisc del dev %s handle ffff: ingress' % iface, fail=False)
+        M.cmd('tc qdisc add dev %s handle ffff: ingress' % iface)
+        M.refresh()
+
     def install_filter(self, iface, match, action, in_hw=True):
         M = self.dut
         M.cmd('tc filter add dev %s parent ffff: protocol %s action %s' % (iface, match, action))
@@ -386,10 +392,15 @@ class FlowerMatchVXLAN(FlowerBase):
         _, src_mac = A.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.src_ifn[0])
         _, dut_mac = M.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.dut_ifn[0])
 
+        M.cmd('ip link add vxlan0 type vxlan dstport 4789 dev %s external' % self.dut_ifn[0])
+        M.cmd('ifconfig vxlan0 up')
+
+        self.add_egress_qdisc('vxlan0')
+
         # Hit test - match all vxlan fields and decap
         match = 'ip flower enc_src_ip %s enc_dst_ip %s enc_dst_port 4789 enc_key_id 123' % (src_ip, dut_ip)
         action = 'mirred egress redirect dev %s' % iface
-        self.install_filter(iface, match, action)
+        self.install_filter('vxlan0', match, action)
         pkt_cnt = 100
         exp_pkt_cnt = 100
 
@@ -399,45 +410,46 @@ class FlowerMatchVXLAN(FlowerBase):
         vxlan_header += str(enc_pkt)
         pkt = Ether(src=src_mac,dst=dut_mac)/IP(src=src_ip, dst=dut_ip)/UDP(sport=44534, dport=4789)/vxlan_header
         pkt_diff = len(Ether()) + len(IP()) + len(UDP()) + 8
-        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt, -pkt_diff)
+        self.test_filter('vxlan0', ingress, pkt, pkt_cnt, exp_pkt_cnt, -pkt_diff)
 
-        self.cleanup_filter(iface)
+        self.cleanup_filter('vxlan0')
 
         # Miss test - incorrect enc ip src
         match = 'ip flower enc_src_ip 1.1.1.1 enc_dst_ip %s enc_dst_port 4789 enc_key_id 123' % (dut_ip)
         action = 'mirred egress redirect dev %s' % iface
-        self.install_filter(iface, match, action)
+        self.install_filter('vxlan0', match, action)
 
         pkt_cnt = 100
         exp_pkt_cnt = 0
 
-        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+        self.test_filter('vxlan0', ingress, pkt, pkt_cnt, exp_pkt_cnt)
 
-        self.cleanup_filter(iface)
+        self.cleanup_filter('vxlan0')
 
         # Miss test - incorrect enc ip dst
         match = 'ip flower enc_src_ip %s enc_dst_ip 1.1.1.1 enc_dst_port 4789 enc_key_id 123' % (src_ip)
         action = 'mirred egress redirect dev %s' % iface
-        self.install_filter(iface, match, action)
+        self.install_filter('vxlan0', match, action)
 
         pkt_cnt = 100
         exp_pkt_cnt = 0
 
-        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+        self.test_filter('vxlan0', ingress, pkt, pkt_cnt, exp_pkt_cnt)
 
-        self.cleanup_filter(iface)
+        self.cleanup_filter('vxlan0')
 
         # Miss test - incorrect VNI
         match = 'ip flower enc_src_ip %s enc_dst_ip %s enc_dst_port 4789 enc_key_id 124' % (src_ip, dut_ip)
         action = 'mirred egress redirect dev %s' % iface
-        self.install_filter(iface, match, action)
+        self.install_filter('vxlan0', match, action)
 
         pkt_cnt = 100
         exp_pkt_cnt = 0
 
-        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+        self.test_filter('vxlan0', ingress, pkt, pkt_cnt, exp_pkt_cnt)
 
-        self.cleanup_filter(iface)
+        self.cleanup_filter('vxlan0')
+        M.cmd('ip link del vxlan0')
 
 class FlowerMatchMPLS(FlowerBase):
     def netdev_execute(self):
