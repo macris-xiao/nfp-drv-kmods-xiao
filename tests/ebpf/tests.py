@@ -35,7 +35,7 @@ class NFPKmodBPF(NFPKmodGrp):
         return "offload"
 
     def tc_mode(self):
-        return "dev " + self.eth_x[0] + " skip_sw"
+        return "skip_sw"
 
     def populate_tests(self):
         dut = (self.dut, self.addr_x, self.eth_x, self.addr_v6_x)
@@ -211,14 +211,13 @@ class NFPKmodBPF(NFPKmodGrp):
                                        summary='Direct act test with %s' % \
                                        (t[1]))
 
-        TF = (('tc_da_and_act', 'da_2_drop.o', 'da', 'action drop', None),
-              ('tc_legacy_act', 'da_2_drop.o', '', 'action drop', None),
-              ('tc_da_not_for_dev', 'da_2_drop.o', 'da', '', 'skip_sw'),
+        TF = (('tc_da_and_act', 'da_2_drop.o', 'da', 'action drop'),
+              ('tc_legacy_act', 'da_2_drop.o', '', 'action drop'),
         )
 
         for t in TF:
             self._tests[t[0]] = eBPFtest(src, dut, obj_name=t[1], tc_flags=t[2],
-                                         act=t[3], mode=t[4], should_fail=True,
+                                         act=t[3], should_fail=True,
                                          group=self, name=t[0],
                                          summary='Fail with %s %s' % \
                                          (t[1], t[2]))
@@ -501,8 +500,7 @@ class eBPFflags(eBPFtest):
                          (self.dut_ifn[0]))
 
             flag=opts[0]
-            ret = self.tc_bpf_load(obj=self.obj_name, flags=flag, da=True,
-                                   port=opts[1])
+            ret = self.tc_bpf_load(obj=self.obj_name, flags=flag, da=True)
             if ret:
                 return NrtResult(name=self.name,
                                  testtype=self.__class__.__name__,
@@ -525,7 +523,7 @@ class eBPFtc_off(eBPFtest):
     def execute(self):
         self.dut.cmd('ethtool -K %s hw-tc-offload off' % (self.dut_ifn[0]))
 
-        ret = self.tc_bpf_load(obj=self.obj_name, skip_sw=True, da=True, port=0)
+        ret = self.tc_bpf_load(obj=self.obj_name, skip_sw=True, da=True)
         if ret == 0:
             raise NtiGeneralError("loaded hw-only filter with tc offloads disabled")
 
@@ -535,7 +533,7 @@ class eBPFtwo_prog(eBPFtest):
                           group=group, name=name, summary=summary)
 
     def execute(self):
-        ret = self.tc_bpf_load(obj=self.obj_name, skip_sw=True, da=True, port=0)
+        ret = self.tc_bpf_load(obj=self.obj_name, skip_sw=True, da=True)
         if ret == 0:
             raise NtiGeneralError("loaded more than one filter")
 
@@ -546,7 +544,7 @@ class eBPFmtu(eBPFtest):
 
     def execute(self):
         self.dut.cmd('ifconfig %s mtu 3000' % (self.dut_ifn[0]))
-        ret = self.tc_bpf_load(obj=self.obj_name, skip_sw=True, da=True, port=0)
+        ret = self.tc_bpf_load(obj=self.obj_name, skip_sw=True, da=True)
         self.dut.cmd('ifconfig %s mtu 1500' % (self.dut_ifn[0]))
 
         if ret == 0:
