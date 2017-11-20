@@ -681,18 +681,6 @@ netif_trans_update(struct net_device *netdev)
 }
 #endif
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 7, 0)
-static inline int
-debugfs_use_file_start(const void *a, const void *b)
-{
-	return 0;
-}
-
-static inline void debugfs_use_file_finish(int a)
-{
-}
-#endif
-
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 8, 0)
 enum devlink_eswitch_mode {
 	DEVLINK_ESWITCH_MODE_LEGACY,

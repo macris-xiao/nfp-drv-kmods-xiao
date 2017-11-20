@@ -30,11 +30,13 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+
+#include "nfp_net_compat.h"
+
 #include <linux/debugfs.h>
 #include <linux/firmware.h>
 #include <linux/module.h>
 
-#include "nfpcore/kcompat.h"
 #include "nfpcore/nfp.h"
 #include "nfpcore/nfp_nffw.h"
 #include "nfpcore/nfp_nsp.h"
@@ -132,6 +134,26 @@ struct nth nth = {
 	}								\
 	NTH_DECLARE_HANDLER(__name);
 
+static int nth_dfs_file_get(struct dentry *dentry, int *srcu_idx)
+{
+#if LINUX_RELEASE_4_15
+	return debugfs_file_get(dentry);
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0)
+	return debugfs_use_file_start(dentry, srcu_idx);
+#else
+	return 0;
+#endif
+}
+
+static void nth_dfs_file_put(struct dentry *dentry, int srcu_idx)
+{
+#if LINUX_RELEASE_4_15
+	debugfs_file_put(dentry);
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0)
+	debugfs_use_file_finish(srcu_idx);
+#endif
+}
+
 static int nth_serial_read(struct seq_file *file, void *data)
 {
 	struct nfp_cpp *cpp;
@@ -225,11 +247,11 @@ static ssize_t nth_read_blob(struct file *file, char __user *user_buf,
 	int srcu_idx;
 	ssize_t ret;
 
-	ret = debugfs_use_file_start(file->f_path.dentry, &srcu_idx);
+	ret = nth_dfs_file_get(file->f_path.dentry, &srcu_idx);
 	if (likely(!ret))
 		ret = simple_read_from_buffer(user_buf, count, ppos,
 					      blob->data, blob->size);
-	debugfs_use_file_finish(srcu_idx);
+	nth_dfs_file_put(file->f_path.dentry, srcu_idx);
 
 	return ret;
 }
@@ -245,11 +267,11 @@ static ssize_t nth_write_hwinfo(struct file *file, const char __user *user_buf,
 	int srcu_idx;
 	ssize_t ret;
 
-	ret = debugfs_use_file_start(file->f_path.dentry, &srcu_idx);
+	ret = nth_dfs_file_get(file->f_path.dentry, &srcu_idx);
 	if (likely(!ret))
 		ret = simple_write_to_buffer(blob->data, blob->size - 1,
 					     ppos, user_buf, count);
-	debugfs_use_file_finish(srcu_idx);
+	nth_dfs_file_put(file->f_path.dentry, srcu_idx);
 	if (ret < 0)
 		return ret;
 	data[ret] = 0;
@@ -295,11 +317,11 @@ static ssize_t nth_write_rtsym(struct file *file, const char __user *user_buf,
 	int srcu_idx;
 	ssize_t ret;
 
-	ret = debugfs_use_file_start(file->f_path.dentry, &srcu_idx);
+	ret = nth_dfs_file_get(file->f_path.dentry, &srcu_idx);
 	if (likely(!ret))
 		ret = simple_write_to_buffer(blob->data, blob->size - 1,
 					     ppos, user_buf, count);
-	debugfs_use_file_finish(srcu_idx);
+	nth_dfs_file_put(file->f_path.dentry, srcu_idx);
 	if (ret < 0)
 		return ret;
 	data[ret] = 0;
@@ -346,11 +368,11 @@ static ssize_t nth_write_fw_load(struct file *file, const char __user *user_buf,
 	ssize_t copied, ret;
 	int srcu_idx;
 
-	ret = debugfs_use_file_start(file->f_path.dentry, &srcu_idx);
+	ret = nth_dfs_file_get(file->f_path.dentry, &srcu_idx);
 	if (likely(!ret))
 		ret = simple_write_to_buffer(blob->data, blob->size - 1,
 					     ppos, user_buf, count);
-	debugfs_use_file_finish(srcu_idx);
+	nth_dfs_file_put(file->f_path.dentry, srcu_idx);
 	if (ret < 0)
 		return ret;
 	data[ret] = 0;
@@ -432,11 +454,11 @@ nth_resource_write(struct file *file, const char __user *user_buf,
 	int srcu_idx;
 	long i;
 
-	ret = debugfs_use_file_start(file->f_path.dentry, &srcu_idx);
+	ret = nth_dfs_file_get(file->f_path.dentry, &srcu_idx);
 	if (likely(!ret))
 		ret = simple_write_to_buffer(name, sizeof(name) - 1,
 					     ppos, user_buf, count);
-	debugfs_use_file_finish(srcu_idx);
+	nth_dfs_file_put(file->f_path.dentry, srcu_idx);
 	if (ret < 0)
 		return ret;
 	copied = ret;
@@ -576,11 +598,11 @@ nth_write_eth_enable(struct file *file, const char __user *user_buf,
 	int err, srcu_idx;
 	ssize_t ret;
 
-	ret = debugfs_use_file_start(file->f_path.dentry, &srcu_idx);
+	ret = nth_dfs_file_get(file->f_path.dentry, &srcu_idx);
 	if (likely(!ret))
 		ret = simple_write_to_buffer(blob->data, blob->size - 1,
 					     ppos, user_buf, count);
-	debugfs_use_file_finish(srcu_idx);
+	nth_dfs_file_put(file->f_path.dentry, srcu_idx);
 	if (ret < 0)
 		return ret;
 	data[ret] = 0;
@@ -620,11 +642,11 @@ nth_write_eth_aneg(struct file *file, const char __user *user_buf,
 	int err, srcu_idx;
 	ssize_t ret;
 
-	ret = debugfs_use_file_start(file->f_path.dentry, &srcu_idx);
+	ret = nth_dfs_file_get(file->f_path.dentry, &srcu_idx);
 	if (likely(!ret))
 		ret = simple_write_to_buffer(blob->data, blob->size - 1,
 					     ppos, user_buf, count);
-	debugfs_use_file_finish(srcu_idx);
+	nth_dfs_file_put(file->f_path.dentry, srcu_idx);
 	if (ret < 0)
 		return ret;
 	data[ret] = 0;
@@ -671,11 +693,11 @@ nth_write_eth_speed(struct file *file, const char __user *user_buf,
 	int err, srcu_idx;
 	ssize_t ret;
 
-	ret = debugfs_use_file_start(file->f_path.dentry, &srcu_idx);
+	ret = nth_dfs_file_get(file->f_path.dentry, &srcu_idx);
 	if (likely(!ret))
 		ret = simple_write_to_buffer(blob->data, blob->size - 1,
 					     ppos, user_buf, count);
-	debugfs_use_file_finish(srcu_idx);
+	nth_dfs_file_put(file->f_path.dentry, srcu_idx);
 	if (ret < 0)
 		return ret;
 	data[ret] = 0;
@@ -722,11 +744,11 @@ nth_write_eth_lanes(struct file *file, const char __user *user_buf,
 	int err, srcu_idx;
 	ssize_t ret;
 
-	ret = debugfs_use_file_start(file->f_path.dentry, &srcu_idx);
+	ret = nth_dfs_file_get(file->f_path.dentry, &srcu_idx);
 	if (likely(!ret))
 		ret = simple_write_to_buffer(blob->data, blob->size - 1,
 					     ppos, user_buf, count);
-	debugfs_use_file_finish(srcu_idx);
+	nth_dfs_file_put(file->f_path.dentry, srcu_idx);
 	if (ret < 0)
 		return ret;
 	data[ret] = 0;
