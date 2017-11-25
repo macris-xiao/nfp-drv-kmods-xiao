@@ -375,7 +375,7 @@ class DrvSystem(System):
             raise NtiGeneralError('DebugFS write fail mismatch for file %s' \
                                   ' (did:%s, wanted:%s)' % \
                                   (path, failed, do_fail))
-        return failed != do_fail
+        return ret
 
     def get_hwinfo(self, what, params=''):
         _, data = self.cmd_hwinfo(params + ' ' + what)

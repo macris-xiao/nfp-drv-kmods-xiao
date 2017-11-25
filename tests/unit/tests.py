@@ -190,13 +190,12 @@ class ResourceTest(CommonNTHTest):
         for i in range(0, len(resources)):
             name = resources[i][0]
 
-            mismatch = M.dfs_write('nth/resource', name, timeout=5,
-                                   do_fail=None)
+            ret = M.dfs_write('nth/resource', name, timeout=5, do_fail=None)
 
             rescs = M.dfs_read_raw('nth/resource')
             _, out = M.cmd_res('-L')
 
-            if mismatch and re.search("%s.*LOCKED arm" % name, out):
+            if ret and re.search("%s.*LOCKED arm" % name, out):
                 self.log("ARM locked %s" % (name),
                          "Skip resource %s, locked by the ARM" % (name))
                 continue
