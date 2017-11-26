@@ -8,6 +8,7 @@ Base for all driver test groups.
 import collections
 import os
 import re
+import tempfile
 
 import netro.testinfra
 from netro.testinfra import LOG_sec, LOG_endsec
@@ -224,7 +225,17 @@ class NFPKmodGrp(netro.testinfra.Group):
                 raise NtiGeneralError("Couldn't find device is SN: %s" %
                                       self.serial)
 
-        self.tmpdir = self.host_a.make_temp_dir()
+        self.tmpdir = tempfile.mkdtemp()
+
+        if hasattr(self.host_a, 'tmpdir'):
+            raise NtiGeneralError('SRC already has tmp dir')
+        self.host_a.tmpdir = self.host_a.make_temp_dir()
+
+        LOG_sec("TMP directories:")
+        LOG("Local:\t %s" % (self.tmpdir))
+        LOG("HostA:\t %s" % (self.host_a.tmpdir))
+        LOG("DUT:\t %s" % (self.dut.tmpdir))
+        LOG_endsec()
 
         self.dut.reset_mods()
         return
@@ -233,11 +244,15 @@ class NFPKmodGrp(netro.testinfra.Group):
         """ Clean up the systems for tests from this group
         called from the groups run() method.
         """
+        LOG_sec("RM TMP directories")
         client_list = [self.dut, self.host_a]
         for client in client_list:
             kill_bg_process(client.host, "TCPKeepAlive")
             if hasattr(client, 'tmpdir') and not self.noclean:
                 client.rm_dir(client.tmpdir)
+        if hasattr(self, 'tmpdir') and not self.noclean:
+            cmd_log("rm -rf %s" % (self.tmpdir))
+        LOG_endsec()
 
         if self.dut:
             self.dut.cmd('rm -rf /lib/firmware/netronome')

@@ -298,11 +298,6 @@ class NFPKmodBPF(NFPKmodGrp):
 
         M.copy_bpf_samples()
 
-        # SRC needs a tmp dir too
-        if hasattr(self.host_a, 'tmpdir'):
-            raise NtiGeneralError('SRC already has tmp dir')
-        self.host_a.tmpdir = self.host_a.make_temp_dir()
-
         for i in range(0, len(self.eth_x)):
             self.dut.link_wait(self.eth_x[i])
         return
@@ -310,8 +305,6 @@ class NFPKmodBPF(NFPKmodGrp):
     def _fini(self):
         self.dut.cmd('rm -rf /lib/firmware/netronome')
         self.dut.reset_mods()
-
-        self.host_a.cmd('rm -rf %s' % self.host_a.tmpdir)
 
         NFPKmodGrp._fini(self)
         return
