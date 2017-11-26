@@ -438,7 +438,6 @@ class RTSymTest(CommonTest):
                 if self.loaded:
                     M.nffw_unload()
                 M.nffw_load('%s.nffw' % (os.path.join(fwdir, tu[0])))
-                M.dfs_read('nth/cache_flush')
 
             self.loaded = bool(tu[0])
 
