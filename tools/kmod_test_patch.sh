@@ -114,6 +114,8 @@ function local_notify() {
 call_dir=`pwd`
 IGNORE_CP=0
 IGNORE_XT=0
+NET_HEAD="origin/master"
+NET_NEXT_HEAD="origin/master"
 
 #
 # Utility functions
@@ -187,6 +189,8 @@ function usage() {
     echo -e "\t-l <n>  set number of incumbent new line warnings to <n> for this run"
     echo -e "\t        NOTE: setting inclumbent errors from command line disables"
     echo -e "\t              automatic refresh of all values for each patch"
+    echo -e "\t-n	net commit to build against (default origin/master)"
+    echo -e "\t-N	net-next commit to build against (default origin/master)"
     echo
     echo -e "\t-h      print help"
 
@@ -222,6 +226,8 @@ while [ $prev_p_cnt != $# ]; do
     [ "$1" == "-s" ] && shift && INCUMBENT_SPARSE_WARNINGS=$1  _I=1 && shift
     [ "$1" == "-d" ] && shift && INCUMBENT_KDOC_WARNINGS=$1    _I=1 && shift
     [ "$1" == "-l" ] && shift && INCUMBENT_NEWLINE_WARNINGS=$1 _I=1 && shift
+    [ "$1" == "-n" ] && shift && NET_HEAD=$1		&& shift
+    [ "$1" == "-N" ] && shift && NET_NEXT_HEAD=$1	&& shift
 done
 
 # Do basic checks
@@ -288,7 +294,7 @@ done
 	    build_kernel ../linux-$v/
 	done
 
-	git checkout origin/master
+	git checkout $NET_NEXT_HEAD
 	build_kernel . ../net-next
 
 	#
@@ -305,7 +311,7 @@ done
 	#
 	cd ../net.git/
 	git fetch --all
-	git checkout origin/master
+	git checkout $NET_HEAD
 
 	build_kernel . ../net
 
