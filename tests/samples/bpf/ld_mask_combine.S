@@ -1,5 +1,8 @@
 # test nfp_bpf_opt_ld_mask pass
 
+#include <linux/pkt_cls.h>
+#define DROP	TC_ACT_SHOT
+
 	.text
 	.section	classifier,"ax",@progbits
 	.globl	cls_entry
@@ -50,7 +53,6 @@ L4:
 	/* CHECK-CODEGEN-TIMES-1: .*alu\[.*, AND, 0xff\].* */
 	r0 &= 0xff
 
-	/* CHECK-CODEGEN: .*immed\[gprA_0, 0xffffffff\].* */
-	r0 = 4294967295 ll
+	r0 = DROP ll
 L0:
 	exit
