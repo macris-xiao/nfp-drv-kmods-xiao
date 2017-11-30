@@ -381,6 +381,9 @@ done
 	    # This hacky hack says - if skip_check_cnt is not 0 - skip
 	    ((skip_check_cnt)) && continue
 
+	    # Skip the patch if it doesn't modify the src directory
+	    [ -z "$(git show -- src/)" ] && continue
+
 	    # Re-read the incumbent error counts - they can change from
 	    # patch to patch
 	    [ -z "$_I" ] && source tools/kmod_test_patch_inc.sh
