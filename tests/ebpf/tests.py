@@ -621,7 +621,7 @@ class eBPFld_mask_combine(eBPFdrop):
         eBPFtest.__init__(self, src, dut, obj_name="ld_mask_combine.o",
                           group=group, name=name, summary=summary)
 
-class eBPFld_shift_combine(eBPFtest):
+class eBPFld_shift_combine(eBPFdrop):
     def __init__(self, src, dut, group=None, name="", summary=None):
         eBPFtest.__init__(self, src, dut, obj_name="ld_shift_combine.o",
                           group=group, name=name, summary=summary)

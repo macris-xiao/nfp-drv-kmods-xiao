@@ -1,5 +1,8 @@
 # test nfp_bpf_opt_ld_shift pass
 
+#include <linux/pkt_cls.h>
+#define DROP	TC_ACT_SHOT
+
 	.text
 	.section	classifier,"ax",@progbits
 	.globl	cls_entry
@@ -66,7 +69,6 @@ L5:
 L6:
 	r0 >>= 32
 
-	/* CHECK-CODEGEN: .*immed\[gprA_0, 0xffffffff\].* */
-	r0 = 4294967295 ll
+	r0 = DROP ll
 L0:
 	exit
