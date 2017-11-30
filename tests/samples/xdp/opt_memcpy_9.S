@@ -1,7 +1,7 @@
-# Test memory copy on:
-#
-#   valid sequence with different base registers.
-#   valid sequence with negative offsets.
+// Test memory copy on:
+//
+//   valid sequence with different base registers.
+//   valid sequence with negative offsets.
 
 	.include "opt_memcpy_common.x"
 	.text
@@ -10,7 +10,7 @@
 xdp_prog1:
 	PREPARE_PACKET_HEADER
 
-	# sequence descending order (41-bytes)
+	// sequence descending order (41-bytes)
 	/* CHECK-CODEGEN: .*mem\[read32_swap,.*0x4c,.*\], ctx_swap */
 	/* CHECK-CODEGEN: .*mem\[write8_swap,.*0x4d,.*\], ctx_swap */
 	r4 = r1
@@ -58,6 +58,6 @@ xdp_prog1:
 	r2 = *(u8 *)(r1 - 75 + 14 + 5)
 	*(u8 *)(r1 - 75 + 14 + 2) = r2
 
-	# r1 will be used by footer, restore the original value.
+	// r1 will be used by footer, restore the original value.
 	r1 -= 75
 	PREPARE_PACKET_FOOTER

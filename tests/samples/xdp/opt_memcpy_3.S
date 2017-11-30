@@ -1,7 +1,7 @@
-# Test memory copy on:
-#
-#   copy length <= 8.
-#   copy elem width is byte.
+// Test memory copy on:
+//
+//   copy length <= 8.
+//   copy elem width is byte.
 
 	.include "opt_memcpy_common.x"
 	.text
@@ -10,7 +10,7 @@
 xdp_prog1:
 	PREPARE_PACKET_HEADER
 
-	# sequence ascending order (8-bytes)
+	// sequence ascending order (8-bytes)
 	/* CHECK-CODEGEN: .*mem\[read32_swap,.*0x48,.*\], ctx_swap */
 	/* CHECK-CODEGEN: .*alu\[\$xfer_1, \-\-, B, \$xfer_1\] */
 	/* CHECK-CODEGEN-NOT: .*alu\[\$xfer_2, \-\-, B, \$xfer_2\] */

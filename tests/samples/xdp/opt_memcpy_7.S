@@ -1,7 +1,7 @@
-# Test memory copy on:
-#
-#   jump to load in the middle of a sequence.
-#   jump to store in the middle of a sequence.
+// Test memory copy on:
+//
+//   jump to load in the middle of a sequence.
+//   jump to store in the middle of a sequence.
 
 	.include "opt_memcpy_common.x"
 	.text
@@ -11,9 +11,9 @@ xdp_prog1:
 	PREPARE_PACKET_HEADER
 
 
-	# jump to load
+	// jump to load
 	if r2 > r1 goto LTEST_1
-	# jump to store
+	// jump to store
 	if r2 > r3 goto LTEST_2
 
 	/* CHECK-CODEGEN-NOT: .*immed\[\-\-, 0x880\] */

@@ -1,40 +1,40 @@
-# Test memory copy on:
-#
-#   copy length > 32 & length <= 48
-#   copy length is not 4-byte aligned.
-#   copy elem width is byte.
-#
-# The test source comes from compile the following C code,
-# but we want to cancel the instruction scheduling on the
-# memcpy instruction sequences so it could trigger the JIT
-# optimization as expected.
-#
-# int xdp_prog1(struct xdp_md *xdp) {
-#	unsigned char *data;
-#	unsigned int t;
-#
-#	data = (void *)(unsigned long)xdp->data;
-#	if (data + 94 > (unsigned char *)(unsigned long)xdp->data_end)
-#		return XDP_ABORTED;
-#
-#	if (*(unsigned short *)(data + 12) != 0x2212)
-#		return XDP_DROP;
-#
-#	t = *(unsigned *)(data + 0);
-#	*(unsigned *)(data + 0) = *(unsigned *)(data + 6);
-#	*(unsigned *)(data + 6) = t;
-#
-#	t = *(unsigned short *)(data + 4);
-#	*(unsigned short *)(data + 4) = *(unsigned short *)(data + 10);
-#	*(unsigned short *)(data + 10) = t;
-#
-#	/* Make ether type invalid */
-#	*(unsigned short *)(data + 12) = 0x3412;
-#
-#	__builtin_memcpy(data + 14, data + 47, 37);
-#
-#	return XDP_TX;
-# }
+// Test memory copy on:
+//
+//   copy length > 32 & length <= 48
+//   copy length is not 4-byte aligned.
+//   copy elem width is byte.
+//
+// The test source comes from compile the following C code,
+// but we want to cancel the instruction scheduling on the
+// memcpy instruction sequences so it could trigger the JIT
+// optimization as expected.
+//
+// int xdp_prog1(struct xdp_md *xdp) {
+//	unsigned char *data;
+//	unsigned int t;
+//
+//	data = (void *)(unsigned long)xdp->data;
+//	if (data + 94 > (unsigned char *)(unsigned long)xdp->data_end)
+//		return XDP_ABORTED;
+//
+//	if (*(unsigned short *)(data + 12) != 0x2212)
+//		return XDP_DROP;
+//
+//	t = *(unsigned *)(data + 0);
+//	*(unsigned *)(data + 0) = *(unsigned *)(data + 6);
+//	*(unsigned *)(data + 6) = t;
+//
+//	t = *(unsigned short *)(data + 4);
+//	*(unsigned short *)(data + 4) = *(unsigned short *)(data + 10);
+//	*(unsigned short *)(data + 10) = t;
+//
+//	/* Make ether type invalid */
+//	*(unsigned short *)(data + 12) = 0x3412;
+//
+//	__builtin_memcpy(data + 14, data + 47, 37);
+//
+//	return XDP_TX;
+// }
 
 	.include "opt_memcpy_common.x"
 	.text
@@ -43,7 +43,7 @@
 xdp_prog1:
 	PREPARE_PACKET_HEADER
 
-	# sequence descending order (37-bytes)
+	// sequence descending order (37-bytes)
 	/* CHECK-CODEGEN-NOT: .*immed\[\-\-, 0x880\] */
 	/* CHECK-CODEGEN: .*immed\[\-\-, 0x980\] */
 	/* CHECK-CODEGEN: .*mem\[read32_swap,.*0x2f,.*\], indirect_ref, ctx_swap */
@@ -127,9 +127,9 @@ xdp_prog1:
 	r2 = *(u8 *)(r1 + 83)
 	*(u8 *)(r1 + 50) = r2
 
-	# r2 is live after the last store instruction in the above sequence,
-	# so the JIT optimization should make sure it contains correct value.
-	# We will check the packet payload to make sure this has happen.
+	// r2 is live after the last store instruction in the above sequence,
+	// so the JIT optimization should make sure it contains correct value.
+	//# We will check the packet payload to make sure this has happen.
 	r2 += 1
 	*(u8 *)(r1 + 14) = r2
 

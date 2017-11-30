@@ -1,9 +1,9 @@
-# Test memory copy on:
-#
-#   copy length <= 32-bytes.
-#   copy length is 4-byte aligned.
-#   multiple sequences, all valid.
-#   copy elem wideth is double-word.
+// Test memory copy on:
+//
+//   copy length <= 32-bytes.
+//   copy length is 4-byte aligned.
+//   multiple sequences, all valid.
+//   copy elem wideth is double-word.
 
 	.include "opt_memcpy_common.x"
 	.text
@@ -12,7 +12,7 @@
 xdp_prog1:
 	PREPARE_PACKET_HEADER
 
-	# double-word copy sequence (24-bytes)
+	// double-word copy sequence (24-bytes)
 	/* CHECK-CODEGEN: .*mem\[read32_swap,.*0x18,.*\], ctx_swap */
 	/* CHECK-CODEGEN-NOT: .*immed\[\-\-, 0x1780\] */
 	/* CHECK-CODEGEN-NOT: .*mem\[write8_swap,.*0x10,.*\], indirect_ref */
@@ -24,7 +24,7 @@ xdp_prog1:
 	r2 = *(u64 *)(r1 + 40)
 	*(u64 *)(r1 + 32) = r2
 
-	# another sequence (16-bytes)
+	// another sequence (16-bytes)
 	/* CHECK-CODEGEN-NOT: .*alu\[\$xfer_6, \-\-, B, \$xfer_6\] */
 	/* CHECK-CODEGEN: .*mem\[read32_swap,.*0x38,.*\], ctx_swap */
 	/* CHECK-CODEGEN-NOT: .*immed\[\-\-, 0xf80\] */

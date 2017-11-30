@@ -1,7 +1,7 @@
-# Test memory copy on:
-#
-#   cross memory access on same base registers.
-#   cross memory access on different base registers.
+// Test memory copy on:
+//
+//   cross memory access on same base registers.
+//   cross memory access on different base registers.
 
 	.include "opt_memcpy_common.x"
 	.text
@@ -10,8 +10,8 @@
 xdp_prog1:
 	PREPARE_PACKET_HEADER
 
-	# There should not be any such transfer move as all of the sequences
-	# below are cross reference.
+	// There should not be any such transfer move as all of the sequences
+	// below are cross reference.
 	/* CHECK-CODEGEN-NOT: .*alu\[\$xfer_2, \-\-, B, \$xfer_2\] */
 
 	r2 = *(u32 *)(r1 + 64)

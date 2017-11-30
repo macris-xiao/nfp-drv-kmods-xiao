@@ -1,8 +1,8 @@
-# Test memory copy on:
-#
-#   copy length > 40-bytes
-#   copy length is not 4-byte aligned.
-#   copy elem width is byte.
+// Test memory copy on:
+//
+//   copy length > 40-bytes
+//   copy length is not 4-byte aligned.
+//   copy elem width is byte.
 
 	.include "opt_memcpy_common.x"
 	.text
@@ -11,7 +11,7 @@
 xdp_prog1:
 	PREPARE_PACKET_HEADER
 
-	# sequence descending order (41-bytes)
+	// sequence descending order (41-bytes)
 	/* CHECK-CODEGEN: .*immed\[\-\-, 0xa80\] */
 	/* CHECK-CODEGEN: .*mem\[read32_swap,.*0x26,.*\], indirect_ref, ctx_swap */
 	/* CHECK-CODEGEN: .*alu\[\$xfer_10, \-\-, B, \$xfer_10\] */

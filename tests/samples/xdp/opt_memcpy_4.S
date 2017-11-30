@@ -1,8 +1,8 @@
-# Test memory copy optimization on:
-#
-#   copy length <= 32-bytes.
-#   copy length is not 4-byte aligned.
-#   copy elem width is half-word.
+// Test memory copy optimization on:
+//
+//   copy length <= 32-bytes.
+//   copy length is not 4-byte aligned.
+//   copy elem width is half-word.
 
 	.include "opt_memcpy_common.x"
 	.text
@@ -11,7 +11,7 @@
 xdp_prog1:
 	PREPARE_PACKET_HEADER
 
-	# sequence in ascending order (18-bytes)
+	// sequence in ascending order (18-bytes)
 	/* CHECK-CODEGEN: .*mem\[read32_swap,.*0x25, 5\], ctx_swap */
 	/* CHECK-CODEGEN: .*alu\[\$xfer_4, \-\-, B, \$xfer_4\] */
 	/* CHECK-CODEGEN: .*immed\[\-\-, 0x1180\] */
@@ -36,7 +36,7 @@ xdp_prog1:
 	r2 = *(u16 *)(r1 + 53)
 	*(u16 *)(r1 + 35) = r2
 
-	# data flow integrity check
+	// data flow integrity check
 	r2 += 1
 	*(u16 *)(r1 + 35) = r2
 
