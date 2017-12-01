@@ -3492,9 +3492,6 @@ static int nfp_net_xdp(struct net_device *netdev, struct netdev_bpf *xdp)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 13, 0)
 		xdp->prog_id = nn->xdp_prog ? nn->xdp_prog->aux->id : 0;
 #endif
-#if LINUX_RELEASE_4_16
-		xdp->flags = nn->xdp_prog ? nn->xdp_flags : 0;
-#endif
 		return 0;
 #if LINUX_RELEASE_4_15
 	case BPF_OFFLOAD_VERIFIER_PREP:
@@ -3699,7 +3696,7 @@ struct nfp_net *nfp_net_alloc(struct pci_dev *pdev, bool needs_netdev,
  */
 void nfp_net_free(struct nfp_net *nn)
 {
-#if COMPAT__HAVE_XDP && !LINUX_RELEASE_4_16
+#if COMPAT__HAVE_XDP
 	if (nn->xdp_prog)
 		bpf_prog_put(nn->xdp_prog);
 #endif
