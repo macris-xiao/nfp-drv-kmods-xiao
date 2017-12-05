@@ -34,14 +34,22 @@
 #include "nfp_net_compat.h"
 
 #include <linux/debugfs.h>
+#include <linux/errno.h>
 #include <linux/firmware.h>
+#include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/rtnetlink.h>
+#include <linux/string.h>
+#include <linux/vmalloc.h>
 
+#include "nfp_main.h"
 #include "nfpcore/nfp.h"
 #include "nfpcore/nfp_nffw.h"
 #include "nfpcore/nfp_nsp.h"
 #include "nfpcore/nfp6000/nfp6000.h"
 #include "nfp_test_harness.h"
+
+#define NTH_MAX_DUMPSPEC_SIZE	10240
 
 struct nth nth = {
 	.hwinfo_key = {
@@ -783,6 +791,242 @@ static const struct file_operations nth_eth_lanes_ops = {
 	.llseek = default_llseek,
 };
 
+static struct nfp_pf *nth_get_dump_pf(struct nfp_cpp *cpp)
+{
+	struct nfp_pf *pf = kzalloc(sizeof(*pf), GFP_KERNEL);
+
+	pf->cpp = cpp;
+	pf->rtbl = nfp_rtsym_table_read(cpp);
+	if (!pf->rtbl)
+		return NULL;
+
+	pf->mip = nfp_mip_open(cpp);
+	if (!pf->mip)
+		return NULL;
+
+	pf->hwinfo = nfp_hwinfo_read(cpp);
+	if (!pf->hwinfo)
+		return NULL;
+
+	return pf;
+}
+
+static void nth_free_dump_pf(struct nfp_pf *pf)
+{
+	kfree(pf->rtbl);
+	kfree(pf->hwinfo);
+	nfp_mip_close(pf->mip);
+	kfree(pf);
+}
+
+static int nth_create_private_wrapper(struct file *file, int data_size,
+				      void *source)
+{
+	struct debugfs_blob_wrapper *wrapper;
+
+	wrapper = kmalloc(sizeof(*wrapper), GFP_KERNEL);
+	if (!wrapper)
+		return -ENOMEM;
+
+	wrapper->data = vmalloc(data_size);
+	if (!wrapper->data) {
+		kfree(wrapper);
+		return -ENOMEM;
+	}
+
+	/* If source is given, make a copy and set the size, otherwise
+	 * use size to track bytes written.
+	 */
+	if (source) {
+		wrapper->size = data_size;
+		memcpy(wrapper->data, source, data_size);
+	} else {
+		wrapper->size = 0;
+	}
+	file->private_data = wrapper;
+
+	return 0;
+}
+
+static int nth_free_private_wrapper(struct inode *inode, struct file *file)
+{
+	struct debugfs_blob_wrapper *wrapper = file->private_data;
+
+	vfree(wrapper->data);
+	kfree(wrapper);
+
+	return 0;
+}
+
+static int nth_fwdump_spec_open(struct inode *inode, struct file *file)
+{
+	return nth_create_private_wrapper(file, NTH_MAX_DUMPSPEC_SIZE, NULL);
+}
+
+static ssize_t
+nth_fwdump_spec_write(struct file *file, const char __user *user_buf,
+		      size_t count, loff_t *ppos)
+{
+	struct debugfs_blob_wrapper *blob = file->private_data;
+	int srcu_idx;
+	ssize_t ret;
+
+	ret = nth_dfs_file_get(file->f_path.dentry, &srcu_idx);
+	if (likely(!ret))
+		ret = simple_write_to_buffer(blob->data, NTH_MAX_DUMPSPEC_SIZE,
+					     ppos, user_buf, count);
+	nth_dfs_file_put(file->f_path.dentry, srcu_idx);
+
+	/* blob->size tracks the total number of bytes written */
+	if (ret > 0)
+		blob->size += ret;
+
+	return ret;
+}
+
+/* In mutex, replace the global dumpspec data with the one written to this file.
+ */
+static int nth_fwdump_spec_close(struct inode *inode, struct file *file)
+{
+	struct debugfs_blob_wrapper *wrapper = file->private_data;
+
+	mutex_lock(&nth.lock);
+	vfree(nth.dumpspec.data);
+	nth.dumpspec.data = wrapper->data;
+	nth.dumpspec.size = wrapper->size;
+	mutex_unlock(&nth.lock);
+
+	kfree(wrapper);
+
+	return 0;
+}
+
+static const struct file_operations nth_fwdump_spec_ops = {
+	.open = nth_fwdump_spec_open,
+	.write = nth_fwdump_spec_write,
+	.release = nth_fwdump_spec_close,
+	.llseek = default_llseek,
+};
+
+static struct nfp_dumpspec *nth_create_dumpspec(void *data, u32 size)
+{
+	struct nfp_dumpspec *dumpspec;
+
+	dumpspec = vmalloc(sizeof(*dumpspec) + size);
+	if (!dumpspec)
+		return NULL;
+
+	dumpspec->size = size;
+	memcpy(dumpspec->data, data, size);
+
+	return dumpspec;
+}
+
+static int nth_fwdump_trigger_read(struct seq_file *file, void *data)
+{
+	struct nfp_dumpspec *dumpspec = NULL;
+	struct ethtool_dump dump_param;
+	struct nfp_cpp *cpp;
+	s64 calculated_len;
+	struct nfp_pf *pf;
+	u32 dump_level;
+	void *dump;
+	int err;
+
+	cpp = nfp_cpp_from_device_id(nth.id);
+	if (!cpp)
+		return -EBUSY;
+
+	pf = nth_get_dump_pf(cpp);
+	dump_level = READ_ONCE(nth.dump_level);
+	if (!pf || !dump_level) {
+		err = -EOPNOTSUPP;
+		goto exit_free_cpp;
+	}
+
+	/* In mutex, copy dumpspec from global dumpspec data wrapper. */
+	mutex_lock(&nth.lock);
+	if (nth.dumpspec.data)
+		dumpspec = nth_create_dumpspec(nth.dumpspec.data,
+					       nth.dumpspec.size);
+	mutex_unlock(&nth.lock);
+
+	if (!dumpspec) {
+		err = -EINVAL;
+		goto exit_free_cpp;
+	}
+
+	calculated_len = nfp_net_dump_calculate_size(pf, dumpspec, dump_level);
+	if (calculated_len < 0) {
+		err = calculated_len;
+		goto exit_free_cpp;
+	}
+
+	dump = vzalloc(calculated_len);
+	if (!dump) {
+		err = -ENOMEM;
+		goto exit_free_cpp;
+	}
+
+	dump_param.flag = dump_level;
+	dump_param.len = calculated_len;
+
+	/* Lock with the same rtnl_lock used by ethtool to protect its ops,
+	 * to avoid issues with concurrent dumps between tests and ethtool,
+	 * e.g. concurrent reads of indirect ME CSRs.
+	 */
+	rtnl_lock();
+	err = nfp_net_dump_populate_buffer(pf, dumpspec, &dump_param, dump);
+	rtnl_unlock();
+
+	/* In a mutex, set/replace the global fw dump data. */
+	mutex_lock(&nth.lock);
+	vfree(nth.fwdump.data);
+	nth.fwdump.data = dump;
+	nth.fwdump.size = dump_param.len;
+	/* Size could change duing populate, warn the user if this happens. */
+	if (nth.fwdump.size != calculated_len)
+		err = -EMSGSIZE;
+	mutex_unlock(&nth.lock);
+
+exit_free_cpp:
+	nfp_cpp_free(cpp);
+	nth_free_dump_pf(pf);
+	vfree(dumpspec);
+	seq_printf(file, "%d\n", err);
+
+	return 0;
+}
+NTH_DECLARE_HANDLER(fwdump_trigger);
+
+/* In mutex, create a copy of the global dump data, for this file's
+ * private_data.
+ */
+static int nth_fwdump_open(struct inode *inode, struct file *file)
+{
+	int ret;
+
+	mutex_lock(&nth.lock);
+	if (!nth.fwdump.data) {
+		ret = -ENOENT;
+		goto exit_unlock;
+	}
+	ret = nth_create_private_wrapper(file, nth.fwdump.size,
+					 nth.fwdump.data);
+
+exit_unlock:
+	mutex_unlock(&nth.lock);
+
+	return ret;
+}
+
+static const struct file_operations nth_fwdump_data_ops = {
+	.read = nth_read_blob,
+	.open = nth_fwdump_open,
+	.release = nth_free_private_wrapper,
+	.llseek = default_llseek,
+};
+
 static int __init nth_init(void)
 {
 	bool fail = false;
@@ -808,6 +1052,15 @@ static int __init nth_init(void)
 				     &nth.hwinfo_key, &nth_hwinfo_ops);
 	fail |= !debugfs_create_blob("hwinfo_val", 0400, nth.dir,
 				     &nth.hwinfo_val);
+
+	fail |= !debugfs_create_u32("fw_dump_level", 0600, nth.dir,
+				    &nth.dump_level);
+	fail |= !debugfs_create_file("fw_dump_spec", 0200, nth.dir, NULL,
+				     &nth_fwdump_spec_ops);
+	fail |= !debugfs_create_file("fw_dump_trigger", 0400, nth.dir, NULL,
+				     &nth_fwdump_trigger_ops);
+	fail |= !debugfs_create_file("fw_dump_data", 0400, nth.dir, NULL,
+				     &nth_fwdump_data_ops);
 
 	fail |= !debugfs_create_file("rtsym_count", 0400, nth.dir,
 				     NULL, &nth_rtsym_count_ops);
@@ -852,6 +1105,7 @@ static void __exit nth_exit(void)
 {
 	int i;
 
+	mutex_destroy(&nth.lock);
 	debugfs_remove_recursive(nth.dir);
 
 	for (i = 0; i < ARRAY_SIZE(nth.resources); i++) {
@@ -860,6 +1114,9 @@ static void __exit nth_exit(void)
 		kfree(nth.resources[i].name);
 		nfp_resource_release(nth.resources[i].res);
 	}
+
+	vfree(nth.dumpspec.data);
+	vfree(nth.fwdump.data);
 }
 
 module_init(nth_init);

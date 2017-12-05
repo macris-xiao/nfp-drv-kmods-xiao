@@ -39,6 +39,7 @@
 
 #include "nfp.h"
 #include "nfp_cpp.h"
+#include "nfp_main.h"
 #include "nfp_nbi.h"
 #include "nfp_nffw.h"
 #include "nfp_nsp.h"
@@ -164,3 +165,11 @@ EXPORT_SYMBOL_GPL(nfp_eth_config_commit_end);	/* Testing only */
 EXPORT_SYMBOL_GPL(__nfp_eth_set_aneg);	/* Testing only */
 EXPORT_SYMBOL_GPL(__nfp_eth_set_speed);	/* Testing only */
 EXPORT_SYMBOL_GPL(__nfp_eth_set_split);	/* Testing only */
+
+/* Implemented in nfp_net_debugdump.c */
+EXPORT_SYMBOL_GPL(nfp_net_dump_calculate_size);	/* Testing only */
+EXPORT_SYMBOL_GPL(nfp_net_dump_populate_buffer);	/* Testing only */
+
+/* Implemented in nfp_mip.c */
+EXPORT_SYMBOL_GPL(nfp_mip_open);	/* Testing only */
+EXPORT_SYMBOL_GPL(nfp_mip_close);	/* Testing only */

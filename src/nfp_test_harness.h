@@ -60,6 +60,10 @@ struct nth {
 	u8 wr_only_data[1024];
 	struct debugfs_blob_wrapper wr_only;
 
+	struct debugfs_blob_wrapper fwdump;
+	struct debugfs_blob_wrapper dumpspec;
+	u32 dump_level;
+
 	struct {
 		const char *name;
 		struct nfp_resource *res;
