@@ -358,11 +358,29 @@ class DrvSystem(System):
         _, data = self.cmd('cat %s' % (os.path.join(self.dfs_dir, path)))
         return data
 
+    def dfs_read_bytes(self, path):
+        remote_filename = os.path.join(self.dfs_dir, path)
+        local_filename = os.path.join(self.grp.tmpdir, "dfs_read.dat")
+        self.cp_from(remote_filename, local_filename)
+        with open(local_filename, "rb") as local_file:
+            data = local_file.read()
+        os.remove(local_filename)
+        return data
+
     def dfs_nn_port_lines(self, method, path):
         port_path = 'nfp_net/0000:%s/vnic%d' % (self.grp.pci_id, 0)
         path = os.path.join(self.dfs_dir, port_path, path)
         _, data = self.cmd('%s %s | wc -l' % (method, path))
         return data
+
+    def dfs_write_bytes(self, path, data):
+        remote_filename = os.path.join(self.dfs_dir, path)
+        local_filename = os.path.join(self.grp.tmpdir, "dfs_write.dat")
+        with open(local_filename, "wb") as local_file:
+            local_file.write(data)
+        self.cp_to(local_filename, remote_filename)
+        # clean up tmp file after cp (mv doesn't work for debugfs file)
+        os.remove(local_filename)
 
     def dfs_write(self, path, data, do_fail=False, timeout=None):
         cmd = 'echo -n "%s" > %s' % (data,
