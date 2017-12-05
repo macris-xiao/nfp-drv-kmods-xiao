@@ -20,6 +20,21 @@ from netro.testinfra import LOG_init, LOG_sec, LOG, LOG_endsec, CMD
 from netro.tests.tcpdump import TCPDump
 
 ###############################################################################
+# Assert-style helper functions
+###############################################################################
+
+def assert_equal(expected, actual, error_message):
+    if expected != actual:
+        raise NtiGeneralError("%s: expected '%r' but was '%r'" % (error_message,
+                                                                  expected,
+                                                                  actual))
+
+def assert_geq(actual, threshold, error_message):
+    if actual < threshold:
+        raise NtiGeneralError("%s: %r < %r" % (error_message, actual,
+                                               threshold))
+
+###############################################################################
 # Exception for throwing results
 ###############################################################################
 class NtiSkip(Exception):
