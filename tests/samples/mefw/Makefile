@@ -8,7 +8,8 @@ AMDA ?= hydrogen
 
 NFCC := nfcc
 CFLAGS := -W3 -chip $(CHIP) -I$(FLOWENV_PATH)/me/include -I$(FLOWENV_PATH)/me/lib
-CLIBS :=  $(FLOWENV_PATH)/me/lib/nfp/libnfp.c
+CLIBS := $(FLOWENV_PATH)/me/lib/nfp/libnfp.c
+FWNAME := TEST_FW_12345678
 
 NFLD := nfld
 LDFLAGS := -res.i24.emem.base 0x00008000 -chip $(CHIP)
@@ -29,7 +30,7 @@ all: $(FWS) clean
 %.nffw: %.list
 	$(NFLD) $(LDFLAGS) -o $@ -u $(TARGET_MES) $<
 rm_%.nffw: %.list
-	$(NFLD) -rtsyms -mip $(LDFLAGS) -o $@ -u $(TARGET_MES) $<
+	$(NFLD) -rtsyms -name $(FWNAME) -mip $(LDFLAGS) -o $@ -u $(TARGET_MES) $<
 rm1_%.nffw: %.list
 	$(NFLD) -rtsyms -mip_v1 $(LDFLAGS) -o $@ -u $(TARGET_MES) $<
 rm2_%.nffw: %.list
