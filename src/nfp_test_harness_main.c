@@ -144,7 +144,7 @@ struct nth nth = {
 
 static int nth_dfs_file_get(struct dentry *dentry, int *srcu_idx)
 {
-#if LINUX_RELEASE_4_15
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 15, 0)
 	return debugfs_file_get(dentry);
 #elif LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0)
 	return debugfs_use_file_start(dentry, srcu_idx);
@@ -155,7 +155,7 @@ static int nth_dfs_file_get(struct dentry *dentry, int *srcu_idx)
 
 static void nth_dfs_file_put(struct dentry *dentry, int srcu_idx)
 {
-#if LINUX_RELEASE_4_15
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 15, 0)
 	debugfs_file_put(dentry);
 #elif LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0)
 	debugfs_use_file_finish(srcu_idx);
