@@ -228,8 +228,9 @@ class NFPKmodGrp(netro.testinfra.Group):
         self.tmpdir = tempfile.mkdtemp()
 
         if hasattr(self.host_a, 'tmpdir'):
-            raise NtiGeneralError('SRC already has tmp dir')
-        self.host_a.tmpdir = self.host_a.make_temp_dir()
+            LOG('WARNING: SRC already has tmp dir, reusing it')
+        else:
+            self.host_a.tmpdir = self.host_a.make_temp_dir()
 
         LOG_sec("TMP directories:")
         LOG("Local:\t %s" % (self.tmpdir))

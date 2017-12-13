@@ -482,21 +482,17 @@ class CommonNetdevTest(CommonTest):
 
     def reboot(self, fwname=None):
         self.dut.reset_mods()
-        self.dut.cmd('reboot')
+        self.dut.cmd('reboot', fail=False)
         # Give it time to go down
         time.sleep(10)
 
         ret = -1
-        wait = 400
+        stop_time = time.time() + 400
         while ret != 0:
-            ret, _ = self.src.cmd('ping -W 1 -c 1 %s' % (self.dut.host),
-                                  fail=False)
-            wait -= 1
-            if wait == 0:
+            ret, _ = self.dut.cmd('ip link', fail=False)
+            if time.time() >= stop_time:
                 raise NtiError('Waiting for reboot timed out')
-
-        # Give it time to come up
-        time.sleep(5)
+            time.sleep(1)
 
         self.dut.__init__(self.dut.host, self.dut.grp)
         self.group._init()
