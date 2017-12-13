@@ -1816,6 +1816,14 @@ class FwDumpTest(CommonTest):
                                                              2:-errno.ENOENT})
         self.check_normal_dump(spec, 4)
 
+    def test_arm_island_xpb_read(self):
+        spec = define_spec(spec_level(1, spec_csr(TYPE_XPB_CSR,
+                                                  CppParams(14,0,0,1),
+                                                  0x41090000, 4, 32)))
+        dump = self.check_normal_dump(spec, 1)
+        (reg_value,) = unpack_from('< I', dump[1].value.reg_data)
+        assert reg_value != 0xffffffff, 'Bad XPB register read'
+
     def test_fwname(self):
         spec = define_spec(spec_level(1, spec_fw_name()))
         dump = self.check_normal_dump(spec, 1)
@@ -1896,6 +1904,7 @@ class FwDumpTest(CommonTest):
     def execute(self):
         self.prep()
         self.test_well_formed()
+        self.test_arm_island_xpb_read()
         self.test_fwname()
         self.test_multiple_of_same_level()
         self.test_unknown_spec_tlv_handling()
