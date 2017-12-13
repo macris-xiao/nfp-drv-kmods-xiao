@@ -8,6 +8,7 @@ from unit import NFPKmodUnit
 from ebpf import NFPKmodBPF, NFPKmodXDPdrv
 from rand import NFPKmodRand, NFPKmodRandErr
 from reload import NFPKmodReload
+from reboot import NFPKmodReboot
 from flower import NFPKmodFlower
 from drv_grp import *
 
@@ -24,4 +25,5 @@ class Project(netro.testinfra.Project):
                 "rand" :  NFPKmodRand,
                 "rand_err" : NFPKmodRandErr,
                 "reload" :   NFPKmodReload,
+                "reboot" :   NFPKmodReboot,
                 "flower" :   NFPKmodFlower }
