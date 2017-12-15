@@ -31,7 +31,7 @@
 #
 
 # Environment version
-BUILD_ENV_VERSION=2
+BUILD_ENV_VERSION=3
 # Number of parallel builds
 [ -z "$NJ" ] && NJ=$(grep processor /proc/cpuinfo | wc -l)
 # Oldest kernel for which to test (in 3-digit format, 300 is 3.0, 303 is 3.3,
@@ -301,8 +301,8 @@ done
 	# Prepare 32bit build of net-next
 	#
 	if ! [ -d "../net-next-32bit" ]; then
-	    linux32 make CC=$DEFAULT_CC O=../net-next-32bit/ defconfig
-	    linux32 make CC=$DEFAULT_CC O=../net-next-32bit/ local_defconfig
+	    linux32 make CC=$DEFAULT_CC O=../net-next-32bit/ ARCH=i386 defconfig
+	    linux32 make CC=$DEFAULT_CC O=../net-next-32bit/ ARCH=i386 local_defconfig
 	fi
 	make CC=$DEFAULT_CC O=../net-next-32bit/ -j$NJ
 
