@@ -23,18 +23,22 @@ RTSYM_FILES := rts_0.list rts_1.list rts_2.list rts_3.list rts_17.list \
 # Build the firmwares with MIP and RT-SYM but also one without MIP or
 # a specific version of it
 FWS = $(patsubst %.list,rm_%.nffw,${RTSYM_FILES}) \
-	rts_100.nffw rm1_rts_100.nffw rm2_rts_100.nffw
+	rts_100.nffw rm1_rts_100.nffw rm2_rts_100.nffw \
+	rts_dump.nffw
 
 all: $(FWS) clean
 
 %.nffw: %.list
 	$(NFLD) $(LDFLAGS) -o $@ -u $(TARGET_MES) $<
 rm_%.nffw: %.list
-	$(NFLD) -rtsyms -name $(FWNAME) -mip $(LDFLAGS) -o $@ -u $(TARGET_MES) $<
+	$(NFLD) -rtsyms -mip $(LDFLAGS) -o $@ -u $(TARGET_MES) $<
 rm1_%.nffw: %.list
 	$(NFLD) -rtsyms -mip_v1 $(LDFLAGS) -o $@ -u $(TARGET_MES) $<
 rm2_%.nffw: %.list
 	$(NFLD) -rtsyms -mip_v2 $(LDFLAGS) -o $@ -u $(TARGET_MES) $<
+rts_dump.nffw: rts_17.list abs_rtsym.list
+	$(NFLD) -L abs_rtsym.list -rtsyms -name $(FWNAME) -mip $(LDFLAGS) \
+	-o $@ -u $(TARGET_MES) $<
 
 # This rule will generate different count of RT-SYMS by setting a define
 # and using the single C source as a basis
@@ -42,8 +46,11 @@ rts_%.list: rts.c
 	$(NFCC) $< $(CFLAGS) $(CLIBS) -o $@ \
 	-D NUM_SYMS=$(subst .list,,$(subst rts_,,$@))
 
+abs_rtsym.list: abs_rtsym.uc
+	nfas -o $@ -codeless $<
+
 clean:
-	rm -f *.list *.obj *.db *.trace
+	rm -f *.list *.obj *.db *.trace *.uci *.ucp
 
 distclean: clean
 	rm -f *.nffw *.ca

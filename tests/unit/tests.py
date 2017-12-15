@@ -1751,7 +1751,7 @@ class FwDumpTest(CommonTest):
         self.dut.insmod(module='nth')
         fwdir_base = os.path.basename(self.group.mefw)
         fwdir = os.path.join('/lib/firmware/netronome/', fwdir_base)
-        self.dut.nffw_load('%s.nffw' % os.path.join(fwdir, 'rm_rts_17'))
+        self.dut.nffw_load('%s.nffw' % os.path.join(fwdir, 'rts_dump'))
 
     def load_spec_bytes(self, spec_bytes):
         self.dut.dfs_write_bytes('nth/fw_dump_spec', spec_bytes)
@@ -1901,6 +1901,13 @@ class FwDumpTest(CommonTest):
         assert_equal(1, len(dump), 'Missing prolog')
         dump.assert_dump_level(1)
 
+    def test_abs_rtsym(self):
+        spec = define_spec(spec_level(1,  spec_rtsym('sample_abs_sym')))
+        dump = self.check_normal_dump(spec, 1)
+        (symval1, symval2) = unpack_from('< I I', dump[1].value.reg_data)
+        assert_equal(0x67, symval2, 'abs rtsym value high byte')
+        assert_equal(0x89abcdef, symval1, 'abs rtsym value low bytes')
+
     def execute(self):
         self.prep()
         self.test_well_formed()
@@ -1914,6 +1921,7 @@ class FwDumpTest(CommonTest):
         self.test_4_trailing_zeros()
         self.test_huge_tlv_length()
         self.test_near_empty_spec()
+        self.test_abs_rtsym()
 
     def cleanup(self):
         self.dut.nffw_unload()
