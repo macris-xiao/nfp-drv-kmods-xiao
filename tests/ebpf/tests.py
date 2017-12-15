@@ -14,9 +14,11 @@ from ..common_test import *
 from ..drv_grp import NFPKmodAppGrp
 from ..ebpf_test import *
 from xdp import *
+from maps import *
 
 class BPF_TLV:
     ADJUST_HEAD		= 2
+    MAPS		= 3
 
 ###########################################################################
 # Group
@@ -37,9 +39,18 @@ class NFPKmodBPF(NFPKmodAppGrp):
                 "guaranteed_sub"	: 0,
                 "guaranteed_add"	: 0,
             },
+            "maps" : {
+                "present"		: False,
+                "types"			: 0,
+                "max_maps"		: 0,
+                "max_elems"		: 0,
+                "max_key_sz"		: 0,
+                "max_val_sz"		: 0,
+                "max_elem_sz"		: 0,
+            },
         }
 
-        value = self._tests["xdp_pass"].read_sym_nffw("bpf_capabilities")
+        value = self._tests["xdp_pass"].read_sym_nffw("_abi_bpf_capabilities")
         if value is None:
             return
 
@@ -57,6 +68,21 @@ class NFPKmodBPF(NFPKmodAppGrp):
                 cap["off_max"]	= struct.unpack("<I", value[8:12])[0]
                 cap["guaranteed_sub"] = struct.unpack("<I", value[12:16])[0]
                 cap["guaranteed_add"] = struct.unpack("<I", value[16:20])[0]
+
+                value = value[20:]
+
+            if tlv_type == BPF_TLV.MAPS:
+                cap = self.dut.bpf_caps["maps"]
+
+                cap["present"]	= True
+                cap["types"]	= struct.unpack("<I", value[0:4])[0]
+                cap["max_maps"]	= struct.unpack("<I", value[4:8])[0]
+                cap["max_elems"]	= struct.unpack("<I", value[8:12])[0]
+                cap["max_key_sz"]	= struct.unpack("<I", value[12:16])[0]
+                cap["max_val_sz"]	= struct.unpack("<I", value[16:20])[0]
+                cap["max_elem_sz"]	= struct.unpack("<I", value[20:24])[0]
+
+                value = value[24:]
 
         pp = pprint.PrettyPrinter()
 
@@ -234,6 +260,19 @@ class NFPKmodBPF(NFPKmodAppGrp):
                 'Opt memory copy (unusal cases)'),
                ('xdp_tx_mem_builtins', XDPCmembuiltins,
                 'Memory operation builtins tests'),
+               ('map_limits', XDPmapLimits, 'Check limits on map parameters'),
+               ('map_stress', XDPmapStress,
+                'Multi-threaded stress test of maps'),
+               ('map_htab', XDPhtabCtrl, 'Test basic ctrl path of hash maps'),
+               ('map_dp_htab', XDPhtabLookup,
+                'Test basic data path lookups for hash maps'),
+               ('map_dp_htab_twice', XDPhtabLookupTwice,
+                'Test two data path lookups for (two separate) hash maps'),
+               ('map_array', XDParrayCtrl, 'Test basic ctrl path of arrays'),
+               ('map_dp_array', XDParrayLookup,
+                'Test basic data path lookups for arrays'),
+               ('map_dp_array_twice', XDParrayLookupTwice,
+                'Test two data path lookups for (two separate) arrays'),
         )
 
         for t in XDP:

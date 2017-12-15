@@ -5,6 +5,7 @@
 Driver DUT class
 """
 
+import json
 import os
 import time
 import netro.testinfra
@@ -80,6 +81,11 @@ class DrvSystem(System):
         self.cmd('mkdir %s' % self.xdp_samples_dir)
         self.cp_to(os.path.join(self.grp.samples_xdp, '*.o'),
                    self.xdp_samples_dir)
+
+        self.c_samples_dir = os.path.join(self.tmpdir, 'c')
+        self.cmd('mkdir %s' % self.c_samples_dir)
+        self.cp_to(os.path.join(self.grp.samples_c, '*'),
+                   self.c_samples_dir)
 
         return
 
@@ -160,6 +166,64 @@ class DrvSystem(System):
     def ethtool_get_fec(self, ifc, fail=True):
         return self.cmd('ethtool --show-fec %s' %
                         (ifc), fail=fail)
+
+    def ip_link_show(self, port=None, ifc=None):
+        cmd = "ip -j link show"
+        if ifc is not None:
+            cmd += " " + ifc
+        elif port is not None:
+            cmd += " " + self.grp.eth_x[port]
+        _, out = self.cmd(cmd)
+
+        return json.loads(out)
+
+    def bpftool(self, param, fail=True):
+        ret, out = self.cmd("bpftool -p " + param, fail=fail)
+        if len(out) == 0:
+            return ret, {}
+        return ret, json.loads(out)
+
+    def bpftool_prog_list(self, expect=None, fail=True):
+        ret, progs = self.bpftool("prog", fail=fail)
+        if expect is not None:
+            if len(progs) != expect:
+                raise NtiError("System has %d programs, expected %d" %
+                               (len(progs), expect))
+        return ret, progs
+
+    def bpftool_map_list(self, expect=None, fail=True):
+        ret, maps = self.bpftool("map", fail=fail)
+        if expect is not None:
+            if len(maps) != expect:
+                raise NtiError("System has %d maps, expected %d" %
+                               (len(maps), expect))
+        return ret, maps
+
+    def bpf_wait_progs_clear(self, expected=0, n_retry=30):
+        for i in range(n_retry):
+            ret, progs = self.bpftool_prog_list(fail=False)
+            if ret:
+                continue
+            nprogs = len(progs)
+            if nprogs == expected:
+                return
+            time.sleep(0.05)
+        err = "Timeout waiting for prog count to settle want %d, have %d" % \
+              (expected, nprogs)
+        raise Exception(err)
+
+    def bpf_wait_maps_clear(self, expected=0, n_retry=30):
+        for i in range(n_retry):
+            ret, maps = self.bpftool_map_list(fail=False)
+            if ret:
+                continue
+            nmaps = len(maps)
+            if nmaps == expected:
+                return
+            time.sleep(0.05)
+        err = "Timeout waiting for map count to settle want %d, have %d" % \
+              (expected, nmaps)
+        raise Exception(err)
 
     def get_nsp_ver(self, ifc=None):
         if ifc:

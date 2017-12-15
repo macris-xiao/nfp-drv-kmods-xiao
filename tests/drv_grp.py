@@ -246,6 +246,10 @@ class NFPKmodGrp(netro.testinfra.Group):
         """ Clean up the systems for tests from this group
         called from the groups run() method.
         """
+        # Capture dmesg after tests finished
+        if self.dut:
+            self.dut.cmd("dmesg")
+
         LOG_sec("RM TMP directories")
         client_list = [self.dut, self.host_a]
         for client in client_list:
@@ -308,6 +312,7 @@ class NFPKmodGrp(netro.testinfra.Group):
             self.samples_trafgen = os.path.join(self.samples, 'trafgen')
             self.samples_bpf = os.path.join(self.samples, 'bpf')
             self.samples_xdp = os.path.join(self.samples, 'xdp')
+            self.samples_c = os.path.join(self.samples, 'c')
         if self.cfg.has_option("DUT", "serial"):
             self.serial = self.cfg.get("DUT", "serial")
         if self.cfg.has_option("DUT", "bsppath"):
