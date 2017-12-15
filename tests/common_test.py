@@ -294,6 +294,15 @@ class CommonTest(Test):
             raise NtiGeneralError("Could TCP ping endpoint")
         return ret
 
+    def prep_pcap(self, pkt):
+        pcap_local = os.path.join(self.group.tmpdir, 'pcap')
+        pcap_src = os.path.join(self.src.tmpdir, 'pcap')
+
+        wrpcap(pcap_local, Ether(pkt))
+        self.src.mv_to(pcap_local, pcap_src)
+
+        return pcap_src
+
     def tcpdump_cmd(self, capture_system, ifname, cmd_system, cmd):
         pcap_res = os.path.join(self.group.tmpdir, 'pcap_res')
 
@@ -322,6 +331,52 @@ class CommonTest(Test):
         capture_system.cp_from(dump, pcap_res)
 
         return rdpcap(pcap_res)
+
+    def std_pkt(self, size=96):
+        pkt = ''
+        for b in self.group.hwaddr_x[0].split(':'):
+            pkt += chr(int('0x' + b, 16))
+        for b in self.group.hwaddr_a[0].split(':'):
+            pkt += chr(int('0x' + b, 16))
+        pkt += '\x12\x22'
+
+        pkt += '\xaa'
+        pkt += '\xf1' * (size - 16)
+        pkt += '\x55'
+
+        return pkt
+
+    def test_with_traffic(self, pcap_src, exp_pkt, tcpdump_params, port=0):
+        cmd = "tcpreplay --intf1=%s --pps=100 --loop=100 -K %s " % \
+              (self.src_ifn[port], pcap_src)
+
+        tp = tcpdump_params
+        result_pkts = self.tcpdump_cmd(tp[0], tp[1], tp[2], cmd)
+
+        exp_num = 100
+        if exp_pkt is None:
+            exp_num = 0
+
+        if len(result_pkts) < exp_num or len(result_pkts) > exp_num + 5:
+            raise NtiError('Captured %d packets, expected %d' %
+                           (len(result_pkts), exp_num))
+
+        found = 0
+        for p in result_pkts:
+            if str(p) == exp_pkt:
+                found += 1
+            else:
+                self.log('Bad packet',
+                         ':'.join(x.encode('hex') for x in str(p))
+                         + "\n\n" +
+                         ':'.join(x.encode('hex') for x in exp_pkt))
+
+        if found != exp_num:
+            raise NtiError("Found %d packets, was looking for %d" %
+                           (found, exp_num))
+
+        LOG_sec("Capture test OK exp: %d got: %d" % (exp_num, found))
+        LOG_endsec()
 
     def read_sym_nffw(self, name, nffw_path=None):
         if not nffw_path:
@@ -539,29 +594,8 @@ class CommonPktCompareTest(CommonTest):
     def get_tcpdump_params(self):
         pass
 
-    def std_pkt(self, size=96):
-        pkt = ''
-        for b in self.group.hwaddr_x[0].split(':'):
-            pkt += chr(int('0x' + b, 16))
-        for b in self.group.hwaddr_a[0].split(':'):
-            pkt += chr(int('0x' + b, 16))
-        pkt += '\x12\x22'
-
-        pkt += '\xaa'
-        pkt += '\xf1' * (size - 16)
-        pkt += '\x55'
-
-        return pkt
-
     def execute(self):
-        # Prepare packet
-        pkt = self.get_src_pkt()
-
-        pcap_local = os.path.join(self.group.tmpdir, 'pcap')
-        pcap_src = os.path.join(self.src.tmpdir, 'pcap')
-
-        wrpcap(pcap_local, Ether(pkt))
-        self.src.mv_to(pcap_local, pcap_src)
+        pcap_src = self.prep_pcap(self.get_src_pkt())
 
         # Make sure there is connectivity
         self.ping(0)
@@ -571,36 +605,5 @@ class CommonPktCompareTest(CommonTest):
         if ret != 0:
             raise NtiError("Filter load failed")
 
-        cmd = "tcpreplay --intf1=%s --pps=100 --loop=100 -K %s " % \
-              (self.src_ifn[0], pcap_src)
-
-        tp = self.get_tcpdump_params()
-        result_pkts = self.tcpdump_cmd(tp[0], tp[1], tp[2], cmd)
-
-        # Compute expected packet
-        exp_pkt = self.get_exp_pkt()
-
-        exp_num = 100
-        if exp_pkt is None:
-            exp_num = 0
-
-        if len(result_pkts) < exp_num or len(result_pkts) > exp_num + 5:
-            raise NtiError('Captured %d packets, expected %d' %
-                           (len(result_pkts), exp_num))
-
-        found = 0
-        for p in result_pkts:
-            if str(p) == exp_pkt:
-                found += 1
-            else:
-                self.log('Bad packet',
-                         ':'.join(x.encode('hex') for x in str(p))
-                         + "\n\n" +
-                         ':'.join(x.encode('hex') for x in exp_pkt))
-
-        if found != exp_num:
-            raise NtiError("Found %d packets, was looking for %d" %
-                           (found, exp_num))
-
-        LOG_sec("Capture test OK exp: %d got: %d" % (exp_num, found))
-        LOG_endsec()
+        self.test_with_traffic(pcap_src, self.get_exp_pkt(),
+                               self.get_tcpdump_params())
