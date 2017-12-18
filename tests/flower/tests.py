@@ -47,6 +47,7 @@ class NFPKmodFlower(NFPKmodGrp):
              ('flower_match_ttl', FlowerMatchTTL, "Checks basic flower ttl match capabilities"),
              ('flower_match_tos', FlowerMatchTOS, "Checks basic flower tos match capabilities"),
              ('flower_match_vxlan', FlowerMatchVXLAN, "Checks basic flower vxlan match capabilities"),
+             ('flower_match_geneve', FlowerMatchGeneve, "Checks basic flower Geneve match capabilities"),
              ('flower_match_whitelist', FlowerMatchWhitelist, "Checks basic flower match whitelisting"),
              ('flower_vxlan_whitelist', FlowerVxlanWhitelist, "Checks that unsupported vxlan rules are not offloaded"),
              ('flower_action_encap_vxlan', FlowerActionVXLAN, "Checks basic flower vxlan encapsulation action capabilities"),
@@ -450,6 +451,77 @@ class FlowerMatchVXLAN(FlowerBase):
 
         self.cleanup_filter('vxlan0')
         M.cmd('ip link del vxlan0')
+
+class FlowerMatchGeneve(FlowerBase):
+    def netdev_execute(self):
+        iface, ingress = self.configure_flower()
+        M = self.dut
+        A = self.src
+
+        src_ip = self.src_addr[0].split('/')[0]
+        dut_ip = self.dut_addr[0].split('/')[0]
+
+        _, src_mac = A.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.src_ifn[0])
+        _, dut_mac = M.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.dut_ifn[0])
+
+        M.cmd('ip link add gene0 type geneve dstport 6081 external')
+        M.cmd('ifconfig gene0 up')
+
+        self.add_egress_qdisc('gene0')
+
+        # Hit test - match all geneve fields and decap
+        match = 'ip flower enc_src_ip %s enc_dst_ip %s enc_dst_port 6081 enc_key_id 123' % (src_ip, dut_ip)
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter('gene0', match, action)
+        pkt_cnt = 100
+        exp_pkt_cnt = 100
+
+        # Geneve header with VNI 123
+        geneve_header = '\x00\x00\x65\x58\x00\x00\x7b\x00'
+        enc_pkt = Ether(src="aa:bb:cc:dd:ee:ff",dst="01:02:03:04:05:06")/IP()/TCP()/Raw('\x00'*64)
+        geneve_header += str(enc_pkt)
+        pkt = Ether(src=src_mac,dst=dut_mac)/IP(src=src_ip, dst=dut_ip)/UDP(sport=44534, dport=6081)/geneve_header
+        pkt_diff = len(Ether()) + len(IP()) + len(UDP()) + 8
+        self.test_filter('gene0', ingress, pkt, pkt_cnt, exp_pkt_cnt, -pkt_diff)
+
+        self.cleanup_filter('gene0')
+
+        # Miss test - incorrect enc ip src
+        match = 'ip flower enc_src_ip 1.1.1.1 enc_dst_ip %s enc_dst_port 6081 enc_key_id 123' % (dut_ip)
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter('gene0', match, action)
+
+        pkt_cnt = 100
+        exp_pkt_cnt = 0
+
+        self.test_filter('gene0', ingress, pkt, pkt_cnt, exp_pkt_cnt)
+
+        self.cleanup_filter('gene0')
+
+        # Miss test - incorrect enc ip dst
+        match = 'ip flower enc_src_ip %s enc_dst_ip 1.1.1.1 enc_dst_port 6081 enc_key_id 123' % (src_ip)
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter('gene0', match, action)
+
+        pkt_cnt = 100
+        exp_pkt_cnt = 0
+
+        self.test_filter('gene0', ingress, pkt, pkt_cnt, exp_pkt_cnt)
+
+        self.cleanup_filter('gene0')
+
+        # Miss test - incorrect VNI
+        match = 'ip flower enc_src_ip %s enc_dst_ip %s enc_dst_port 6081 enc_key_id 124' % (src_ip, dut_ip)
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter('gene0', match, action)
+
+        pkt_cnt = 100
+        exp_pkt_cnt = 0
+
+        self.test_filter('gene0', ingress, pkt, pkt_cnt, exp_pkt_cnt)
+
+        self.cleanup_filter('gene0')
+        M.cmd('ip link del gene0')
 
 class FlowerMatchMPLS(FlowerBase):
     def netdev_execute(self):
