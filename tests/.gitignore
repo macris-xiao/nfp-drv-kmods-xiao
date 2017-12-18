@@ -1,1 +1,3 @@
+samples/c/map_stress
 *.nffw
+*.llvm
