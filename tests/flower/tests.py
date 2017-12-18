@@ -51,6 +51,7 @@ class NFPKmodFlower(NFPKmodGrp):
              ('flower_match_whitelist', FlowerMatchWhitelist, "Checks basic flower match whitelisting"),
              ('flower_vxlan_whitelist', FlowerVxlanWhitelist, "Checks that unsupported vxlan rules are not offloaded"),
              ('flower_action_encap_vxlan', FlowerActionVXLAN, "Checks basic flower vxlan encapsulation action capabilities"),
+             ('flower_action_encap_geneve', FlowerActionGENEVE, "Checks basic flower geneve encapsulation action capabilities"),
              ('flower_action_set_ether', FlowerActionSetEth, "Checks basic flower set ethernet action capabilities"),
              ('flower_action_set_ipv4', FlowerActionSetIPv4, "Checks basic flower set IPv4 action capabilities"),
              ('flower_action_set_ipv6', FlowerActionSetIPv6, "Checks basic flower set IPv6 action capabilities"),
@@ -854,6 +855,67 @@ class FlowerActionVXLAN(FlowerBase):
         self.cleanup_filter(iface)
 
         M.cmd('ip link delete vxlan0')
+
+class FlowerActionGENEVE(FlowerBase):
+    def netdev_execute(self):
+        iface, ingress = self.configure_flower()
+        M = self.dut
+        A = self.src
+
+        src_ip = self.src_addr[0].split('/')[0]
+        dut_ip = self.dut_addr[0].split('/')[0]
+
+        _, src_mac = A.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.src_ifn[0])
+        _, dut_mac = M.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.dut_ifn[0])
+
+        # the destination port is defined by the tc rule - confirmed in both skip_sw and skip_hw
+        M.cmd('ip link add name gene0 type geneve dstport 0 external')
+        M.cmd('ifconfig gene0 up')
+
+        M.cmd('arp -i %s -s %s %s' % (self.dut_ifn[0], src_ip, src_mac))
+
+        # Hit test - match all tcp packets and encap in geneve
+        match = 'ip flower skip_sw ip_proto tcp'
+        action = 'tunnel_key set id 123 src_ip %s dst_ip %s dst_port 6081 action mirred egress redirect dev gene0' % (dut_ip, src_ip)
+        self.install_filter(iface, match, action)
+
+        pkt_cnt = 100
+        exp_pkt_cnt = 99
+
+        pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP()/TCP()/Raw('\x00'*64)
+
+        dump_file = os.path.join('/tmp/', 'dump.pcap')
+        self.capture_packs(ingress, pkt, dump_file)
+        pack_cap = rdpcap(dump_file)
+        A.cmd("rm %s" % dump_file)
+        pkt_diff = len(Ether()) + len(IP()) + len(UDP()) + 8
+        self.pcap_check_bytes(exp_pkt_cnt, pack_cap, pkt, pkt_diff)
+
+        exp_pkt = Ether(src=dut_mac,dst=src_mac)/IP(src=dut_ip, dst=src_ip)/UDP(sport=0, dport=6081)
+
+        # create matchable strings from the expected packet (non tested fields may differ)
+        geneve_header = '0000655800007b00'
+        mac_header = str(exp_pkt).encode("hex")[0:len(Ether())*2]
+        ip_addresses = str(exp_pkt).encode("hex")[(len(Ether()) + 12)*2: (len(Ether()) + len(IP()))*2]
+        ip_proto = str(exp_pkt).encode("hex")[(len(Ether()) + 9)*2: (len(Ether()) + 10)*2]
+        dest_port = str(exp_pkt).encode("hex")[(len(Ether()) + len(IP()) + 2)*2: (len(Ether()) + len(IP()) + 4)*2]
+
+        # check GENEVE header
+        self.pcap_cmp_pkt_bytes(pack_cap, geneve_header, len(Ether()) + len(IP()) + len(UDP()))
+        # check tunnel ethernet header
+        self.pcap_cmp_pkt_bytes(pack_cap, mac_header, 0)
+        # check tunnel IP addresses
+        self.pcap_cmp_pkt_bytes(pack_cap, ip_addresses, len(Ether()) + 12)
+        # check tunnel IP proto
+        self.pcap_cmp_pkt_bytes(pack_cap, ip_proto, len(Ether()) + 9)
+        # check tunnel destination UDP port
+        self.pcap_cmp_pkt_bytes(pack_cap, dest_port, len(Ether()) + len(IP()) + 2)
+        # check encapsulated packet
+        self.pcap_cmp_pkt_bytes(pack_cap, str(pkt).encode("hex"), len(Ether()) + len(IP()) + len(UDP()) + 8)
+
+        self.cleanup_filter(iface)
+
+        M.cmd('ip link delete gene0')
 
 class FlowerActionSetEth(FlowerBase):
     def netdev_execute(self):
