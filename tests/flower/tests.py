@@ -11,6 +11,7 @@ from ..common_test import CommonNetdevTest
 from ..drv_grp import NFPKmodGrp
 from time import sleep
 import os
+import re
 
 #pylint cannot find TCP, UDP, IP, IPv6, Dot1Q in scapy for some reason
 #pylint: disable=no-name-in-module
@@ -58,6 +59,7 @@ class NFPKmodFlower(NFPKmodGrp):
              ('flower_action_set_udp', FlowerActionSetUDP, "Checks basic flower set UDP action capabilities"),
              ('flower_action_set_tcp', FlowerActionSetTCP, "Checks basic flower set TCP action capabilities"),
              ('flower_vlan_repr', FlowerVlanRepr, "Checks that unsupported vxlan rules are not offloaded"),
+             ('flower_repr_linkstate', FlowerReprLinkstate, "Checks that repr link state is handled correctly"),
         )
 
         for t in T:
@@ -1185,3 +1187,57 @@ class FlowerVlanRepr(FlowerBase):
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action, False)
         self.cleanup_filter(iface)
+
+class FlowerReprLinkstate(CommonNetdevTest):
+    def dmesg_check(self):
+        _, out = self.dut.cmd('dmesg -c | grep %s' % (self.group.pci_dbdf))
+        failures = re.search('ctrl msg for unknown port', out)
+        if failures:
+            raise NtiError("Failure detected: %s" % failures.group(0))
+
+    def is_repr(self, ifc):
+        _, out = self.dut.cmd('ethtool -i %s' % (ifc))
+
+        driver = re.search('driver: (\w+)', out)
+        if not driver:
+            raise NtiError("Can't determine which driver is used - ethtool output invalid")
+
+        return driver.groups()[0] == "nfp"
+
+    def netdev_execute(self):
+        self.dut.cmd('dmesg -c')
+        new_ifcs = self.spawn_vf_netdev()
+        if (len(new_ifcs) != 2):
+            raise NtiError("Only expected to find 2 new interfaces, found %i instead" % len(new_ifcs))
+
+        # Assume the ordering then check it
+        vf = new_ifcs[0]
+        repr = new_ifcs[1]
+        if not self.is_repr(repr) and self.is_repr(vf):
+            vf = new_ifcs[1]
+            repr = new_ifcs[0]
+
+        # Final sanity check
+        if not self.is_repr(repr) or self.is_repr(vf):
+            raise NtiError("The interfaces %s and %s could not be identified as repr and VF" % (repr, vf))
+
+        self.dmesg_check()
+
+        self.dut.link_wait(repr, state=False)
+        self.dut.link_wait(vf, state=False)
+
+        self.dut.cmd('ip link set %s up' % (repr))
+        self.dut.link_wait(repr, state=False)
+        self.dut.link_wait(vf, state=False)
+
+        self.dut.cmd('ip link set %s down' % (repr))
+        self.dut.cmd('ip link set %s up' % (vf))
+        self.dut.link_wait(repr, state=False)
+        self.dut.link_wait(vf, state=False)
+
+        self.dut.cmd('ip link set %s up' % (repr))
+        self.dut.link_wait(repr, state=True)
+        self.dut.link_wait(vf, state=True)
+
+        self.dut.reset_mods()
+        self.dmesg_check()

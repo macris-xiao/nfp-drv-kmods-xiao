@@ -90,9 +90,10 @@ class DrvSystem(System):
 
         return int(out)
 
-    def link_wait(self, ifc, timeout=8):
+    def link_wait(self, ifc, timeout=8, state=True):
         tgt_time = time.time() + timeout
         up_time = 0
+        down_time = 0
 
         while True:
             ret, _ = self.cmd('ip link show dev %s | grep LOWER_UP' %
@@ -103,15 +104,23 @@ class DrvSystem(System):
             # immediate down.  We need to make sure link is stable for at
             # least half a second.
             if ret == 0:
+                down_time = 0
                 if up_time == 0:
                     up_time = now
-                if now - up_time >= 0.5:
+                if state and (now - up_time >= 0.5):
                     return
             else:
                 up_time = 0
+                if down_time == 0:
+                    down_time = now
+                if (not state) and (now - down_time >= 0.5):
+                    return
 
             if now >= tgt_time:
-                raise NtiError("Timeout waiting for UP on interface %s" % (ifc))
+                if state:
+                    raise NtiError("Timeout waiting for LINK UP on interface %s" % (ifc))
+                else:
+                    raise NtiError("Timeout waiting for LINK DOWN on interface %s" % (ifc))
             time.sleep(0.1)
 
     def devlink_split(self, index, count, fail=True):
