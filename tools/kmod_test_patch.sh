@@ -430,6 +430,7 @@ done
 		/_phymod_get_attr_/d;
 		/? ".*" *: ".*"/d;
 		/debugfs_create_/d;
+		/WARN/d;
 		/NL_SET_ERR_MSG_MOD/d;
 		/nfp_bpf_[a-z_]*_ok/d;
 		/_rtsym.*(/d;
