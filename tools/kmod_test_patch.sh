@@ -418,7 +418,21 @@ done
 	    #
 	    # Check new lines in strings
 	    #
-	    nl_warnings=$(grep -nrI '[^n]"[,)]' src/ | sed -e '/nfp_pr_et/d;/"AS IS"/d;/MODULE_/d;/strn*cmp/d;/sn*printf/d;/scanf/d;/_phymod_get_attr_/d;/? ".*" *: ".*"/d;/seq_/d;/strncpy/d;/debugfs_create_/d;/NL_SET_ERR_MSG_MOD/d;/_rtsym.*(/d' | wc -l)
+	    nl_warnings=$(grep -nrI '[^n]"[,)]' src/ | sed -e '
+		/nfp_pr_et/d;
+		/"AS IS"/d;
+		/MODULE_/d;
+		/strn*cpy/d;
+		/strn*cmp/d;
+		/sn*printf/d;
+		/scanf/d;
+		/seq_/d;
+		/_phymod_get_attr_/d;
+		/? ".*" *: ".*"/d;
+		/debugfs_create_/d;
+		/NL_SET_ERR_MSG_MOD/d;
+		/_rtsym.*(/d;
+		/\.[a-z0-9_]*[ \t]*= ".*",/d' | wc -l)
 	    check_warn_cnt $nl_warnings $INCUMBENT_NEWLINE_WARNINGS "'line endings in strings'"
 
 	    #
