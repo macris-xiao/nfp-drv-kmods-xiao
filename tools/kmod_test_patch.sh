@@ -410,7 +410,7 @@ done
 	    # Check kerneldoc
 	    #
 	    rm -f src/*.mod.c || true
-	    ../net-next.git/scripts/kernel-doc -man $(find -name '*.c' -or -name '*.h') > /dev/null 2> ../kdoc.log || true
+	    ../net-next.git/scripts/kernel-doc -none $(find -name '*.c' -or -name '*.h') 2> ../kdoc.log || true
 	    sed -i '/warning: no structured comments found/d' ../kdoc.log
 	    kdoc_warnings=$(cat ../kdoc.log | wc -l)
 	    check_warn_cnt $kdoc_warnings $INCUMBENT_KDOC_WARNINGS kdoc
