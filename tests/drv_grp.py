@@ -13,6 +13,7 @@ import tempfile
 import netro.testinfra
 from netro.testinfra import LOG_sec, LOG_endsec
 from netro.testinfra.nti_exceptions import *
+from netro.testinfra.system import _parse_ifconfig
 from libs.nrt_system import NrtSystem
 from libs.nrt_system import kill_bg_process
 from drv_system import *
@@ -365,3 +366,79 @@ class NFPKmodGrp(netro.testinfra.Group):
         self.is_xdp_capable = ret == 0
 
         return self.is_xdp_capable
+
+class NFPKmodAppGrp(NFPKmodGrp):
+    """Base class for app netdev tests"""
+
+    def __init__(self, name, cfg=None, quick=False, dut_object=None,
+                 dut=None, nfp=None, nfpkmods=None, mefw=None):
+
+        NFPKmodGrp.__init__(self, name=name, cfg=cfg, quick=quick,
+                            dut_object=dut_object)
+
+    def _init(self):
+        NFPKmodGrp._init(self)
+
+        M = self.dut
+
+        M.drv_load_netdev_conserving(fwname=None, nth=False)
+
+        # Disable DAD
+        cmd = ''
+        for ifc in self.eth_x:
+            cmd += 'sysctl -w net.ipv6.conf.%s.accept_dad=0;' % (ifc)
+            cmd += 'sysctl -w net.ipv6.conf.%s.dad_transmits=0;' % (ifc)
+        M.cmd(cmd)
+
+        # Init DUT
+        for p in range(0, len(self.eth_x)):
+            M.cmd('ethtool -G %s rx 512 tx 512' % (self.eth_x[p]))
+            M.cmd('ifconfig %s %s promisc up' % (self.eth_x[p], self.addr_x[p]))
+            M.cmd('ip addr add %s dev %s' % (self.addr_v6_x[p], self.eth_x[p]))
+
+        # Make sure NTI knows the NFP interface exists
+        M.refresh()
+
+        # stash hwaddrs for traffic generation
+        self.hwaddr_x = []
+        self.mtu_x = []
+        self.promisc_x = []
+        self.hwaddr_a = []
+        self.mtu_a = []
+        self.promisc_a = []
+        for p in range(0, len(self.eth_x)):
+            _, out = self.dut.cmd("ifconfig %s" % self.eth_x[p])
+            ifcfg = _parse_ifconfig(out)
+            self.hwaddr_x.append(ifcfg["hwaddr"])
+            self.mtu_x.append(ifcfg["mtu"])
+            self.promisc_x.append(out.find("PROMISC") != -1)
+
+            _, out = self.host_a.cmd("ifconfig %s" % self.eth_a[p])
+            ifcfg = _parse_ifconfig(out)
+            self.hwaddr_a.append(ifcfg["hwaddr"])
+            self.mtu_a.append(ifcfg["mtu"])
+            self.promisc_a.append(out.find("PROMISC") != -1)
+
+            # add static arp entries to speed up drop tests
+            self.host_a.cmd('ip neigh add %s lladdr %s dev %s' %
+                            (self.addr_x[p][:-3], self.hwaddr_x[p],
+                             self.eth_a[p]), fail=False)
+            self.host_a.cmd('ip neigh add %s lladdr %s dev %s' %
+                            (self.addr_v6_x[p][:-3], self.hwaddr_x[p],
+                             self.eth_a[p]), fail=False)
+
+            # Make sure MTUs match just in case
+            if self.mtu_a[p] != self.mtu_x[p]:
+                raise NtiError("Device MTUs don't match %s vs %s" %
+                               (self.mtu_a[p], self.mtu_x[p]))
+
+        for i in range(0, len(self.eth_x)):
+            self.dut.link_wait(self.eth_x[i])
+        return
+
+    def _fini(self):
+        self.dut.cmd('rm -rf /lib/firmware/netronome')
+        self.dut.reset_mods()
+
+        NFPKmodGrp._fini(self)
+        return
