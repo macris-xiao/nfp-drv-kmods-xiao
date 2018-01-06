@@ -12,6 +12,6 @@
 	r9 += 2
 skip_add:
 
-	.include "stack_write_unaligned.S"
+	.include "stack_write.S"
 
 	TEST 0x7766554433221100, 64, r9
