@@ -147,6 +147,8 @@ class NFPKmodBPF(NFPKmodGrp):
                 'aligned accesses to the stack'),
                ('xdp_stack_aligned_split', XDPpassAll,
                 'make sure stack accesses are not aliased'),
+               ('xdp_stack_roundup', XDPpassAll,
+                'test stack of size not aligned to 4B'),
 
                ('xdp_stack_read_low8', XDPpassAll,
                 'test 8B reads of the first 32B of the stack'),
