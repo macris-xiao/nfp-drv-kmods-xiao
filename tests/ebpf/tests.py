@@ -641,6 +641,12 @@ class eBPFmtu(eBPFtest):
         if ret == 0:
             raise NtiGeneralError("loaded hw-only filter with large MTU")
 
+        ret = self.tc_bpf_load(obj=self.obj_name, skip_sw=True, da=True)
+        ret, _ = self.dut.cmd('ifconfig %s mtu 3000' % (self.dut_ifn[0]),
+                              fail=False)
+        if ret ==  0:
+            raise NtiError("Set large MTU when BPF loaded!")
+
 #########################################################################
 # Data passing/comparing tests
 #########################################################################
