@@ -156,4 +156,6 @@ class eBPFtest(CommonTest):
         """
         Clean up after eBPF test
         """
-        self.dut.cmd('tc qdisc del dev %s ingress' % self.dut_ifn[0])
+        cmd  = 'ethtool -K %s hw-tc-offload off; ' % (self.dut_ifn[0])
+        cmd += 'tc qdisc del dev %s ingress' % (self.dut_ifn[0])
+        self.dut.cmd(cmd)

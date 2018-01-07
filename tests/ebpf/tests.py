@@ -266,7 +266,7 @@ class NFPKmodBPF(NFPKmodGrp):
              ('tc_len', eBPFskbLen, "eBPF skb->len test"),
              ('tc_tcp58', eBPFtcp58, "eBPF filter on TCP port 58"),
              ('tc_gen_flags', eBPFflags, 'iproute/cls_bpf flag reporting'),
-             ('tc_offload_disabled', eBPFtc_off,
+             ('tc_hw_ethtool_feature', eBPFtc_feature,
               'Check if loading fails if ethtool disabled TC offloads'),
              ('tc_two_prog', eBPFtwo_prog, 'Check 2 progs fail'),
              ('bpf_ld_mask_combine', eBPFld_mask_combine,
@@ -605,8 +605,7 @@ class eBPFflags(eBPFtest):
                 raise NtiGeneralError("%s flag not set when it should be" %
                                    (flag))
 
-
-class eBPFtc_off(eBPFtest):
+class eBPFtc_feature(eBPFtest):
     def __init__(self, src, dut, group=None, name="", summary=None):
         eBPFtest.__init__(self, src, dut, mode="skip_hw",
                           group=group, name=name, summary=summary)
@@ -616,7 +615,37 @@ class eBPFtc_off(eBPFtest):
 
         ret = self.tc_bpf_load(obj=self.obj_name, skip_sw=True, da=True)
         if ret == 0:
-            raise NtiGeneralError("loaded hw-only filter with tc offloads disabled")
+            raise NtiError("loaded hw-only filter with tc offloads disabled")
+
+        self.dut.cmd('ethtool -K %s hw-tc-offload on' % (self.dut_ifn[0]))
+        ret = self.tc_bpf_load(obj=self.obj_name, skip_sw=True, da=True)
+        if ret != 0:
+            raise NtiError("Couldn't load hw-only filter with tc offloads on")
+
+        ret, _ = self.dut.cmd('ethtool -K %s hw-tc-offload off' %
+                              (self.dut_ifn[0]),
+                              fail=False)
+        if ret == 0:
+            raise NtiError("Disabled TC offloads with filter loaded")
+
+        # Clean the existing filter
+        cmd  = 'tc qdisc del dev %s ingress; ' % (self.dut_ifn[0])
+        cmd += 'tc qdisc add dev %s ingress; ' % (self.dut_ifn[0])
+        self.dut.cmd(cmd)
+        # Now we should be able to disable
+        self.dut.cmd('ethtool -K %s hw-tc-offload off' % (self.dut_ifn[0]))
+        # XDP should load without ethtool flag...
+        self.xdp_start('pass.o', mode="offload")
+        self.xdp_stop(mode="offload")
+        # .. or with it
+        self.dut.cmd('ethtool -K %s hw-tc-offload on' % (self.dut_ifn[0]))
+        self.xdp_start('pass.o', mode="offload")
+        # And we should be able to disable the flag with XDP on
+        self.dut.cmd('ethtool -K %s hw-tc-offload off' % (self.dut_ifn[0]))
+
+    def cleanup(self):
+        self.xdp_stop(mode="offload")
+        eBPFtest.cleanup(self)
 
 class eBPFtwo_prog(eBPFtest):
     def __init__(self, src, dut, group=None, name="", summary=None):
