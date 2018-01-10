@@ -181,6 +181,11 @@ class FwDumpTest(CommonTest):
         assert_equal(0x67, symval2, 'abs rtsym value high byte')
         assert_equal(0x89abcdef, symval1, 'abs rtsym value low bytes')
 
+    def prepare(self):
+        if self.group.upstream_drv:
+            return NrtResult(name=self.name, testtype=self.__class__.__name__,
+                             passed=None, comment="FW dump test needs NTH")
+
     def execute(self):
         self.prep()
         self.test_well_formed()
