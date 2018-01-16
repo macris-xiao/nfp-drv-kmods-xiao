@@ -1446,19 +1446,19 @@ class IfConfigDownTest(CommonNonUpstreamTest):
     def wait_for_link(self, iface, mac_addr):
         for i in range(0, 16):
             time.sleep(0.5)
-            _, nsp_state = self.dut.cmd_nsp(' -E | grep -EA1 "MAC:\s+%s" | grep -o "[+-]Link" | tr -d "\n"' %
+            _, nsp_state = self.dut.cmd_nsp(' -E | grep -EA3 "MAC:\s+%s"' %
                                             mac_addr)
-            if nsp_state == "+Link":
+            if re.search("\+link", nsp_state.lower()):
                 self.wait_for_link_netdev(iface)
                 return
 
         raise NtiError("Timeout waiting for Link on interface %s" % (iface))
 
     def do_check_port(self, iface, mac_addr, expected_state):
-        _, nsp_state = self.dut.cmd_nsp(' -E | grep -EA1 "MAC:\s+%s" | grep -o "[+-]Configured" | tr -d "\n"' %
+        _, nsp_state = self.dut.cmd_nsp(' -E | grep -EA3 "MAC:\s+%s"' %
                                         mac_addr)
-        if nsp_state != expected_state:
-            raise NtiError('Expected interface %s to be %s, got %s' %
+        if not re.search(expected_state.lower(), nsp_state.lower()):
+            raise NtiError('Expected interface %s to be %s got:\n%s' %
                            (iface, expected_state, nsp_state))
 
     def check_other_ports(self, entry_to_exclude, list, expected_state):
@@ -1469,13 +1469,13 @@ class IfConfigDownTest(CommonNonUpstreamTest):
     def check_other_ports_up(self, entry_to_exclude, list):
         for entry in list:
             if entry[0] != entry_to_exclude[0]:
-                self.do_check_port(entry[0], entry[1], "+Configured")
+                self.do_check_port(entry[0], entry[1], "\+Configured")
                 self.ping(entry[2])
 
     def check_other_ports_down(self, entry_to_exclude, list):
         for entry in list:
             if entry[0] != entry_to_exclude[0]:
-                self.do_check_port(entry[0], entry[1], "-Configured")
+                self.do_check_port(entry[0], entry[1], "\-Configured")
 
     def check_port_up(self, port_tuple):
         iface = port_tuple[0]
@@ -1483,7 +1483,7 @@ class IfConfigDownTest(CommonNonUpstreamTest):
         port = port_tuple[2]
 
         self.dut.cmd('ifconfig %s up' % iface)
-        self.do_check_port(iface, mac_addr, "+Configured")
+        self.do_check_port(iface, mac_addr, "\+Configured")
         self.wait_for_link(iface, mac_addr)
         self.ping(port)
 
@@ -1492,7 +1492,7 @@ class IfConfigDownTest(CommonNonUpstreamTest):
         mac_addr = port_tuple[1]
 
         self.dut.cmd('ifconfig %s down' % iface)
-        self.do_check_port(iface, mac_addr, "-Configured")
+        self.do_check_port(iface, mac_addr, "\-Configured")
 
     def netdev_execute(self):
         self.nsp_flash_min(0x02003c)
