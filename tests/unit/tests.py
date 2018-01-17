@@ -43,6 +43,7 @@ class NFPKmodUnit(NFPKmodGrp):
              ('rtsym', RTSymTest, 'Test in-kernel RT-Sym interface'),
              ('fw_dump', FwDumpTest, 'Test firmware debug dump'),
              ('fw_names', FwSearchTest, "Test FW requested by the driver"),
+             ('vnic_tlv_caps', TLVcapTest, "Test basic parsing of TLV vNIC caps"),
              ('sriov', SriovTest, 'Test SR-IOV sysfs interface'),
              ('netdev', NetdevTest, "Test netdev loading"),
              # Tests which assume netdev FW to be loaded
@@ -1732,3 +1733,82 @@ class FECModesTest(CommonNonUpstreamTest):
                 self.set_fec_and_expect_to_fail(entry, "auto")
 
         self.fec_cleanup()
+
+class TLVcapTest(CommonNonUpstreamTest):
+    def modify_bar(self, mods):
+        for w in mods:
+            self.dut.cmd_rtsym("_pf0_net_bar0:%d %d" %
+                               (w[0], w[1] << 16 | w[2]))
+
+    def netdev_execute(self):
+        # Tests to perform
+        tests = [
+            ("TLV size not multiple of",	[(0x58, 0, 3)]),
+            ("END TLV should be empty",		[(0x58, 2, 4)]),
+            ("oversized TLV offset",		[(0x58, 1, 0xf000)]),
+            ("unknown TLV type",		[(0x58, 0x8100, 0)]),
+            ("NULL TLV at offset",		[(0x58, 1, 0x17a4),
+                                                 (0x1800, 0, 0)]),
+            # Last entry cleans up the mess
+            (None,				[(0x58, 2, 0),
+                                                 (0x1800, 0, 0)]),
+        ]
+
+        probe_err = "probe of %s failed with error" % (self.group.pci_dbdf)
+
+        try:
+            for t in tests:
+                LOG_sec("Check for message '%s'" % (t[0]))
+                self.dut.reset_mods()
+                self.dut.insmod()
+
+                self.modify_bar(t[1])
+
+                self.dut.reset_mods()
+                self.dut.cmd("dmesg -c")
+                self.dut.insmod(netdev=True, userspace=True)
+
+                _, msgs = self.dut.cmd("dmesg -c")
+                if t[0] is not None:
+                    if msgs.find(t[0]) == -1:
+                        raise NtiError("Error '%s' did not occur" % (t[0]))
+                elif msgs.find(probe_err) != -1:
+                    raise NtiError("Failed to probe with good TLVs")
+
+                LOG_endsec()
+        except:
+            LOG_endsec()
+            raise
+
+        # Check ME frequency is parsed correctly (add the TLV twice to check
+        # multiple TLV parsing)
+        self.modify_bar([(0x58, 1, 0x17a4),
+                         (0x1800, 3, 4),    # FREQ hdr
+                         (0x1804, 0, 777),  # FREQ val
+                         (0x1808, 3, 4),    # FREQ hdr
+                         (0x180c, 0, 160),  # FREQ val
+                         (0x1810, 2, 0),    # END
+        ])
+
+        self.dut.reset_mods()
+        self.dut.cmd("dmesg -c")
+        self.dut.insmod(netdev=True, userspace=True)
+        self.ifc_all_up()
+
+        _, msgs = self.dut.cmd("dmesg -c")
+        if msgs.find(probe_err) != -1:
+            raise NtiError("Failed to probe with good TLVs")
+
+        irqmod_exp = 64 << 16 | 50 * 160 / 16
+        irqmod = self.dut.nfd_reg_read_le32(self.dut_ifn[0], 0x0b00)
+        if irqmod != irqmod_exp:
+            raise NtiError("IRQMOD entry %x, expected %x" %
+                           (irqmod, irqmod_exp))
+
+    def cleanup(self):
+        self.dut.reset_mods()
+        self.dut.insmod()
+        self.dut.nffw_unload()
+        self.dut.reset_mods()
+
+        CommonNonUpstreamTest.cleanup(self)
