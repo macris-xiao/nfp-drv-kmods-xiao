@@ -345,6 +345,10 @@ class DrvSystem(System):
             self._mods.remove(module)
         return ret, out
 
+    def get_mip_name(self, fwpath):
+        _, out = self.cmd('readelf -p .note.build_info ' + fwpath)
+        return re.search('Name: (.*)\n', out).groups()[0]
+
     # Load the driver, with non-upstream mode don't spawn netdev,
     # in upstream mode do, since it's the only way there.
     def drv_load_any(self):
@@ -377,18 +381,33 @@ class DrvSystem(System):
         # With non-upstream driver, load the module, see if FW is already there,
         # if it isn't load it manually so that the driver won't reset it.
         if not fwname:
-            fwname = os.path.join(self.tmpdir,
+            fwpath = os.path.join(self.tmpdir,
                                   os.path.basename(self.grp.netdevfw))
         else:
-            fwname = os.path.join(self.netdevfw_dir, fwname)
+            fwpath = os.path.join(self.netdevfw_dir, fwname)
 
         self.insmod(netdev=True, userspace=True)
         ret, _ = self.cmd_rtsym('_pf0_net_bar0', fail=False)
         if ret != 0:
             self.nffw_unload()
-            self.nffw_load('%s' % fwname)
+            self.nffw_load('%s' % fwpath)
             self.rmmod()
             self.insmod(netdev=True, userspace=True)
+        else:
+            # FW is loaded, make sure it's the right one
+            fsname = self.get_mip_name(fwpath)
+            _, out = self.nffw_status()
+            loaded = re.search('Firmware name: (.*)\n', out).groups()[0]
+            if fsname != loaded:
+                LOG("FW loaded is '%s' but expected '%s', reloading" %
+                    (loaded, fsname))
+                self.rmmod()
+                self.insmod(netdev=False)
+                self.nsp_reset()
+                # Run the same function again
+                self.drv_load_netdev_conserving(fwname, nth)
+                return
+
         self.cmd('udevadm settle')
 
         if nth:
@@ -562,6 +581,9 @@ class DrvSystem(System):
         full_cmd += params
 
         return self.cmd(full_cmd, fail=fail)
+
+    def nffw_status(self, fail=True):
+        return self.bsp_cmd('nffw status', '', fail=fail)
 
     def nffw_load(self, fw, fail=True):
         if self.kernel_ver.find("debug") == -1:
