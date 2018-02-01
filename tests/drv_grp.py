@@ -391,15 +391,22 @@ class NFPKmodAppGrp(NFPKmodGrp):
         # Disable DAD
         cmd = ''
         for ifc in self.eth_x:
-            cmd += 'sysctl -w net.ipv6.conf.%s.accept_dad=0;' % (ifc)
-            cmd += 'sysctl -w net.ipv6.conf.%s.dad_transmits=0;' % (ifc)
-        M.cmd(cmd)
+            cmd += 'sysctl -w net.ipv6.conf.{ifc}.accept_dad=0 '
+            cmd += 'net.ipv6.conf.{ifc}.dad_transmits=0 '
+            cmd += 'net.ipv6.conf.{ifc}.keep_addr_on_down=1 '
+            cmd += '&& '
+            cmd = cmd.format(ifc=ifc)
 
         # Init DUT
-        for p in range(0, len(self.eth_x)):
-            M.cmd('ethtool -G %s rx 512 tx 512' % (self.eth_x[p]))
-            M.cmd('ifconfig %s %s promisc up' % (self.eth_x[p], self.addr_x[p]))
-            M.cmd('ip addr add %s dev %s' % (self.addr_v6_x[p], self.eth_x[p]))
+        for p in range(len(self.eth_x)):
+            cmd += 'ethtool -G {ifc} rx 512 tx 512 && '
+            cmd += 'ip link set dev {ifc} promisc on up && '
+            cmd += 'ip addr add dev {ifc} {ipv4} && '
+            cmd += 'ip addr add dev {ifc} {ipv6} && '
+            cmd = cmd.format(ifc=self.eth_x[p],
+                             ipv4=self.addr_x[p], ipv6=self.addr_v6_x[p])
+        cmd += 'true'
+        M.cmd(cmd)
 
         # Make sure NTI knows the NFP interface exists
         M.refresh()
