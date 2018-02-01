@@ -43,6 +43,7 @@ class NFPKmodFlower(NFPKmodGrp):
              ('flower_match_ipv4', FlowerMatchIPv4, "Checks basic flower ipv4 match capabilities"),
              ('flower_match_ipv6', FlowerMatchIPv6, "Checks basic flower ipv6 match capabilities"),
              ('flower_match_tcp', FlowerMatchTCP, "Checks basic flower tcp match capabilities"),
+             ('flower_match_tcp_flags', FlowerMatchTCPFlag, "Checks flower tcp flags match capabilities"),
              ('flower_match_udp', FlowerMatchUDP, "Checks basic flower udp match capabilities"),
              ('flower_match_mpls', FlowerMatchMPLS, "Checks basic flower mpls match capabilities"),
              ('flower_match_ttl', FlowerMatchTTL, "Checks basic flower ttl match capabilities"),
@@ -343,6 +344,30 @@ class FlowerMatchTCP(FlowerBase):
         self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
 
         self.cleanup_filter(iface)
+
+class FlowerMatchTCPFlag(FlowerBase):
+    def test(self, flags, offload):
+        iface, ingress = self.configure_flower()
+
+        match = 'ip flower ip_proto tcp tcp_flags ' + hex(flags)
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action, offload)
+
+        if offload:
+            pkt_cnt = 100
+            exp_pkt_cnt = 100
+            pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP(flags=flags)/Raw('\x00'*64)
+            self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+
+    def netdev_execute(self):
+        offload = [1, 2, 3, 4, 5, 6, 7, 9, 10, 12, 33, 34, 36]
+        non_offload = [8, 16, 17, 22, 32, 64, 128]
+
+        for flags in offload:
+            self.test(flags, True)
+
+        for flags in non_offload:
+            self.test(flags, False)
 
 class FlowerMatchUDP(FlowerBase):
     def netdev_execute(self):
@@ -719,12 +744,6 @@ class FlowerMatchWhitelist(FlowerBase):
 
         # Check that icmp code match is installed in software only (not_in_hw)
         match = 'ip flower ip_proto icmp code 1'
-        action = 'mirred egress redirect dev %s' % iface
-        self.install_filter(iface, match, action, False)
-        self.cleanup_filter(iface)
-
-        # Check that tcp_flags match is installed in software only (not_in_hw)
-        match = 'ip flower ip_proto tcp tcp_flags 2'
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action, False)
         self.cleanup_filter(iface)
