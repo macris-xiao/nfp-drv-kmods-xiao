@@ -29,10 +29,10 @@ def assert_equal(expected, actual, error_message):
                                                                   expected,
                                                                   actual))
 
-def assert_geq(actual, threshold, error_message):
-    if actual < threshold:
-        raise NtiGeneralError("%s: %r < %r" % (error_message, actual,
-                                               threshold))
+def assert_geq(threshold, actual, error_message):
+    if threshold > actual:
+        raise NtiGeneralError("%s: %r > %r" % (error_message, threshold,
+                                               actual))
 
 ###############################################################################
 # Exception for throwing results

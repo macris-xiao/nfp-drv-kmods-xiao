@@ -181,8 +181,8 @@ class TLV(SpecNode):
         else:
             assert_equal(self.the_type, dump.the_type,
                          'Spec and dump TLV types')
-            assert_geq(dump.value.get_length(),
-                       self.value.get_minimum_dump_length(),
+            assert_geq(self.value.get_minimum_dump_length(),
+                       dump.value.get_length(),
                        'TLV %d, length' % self.the_type)
             self.value.assert_dump_value(dump.value, dump.the_type)
 
