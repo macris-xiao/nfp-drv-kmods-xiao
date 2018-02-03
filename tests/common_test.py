@@ -338,14 +338,18 @@ class CommonTest(Test):
         return ret
 
     def tcpping(self, port, count=10, sport=100, dport=58, size=50, tos=None,
-                should_fail=False):
-        opts = "--fast -k --syn "
+                keep=True, speed="fast", fail=False, should_fail=False):
+        opts = "--{speed} --syn ".format(speed=speed)
+        if keep:
+            opts += "-k "
         if tos is not None:
-            opts = opts + "-o %d " % (tos)
+            opts += "-o %d " % (tos)
         cmd = 'hping3 {addr} -c {cnt} -s {sport} -p {dport} -d {size} {opts}'
         cmd = cmd.format(addr=self.dut_addr[port][:-3], cnt=count, sport=sport,
                          dport=dport, size=size, opts=opts)
-        ret, _ = self.src.cmd(cmd, fail=False)
+        ret, out = self.src.cmd(cmd, fail=False)
+        if fail == False:
+            return ret, out
         if ret and should_fail == False:
             raise NtiGeneralError("Couldn't TCP ping endpoint")
         if ret == 0 and should_fail == True:
