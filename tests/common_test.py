@@ -29,10 +29,30 @@ def assert_equal(expected, actual, error_message):
                                                                   expected,
                                                                   actual))
 
+def assert_neq(expected, actual, error_message):
+    if expected == actual:
+        raise NtiGeneralError("%s: value %r not allowed" % (error_message,
+                                                            actual))
+
 def assert_geq(threshold, actual, error_message):
     if threshold > actual:
         raise NtiGeneralError("%s: %r > %r" % (error_message, threshold,
                                                actual))
+
+def assert_ge(threshold, actual, error_message):
+    if actual < threshold:
+        raise NtiGeneralError("%s: %r < %r" % (error_message, actual,
+                                               threshold))
+
+def assert_lt(threshold, actual, error_message):
+    if actual >= threshold:
+        raise NtiGeneralError("%s: %r >= %r" % (error_message, actual,
+                                                threshold))
+
+def assert_in(allowed, actual, error_message):
+    if actual not in allowed:
+        raise NtiGeneralError("%s: %r, not in %r" % (error_message, actual,
+                                                     allowed))
 
 ###############################################################################
 # Exception for throwing results
