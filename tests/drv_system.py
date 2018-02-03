@@ -137,6 +137,46 @@ class DrvSystem(System):
         return self.cmd('devlink port unsplit pci/%s/%d' %
                         (self.grp.pci_dbdf, index), fail=fail)
 
+    def devlink_eswitch_mode_get(self, fail=True):
+        ret, out = self.cmd('devlink -jp dev eswitch show pci/%s' %
+                            (self.grp.pci_dbdf), fail=fail)
+        if ret == 0:
+            out = json.loads(out)["dev"]["pci/" + self.grp.pci_dbdf]["mode"]
+        return ret, out
+
+    def devlink_eswitch_mode_set(self, mode, fail=True):
+        return self.cmd('devlink dev eswitch set pci/%s mode %s' %
+                        (self.grp.pci_dbdf, mode), fail=fail)
+
+    def devlink_any_list(self, param, obj, fail=True):
+        devlink = "pci/" + self.grp.pci_dbdf
+        ret, out = self.cmd('devlink -jp %s show' % (param), fail=fail)
+        if ret == 0:
+            out = json.loads(out)[obj]
+            if devlink in out:
+                out = out[devlink]
+            else:
+                out = {}
+        return ret, out
+
+    def devlink_sb_list(self, fail=True):
+        return self.devlink_any_list("sb", "sb", fail=fail)
+
+    def devlink_sb_pool_list(self, fail=True):
+        return self.devlink_any_list("sb pool", "pool", fail=fail)
+
+    def devlink_sb_pool_set(self, sb, pool, size, thtype="static", fail=True):
+        cmd = 'devlink sb pool set pci/{pci} sb {sb} pool {pool} ' \
+              'size {size} thtype {thtype}'
+        cmd = cmd.format(pci=self.grp.pci_dbdf, sb=sb, pool=pool, size=size,
+                         thtype=thtype)
+        return self.cmd(cmd, fail=fail)
+
+        ret, out = self.cmd('devlink -jp sb show', fail=fail)
+        if ret == 0:
+            out = json.loads(out)["sb"]["pci/" + self.grp.pci_dbdf]
+        return ret, out
+
     def ethtool_get_autoneg(self, ifc):
         _, out = self.cmd('ethtool %s | grep Auto-negotiation' % (ifc))
 
