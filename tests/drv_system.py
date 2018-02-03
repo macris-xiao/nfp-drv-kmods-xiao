@@ -488,14 +488,19 @@ class DrvSystem(System):
         _, data = self.cmd(cmd)
         # Cut out the part we need
         val_s = data[offset * 2:(offset + count * 4) * 2]
+        res = []
         # Byte swap
-        res = 0
         for val_i in range(0, count):
+            val = 0
             # Byte swap one 32bit value
             for byte_i in range(6, -2, -2):
                 start = val_i * 8 + byte_i
-                res = res << 8 | int('0x' + val_s[start:start + 2], 16)
-        return res
+                val = val << 8 | int('0x' + val_s[start:start + 2], 16)
+            res.append(val)
+        if count == 1:
+            return res[0]
+        else:
+            return res
 
     def dfs_read(self, path):
         _, data = self.cmd('echo `cat %s`' % (os.path.join(self.dfs_dir, path)))
