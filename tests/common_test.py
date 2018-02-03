@@ -70,6 +70,26 @@ def ethtool_stats(host, ifc):
 
     return _parse_ethtool(out)
 
+def drv_load_record_ifcs(obj, group, fwname=None):
+    # Load the driver and remember which interfaces got spawned
+    obj.dut._get_netifs()
+    netifs_old = obj.dut._netifs
+
+    obj.dut.drv_load_netdev_conserving(fwname)
+
+    obj.dut._get_netifs()
+    netifs_new = obj.dut._netifs
+
+    # All netdevs
+    obj.nfp_netdevs = list(set(netifs_new) - set(netifs_old))
+
+    # vNIC netdevs
+    obj.vnics = []
+    for ifc in obj.nfp_netdevs:
+        info = ethtool_drvinfo(obj.dut, ifc)
+        if info["bus-info"] == group.pci_dbdf:
+            obj.vnics.append(ifc)
+
 ###############################################################################
 # Test with cleanup
 ###############################################################################
@@ -468,7 +488,6 @@ class CommonNTHTest(CommonTest):
     def cleanup(self):
         self.dut.reset_mods()
 
-
 class CommonNetdevTest(CommonTest):
     def spawn_vf_netdev(self):
         # Enable VFs if supported
@@ -486,24 +505,8 @@ class CommonNetdevTest(CommonTest):
 
     def netdev_prep(self, fwname=None, reload_ifc=False):
         LOG_sec("NFP netdev test prep")
-        # Load the driver and remember which interfaces got spawned
-        self.dut._get_netifs()
-        netifs_old = self.dut._netifs
 
-        self.dut.drv_load_netdev_conserving(fwname)
-
-        self.dut._get_netifs()
-        netifs_new = self.dut._netifs
-
-        # All netdevs
-        self.nfp_netdevs = list(set(netifs_new) - set(netifs_old))
-
-        # vNIC netdevs
-        self.vnics = []
-        for ifc in self.nfp_netdevs:
-            info = ethtool_drvinfo(self.dut, ifc)
-            if info["bus-info"] == self.group.pci_dbdf:
-                self.vnics.append(ifc)
+        drv_load_record_ifcs(self, self.group, fwname=fwname)
 
         if (reload_ifc):
             self.dut_ifn = self.vnics

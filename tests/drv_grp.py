@@ -17,7 +17,7 @@ from netro.testinfra.system import _parse_ifconfig
 from libs.nrt_system import NrtSystem
 from libs.nrt_system import kill_bg_process
 from drv_system import *
-
+from common_test import drv_load_record_ifcs
 
 ###############################################################################
 # A group of unit tests
@@ -384,9 +384,9 @@ class NFPKmodAppGrp(NFPKmodGrp):
     def _init(self):
         NFPKmodGrp._init(self)
 
-        M = self.dut
+        drv_load_record_ifcs(self, self, fwname=None)
 
-        M.drv_load_netdev_conserving(fwname=None, nth=False)
+        M = self.dut
 
         # Disable DAD
         cmd = ''
