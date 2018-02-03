@@ -418,7 +418,7 @@ class CommonTest(Test):
         LOG_sec("Capture test OK exp: %d got: %d" % (exp_num, found))
         LOG_endsec()
 
-    def read_sym_nffw(self, name, nffw_path=None):
+    def read_sym_nffw(self, name, nffw_path=None, fail=False):
         if not nffw_path:
             nffw_path = self.group.netdevfw
 
@@ -432,6 +432,8 @@ class CommonTest(Test):
                 sl = section.get_symbol_by_name(name)
                 if not sl:
                     self.log('NFFW symbol lookup: ' + name, '\nnot found\n')
+                    if fail:
+                        raise NtiError("NFFW can't find symbol '%s'" % (name))
                     return None
                 if len(sl) > 1:
                     raise NtiError('multiple symbols found for ' + name)
