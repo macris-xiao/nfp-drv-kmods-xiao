@@ -167,6 +167,21 @@ class DrvSystem(System):
         return self.cmd('ethtool --show-fec %s' %
                         (ifc), fail=fail)
 
+    def ethtool_get_fwdump(self, ifc, level, fail=True):
+        self.cmd('ethtool -W %s %d' % (ifc, level), fail=fail)
+        self.cmd('ethtool -w %s' % (ifc), fail=fail)
+
+        cmd = ('F=`mktemp -p %s`; '
+               'ethtool -w %s data $F && echo -n $F || rm $F' %
+               (self.tmpdir, ifc))
+        ret, out = self.cmd(cmd, fail=fail)
+        if ret != 0:
+            return ret, out
+
+        self.mv_from(out, self.grp.tmpdir)
+        file_name = os.path.join(self.grp.tmpdir, os.path.basename(out))
+        return 0, file_name
+
     def ip_link_show(self, port=None, ifc=None):
         cmd = "ip -j link show"
         if ifc is not None:
