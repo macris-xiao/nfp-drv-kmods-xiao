@@ -225,6 +225,12 @@ class XDPpassDPAwr(XDPpassBase):
     def get_prog_name(self):
         return 'dpa_write.o'
 
+class XDPimmRelo(XDPpassAll):
+    pass
+
+class XDPimmRelo2(XDPpassAll):
+    pass
+
 ###############################################################################
 # TX tests
 ###############################################################################

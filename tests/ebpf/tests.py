@@ -273,6 +273,10 @@ class NFPKmodBPF(NFPKmodAppGrp):
                 'Test basic data path lookups for arrays'),
                ('map_dp_array_twice', XDParrayLookupTwice,
                 'Test two data path lookups for (two separate) arrays'),
+               ('xdp_imm_relo', XDPimmRelo,
+                'Immediate relocation (return address)'),
+               ('xdp_imm_relo2', XDPimmRelo2,
+                'Immediate relocation (return address)'),
         )
 
         for t in XDP:
