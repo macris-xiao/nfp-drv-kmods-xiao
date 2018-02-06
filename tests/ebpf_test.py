@@ -129,7 +129,7 @@ class eBPFtest(CommonTest):
         LOG_endsec()
 
     def prepare(self):
-        cmd  = 'ethtool -K %s hw-tc-offload on; ' % (self.dut_ifn[0])
+        cmd  = 'ethtool -K %s hw-tc-offload on && ' % (self.dut_ifn[0])
         cmd += 'tc qdisc add dev %s ingress' % (self.dut_ifn[0])
         self.dut.cmd(cmd)
 
@@ -156,6 +156,6 @@ class eBPFtest(CommonTest):
         """
         Clean up after eBPF test
         """
-        cmd  = 'ethtool -K %s hw-tc-offload off; ' % (self.dut_ifn[0])
-        cmd += 'tc qdisc del dev %s ingress' % (self.dut_ifn[0])
+        cmd  = 'tc qdisc del dev %s ingress && ' % (self.dut_ifn[0])
+        cmd += 'ethtool -K %s hw-tc-offload off' % (self.dut_ifn[0])
         self.dut.cmd(cmd)
