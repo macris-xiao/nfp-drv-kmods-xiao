@@ -1735,6 +1735,11 @@ class FECModesTest(CommonNonUpstreamTest):
         self.fec_cleanup()
 
 class TLVcapTest(CommonNonUpstreamTest):
+    def prepare(self):
+        if self.group.upstream_drv:
+            NrtResult(name=self.name, testtype=self.__class__.__name__,
+                      passed=None, comment="Raw BAR write upstream")
+
     def modify_bar(self, mods):
         for w in mods:
             self.dut.cmd_rtsym("_pf0_net_bar0:%d %d" %
