@@ -1263,7 +1263,7 @@ class StatsEthtool(CommonNetdevTest):
             keys = stats[ifc].keys()
 
             # VF vNIC or PF vNIC (not a physical port vNIC)
-            if names[ifc] == "":
+            if re.match('^n\d*', names[ifc]):
                 self.check_sw_stats_present(keys)
                 self.check_vnic_stats_present(keys)
                 self.check_vnic_queue_stats_present(keys)
