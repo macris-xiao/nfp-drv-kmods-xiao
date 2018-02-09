@@ -234,6 +234,7 @@ class NFPKmodGrp(netro.testinfra.Group):
                 if interface == 0:
                     self.pci_id = devices[i][5:]
                     self.pci_dbdf = devices[i]
+                    self.pf_id = int(s[-4])
 
                 # Store all PCIe interface IDs
                 self.pci_ids.insert(interface, devices[i][5:])

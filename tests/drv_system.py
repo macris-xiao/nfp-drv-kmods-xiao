@@ -17,7 +17,9 @@ class NfpNfdCtrl:
     MTU        = 0x18
     FLBUFSZ    = 0x1c
     VERSION    = 0x30
+    MAX_RXRINGS	= 0x40
     MAX_MTU    = 0x44
+    START_RXQ	= 0x4c
     RX_OFFSET  = 0x50
     BPF_STACK_SZ   = 0x88
 
@@ -228,15 +230,21 @@ class DrvSystem(System):
         file_name = os.path.join(self.grp.tmpdir, os.path.basename(out))
         return 0, file_name
 
-    def ip_link_show(self, port=None, ifc=None):
-        cmd = "ip -j link show"
+    def ip_link_show(self, port=None, ifc=None, details=False):
+        cmd = "ip -j"
+        if details:
+            cmd += ' -d'
+        cmd += ' link show'
         if ifc is not None:
-            cmd += " " + ifc
+            cmd += " dev " + ifc
         elif port is not None:
-            cmd += " " + self.grp.eth_x[port]
+            cmd += " dev " + self.grp.eth_x[port]
         _, out = self.cmd(cmd)
 
-        return json.loads(out)
+        res = json.loads(out)
+        if ifc is not None or port is not None:
+            res = res[0]
+        return res
 
     def bpftool_timed(self, param, fail=True):
         start_time = time.time()
