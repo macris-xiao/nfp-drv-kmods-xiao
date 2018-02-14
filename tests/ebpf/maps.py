@@ -231,6 +231,43 @@ class XDPlookupTwice(MapTest):
     def cleanup(self):
         self.xdp_stop(mode=self.group.xdp_mode())
 
+
+class XDPupdate2lookup(MapTest):
+    def get_prog_name(self):
+        """
+        Return the name of XDP program to load for the test.
+        Program should perform map update intermediately followed by lookup.
+        """
+        pass
+
+    def execute(self):
+        self.xdp_start(self.get_prog_name(), mode=self.group.xdp_mode())
+
+        m = self.bpftool_maps_get()[0]
+
+        pkt = self.std_pkt()
+        pkts = []
+        for i in range(100):
+            pkt = pkt[:14] + chr(i) + '\x00\x00\x00' + pkt[18:]
+            pkts.append(Ether(pkt))
+        pcap_src = self.prep_pcap(pkts)
+
+        self.test_with_traffic(pcap_src, pkt[:14] + '\x00' * 4 + pkt[18:],
+                               (self.dut, self.dut_ifn[0], self.src))
+
+        elems = self.bpftool_map_dump(m)
+        if len(elems) != 100:
+            raise NtiError("Expected 100 entries in the map after test")
+
+        for e in elems:
+            idx = str2int(e["key"])
+            val = str2int(e["value"])
+            assert_equal(str2int(e["key"]), str2int(e["value"]),
+                         "Key and value are equal")
+
+    def cleanup(self):
+        self.xdp_stop(mode=self.group.xdp_mode())
+
 ################################################################################
 # Actual test classes - control path
 ################################################################################
@@ -602,3 +639,11 @@ class XDPhtabLookup(XDPlookup):
 class XDPhtabLookupTwice(XDPlookupTwice):
     def get_prog_name(self):
         return 'map_htab256_256.o'
+
+class XDParrayU2L(XDPupdate2lookup):
+    def get_prog_name(self):
+        return 'map_array_u2l.o'
+
+class XDPhtabU2L(XDPupdate2lookup):
+    def get_prog_name(self):
+        return 'map_htab_u2l.o'
