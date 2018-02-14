@@ -268,6 +268,44 @@ class XDPupdate2lookup(MapTest):
     def cleanup(self):
         self.xdp_stop(mode=self.group.xdp_mode())
 
+
+class XDPupdateFlagsAndDelete(MapTest):
+    def get_prog_name(self):
+        """
+        Return the name of XDP program to load for the test.
+        Program should perform map updates followed by delete.
+        """
+        pass
+
+    def execute(self):
+        self.xdp_start(self.get_prog_name(), mode=self.group.xdp_mode())
+
+        m = self.bpftool_maps_get()[0]
+
+        pkt = self.std_pkt()
+        pcap_src = self.prep_pcap_simple_seq(pkt)
+
+        self.test_with_traffic(pcap_src, pkt[:14] + '\x00' * 4 + pkt[18:],
+                               (self.dut, self.dut_ifn[0], self.src))
+
+        elems = self.bpftool_map_dump(m)
+        if m["type"] == "array":
+            exp_cnt = 100
+        else:
+            exp_cnt = 0
+
+        assert_equal(exp_cnt, len(elems),
+                     "Expected %d entries in the map after test")
+
+        for e in elems:
+            idx = str2int(e["key"])
+            val = str2int(e["value"])
+            assert_equal(str2int(e["key"]), str2int(e["value"]),
+                         "Key and value are equal")
+
+    def cleanup(self):
+        self.xdp_stop(mode=self.group.xdp_mode())
+
 ################################################################################
 # Actual test classes - control path
 ################################################################################
@@ -647,3 +685,11 @@ class XDParrayU2L(XDPupdate2lookup):
 class XDPhtabU2L(XDPupdate2lookup):
     def get_prog_name(self):
         return 'map_htab_u2l.o'
+
+class XDParrayUpdateFlagsAndDelete(XDPupdateFlagsAndDelete):
+    def get_prog_name(self):
+        return 'map_array_update_delete.o'
+
+class XDPhtabUpdateFlagsAndDelete(XDPupdateFlagsAndDelete):
+    def get_prog_name(self):
+        return 'map_htab_update_delete.o'

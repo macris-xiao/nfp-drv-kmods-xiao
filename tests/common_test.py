@@ -370,6 +370,13 @@ class CommonTest(Test):
 
         return pcap_src
 
+    def prep_pcap_simple_seq(self, pkt):
+        pkts = []
+        for i in range(100):
+            pkt = pkt[:14] + chr(i) + '\x00\x00\x00' + pkt[18:]
+            pkts.append(Ether(pkt))
+        return self.prep_pcap(pkts)
+
     def tcpdump_cmd(self, capture_system, ifname, cmd_system, cmd):
         pcap_res = os.path.join(self.group.tmpdir, 'pcap_res')
 
