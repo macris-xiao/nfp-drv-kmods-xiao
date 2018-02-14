@@ -360,7 +360,12 @@ class CommonTest(Test):
         pcap_local = os.path.join(self.group.tmpdir, 'pcap')
         pcap_src = os.path.join(self.src.tmpdir, 'pcap')
 
-        wrpcap(pcap_local, Ether(pkt))
+        if not isinstance(pkt, list):
+            pkt = Ether(pkt) * 100
+        elif len(pkt) != 100:
+            raise NtiError('Internal error - 100 pkts expected on the list')
+
+        wrpcap(pcap_local, pkt)
         self.src.mv_to(pcap_local, pcap_src)
 
         return pcap_src
@@ -409,7 +414,7 @@ class CommonTest(Test):
         return pkt
 
     def test_with_traffic(self, pcap_src, exp_pkt, tcpdump_params, port=0):
-        cmd = "tcpreplay --intf1=%s --pps=100 --loop=100 -K %s " % \
+        cmd = "tcpreplay --intf1=%s --pps=100 %s " % \
               (self.src_ifn[port], pcap_src)
 
         tp = tcpdump_params
