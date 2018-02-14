@@ -10,7 +10,7 @@ import re
 
 from elftools.elf.elffile import ELFFile
 from elftools.elf.sections import SymbolTableSection
-from scapy.all import TCP, UDP, IP, Ether, rdpcap, wrpcap, IPv6, ICMP, Raw
+from scapy.all import Ether, rdpcap, wrpcap, Raw
 
 from netro.testinfra.nrt_result import NrtResult
 from netro.testinfra.nti_exceptions import NtiError, NtiGeneralError
