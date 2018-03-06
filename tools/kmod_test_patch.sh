@@ -433,7 +433,8 @@ done
 		/NL_SET_ERR_MSG_MOD/d;
 		/nfp_bpf_[a-z_]*_ok/d;
 		/_rtsym.*(/d;
-		/\.[a-z0-9_]*[ \t]*= ".*",/d' | wc -l)
+		/\[[A-Z_]*\]\s*= ".*",/d;
+		/\.[a-z0-9_]*\s*= ".*",/d' | wc -l)
 	    check_warn_cnt $nl_warnings $INCUMBENT_NEWLINE_WARNINGS "'line endings in strings'"
 
 	    #
