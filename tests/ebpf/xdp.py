@@ -21,7 +21,9 @@ from ..drv_system import NfpNfdCtrl
 def xdp_test_name_to_prog(test):
     # Skip the "tests.XXX.xdp_" in name
     last_dot = test.name.rfind('.')
-    return test.name[last_dot + 5:] + '.o'
+    name = test.name[last_dot + 5:] + '.o'
+    test.dut.cmd('ls ' + os.path.join(test.dut.xdp_samples_dir, name))
+    return name
 
 def xdp_skip_if_adj_head(test, prog_name):
     if test.group.xdp_mode() != "offload" or \
