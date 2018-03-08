@@ -449,7 +449,8 @@ class CommonTest(Test):
             raise NtiError("Found %d packets, was looking for %d" %
                            (found, exp_num))
 
-        LOG_sec("Capture test OK exp: %d got: %d" % (exp_num, found))
+        LOG_sec("Capture test OK exp: %d got: %d/%d" % (exp_num, found,
+                                                        len(result_pkts)))
         LOG_endsec()
 
     def read_sym_nffw(self, name, nffw_path=None, fail=False):
