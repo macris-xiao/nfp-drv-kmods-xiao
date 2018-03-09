@@ -843,3 +843,38 @@ class XDPatomicCntMulti32(XDPatomicCntMulti):
 class XDPatomicCntMulti64(XDPatomicCntMulti):
     def get_params(self):
         return 8, 'map_atomic_multi64.o'
+
+################################################################################
+# bpf_get_prandom_u32() test
+################################################################################
+
+class XDPprandomU32(MapTest):
+    def prepare(self):
+        if self.group.xdp_mode() == "offload" and \
+           not self.dut.bpf_caps["random"]:
+            return NrtResult(name=self.name, testtype=self.__class__.__name__,
+                             passed=None, comment="no FW random cap")
+
+    def execute(self):
+        self.xdp_start('random.o', mode=self.group.xdp_mode())
+
+        m = self.bpftool_maps_get()[0]
+
+        pkt = self.std_pkt()
+        pcap_src = self.prep_pcap_simple_seq(pkt)
+
+        self.test_with_traffic(pcap_src, pkt[:14] + '\x00' * 4 + pkt[18:],
+                               (self.dut, self.dut_ifn[0], self.src))
+
+        # Make sure the values don't repeat and are not zero
+        elems = self.bpftool_map_dump(m)
+        assert_equal(100, len(elems), "Map elements")
+
+        s = set()
+        for e in elems:
+            s.add(str2int(e["value"]))
+        assert_ge(98, len(s), "Number of distinct values")
+        assert_nin(0, s, "Random values")
+
+    def cleanup(self):
+        self.xdp_stop(mode=self.group.xdp_mode())

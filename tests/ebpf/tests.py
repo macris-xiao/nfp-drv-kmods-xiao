@@ -20,6 +20,7 @@ class BPF_TLV:
     FUNC		= 1
     ADJUST_HEAD		= 2
     MAPS		= 3
+    RANDOM		= 4
 
 ###########################################################################
 # Group
@@ -51,6 +52,7 @@ class NFPKmodBPF(NFPKmodAppGrp):
                 "max_val_sz"		: 0,
                 "max_elem_sz"		: 0,
             },
+            "random"		: False,
         }
 
         value = self._tests["xdp_pass"].read_sym_nffw("_abi_bpf_capabilities")
@@ -89,6 +91,9 @@ class NFPKmodBPF(NFPKmodAppGrp):
                 cap["max_key_sz"]	= struct.unpack("<I", value[12:16])[0]
                 cap["max_val_sz"]	= struct.unpack("<I", value[16:20])[0]
                 cap["max_elem_sz"]	= struct.unpack("<I", value[20:24])[0]
+
+            elif tlv_type == BPF_TLV.RANDOM:
+                self.dut.bpf_caps["random"] = True
 
             else:
                 LOG_sec("Unknown TLV")
@@ -353,6 +358,7 @@ class NFPKmodBPF(NFPKmodAppGrp):
                 'Atomic32 multiple adds'),
                ('xdp_atomic_mul64', XDPatomicCntMulti64,
                 'Atomic64 multiple adds'),
+               ('xdp_prandom_u32', XDPprandomU32, 'Get prandom U32 value'),
         )
 
         for i in (0, 1, 3, 7, 8, 11):

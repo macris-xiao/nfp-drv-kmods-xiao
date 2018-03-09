@@ -54,6 +54,11 @@ def assert_in(allowed, actual, error_message):
         raise NtiGeneralError("%s: %r, not in %r" % (error_message, actual,
                                                      allowed))
 
+def assert_nin(disallowed, actual, error_message):
+    if disallowed in actual:
+        raise NtiGeneralError("%s: %r, contains %r" % (error_message, actual,
+                                                       disallowed))
+
 ###############################################################################
 # Exception for throwing results
 ###############################################################################
