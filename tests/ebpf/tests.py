@@ -260,6 +260,7 @@ class NFPKmodBPF(NFPKmodAppGrp):
                 'Opt memory copy (unusal cases)'),
                ('xdp_tx_mem_builtins', XDPCmembuiltins,
                 'Memory operation builtins tests'),
+               ('array_init', XDParrayInitialise, 'Check array is initialised to 0'),
                ('map_limits', XDPmapLimits, 'Check limits on map parameters'),
                ('map_stress', XDPmapStress,
                 'Multi-threaded stress test of maps'),

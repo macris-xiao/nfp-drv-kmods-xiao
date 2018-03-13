@@ -93,6 +93,13 @@ class MapTest(CommonTest):
             if sw_map[idx] != val:
                 raise NtiError("Bad value %s != %d" % (sw_map[idx], val))
 
+    def map_validate_empty(self, m):
+        elems = self.bpftool_map_dump(m)
+
+        for e in elems:
+            for byte in e["value"]:
+                assert_equal("0x00", byte, "Initial array value")
+
     def map_clear(self, m):
         batch = ""
         elems = self.bpftool_map_dump(m)
@@ -545,6 +552,23 @@ class XDParrayCtrl(MapTest):
 
         # And dump once more...
         self.map_validate(m, sw_m)
+
+    def cleanup(self):
+        self.xdp_stop(mode=self.group.xdp_mode())
+
+class XDParrayInitialise(MapTest):
+    def execute(self):
+        self.xdp_start('map_array_256_varying_val_size.o',
+                       mode=self.group.xdp_mode())
+
+        _, maps = self.dut.bpftool_map_list(expect=5)
+
+        # Validate pre-allocation to zero
+        self.map_validate_empty(maps[0])
+        self.map_validate_empty(maps[1])
+        self.map_validate_empty(maps[2])
+        self.map_validate_empty(maps[3])
+        self.map_validate_empty(maps[4])
 
     def cleanup(self):
         self.xdp_stop(mode=self.group.xdp_mode())
