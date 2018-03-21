@@ -15,7 +15,7 @@ import re
 
 #pylint cannot find TCP, UDP, IP, IPv6, Dot1Q in scapy for some reason
 #pylint: disable=no-name-in-module
-from scapy.all import Raw, Ether, rdpcap, wrpcap, TCP, UDP, IP, IPv6, Dot1Q
+from scapy.all import Raw, Ether, rdpcap, wrpcap, TCP, UDP, IP, IPv6, Dot1Q, fragment, fragment6, IPv6ExtHdrFragment
 #You need latest scapy to import from contrib
 from scapy.contrib.mpls import MPLS
 
@@ -48,6 +48,8 @@ class NFPKmodFlower(NFPKmodGrp):
              ('flower_match_mpls', FlowerMatchMPLS, "Checks basic flower mpls match capabilities"),
              ('flower_match_ttl', FlowerMatchTTL, "Checks basic flower ttl match capabilities"),
              ('flower_match_tos', FlowerMatchTOS, "Checks basic flower tos match capabilities"),
+             ('flower_match_frag_ipv4', FlowerMatchFragIPv4, "Checks basic flower fragmentation for IPv4 match capabilities"),
+             ('flower_match_frag_ipv6', FlowerMatchFragIPv6, "Checks basic flower fragmentation for IPv6 match capabilities"),
              ('flower_match_vxlan', FlowerMatchVXLAN, "Checks basic flower vxlan match capabilities"),
              ('flower_match_geneve', FlowerMatchGeneve, "Checks basic flower Geneve match capabilities"),
              ('flower_match_whitelist', FlowerMatchWhitelist, "Checks basic flower match whitelisting"),
@@ -682,6 +684,57 @@ class FlowerMatchTOS(FlowerBase):
         self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
 
         self.cleanup_filter(iface)
+
+class FlowerMatchFrag(FlowerBase):
+    def install_test(self, flag, iface):
+        match = self.ip_ver + ' flower ip_flags ' + flag
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+    def frag_filter(self, flags, iface, ingress):
+        pkt = self.pkt
+        frag_pkt = self.frag_pkt
+        pkt_cnt = 100
+        exp_pkt_cnt = 100
+
+        if flags == 'nofrag':
+            self.test_filter(iface, ingress, frag_pkt[0], pkt_cnt, 0)
+            self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+        if flags == 'frag':
+            self.test_filter(iface, ingress, pkt, pkt_cnt, 0)
+            self.test_filter(iface, ingress, frag_pkt[0], pkt_cnt, exp_pkt_cnt)
+        if flags == 'nofirstfrag':
+            self.test_filter(iface, ingress, frag_pkt[0], pkt_cnt, 0)
+            self.test_filter(iface, ingress, frag_pkt[1], pkt_cnt, exp_pkt_cnt)
+        if flags == 'firstfrag':
+            self.test_filter(iface, ingress, frag_pkt[1], pkt_cnt, 0)
+            self.test_filter(iface, ingress, frag_pkt[0], pkt_cnt, exp_pkt_cnt)
+
+    def frag_test(self):
+        iface, ingress = self.configure_flower()
+        frag = ['nofrag', 'frag', 'firstfrag', 'nofirstfrag']
+
+        for flags in frag:
+            self.install_test(flags, iface)
+            self.frag_filter(flags, iface, ingress)
+            self.cleanup_filter(iface)
+
+    def netdev_execute(self):
+        self.frag_test()
+
+class FlowerMatchFragIPv4(FlowerMatchFrag):
+    ip_ver = 'ip'
+    pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/\
+          IP()/TCP()/Raw('\x00'*1024)
+    frag_pkt = fragment(Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/
+                        IP()/TCP()/Raw('\x00'*1024), 128)
+
+class FlowerMatchFragIPv6(FlowerMatchFrag):
+    ip_ver = 'ipv6'
+    pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/\
+          IPv6()/TCP()/Raw('\x00'*1024)
+    frag_pkt = fragment6(Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/
+                         IPv6()/IPv6ExtHdrFragment()/TCP()/Raw('\x00'*1024), 128)
 
 class FlowerMatchWhitelist(FlowerBase):
     def netdev_execute(self):
