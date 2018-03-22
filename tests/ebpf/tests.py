@@ -361,6 +361,8 @@ class NFPKmodBPF(NFPKmodAppGrp):
                ('xdp_atomic_mul64', XDPatomicCntMulti64,
                 'Atomic64 multiple adds'),
                ('xdp_prandom_u32', XDPprandomU32, 'Get prandom U32 value'),
+               ('xdp_oversize', XDPLoadNoOffloadTest,
+                'Load program too large for the code store')
         )
 
         for i in (0, 1, 3, 7, 8, 11):
