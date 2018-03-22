@@ -278,6 +278,8 @@ class NFPKmodBPF(NFPKmodAppGrp):
                 'Immediate relocation (return address)'),
                ('xdp_imm_relo2', XDPimmRelo2,
                 'Immediate relocation (return address)'),
+               ('xdp_oversize', XDPLoadNoOffloadTest,
+                'Load program too large for the code store'),
         )
 
         for t in XDP:

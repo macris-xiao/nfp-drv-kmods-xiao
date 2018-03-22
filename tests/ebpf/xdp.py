@@ -50,6 +50,12 @@ class XDPLoadFailTest(XDPTest):
         self.xdp_start(xdp_test_name_to_prog(self), mode=self.group.xdp_mode(),
                        should_fail=True)
 
+class XDPLoadNoOffloadTest(XDPTest):
+    def execute(self):
+        mode = self.group.xdp_mode()
+        self.xdp_start(xdp_test_name_to_prog(self), mode=mode,
+                       should_fail=(mode == "offload"))
+
 class XDPadjBase(CommonPktCompareTest):
     def get_exp_pkt(self):
         if self.group.xdp_mode() != "offload":
