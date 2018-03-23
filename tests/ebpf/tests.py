@@ -17,6 +17,7 @@ from xdp import *
 from maps import *
 
 class BPF_TLV:
+    FUNC		= 1
     ADJUST_HEAD		= 2
     MAPS		= 3
 
@@ -31,6 +32,8 @@ class NFPKmodBPF(NFPKmodAppGrp):
 
     def parse_bpf_caps(self):
         self.dut.bpf_caps = {
+            "funcs" :  {
+            },
             "adjust_head" : {
                 "present"		: False,
                 "flags"			: 0,
@@ -58,6 +61,15 @@ class NFPKmodBPF(NFPKmodAppGrp):
             tlv_type = struct.unpack("<I", value[0:4])[0]
             tlv_len  = struct.unpack("<I", value[4:8])[0]
             value = value[8:]
+
+            if tlv_type == BPF_TLV.FUNC:
+                cap = self.dut.bpf_caps["funcs"]
+
+                func_id = struct.unpack("<I", value[0:4])[0]
+                func_addr = struct.unpack("<I", value[4:8])[0]
+                cap[func_id] = func_addr
+
+                value = value[8:]
 
             if tlv_type == BPF_TLV.ADJUST_HEAD:
                 cap = self.dut.bpf_caps["adjust_head"]
