@@ -21,6 +21,7 @@ class BPF_HELPER:
     MAP_LOOKUP_ELEM	= 1
     MAP_UPDATE_ELEM	= 2
     MAP_DELETE_ELEM	= 3
+    PERF_EVENT_OUTPUT	= 25
 
 def require_helper(test, helper, name):
     if test.group.xdp_mode() == "offload" and \

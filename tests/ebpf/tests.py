@@ -16,6 +16,7 @@ from ..ebpf_test import *
 from xdp import *
 from maps import *
 from defs import *
+from perf_event_output import *
 
 ###########################################################################
 # Group
@@ -362,7 +363,31 @@ class NFPKmodBPF(NFPKmodAppGrp):
                 'Atomic64 multiple adds'),
                ('xdp_prandom_u32', XDPprandomU32, 'Get prandom U32 value'),
                ('xdp_oversize', XDPLoadNoOffloadTest,
-                'Load program too large for the code store')
+                'Load program too large for the code store'),
+               ('xdp_perf_event_output_pkt', PerfEventOutputPktTest,
+                'perf event output helper use for packet data'),
+               ('xdp_perf_event_output_stack', PerfEventOutputStackTest,
+                'perf event output helper use for stack data'),
+               ('xdp_perf_event_output_both', PerfEventOutputBothTest,
+                'perf event output helper use for combined data'),
+               ('xdp_perf_event_output_map', PerfEventOutputMapTest,
+                'perf event output helper use for map value'),
+               ('xdp_perf_event_output_1s', PerfEventOutputOnesTest,
+                'perf event output helper use for 1 byte of data'),
+               ('xdp_perf_event_output_dyn', PerfEventOutputDynTest,
+                'perf event output helper use for whole pkt'),
+               ('xdp_perf_event_output_twice', PerfEventOutputTwiceTest,
+                'perf event output helper use with two streams'),
+               ('xdp_perf_event_output_double', PerfEventOutputDoubleTest,
+                'perf event output helper use with two arrays'),
+               ('xdp_perf_event_output_too_big', PerfEventOutputOversizeTest,
+                'perf event output helper use with data not fitting into cmsg'),
+               ('xdp_perf_event_output_stack_unalign', XDPLoadNoOffloadTest,
+                'perf event output helper use with unaligned stack value'),
+               ('xdp_perf_event_output_cpu0', XDPLoadNoOffloadTest,
+                'perf event output helper use with CPU specified'),
+               ('xdp_perf_event_output_cpu_dyn', XDPLoadNoOffloadTest,
+                'perf event output helper use with dynamic CPU')
         )
 
         for i in (0, 1, 3, 7, 8, 11):
