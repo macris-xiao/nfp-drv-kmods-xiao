@@ -416,14 +416,19 @@ class eBPFrefcnt(eBPFtest):
         if self.dut is None:
             return
 
+        self.n_start = self.bpf_obj_cnt()
+
         if self.has_bpf_objects():
             raise NtiError('eBPF objects exist before test start')
 
-    def has_bpf_objects(self):
-        _, maps = self.dut.cmd('bpftool map | wc -l')
-        _, progs = self.dut.cmd('bpftool progs | wc -l')
+    def bpf_obj_cnt(self):
+        _, prog = self.dut.bpftool_prog_list()
+        _, maps = self.dut.bpftool_map_list()
 
-        return maps.strip() != '0' or progs.strip() != '0'
+        return len(prog) + len(maps)
+
+    def has_bpf_objects(self):
+        return self.bpf_obj_cnt() != self.n_start
 
     def check_xdp(self, obj, mode):
         self.xdp_start(obj, mode=mode)

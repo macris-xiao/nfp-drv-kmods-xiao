@@ -49,6 +49,17 @@ class MapTest(CommonTest):
             return NrtResult(name=self.name, testtype=self.__class__.__name__,
                              passed=None, comment="no FW map cap")
 
+    def bpftool_maps_get(self, port=0):
+        links = self.dut.ip_link_show(ifc=self.dut_ifn[port])
+        _, prog = self.dut.bpftool_prog_show(links[0]["xdp"]["prog"]["id"])
+        _, maps = self.dut.bpftool_map_list()
+
+        res = []
+        for m in maps:
+            if m["id"] in prog["map_ids"]:
+                res.append(m)
+        return res
+
     def bpftool_map_dump(self, m):
         _, elems = self.dut.bpftool("map dump id %d" % (m["id"]))
         return elems
@@ -119,8 +130,7 @@ class XDPlookup(MapTest):
     def execute(self):
         self.xdp_start(self.get_prog_name(), mode=self.group.xdp_mode())
 
-        _, maps = self.dut.bpftool_map_list(expect=1)
-        m = maps[0]
+        m = self.bpftool_maps_get()[0]
 
         pkt = self.std_pkt()
         key = bytearray(pkt[14])[0]
@@ -171,7 +181,7 @@ class XDPlookupTwice(MapTest):
     def execute(self):
         self.xdp_start(self.get_prog_name(), mode=self.group.xdp_mode())
 
-        _, maps = self.dut.bpftool_map_list(expect=2)
+        maps = self.bpftool_maps_get()
 
         pkt = self.std_pkt()
         keys = bytearray(pkt[14:16])
@@ -236,8 +246,7 @@ class XDPmapStress(MapTest):
 
         self.xdp_start('map_htab1k_array1k.o', mode=self.group.xdp_mode())
 
-        self.dut.bpftool_prog_list(expect=1)
-        _, maps = self.dut.bpftool_map_list(expect=2)
+        maps = self.bpftool_maps_get()
 
         self.log("Maps", maps)
 
@@ -289,6 +298,9 @@ class XDPmapStress(MapTest):
 
 class XDPmapLimits(MapTest):
     def execute(self):
+        _, maps = self.dut.bpftool_map_list()
+        self.n_start_maps = len(maps)
+
         mode = self.group.xdp_mode()
         should_fail = mode == "offload"
 
@@ -326,7 +338,7 @@ class XDPmapLimits(MapTest):
         finally:
             LOG_endsec()
 
-        self.dut.bpf_wait_maps_clear()
+        self.dut.bpf_wait_maps_clear(expected=self.n_start_maps)
 
         # Too many maps for FW to handle
         LOG_sec("Too many maps")
@@ -348,20 +360,19 @@ class XDPmapLimits(MapTest):
         finally:
             LOG_endsec()
 
-        self.dut.bpf_wait_maps_clear()
+        self.dut.bpf_wait_maps_clear(expected=self.n_start_maps)
 
     def cleanup(self):
         self.xdp_stop(mode=self.group.xdp_mode())
         self.dut.cmd("rm -rf /sys/fs/bpf/nfp/")
-        self.dut.bpf_wait_maps_clear()
+        self.dut.bpf_wait_maps_clear(expected=self.n_start_maps)
 
 
 class XDPhtabCtrl(MapTest):
     def execute(self):
         self.xdp_start('map_htab256.o', mode=self.group.xdp_mode())
 
-        _, maps = self.dut.bpftool_map_list(expect=1)
-        m = maps[0]
+        m = self.bpftool_maps_get()[0]
 
         # Dump empty
         _, elems = self.dut.bpftool("map dump id %d" % (m["id"]))
@@ -489,8 +500,7 @@ class XDParrayCtrl(MapTest):
     def execute(self):
         self.xdp_start('map_array256.o', mode=self.group.xdp_mode())
 
-        _, maps = self.dut.bpftool_map_list(expect=1)
-        m = maps[0]
+        m = self.bpftool_maps_get()[0]
         max_idx = m["max_entries"] - 1
 
         # Validate pre-allocation
@@ -561,7 +571,7 @@ class XDParrayInitialise(MapTest):
         self.xdp_start('map_array_256_varying_val_size.o',
                        mode=self.group.xdp_mode())
 
-        _, maps = self.dut.bpftool_map_list(expect=5)
+        maps = self.bpftool_maps_get()
 
         # Validate pre-allocation to zero
         self.map_validate_empty(maps[0])

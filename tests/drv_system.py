@@ -238,34 +238,17 @@ class DrvSystem(System):
             return ret, {}
         return ret, json.loads(out)
 
-    def bpftool_prog_list(self, expect=None, fail=True):
-        ret, progs = self.bpftool("prog", fail=fail)
-        if expect is not None:
-            if len(progs) != expect:
-                raise NtiError("System has %d programs, expected %d" %
-                               (len(progs), expect))
-        return ret, progs
+    def bpftool_prog_show(self, ident):
+        return self.bpftool("prog show id %d" % (ident))
 
-    def bpftool_map_list(self, expect=None, fail=True):
-        ret, maps = self.bpftool("map", fail=fail)
-        if expect is not None:
-            if len(maps) != expect:
-                raise NtiError("System has %d maps, expected %d" %
-                               (len(maps), expect))
-        return ret, maps
+    def bpftool_prog_list(self, fail=True):
+        return self.bpftool("prog", fail=fail)
 
-    def bpf_wait_progs_clear(self, expected=0, n_retry=30):
-        for i in range(n_retry):
-            ret, progs = self.bpftool_prog_list(fail=False)
-            if ret:
-                continue
-            nprogs = len(progs)
-            if nprogs == expected:
-                return
-            time.sleep(0.05)
-        err = "Timeout waiting for prog count to settle want %d, have %d" % \
-              (expected, nprogs)
-        raise Exception(err)
+    def bpftool_map_show(self, ident):
+        return self.bpftool("map show id %d" % (ident))
+
+    def bpftool_map_list(self, fail=True):
+        return self.bpftool("map", fail=fail)
 
     def bpf_wait_maps_clear(self, expected=0, n_retry=30):
         for i in range(n_retry):
