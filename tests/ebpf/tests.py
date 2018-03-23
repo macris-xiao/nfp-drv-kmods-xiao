@@ -69,9 +69,7 @@ class NFPKmodBPF(NFPKmodAppGrp):
                 func_addr = struct.unpack("<I", value[4:8])[0]
                 cap[func_id] = func_addr
 
-                value = value[8:]
-
-            if tlv_type == BPF_TLV.ADJUST_HEAD:
+            elif tlv_type == BPF_TLV.ADJUST_HEAD:
                 cap = self.dut.bpf_caps["adjust_head"]
 
                 cap["present"]	= True
@@ -81,9 +79,7 @@ class NFPKmodBPF(NFPKmodAppGrp):
                 cap["guaranteed_sub"] = struct.unpack("<I", value[12:16])[0]
                 cap["guaranteed_add"] = struct.unpack("<I", value[16:20])[0]
 
-                value = value[20:]
-
-            if tlv_type == BPF_TLV.MAPS:
+            elif tlv_type == BPF_TLV.MAPS:
                 cap = self.dut.bpf_caps["maps"]
 
                 cap["present"]	= True
@@ -94,7 +90,12 @@ class NFPKmodBPF(NFPKmodAppGrp):
                 cap["max_val_sz"]	= struct.unpack("<I", value[16:20])[0]
                 cap["max_elem_sz"]	= struct.unpack("<I", value[20:24])[0]
 
-                value = value[24:]
+            else:
+                LOG_sec("Unknown TLV")
+                LOG("type: %d len: %d" % (tlv_type, tlv_len))
+                LOG_endsec()
+
+            value = value[tlv_len:]
 
         pp = pprint.PrettyPrinter()
 
