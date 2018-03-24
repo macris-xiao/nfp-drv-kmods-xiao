@@ -441,7 +441,8 @@ class DrvSystem(System):
                     (loaded, fsname))
                 self.rmmod()
                 self.insmod(netdev=False)
-                self.nsp_reset()
+                self.nfp_reset()
+                self.reset_mods()
                 # Run the same function again
                 self.drv_load_netdev_conserving(fwname, nth)
                 return
