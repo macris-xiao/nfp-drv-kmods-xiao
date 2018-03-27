@@ -3,7 +3,7 @@
 //   jump to load in the middle of a sequence.
 //   jump to store in the middle of a sequence.
 
-	.include "opt_memcpy_common.x"
+	.include "opt_tx_common.x"
 	.text
 	.globl	xdp_prog1
 	.p2align	3

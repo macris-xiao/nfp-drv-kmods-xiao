@@ -293,6 +293,16 @@ class NFPKmodBPF(NFPKmodAppGrp):
                 'Immediate relocation (return address)'),
                ('xdp_oversize', XDPLoadNoOffloadTest,
                 'Load program too large for the code store'),
+               ('xdp_tx_pkt_cache_1', XDPpktcache1,
+                'Packet read cache optimisation (aligned offset)'),
+               ('xdp_tx_pkt_cache_2', XDPpktcache2,
+                'Packet read cache optimisation (unaligned offset)'),
+               ('xdp_tx_pkt_cache_3', XDPpktcache3,
+                'Packet read cache optimisation (long range cache)'),
+               ('xdp_tx_pkt_cache_4', XDPpktcache4,
+                'Packet read cache optimisation (cache invalidation)'),
+               ('xdp_tx_pkt_cache_5', XDPpktcache5,
+                'Packet read cache optimisation (negative offsets)'),
         )
 
         for t in XDP:

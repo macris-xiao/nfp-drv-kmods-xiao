@@ -514,6 +514,10 @@ class XDPswap(XDPpassBase):
     def get_prog_name(self):
         return 'swap.o'
 
+###############################################################################
+# eBPF JIT memcpy optimization
+###############################################################################
+
 class XDPOPTmemcpy(XDPtxBase):
     def get_src_pkt(self):
         pkt = ''
@@ -629,6 +633,145 @@ class XDPCmembuiltins(XDPOPTmemcpy):
 
     def get_prog_name(self):
         return 'opt_mem_builtins.o'
+
+###############################################################################
+# eBPF JIT packet cache optimization
+###############################################################################
+
+class XDPpktcache(XDPtxBase):
+    def get_src_pkt(self):
+        pkt = ''
+        for b in self.group.hwaddr_x[0].split(':'):
+            pkt += chr(int('0x' + b, 16))
+        for b in self.group.hwaddr_a[0].split(':'):
+            pkt += chr(int('0x' + b, 16))
+        pkt += '\x12\x22'
+
+        pkt += "".join([chr(i) for i in range(80)])
+
+        return pkt
+
+class XDPpktcache1(XDPpktcache):
+    def get_exp_pkt(self):
+        pkt = self.get_src_pkt()
+
+        pkt = pkt[6:12] + pkt[0:6] + '\x12\x34' + \
+              pkt[14:34] + \
+              pkt[14:15] + \
+              pkt[18:20] + \
+              pkt[22:26] + \
+              pkt[26:34] + \
+              pkt[14:15] + \
+              pkt[14:16] + \
+              pkt[14:18] + \
+              pkt[14:22] + \
+              pkt[64:]
+
+        return pkt
+
+    def get_prog_name(self):
+        return 'opt_pkt_cache_1.o'
+
+class XDPpktcache2(XDPpktcache):
+    def get_exp_pkt(self):
+        pkt = self.get_src_pkt()
+
+        pkt = pkt[6:12] + pkt[0:6] + '\x12\x34' + \
+              pkt[14:25] + \
+              pkt[14:15] + \
+              pkt[15:16] + \
+              pkt[16:17] + \
+              pkt[17:18] + \
+              pkt[14:16] + \
+              pkt[15:17] + \
+              pkt[16:18] + \
+              pkt[17:19] + \
+              pkt[14:18] + \
+              pkt[15:19] + \
+              pkt[16:20] + \
+              pkt[17:21] + \
+              pkt[14:22] + \
+              pkt[15:23] + \
+              pkt[16:24] + \
+              pkt[17:25] + \
+              pkt[85:]
+
+        return pkt
+
+    def get_prog_name(self):
+        return 'opt_pkt_cache_2.o'
+
+class XDPpktcache3(XDPpktcache):
+    def get_exp_pkt(self):
+        pkt = self.get_src_pkt()
+
+        pkt = pkt[6:12] + pkt[0:6] + '\x12\x34' + \
+              pkt[14:60] + \
+              pkt[14:15] + \
+              pkt[40:42] + \
+              pkt[43:47] + \
+              pkt[48:56] + \
+              pkt[75:]
+
+        return pkt
+
+    def get_prog_name(self):
+        return 'opt_pkt_cache_3.o'
+
+class XDPpktcache4(XDPpktcache):
+    def get_exp_pkt(self):
+        pkt = self.get_src_pkt()
+
+        pkt = pkt[6:12] + pkt[0:6] + '\x12\x34' + \
+              pkt[14:22] + \
+              pkt[15:22] + \
+              pkt[29:30] + \
+              '\x00'     + \
+              pkt[31:60] + \
+              pkt[14:15] + \
+              pkt[40:42] + \
+              pkt[30:31] + \
+              pkt[56:58] + \
+              pkt[30:31] + \
+              pkt[56:58] + \
+              pkt[30:31] + \
+              pkt[56:58] + \
+              '\x00'     + \
+              pkt[73:]
+
+        return pkt
+
+    def get_prog_name(self):
+        return 'opt_pkt_cache_4.o'
+
+class XDPpktcache5(XDPpktcache):
+    def get_exp_pkt(self):
+        pkt = self.get_src_pkt()
+
+        pkt = pkt[6:12] + pkt[0:6] + '\x12\x34' + \
+              pkt[14:25] + \
+              pkt[14:15] + \
+              pkt[15:16] + \
+              pkt[16:17] + \
+              pkt[17:18] + \
+              pkt[14:16] + \
+              pkt[15:17] + \
+              pkt[16:18] + \
+              pkt[17:19] + \
+              pkt[14:18] + \
+              pkt[15:19] + \
+              pkt[16:20] + \
+              pkt[17:21] + \
+              pkt[14:22] + \
+              pkt[15:23] + \
+              pkt[16:24] + \
+              pkt[17:25] + \
+              pkt[85:]
+
+        return pkt
+
+    def get_prog_name(self):
+        return 'opt_pkt_cache_5.o'
 
 ###############################################################################
 # xdp_adjust_head() + PASS

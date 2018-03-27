@@ -5,7 +5,7 @@
 //   multiple sequences, all valid.
 //   copy elem wideth is double-word.
 
-	.include "opt_memcpy_common.x"
+	.include "opt_tx_common.x"
 	.text
 	.globl	xdp_prog1
 	.p2align	3
