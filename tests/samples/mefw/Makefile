@@ -1,14 +1,9 @@
-ifeq ($(FLOWENV_PATH),)
-$(error Please set FLOWENV_PATH)
-endif
-
 # Set those to what your card is
 CHIP ?= nfp-4xxx-b0
 AMDA ?= hydrogen
 
 NFCC := nfcc
-CFLAGS := -W3 -chip $(CHIP) -I$(FLOWENV_PATH)/me/include -I$(FLOWENV_PATH)/me/lib
-CLIBS := $(FLOWENV_PATH)/me/lib/nfp/libnfp.c
+CFLAGS := -W3 -chip $(CHIP)
 FWNAME := TEST_FW_12345678
 
 NFLD := nfld
@@ -43,7 +38,7 @@ rts_dump.nffw: rts_17.list abs_rtsym.list
 # This rule will generate different count of RT-SYMS by setting a define
 # and using the single C source as a basis
 rts_%.list: rts.c
-	$(NFCC) $< $(CFLAGS) $(CLIBS) -o $@ \
+	$(NFCC) $< $(CFLAGS) -o $@ \
 	-D NUM_SYMS=$(subst .list,,$(subst rts_,,$@))
 
 abs_rtsym.list: abs_rtsym.uc

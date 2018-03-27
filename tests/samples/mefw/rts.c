@@ -1,5 +1,4 @@
 #include <nfp.h>
-#include <nfp/me.h>
 
 #if NUM_SYMS > 0
 __export __dram int o;
@@ -116,5 +115,5 @@ int
 main(void)
 {
 	while (1)
-		ctx_wait(kill);
+		__asm ctx_arb[kill];
 }
