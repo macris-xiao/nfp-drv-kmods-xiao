@@ -52,6 +52,7 @@ class NFPKmodFlower(NFPKmodGrp):
              ('flower_match_frag_ipv6', FlowerMatchFragIPv6, "Checks basic flower fragmentation for IPv6 match capabilities"),
              ('flower_match_vxlan', FlowerMatchVXLAN, "Checks basic flower vxlan match capabilities"),
              ('flower_match_geneve', FlowerMatchGeneve, "Checks basic flower Geneve match capabilities"),
+             ('flower_modify_mtu', FlowerModifyMTU, "Checks the setting of a mac repr MTU"),
              ('flower_match_whitelist', FlowerMatchWhitelist, "Checks basic flower match whitelisting"),
              ('flower_vxlan_whitelist', FlowerVxlanWhitelist, "Checks that unsupported vxlan rules are not offloaded"),
              ('flower_action_encap_vxlan', FlowerActionVXLAN, "Checks basic flower vxlan encapsulation action capabilities"),
@@ -735,6 +736,71 @@ class FlowerMatchFragIPv6(FlowerMatchFrag):
           IPv6()/TCP()/Raw('\x00'*1024)
     frag_pkt = fragment6(Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/
                          IPv6()/IPv6ExtHdrFragment()/TCP()/Raw('\x00'*1024), 128)
+
+class FlowerModifyMTU(FlowerBase):
+    def netdev_execute(self):
+        iface, ingress = self.configure_flower()
+        M = self.dut
+        A = self.src
+
+        # Test for high MTU set - 9262 should be max
+        ret = M.cmd('ip link set mtu 9263 dev %s' % iface, fail=False)
+        if not ret:
+            raise NtiError('invalid MTU of 9263 accepted on %s' %iface)
+
+        # Test for high MTU set - 68 should be min
+        ret = M.cmd('ip link set mtu 67 dev %s' % iface, fail=False)
+        if not ret:
+            raise NtiError('invalid MTU of 67 accepted on %s' %iface)
+
+        # ensure the sending interface can handle jumbo frames
+        A.cmd('ip link set mtu 9420 dev %s' % ingress)
+
+        # Hit test
+        match = 'ip flower'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        pkt_cnt = 100
+        exp_pkt_cnt = 0
+        # Length 14 + 20 + 20 + 9208 = 9262
+        pkt = Ether()/IP()/TCP()/Raw('\x00'*9208)
+
+        dump_file = os.path.join('/tmp/', 'dump.pcap')
+        self.capture_packs(ingress, pkt, dump_file)
+        pack_cap = rdpcap(dump_file)
+        A.cmd("rm %s" % dump_file)
+        self.pcap_check_bytes(exp_pkt_cnt, pack_cap, pkt, 0)
+
+        self.cleanup_filter(iface)
+
+        # Set mtu to 9262 and check it passes
+        ret = M.cmd('ip link set mtu 9262 dev %s' % iface)
+
+        self.install_filter(iface, match, action)
+        pkt_cnt = 100
+        exp_pkt_cnt = 100
+        dump_file = os.path.join('/tmp/', 'dump.pcap')
+        self.capture_packs(ingress, pkt, dump_file)
+        pack_cap = rdpcap(dump_file)
+        A.cmd("rm %s" % dump_file)
+        self.pcap_check_bytes(exp_pkt_cnt, pack_cap, pkt, 0)
+
+        self.cleanup_filter(iface)
+
+        # Mark MTU below packet size and check it fails
+        ret = M.cmd('ip link set mtu 9000 dev %s' % iface)
+
+        self.install_filter(iface, match, action)
+        pkt_cnt = 100
+        exp_pkt_cnt = 0
+        dump_file = os.path.join('/tmp/', 'dump.pcap')
+        self.capture_packs(ingress, pkt, dump_file)
+        pack_cap = rdpcap(dump_file)
+        A.cmd("rm %s" % dump_file)
+        self.pcap_check_bytes(exp_pkt_cnt, pack_cap, pkt, 0)
+
+        self.cleanup_filter(iface)
 
 class FlowerMatchWhitelist(FlowerBase):
     def netdev_execute(self):
