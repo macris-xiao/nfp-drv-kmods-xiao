@@ -97,6 +97,19 @@ class XDPtxBase(XDPadjBase):
     def get_tcpdump_params(self):
         return (self.src, self.src_ifn[0], self.src)
 
+class XDPoptBase(XDPtxBase):
+    def get_src_pkt(self):
+        pkt = ''
+        for b in self.group.hwaddr_x[0].split(':'):
+            pkt += chr(int('0x' + b, 16))
+        for b in self.group.hwaddr_a[0].split(':'):
+            pkt += chr(int('0x' + b, 16))
+        pkt += '\x12\x22'
+
+        pkt += "".join([chr(i) for i in range(80)])
+
+        return pkt
+
 class XDPtxFailBase(XDPtxBase):
     def get_src_pkt(self):
         return self.std_pkt()
@@ -520,20 +533,7 @@ class XDPswap(XDPpassBase):
 # eBPF JIT memcpy optimization
 ###############################################################################
 
-class XDPOPTmemcpy(XDPtxBase):
-    def get_src_pkt(self):
-        pkt = ''
-        for b in self.group.hwaddr_x[0].split(':'):
-            pkt += chr(int('0x' + b, 16))
-        for b in self.group.hwaddr_a[0].split(':'):
-            pkt += chr(int('0x' + b, 16))
-        pkt += '\x12\x22'
-
-        pkt += "".join([chr(i) for i in range(80)])
-
-        return pkt
-
-class XDPASMmemcpy1(XDPOPTmemcpy):
+class XDPASMmemcpy1(XDPoptBase):
     def get_exp_pkt(self):
         pkt = self.get_src_pkt()
         pkt = pkt[6:12] + pkt[0:6] + '\x12\x34' + \
@@ -543,7 +543,7 @@ class XDPASMmemcpy1(XDPOPTmemcpy):
     def get_prog_name(self):
         return 'opt_memcpy_1.o'
 
-class XDPASMmemcpy2(XDPOPTmemcpy):
+class XDPASMmemcpy2(XDPoptBase):
     def get_exp_pkt(self):
         pkt = self.get_src_pkt()
         pkt = pkt[6:12] + pkt[0:6] + '\x12\x34' + \
@@ -553,7 +553,7 @@ class XDPASMmemcpy2(XDPOPTmemcpy):
     def get_prog_name(self):
         return 'opt_memcpy_2.o'
 
-class XDPASMmemcpy3(XDPOPTmemcpy):
+class XDPASMmemcpy3(XDPoptBase):
     def get_exp_pkt(self):
         pkt = self.get_src_pkt()
         pkt = pkt[6:12] + pkt[0:6] + '\x12\x34' + \
@@ -563,7 +563,7 @@ class XDPASMmemcpy3(XDPOPTmemcpy):
     def get_prog_name(self):
         return 'opt_memcpy_3.o'
 
-class XDPASMmemcpy4(XDPOPTmemcpy):
+class XDPASMmemcpy4(XDPoptBase):
     def get_exp_pkt(self):
         pkt = self.get_src_pkt()
         pkt = pkt[6:12] + pkt[0:6] + '\x12\x34' + \
@@ -573,7 +573,7 @@ class XDPASMmemcpy4(XDPOPTmemcpy):
     def get_prog_name(self):
         return 'opt_memcpy_4.o'
 
-class XDPASMmemcpy5(XDPOPTmemcpy):
+class XDPASMmemcpy5(XDPoptBase):
     def get_exp_pkt(self):
         pkt = self.get_src_pkt()
         pkt = pkt[6:12] + pkt[0:6] + '\x12\x34' + \
@@ -583,7 +583,7 @@ class XDPASMmemcpy5(XDPOPTmemcpy):
     def get_prog_name(self):
         return 'opt_memcpy_5.o'
 
-class XDPASMmemcpy6(XDPOPTmemcpy):
+class XDPASMmemcpy6(XDPoptBase):
     def get_exp_pkt(self):
         pkt = self.get_src_pkt()
         pkt = pkt[6:12] + pkt[0:6] + '\x12\x34' + \
@@ -593,7 +593,7 @@ class XDPASMmemcpy6(XDPOPTmemcpy):
     def get_prog_name(self):
         return 'opt_memcpy_6.o'
 
-class XDPASMmemcpy7(XDPOPTmemcpy):
+class XDPASMmemcpy7(XDPoptBase):
     def get_exp_pkt(self):
         pkt = self.get_src_pkt()
         pkt = pkt[6:12] + pkt[0:6] + '\x12\x34' + \
@@ -603,7 +603,7 @@ class XDPASMmemcpy7(XDPOPTmemcpy):
     def get_prog_name(self):
         return 'opt_memcpy_7.o'
 
-class XDPASMmemcpy8(XDPOPTmemcpy):
+class XDPASMmemcpy8(XDPoptBase):
     def get_exp_pkt(self):
         pkt = self.get_src_pkt()
         pkt = pkt[6:12] + pkt[0:6] + '\x12\x34' + \
@@ -613,7 +613,7 @@ class XDPASMmemcpy8(XDPOPTmemcpy):
     def get_prog_name(self):
         return 'opt_memcpy_8.o'
 
-class XDPASMmemcpy9(XDPOPTmemcpy):
+class XDPASMmemcpy9(XDPoptBase):
     def get_exp_pkt(self):
         pkt = self.get_src_pkt()
         pkt = pkt[6:12] + pkt[0:6] + '\x12\x34' + \
@@ -626,7 +626,7 @@ class XDPASMmemcpy9(XDPOPTmemcpy):
     def get_prog_src_file(self):
         return 'opt_memcpy_9.S'
 
-class XDPCmembuiltins(XDPOPTmemcpy):
+class XDPCmembuiltins(XDPoptBase):
     def get_exp_pkt(self):
         pkt = self.get_src_pkt()
         pkt = pkt[6:12] + pkt[0:6] + '\x12\x34' + \
@@ -640,20 +640,7 @@ class XDPCmembuiltins(XDPOPTmemcpy):
 # eBPF JIT packet cache optimization
 ###############################################################################
 
-class XDPpktcache(XDPtxBase):
-    def get_src_pkt(self):
-        pkt = ''
-        for b in self.group.hwaddr_x[0].split(':'):
-            pkt += chr(int('0x' + b, 16))
-        for b in self.group.hwaddr_a[0].split(':'):
-            pkt += chr(int('0x' + b, 16))
-        pkt += '\x12\x22'
-
-        pkt += "".join([chr(i) for i in range(80)])
-
-        return pkt
-
-class XDPpktcache1(XDPpktcache):
+class XDPpktcache1(XDPoptBase):
     def get_exp_pkt(self):
         pkt = self.get_src_pkt()
 
@@ -674,7 +661,7 @@ class XDPpktcache1(XDPpktcache):
     def get_prog_name(self):
         return 'opt_pkt_cache_1.o'
 
-class XDPpktcache2(XDPpktcache):
+class XDPpktcache2(XDPoptBase):
     def get_exp_pkt(self):
         pkt = self.get_src_pkt()
 
@@ -703,7 +690,7 @@ class XDPpktcache2(XDPpktcache):
     def get_prog_name(self):
         return 'opt_pkt_cache_2.o'
 
-class XDPpktcache3(XDPpktcache):
+class XDPpktcache3(XDPoptBase):
     def get_exp_pkt(self):
         pkt = self.get_src_pkt()
 
@@ -720,7 +707,7 @@ class XDPpktcache3(XDPpktcache):
     def get_prog_name(self):
         return 'opt_pkt_cache_3.o'
 
-class XDPpktcache4(XDPpktcache):
+class XDPpktcache4(XDPoptBase):
     def get_exp_pkt(self):
         pkt = self.get_src_pkt()
 
@@ -746,7 +733,7 @@ class XDPpktcache4(XDPpktcache):
     def get_prog_name(self):
         return 'opt_pkt_cache_4.o'
 
-class XDPpktcache5(XDPpktcache):
+class XDPpktcache5(XDPoptBase):
     def get_exp_pkt(self):
         pkt = self.get_src_pkt()
 
