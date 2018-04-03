@@ -110,6 +110,11 @@ class XDPoptBase(XDPtxBase):
 
         return pkt
 
+    def get_jit_patterns_file_name(self):
+        prog_name = self.get_prog_name()
+        return os.path.join(self.group.samples_xdp,
+                            os.path.splitext(prog_name)[0] + ".S")
+
 class XDPtxFailBase(XDPtxBase):
     def get_src_pkt(self):
         return self.std_pkt()
@@ -623,9 +628,6 @@ class XDPASMmemcpy9(XDPoptBase):
     def get_prog_name(self):
         return 'opt_memcpy_9.o'
 
-    def get_prog_src_file(self):
-        return 'opt_memcpy_9.S'
-
 class XDPCmembuiltins(XDPoptBase):
     def get_exp_pkt(self):
         pkt = self.get_src_pkt()
@@ -635,6 +637,11 @@ class XDPCmembuiltins(XDPoptBase):
 
     def get_prog_name(self):
         return 'opt_mem_builtins.o'
+
+    def get_jit_patterns_file_name(self):
+        prog_name = self.get_prog_name()
+        return os.path.join(self.group.samples_xdp,
+                            os.path.splitext(prog_name)[0] + ".c")
 
 ###############################################################################
 # eBPF JIT packet cache optimization
