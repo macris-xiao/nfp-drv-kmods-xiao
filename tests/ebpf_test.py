@@ -148,6 +148,9 @@ class eBPFtest(CommonTest):
             return NrtResult(name=self.name, testtype=self.__class__.__name__,
                              passed=False, comment="Loading this filter should fail")
 
+        # Check eBPF JIT codegen for tc offload.
+        self.check_bpf_jit_codegen()
+
         self.stats = self.dut.netifs[self.dut_ifn[0]].stats()
 
         return None

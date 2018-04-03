@@ -115,6 +115,12 @@ class XDPoptBase(XDPtxBase):
         return os.path.join(self.group.samples_xdp,
                             os.path.splitext(prog_name)[0] + ".S")
 
+    def install_filter(self):
+        self.xdp_start(self.get_prog_name(), mode=self.group.xdp_mode())
+        # Check eBPF JIT codegen for xdp offload.
+        self.check_bpf_jit_codegen()
+        return 0
+
 class XDPtxFailBase(XDPtxBase):
     def get_src_pkt(self):
         return self.std_pkt()
