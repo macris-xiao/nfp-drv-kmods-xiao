@@ -1,4 +1,5 @@
 // Test various cache invalidations.
+/* CHECK-CODEGEN-TIMES-9: .*mem\[read32_swap,.*\], ctx_swap */
 
 	.include "opt_tx_common.x"
 	.text
@@ -15,6 +16,10 @@ xdp_prog1:
 	r7 += 16
 	r5 = *(u8 *)(r7 + 14)
 	r6 = *(u16 *)(r7 + 40)
+	/* There are four above read pair, they can't be cached as there
+	 * are arious invalidations, so we expect four mem read for them.
+	 */
+	/* CHECK-CODEGEN-TIMES-4: .*mem\[read32_swap,.*0xe, 7\], ctx_swap */
 
 	// Interleaved with memcpy sequence.
 	r4 = *(u8 *)(r1 + 15)

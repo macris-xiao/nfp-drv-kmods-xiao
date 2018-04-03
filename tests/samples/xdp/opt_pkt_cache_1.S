@@ -1,4 +1,5 @@
 // Test packet cache for aligned offsets
+/* CHECK-CODEGEN-TIMES-5: .*mem\[read32_swap,.*\], ctx_swap */
 
 	.include "opt_tx_common.x"
 	.text
@@ -9,8 +10,11 @@ xdp_prog1:
 	// sequence with increasing offsets
 	r2 = *(u8 *)(r1 + 14)
 	r3 = *(u16 *)(r1 + 18)
+	/* CHECK-CODEGEN-NOT: .*mem\[read32_swap,.*0x12,.*\], ctx_swap */
 	r4 = *(u32 *)(r1 + 22)
+	/* CHECK-CODEGEN-NOT: .*mem\[read32_swap,.*0x16,.*\], ctx_swap */
 	r5 = *(u64 *)(r1 + 26)
+	/* CHECK-CODEGEN-NOT: .*mem\[read32_swap,.*0x1a,.*\], ctx_swap */
 	*(u8 *)(r1 + 34) = r2
 	*(u16 *)(r1 + 35) = r3
 	*(u32 *)(r1 + 37) = r4

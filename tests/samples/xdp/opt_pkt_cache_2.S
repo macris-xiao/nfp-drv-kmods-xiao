@@ -1,4 +1,5 @@
 // Test packet cache for unaligned offsets
+/* CHECK-CODEGEN-TIMES-7: .*mem\[read32_swap,.*\], ctx_swap */
 
 	.include "opt_tx_common.x"
 	.text
@@ -10,8 +11,11 @@ xdp_prog1:
 	r2 = *(u8 *)(r1 + 14)
 	// unaligned DW_B
 	r3 = *(u8 *)(r1 + 15)
+	/* CHECK-CODEGEN-NOT: .*mem\[read32_swap,.*0xf,.*\], ctx_swap */
 	r4 = *(u8 *)(r1 + 16)
+	/* CHECK-CODEGEN-NOT: .*mem\[read32_swap,.*0x10,.*\], ctx_swap */
 	r5 = *(u8 *)(r1 + 17)
+	/* CHECK-CODEGEN-NOT: .*mem\[read32_swap,.*0x11,.*\], ctx_swap */
 
 	*(u8 *)(r1 + 25) = r2
 	*(u8 *)(r1 + 26) = r3

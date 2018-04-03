@@ -1,4 +1,5 @@
 // Test packet cache for unaligned offsets with negative offset
+/* CHECK-CODEGEN-TIMES-7: .*mem\[read32_swap,.*\], ctx_swap */
 
 	.include "opt_tx_common.x"
 	.text
@@ -12,13 +13,21 @@ xdp_prog1:
 	r2 = *(u8 *)(r1 - 20 + 14)
 	// unaligned DW_B
 	r3 = *(u8 *)(r1 - 20 + 15)
+	/* CHECK-CODEGEN-NOT: .*immed\[.*, 0xfffffffb\] */
 	r4 = *(u8 *)(r1 - 20 + 16)
+	/* CHECK-CODEGEN-NOT: .*immed\[.*, 0xfffffffc\] */
 	r5 = *(u8 *)(r1 - 20 + 17)
+	/* CHECK-CODEGEN-NOT: .*immed\[.*, 0xfffffffd\] */
 
 	*(u8 *)(r1 - 20 + 25) = r2
 	*(u8 *)(r1 - 20 + 26) = r3
 	*(u8 *)(r1 - 20 + 27) = r4
 	*(u8 *)(r1 - 20 + 28) = r5
+
+	/* There are four groups of packet reads with negative offsets.
+	 * All of them are cachable, so single mem read for each one.
+	 */
+	/* CHECK-CODEGEN-TIMES-4: .*immed\[.*, 0xfffffffa\] */
 
 	r2 = *(u16 *)(r1 - 20 + 14)
 	// unaligned DW_H
