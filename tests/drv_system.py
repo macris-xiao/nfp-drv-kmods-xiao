@@ -534,6 +534,28 @@ class DrvSystem(System):
         _, data = self.cmd_hwinfo(params + ' ' + what)
         return data.split('=')[1].strip()
 
+    def get_resources(self):
+        _, out = self.cmd_res('-L')
+
+        # Iterate over lines skipping header
+        resources = []
+        for line in out.split('\n')[1:]:
+            if not line:
+                continue
+
+            fields = line.split()
+            name = fields[0]
+            cpp_id = fields[2].split(':')[:3]
+            addr = fields[2].split(':')[3][2:]
+            size = fields[3][3:][:-1]
+
+            cpp_id = "%02x%02x%02x00" % \
+                     (int(cpp_id[0]), int(cpp_id[2]), int(cpp_id[1]))
+
+            resources.append((name, cpp_id, addr, size))
+
+        return resources
+
     def get_fw_name_any(self):
         if self.grp.upstream_drv:
             return self.get_fw_name_serial()
@@ -642,6 +664,9 @@ class DrvSystem(System):
 
     def cmd_reg(self, cmd, fail=True):
         return self.bsp_cmd('reg', cmd, fail=fail)
+
+    def cmd_mem(self, cmd='', fail=True):
+        return self.bsp_cmd('mem', cmd, fail=fail)
 
     def cmd_res(self, cmd, fail=True):
         return self.bsp_cmd('res', cmd, fail=fail)

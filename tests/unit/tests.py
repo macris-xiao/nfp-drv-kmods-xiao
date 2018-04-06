@@ -38,6 +38,7 @@ class NFPKmodUnit(NFPKmodGrp):
              ('serial_and_ifc', NFPSerialAndInterface,
               "Read the serial number and interface ID"),
              ('resource', ResourceTest, 'Test in-kernel resource table interface'),
+             ('lock_busting', LockBusting, 'Bust resource locks on init'),
              ('nsp_eth_table', NspEthTable, "Test NSP ETH table functions"),
              ('hwinfo', HWInfoTest, 'Test in-kernel HWInfo interface'),
              ('rtsym', RTSymTest, 'Test in-kernel RT-Sym interface'),
@@ -166,25 +167,10 @@ class ResourceTest(CommonNTHTest):
         # Try non-existing resource
         M.dfs_write('resource', "test.xxx", do_fail=True)
 
-        _, out = M.cmd_res('-L')
-        # Iterate over lines skipping header
-        resources = []
-        for line in out.split('\n')[1:]:
-            if not line:
-                continue
-
-            fields = line.split()
-            name = fields[0]
-            cpp_id = fields[2].split(':')[:3]
-            addr = fields[2].split(':')[3][2:]
-            size = fields[3][3:][:-1]
-
-            cpp_id = "%02x%02x%02x00" % \
-                     (int(cpp_id[0]), int(cpp_id[2]), int(cpp_id[1]))
-
-            if name == "nfp.res":
-                continue
-            resources.append((name, cpp_id, addr, size))
+        resources = M.get_resources()
+        for r in resources:
+            if r[0] == "nfp.res":
+                resources.remove(r)
 
         random.seed(1234)
         random.shuffle(resources)
@@ -222,6 +208,85 @@ class ResourceTest(CommonNTHTest):
         _, out = M.cmd_res('-L')
         if out.count("LOCKED pci"):
             raise NtiGeneralError("Locked resources exist on exit")
+
+class LockBusting(CommonNonUpstreamTest):
+    def lock(self, lockid=0, other_ifc=False, unlock=False):
+        addr = self.addr + lockid * 0x20
+
+        # Read
+        _, out = self.dut.cmd_mem("-w 8 i.emem:0x%x" % (addr))
+        vals = out.split()
+        val = int(vals[1], 16)
+        # Modify
+        val >>= 32
+        val <<= 32
+        if not unlock:
+            val |= 0x000f
+            self.locks.append(lockid)
+        val |= self.interface << 16
+        val += other_ifc << 24
+        # Write
+        self.dut.cmd_mem('-w 8 i.emem:0x%x 0x%x' % (addr, val))
+
+    def unlock_all(self):
+        for l in self.locks:
+            self.lock(l, unlock=True)
+
+    def execute(self):
+        self.locks = []
+
+        # Find out our interface ID
+        _, out = self.dut.cmd('lspci -s %s -vv' % self.group.pci_id)
+        DSN = re.search("Device Serial Number (.*)", out).group(1)
+        interface = DSN[-5:].replace('-', '')
+        self.interface = int(interface, 16)
+
+        self.dut.insmod()
+
+        resources = self.dut.get_resources()
+
+        # Find main resource
+        for r in resources:
+            if r[0] == "nfp.res":
+                rtbl = r
+                break
+
+        exp_cppid = '07012000'
+        if rtbl[1] != exp_cppid:
+            raise NtiSkip("Resource table CPP id is '%s' expected '%s'" %
+                          (rtbl[1], exp_cppid))
+
+
+        self.addr = int(rtbl[2], 16)
+
+        # Now lock the table and 2 other resources
+        self.lock(0)
+        self.lock(1)
+        self.lock(3)
+        # Pretend someone else has taken lock 4
+        self.lock(4, other_ifc=True)
+
+        # For the logs
+        self.dut.cmd_res('-L')
+
+        self.dut.reset_mods()
+
+        # Scan dmesg for warnings
+        self.dut.cmd('dmesg -c')
+        self.dut.insmod()
+        _, out = self.dut.cmd('dmesg -c')
+
+        strs = [(0, "nfp: Warning: busted main resource table mutex"),
+                (0, "nfp: Warning: busted resource 1 mutex"),
+                (0, "nfp: Warning: busted resource 3 mutex"),
+                (1, "nfp: Warning: busted resource 4 mutex"),
+        ]
+        for s in strs:
+            assert_neq(s[0], out.count(s[1]), 'Count of "' + s[1] + '"')
+
+    def cleanup(self):
+        self.unlock_all()
+        self.dut.reset_mods()
 
 class NspEthTable(CommonNTHTest):
     def compare_state(self):
