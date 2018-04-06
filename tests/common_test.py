@@ -349,8 +349,9 @@ class CommonTest(Test):
             if errors is not "":
                 raise NtiError("JIT codegen scan:\n" + errors)
 
-    def tc_bpf_load(self, obj, flags="", act="",
-                    skip_sw=False, skip_hw=False, da=False):
+    def tc_bpf_load(self, obj, flags="", act="", verifier_log="", extack="",
+                    needle_noextack="", skip_sw=False, skip_hw=False,
+                    da=False):
         if skip_sw:
             flags += " skip_sw"
         if skip_hw:
@@ -362,7 +363,13 @@ class CommonTest(Test):
         cmd = 'tc filter add dev %s parent ffff:  bpf obj %s %s %s' % \
               (self.dut_ifn[0], obj_full, flags, act)
 
-        ret, _ = self.dut.cmd(cmd, fail=False)
+        ret, (_, err) = self.dut.cmd(cmd, fail=False, include_stderr=True)
+        if verifier_log:
+            self.check_verifier_log_nfp(err, verifier_log)
+        if extack:
+            self.check_extack(err, extack)
+        if needle_noextack:
+            self.check_no_extack(err, needle_noextack)
         return ret
 
     def xdp_start(self, prog, port=0, mode="", should_fail=False):
@@ -393,6 +400,26 @@ class CommonTest(Test):
         for p in range(0, len(self.active_xdp)):
             if not self.active_xdp[p] is None:
                 self.xdp_stop(port=p, mode=self.active_xdp[p])
+
+    def check_extack(self, output, reference):
+        lines = output.split("\n")
+        comp = len(lines) >= 2 and lines[0] == reference
+        if not comp:
+            raise NtiError("Missing or incorrect netlink extack message")
+
+    def check_no_extack(self, output, needle):
+        if output.count(needle) or output.count("Warning:"):
+            raise NtiError("Found '%s' in command output, leaky extack?" % (needle))
+
+    def check_verifier_log(self, output, reference):
+        lines = output.split("\n")
+        for l in reversed(lines):
+            if l == reference:
+                return
+        raise NtiError("Missing or incorrect message in verifier log")
+
+    def check_verifier_log_nfp(self, output, reference):
+        self.check_verifier_log(output, "[nfp] " + reference)
 
     def _ping_opts(self, addr, ifc, count, size, pattern, ival, tos):
         opts = "%s " % (addr)

@@ -442,27 +442,36 @@ class NFPKmodBPF(NFPKmodAppGrp):
               ('tc_legacy_act', 'da_2_drop.o', '', 'action drop'),
         )
 
+        extack_msg='Error: nfp: only direct action with no legacy actions supported.'
         for t in TF:
             self._tests[t[0]] = eBPFtest(src, dut, obj_name=t[1], tc_flags=t[2],
                                          act=t[3], should_fail=True,
                                          group=self, name=t[0],
+                                         extack=extack_msg,
                                          summary='Fail with %s %s' % \
                                          (t[1], t[2]))
 
-        DAF = (('tc_da_OK', 'da_0_pass.o'),
-               ('tc_da_RECL', 'da_1_pass.o'),
-               ('tc_da_PIPE', 'da_3_unspec.o'),
-               ('tc_da_REP', 'da_6_unspec.o'),
-               ('tc_da_REDIR', 'da_7_redir.o'),
-               ('tc_store', 'store.o'),
-               ('tc_maps', 'maps.o'),
-               ('tc_mark', 'mark.o'),
-               ('tc_bad_ptr', 'validate_ptr_type.o'),
+        DAF = (('tc_da_OK', 'da_0_pass.o',
+                'unsupported exit state: 1, imm: 0'),
+               ('tc_da_RECL', 'da_1_pass.o',
+                'unsupported exit state: 1, imm: 1'),
+               ('tc_da_PIPE', 'da_3_unspec.o',
+                'unsupported exit state: 1, imm: 3'),
+               ('tc_da_REP', 'da_6_unspec.o',
+                'unsupported exit state: 1, imm: 6'),
+               ('tc_da_REDIR', 'da_7_redir.o',
+                'unsupported exit state: 1, imm: 7'),
+               ('tc_store', 'store.o', 'unsupported function id: 9'),
+               ('tc_maps', 'maps.o', 'map writes not supported'),
+               ('tc_mark', 'mark.o', ''),
+               ('tc_bad_ptr', 'validate_ptr_type.o',
+                'unsupported ptr type: 1'),
         )
 
         for t in DAF:
             self._tests[t[0]] = \
                 eBPFtest(src, dut, t[1], should_fail=True, group=self,
+                         verifier_log=t[2],
                          name=t[0],
                          summary='Direct action %s fail test' % (t[0]))
 
@@ -690,7 +699,9 @@ class eBPFtc_feature(eBPFtest):
     def execute(self):
         self.dut.cmd('ethtool -K %s hw-tc-offload off' % (self.dut_ifn[0]))
 
-        ret = self.tc_bpf_load(obj=self.obj_name, skip_sw=True, da=True)
+        extack_msg="Error: TC offload is disabled on net device."
+        ret = self.tc_bpf_load(obj=self.obj_name, skip_sw=True, da=True,
+                               extack=extack_msg)
         if ret == 0:
             raise NtiError("loaded hw-only filter with tc offloads disabled")
 
@@ -741,7 +752,9 @@ class eBPFmtu(eBPFtest):
 
     def execute(self):
         self.dut.cmd('ifconfig %s mtu 3000' % (self.dut_ifn[0]))
-        ret = self.tc_bpf_load(obj=self.obj_name, skip_sw=True, da=True)
+        extack_msg='Error: nfp: BPF offload not supported with MTU larger than HW packet split boundary.'
+        ret = self.tc_bpf_load(obj=self.obj_name, skip_sw=True, da=True,
+                               extack=extack_msg)
         self.dut.cmd('ifconfig %s mtu 1500' % (self.dut_ifn[0]))
 
         if ret == 0:

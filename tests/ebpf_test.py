@@ -20,12 +20,16 @@ class eBPFtest(CommonTest):
 
     def __init__(self, src, dut, obj_name="pass.o", tc_flags="da",
                  act="", mode=None, should_fail=False,
+                 extack="", needle_noextack="", verifier_log="",
                  group=None, name="", summary=None):
         """
         @dut:        A tuple of System and interface name of DUT
         @src:	     A tuple of System and interface name of srcoint
         @obj_name    Name of the filter to load
         @tc_flags    TC BPF flags for installing the filter
+        @extack:     Expected extack message when installing the filter
+        @needle_noextack:   Extack message fragment that should not appear
+        @verifier_log:      Expected verifier log message on filter install
         @group:      Test group this test belongs to
         @name:       Name for this test instance
         @summary:    Optional one line summary for the test
@@ -40,6 +44,9 @@ class eBPFtest(CommonTest):
             self.tc_flags = tc_flags
             self.should_fail = should_fail
             self.mode = mode
+            self.verifier_log = verifier_log
+            self.extack = extack
+            self.needle_noextack = needle_noextack
         return
 
     def validate_cntr(self, d, name, t0, t1):
@@ -137,7 +144,10 @@ class eBPFtest(CommonTest):
             self.mode = self.group.tc_mode()
         flags = self.mode + " " + self.tc_flags
 
-        ret = self.tc_bpf_load(obj=self.obj_name, flags=flags, act=self.act)
+        ret = self.tc_bpf_load(obj=self.obj_name, flags=flags, act=self.act,
+                               verifier_log=self.verifier_log,
+                               extack=self.extack,
+                               needle_noextack=self.needle_noextack)
 
         if ret and not self.should_fail:
             self.cleanup()
