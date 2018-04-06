@@ -761,21 +761,42 @@ class eBPFmtu(eBPFtest):
         eBPFtest.__init__(self, src, dut, mode="skip_hw",
                           group=group, name=name, summary=summary)
 
+    def set_mtu(self, val, fail=True):
+        return self.dut.cmd('ifconfig %s mtu %d' % (self.dut_ifn[0], val),
+                            fail=fail)
+
     def execute(self):
-        self.dut.cmd('ifconfig %s mtu 3000' % (self.dut_ifn[0]))
-        extack_msg='Error: nfp: BPF offload not supported with MTU larger than HW packet split boundary.'
+        extack_msg = 'Error: nfp: BPF offload not supported with MTU larger than HW packet split boundary.'
+
+        self.set_mtu(3000)
         ret = self.tc_bpf_load(obj=self.obj_name, skip_sw=True, da=True,
                                extack=extack_msg)
-        self.dut.cmd('ifconfig %s mtu 1500' % (self.dut_ifn[0]))
-
+        self.set_mtu(1500)
         if ret == 0:
             raise NtiGeneralError("loaded hw-only filter with large MTU")
 
         ret = self.tc_bpf_load(obj=self.obj_name, skip_sw=True, da=True)
-        ret, _ = self.dut.cmd('ifconfig %s mtu 3000' % (self.dut_ifn[0]),
-                              fail=False)
-        if ret ==  0:
-            raise NtiError("Set large MTU when BPF loaded!")
+        ret, _ = self.set_mtu(3000, fail=False)
+        if ret == 0:
+            raise NtiError("Set large MTU when BPF loaded (TC)!")
+
+        eBPFtest.cleanup(self)
+
+        self.set_mtu(3000)
+        ret = self.xdp_start("pass.o", mode="offload",
+                             should_fail=True, extack=extack_msg)
+        self.set_mtu(1500)
+        if ret == 0:
+            raise NtiGeneralError("loaded offload XDP with large MTU")
+
+        ret = self.xdp_start("pass.o", mode="offload")
+        ret, _ = self.set_mtu(3000, fail=False)
+        if ret == 0:
+            raise NtiError("Set large MTU when BPF loaded (XDP)!")
+
+    def cleanup(self):
+        self.xdp_reset()
+        self.set_mtu(1500) # in case a subtest fails
 
 class eBPFspurExtack(eBPFtest):
     def prepare(self):
