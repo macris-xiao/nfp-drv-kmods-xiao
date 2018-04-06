@@ -519,23 +519,21 @@ class eBPFrefcnt(eBPFtest):
 
         self.n_start = self.bpf_obj_cnt()
 
-        if self.has_bpf_objects():
-            raise NtiError('eBPF objects exist before test start')
-
     def bpf_obj_cnt(self):
         _, prog = self.dut.bpftool_prog_list()
         _, maps = self.dut.bpftool_map_list()
 
         return len(prog) + len(maps)
 
-    def has_bpf_objects(self):
+    def bpf_objects_nb_differs(self):
         return self.bpf_obj_cnt() != self.n_start
 
     def check_xdp(self, obj, mode):
         self.xdp_start(obj, mode=mode)
         self.xdp_stop(mode=mode)
-        if self.has_bpf_objects():
-            raise NtiError('eBPF objects after XDP%s with %s' % (mode, obj))
+        if self.bpf_objects_nb_differs():
+            raise NtiError('eBPF objects number differs after XDP%s test with %s' %
+                           (mode, obj))
 
     def test_xdp(self):
         self.check_xdp("pass.o", mode="drv")
@@ -548,8 +546,8 @@ class eBPFrefcnt(eBPFtest):
     def execute(self):
         # The TC offload will be loaded by the eBPFtest base class
         eBPFtest.cleanup(self)
-        if self.has_bpf_objects():
-            raise NtiError('eBPF objects after TC offload')
+        if self.bpf_objects_nb_differs():
+            raise NtiError('eBPF objects number differs after TC offload test')
 
         self.test_xdp()
 
