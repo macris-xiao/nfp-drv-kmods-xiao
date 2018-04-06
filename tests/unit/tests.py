@@ -921,13 +921,6 @@ class BSPDiag(CommonTest):
                 if cmd_ver != ver:
                     raise NtiGeneralError("NSP ABI version does not match ethtool:'%s' user space:'%s'" % (ver, cmd_ver))
 
-            # Try dumps which shouldn't work
-            bad_ethtool_dumps = (1, 3, 0xffffffff)
-            for flag in bad_ethtool_dumps:
-                ret, _ = M.cmd('ethtool -W %s %d' % (ifc, flag), fail=False)
-                if ret == 0:
-                    raise NtiGeneralError("ethtool allows bad dump flags")
-
             _, out = M.cmd('ethtool -w %s' % (ifc))
             if out.find('flag: 0, version: 1, length: 8192') == -1:
                 raise NtiGeneralError("ethtool dump report unexpected")
