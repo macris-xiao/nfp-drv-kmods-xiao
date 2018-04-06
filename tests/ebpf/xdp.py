@@ -48,9 +48,14 @@ class XDPLoadTest(XDPTest):
         self.xdp_start(xdp_test_name_to_prog(self), mode=self.group.xdp_mode())
 
 class XDPLoadFailTest(XDPTest):
+    def __init__(self, src, dut, group=None, name="", summary=None,
+                 verifier_log=""):
+        self.verifier_log = verifier_log
+        XDPTest.__init__(self, src, dut, group, name, summary)
+
     def execute(self):
         self.xdp_start(xdp_test_name_to_prog(self), mode=self.group.xdp_mode(),
-                       should_fail=True)
+                       should_fail=True, verifier_log=self.verifier_log)
 
 class XDPLoadNoOffloadTest(XDPTest):
     def execute(self):

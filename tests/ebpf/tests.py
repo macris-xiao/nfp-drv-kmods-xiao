@@ -216,7 +216,8 @@ class NFPKmodBPF(NFPKmodAppGrp):
                ('xdp_stack_read_unknown', XDPpassAll,
                 'test reads via modified (constant) reg'),
                ('xdp_stack_read_unknown_bad_align', XDPLoadFailTest,
-                'test reads via modified (non-constant) reg'),
+                'test reads via modified (non-constant) reg',
+                'stack access changed location was:0 is:-2'),
                ('xdp_stack_read_unaligned', XDPLoadFailTest,
                 'test unaligned reads (kernel should reject)'),
 
@@ -250,7 +251,8 @@ class NFPKmodBPF(NFPKmodAppGrp):
                ('xdp_stack_write_unknown', XDPpassAll,
                 'test writes via modified (constant) reg'),
                ('xdp_stack_write_unknown_bad_align', XDPLoadFailTest,
-                'test writes via modified (non-constant) reg'),
+                'test writes via modified (non-constant) reg',
+                'stack access changed location was:0 is:-2'),
                ('xdp_stack_write_unaligned', XDPLoadFailTest,
                 'test unaligned writes (kernel should reject)'),
 
@@ -382,8 +384,12 @@ class NFPKmodBPF(NFPKmodAppGrp):
                                    summary=summary)
 
         for t in XDP:
-            self._tests[t[0]] = t[1](src, dut, group=self, name=t[0],
-                                     summary=t[2])
+            if len(t) >= 4:
+                self._tests[t[0]] = t[1](src, dut, group=self, name=t[0],
+                                         summary=t[2], verifier_log=t[3])
+            else:
+                self._tests[t[0]] = t[1](src, dut, group=self, name=t[0],
+                                         summary=t[2])
 
         TCs = (
             ('tc_dpa_rd', eBPFdpaRD, "DPA read with TC"),

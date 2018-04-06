@@ -372,16 +372,23 @@ class CommonTest(Test):
             self.check_no_extack(err, needle_noextack)
         return ret
 
-    def xdp_start(self, prog, port=0, mode="", should_fail=False):
+    def xdp_start(self, prog, port=0, mode="", should_fail=False,
+                  verifier_log="", extack="", needle_noextack=""):
         prog_path = os.path.join(self.dut.xdp_samples_dir, prog)
         cmd = 'ip -force link set dev %s xdp%s obj %s sec ".text"' % \
               (self.dut_ifn[port], mode, prog_path)
 
-        ret, out = self.dut.cmd(cmd, fail=False)
+        ret, (out, err) = self.dut.cmd(cmd, fail=False, include_stderr=True)
         if ret and should_fail == False:
             raise NtiError("Couldn't load XDP")
         if ret == 0 and should_fail == True:
             raise NtiError("XDP loaded and it shouldn't")
+        if verifier_log:
+            self.check_verifier_log_nfp(err, verifier_log)
+        if extack:
+            self.check_extack(err, extack)
+        if needle_noextack:
+            self.check_no_extack(err, needle_noextack)
         if ret != 0:
             return ret, out
 
