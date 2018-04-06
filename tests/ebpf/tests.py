@@ -481,6 +481,11 @@ class NFPKmodBPF(NFPKmodAppGrp):
                          name=t[0],
                          summary='Direct action %s fail test' % (t[0]))
 
+        self._tests['tc_spurious_extack'] = \
+            eBPFspurExtack(src, dut, should_fail=False,
+                           group=self, name='tc_spurious_extack',
+                           summary='Check for spurious extack messages')
+
     def _init(self):
         NFPKmodAppGrp._init(self)
 
@@ -771,6 +776,35 @@ class eBPFmtu(eBPFtest):
                               fail=False)
         if ret ==  0:
             raise NtiError("Set large MTU when BPF loaded!")
+
+class eBPFspurExtack(eBPFtest):
+    def prepare(self):
+        cmd = 'tc qdisc add dev %s ingress' % (self.dut_ifn[0])
+        self.dut.cmd(cmd)
+        return None
+
+    def test_spurious_extack(self, skip_hw, needle_noextack):
+        ret = self.tc_bpf_load(obj=self.obj_name, skip_hw=skip_hw,
+                               needle_noextack=needle_noextack)
+
+        obj_full = os.path.join(self.dut.bpf_samples_dir, self.obj_name)
+        cmd = 'tc filter replace dev %s parent ffff:  bpf obj %s %s' % \
+              (self.dut_ifn[0], obj_full, "skip_hw" if skip_hw else "")
+        ret, (_, err) = self.dut.cmd(cmd, fail=False, include_stderr=True)
+        self.check_no_extack(err, needle_noextack)
+
+        cmd = 'tc filter delete dev %s ingress' % self.dut_ifn[0]
+        ret, (_, err) = self.dut.cmd(cmd, fail=False, include_stderr=True)
+        self.check_no_extack(err, needle_noextack)
+
+    def execute(self):
+        self.dut.cmd('ethtool -K %s hw-tc-offload off' % (self.dut_ifn[0]))
+        self.test_spurious_extack(False, 'nfp:')
+        self.test_spurious_extack(True, 'nfp:')
+
+        self.dut.cmd('ethtool -K %s hw-tc-offload on' % (self.dut_ifn[0]))
+        self.test_spurious_extack(False, 'TC offload is disabled')
+        self.test_spurious_extack(True, 'TC offload is disabled')
 
 #########################################################################
 # Data passing/comparing tests
