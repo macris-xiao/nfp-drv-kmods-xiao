@@ -1366,18 +1366,18 @@ class MtuFlbufCheck(CommonNetdevTest):
                                (fl_bufsz, bflbufsz))
 
     def netdev_execute(self):
-        self.dut.copy_bpf_samples()
 
         self.check(False)
 
         if self.kernel_min(4, 8):
             return
-        ret, _ = self.dut.cmd('ls %s' %
-                              (os.path.join(self.dut.xdp_samples_dir,
-                                            'pass.o')),
-                              fail=False)
+        ret, _ = cmd_log('ls %s' % (os.path.join(self.group.samples_xdp,
+                                                 'pass.o')),
+                         fail=False)
         if ret != 0:
             raise NtiSkip('XDP samples not found')
+
+        self.dut.copy_bpf_samples()
 
         self.dut.cmd('ethtool -L %s rx 0 tx 0 combined 1' % (self.vnics[0]))
         self.xdp_start('pass.o')
