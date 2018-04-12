@@ -53,7 +53,7 @@ class NFPKmodGrp(netro.testinfra.Group):
                             "False). Useful for debugging test failures."]),
         ('rm_fw_dir', [False, "Allow test code to remove the "
                               "/lib/firmware/netronome directory if present"]),
-        ('upstream_drv', [False, "Use upstream/installed driver"]),
+        ('installed_drv', [False, "Use upstream/installed driver"]),
         ('tun_net', [True, "Tunnel subnet to use. First 3 octets of an IPv4 "
                            "subnet to use on tunnels (e.g. '10.9.1.') incl "
                            "the trailing dot."])
@@ -99,11 +99,14 @@ class NFPKmodGrp(netro.testinfra.Group):
         self.tmpdir = None
         self.cfg = cfg
 
+        # This is determined from the system state later on, defaulted for now
+        self.upstream_drv = False
+
         # Set up attributes initialised by the config file.
         # If no config was provided these will be None.
         self.noclean = False
         self.rm_fw_dir = False
-        self.upstream_drv = False
+        self.installed_drv = False
         self.tun_net = None
 
         self.dut = None
@@ -294,8 +297,8 @@ class NFPKmodGrp(netro.testinfra.Group):
             self.noclean = self.cfg.getboolean("General", "noclean")
         if self.cfg.has_option("General", "rm_fw_dir"):
             self.rm_fw_dir = self.cfg.getboolean("General", "rm_fw_dir")
-        if self.cfg.has_option("General", "upstream_drv"):
-            self.upstream_drv = self.cfg.getboolean("General", "upstream_drv")
+        if self.cfg.has_option("General", "installed_drv"):
+            self.installed_drv = self.cfg.getboolean("General", "installed_drv")
         if self.cfg.has_option("General", "tun_net"):
             self.tun_net = self.cfg.get("General", "tun_net")
 
@@ -326,8 +329,8 @@ class NFPKmodGrp(netro.testinfra.Group):
         if self.cfg.has_option("DUT", "bsppath"):
             self.bsppath = self.cfg.get("DUT", "bsppath")
 
-        if self.upstream_drv:
-            self.nfpkmod = '/lib/modules/`uname -r`/kernel/drivers/net/ethernet/netronome/nfp/nfp.ko'
+        if not self.installed_drv and self.nfpkmods == None:
+            raise NtiGeneralError('ERROR: kernel module not provided: nfpkmods=None or installed_drv=False')
 
         self.dut = DrvSystem(self.cfg.get("DUT", "name"), self,
                              quick=self.quick)

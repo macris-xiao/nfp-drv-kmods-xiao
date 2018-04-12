@@ -47,10 +47,13 @@ class DrvSystem(System):
         if ret == 0:
             self.dfs_dir = dfs_mount.split()[2]
 
-        # Copy driver and firmware images
-        if self.grp.upstream_drv:
-            self.mod = self.grp.nfpkmod
-            self.mod_nth = ''
+        # Copy driver and firmware images if needed
+        if self.grp.installed_drv:
+            self.mod = 'nfp'
+            self.mod_nth = 'nfp_test_harness'
+            ret, _ = self.cmd('modinfo nfp 2>/dev/null | grep -q dev_cpp', fail=False)
+            if not ret == 0:
+                self.grp.upstream_drv = True
         else:
             self.mod = os.path.join(self.tmpdir, 'nfp.ko')
             self.cp_to(self.grp.nfpkmod, self.mod)
@@ -343,7 +346,10 @@ class DrvSystem(System):
             if self.grp.upstream_drv:
                 raise NtiSkip("Upstream has no NTH")
 
-        ret, out = self.cmd('insmod %s %s' % (module, params), fail=fail)
+        if self.grp.installed_drv:
+            ret, out = self.cmd('modprobe %s %s' % (module, params), fail=fail)
+        else:
+            ret, out = self.cmd('insmod %s %s' % (module, params), fail=fail)
         if ret == 0:
             # Store the module name for cleanup
             m = os.path.basename(module)
