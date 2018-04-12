@@ -98,7 +98,7 @@ class Modinfo(CommonTest):
             entries += ['v000019EEd00006010sv000019EEsd',
                         "netronome/%s" % self.dut.get_fw_name()]
 
-        _, out = cmd_log('modinfo %s' % (self.group.nfpkmod))
+        _, out = self.dut.cmd('modinfo %s' % (self.dut.mod))
 
         for e in entries:
             if out.find(e) == -1:
