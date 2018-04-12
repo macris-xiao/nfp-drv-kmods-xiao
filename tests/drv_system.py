@@ -357,7 +357,7 @@ class DrvSystem(System):
                 for s in out.split():
                     if not s.startswith("0000:"):
                         continue
-                    if s == self.grp.pci_dbdf:
+                    if s in self.grp.pci_dbdfs:
                         continue
                     self.cmd('echo %s > /sys/bus/pci/drivers/nfp/unbind' % (s),
                              fail=False)

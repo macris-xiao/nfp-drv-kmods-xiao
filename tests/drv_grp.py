@@ -211,16 +211,24 @@ class NFPKmodGrp(netro.testinfra.Group):
             serials = out.split()
 
             i = -1
+            self.pci_ids = []
+            self.pci_dbdfs = []
             for s in serials:
                 i += 1
                 serial = s[:-6] # remove the interface part
                 if serial != self.serial:
                     continue
 
-                # Figure out IDs
-                self.pci_id = devices[i][5:]
-                self.pci_dbdf = devices[i]
-                break
+                # Figure out IDs. We store the main PCIe device ID, but also
+                # keep track of additional PCIe devices
+                interface = int(s[19])
+                if interface == 0:
+                    self.pci_id = devices[i][5:]
+                    self.pci_dbdf = devices[i]
+
+                # Store all PCIe interface IDs
+                self.pci_ids.insert(interface, devices[i][5:])
+                self.pci_dbdfs.insert(interface, devices[i])
 
             if self.pci_id is None:
                 raise NtiGeneralError("Couldn't find device is SN: %s" %
