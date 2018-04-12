@@ -279,16 +279,40 @@ class NspEthTable(CommonNTHTest):
 
         # Flip there and back (enable order: 0 -> len, disable: len -> 0)
         self.compare_state()
+
+        # DACs don't support disabling PHYs in the way this test
+        # expects, see NFPBSP-3238.
+        _, eth_table = M.cmd_nsp('-E')
         for i in range(0, len(self.enable_state)):
+            port_type = re.search('eth%d.*\n.*Phy: ([^ ]+)' % i, eth_table,
+                                  re.MULTILINE).group(1)
+            if port_type.lower() == 'copper':
+                self.enable_state[i] = -1
+                LOG('Port #%d not eligible for this test, type is %s' %
+                    (i, port_type))
+
+        if self.enable_state.count(-1) == len(self.enable_state):
+            raise NtiSkip("Test doesn't support DACs")
+
+        for i in range(0, len(self.enable_state)):
+            if self.enable_state[i] == -1:
+                continue
+
             self.flip_state(i)
             self.compare_state()
         for i in reversed(range(0, len(self.enable_state))):
+            if self.enable_state[i] == -1:
+                continue
+
             self.flip_state(i)
             self.compare_state()
 
         # And flip some random ones
         random.seed(1234)
         for i in range(0, len(self.enable_state) / 2 + 1):
+            if self.enable_state[i] == -1:
+                continue
+
             v = random.randrange(len(self.enable_state))
             self.flip_state(v)
             self.compare_state()
