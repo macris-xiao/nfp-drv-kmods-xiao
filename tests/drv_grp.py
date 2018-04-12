@@ -64,7 +64,7 @@ class NFPKmodGrp(netro.testinfra.Group):
         ("ethX", [True, "List of names of the interfaces on DUT"]),
         ("addrX", [True, "List of IPv4 address/mask to be assigned to ethX"]),
         ("addr6X", [True, "List of IPv6 address/mask to be assigned to ethX"]),
-        ("nfpkmod", [False, "Directory with kernel mods to load on DUT"]),
+        ("nfpkmods", [False, "Directory with kernel mods to load on DUT"]),
         ("nfp", [False, "NFP device number to use (default 0)"]),
         ("netdevfw", [True, "Path to netdev firmware"]),
         ("netdevfw_dir", [False, "Path to netdev firmwares"]),
