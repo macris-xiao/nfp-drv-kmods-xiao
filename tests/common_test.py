@@ -715,16 +715,15 @@ class CommonNetdevTest(CommonTest):
 
         return list(set(self.dut._netifs) - set(netifs_old))
 
-    def netdev_prep(self, fwname=None, reload_ifc=False):
+    def netdev_prep(self, fwname=None):
         LOG_sec("NFP netdev test prep")
 
         drv_load_record_ifcs(self, self.group, fwname=fwname)
 
-        if (reload_ifc):
+        # Refresh the DUT interface list if its not populated.
+        # This could happen when we reload the driver and interfaces changed
+        if len(self.dut_ifn) == 0:
             self.dut_ifn = self.vnics
-
-            # Clear our IP address information.
-            # If the test configuration changed, these no longer have any meaning.
             self.dut_addr = [0] * len(self.vnics)
             self.dut_addr_v6 = [0] * len(self.vnics)
 
@@ -771,9 +770,15 @@ class CommonNetdevTest(CommonTest):
         self.netdev_prep(fwname=fwname)
 
     def reload_driver(self, fwname=None):
+        # Clear our IP address information.
+        # If the test configuration changed, these no longer have any meaning.
+        self.dut_addr = []
+        self.dut_addr_v6 = []
+        self.dut_ifn = []
+
         self.dut.nffw_unload()
         self.dut.reset_mods()
-        self.netdev_prep(fwname=fwname, reload_ifc=True)
+        self.netdev_prep(fwname=fwname)
 
 class CommonNonUpstreamTest(CommonNetdevTest):
     def execute(self):
