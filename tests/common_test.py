@@ -115,6 +115,28 @@ def drv_load_record_ifcs(obj, group, fwname=None):
         if info["bus-info"] == group.pci_dbdf:
             obj.vnics.append(ifc)
 
+    # Store repr netdevs, assuming all non-vnic NFP netdevs are representors.
+    obj.reprs = list(set(obj.nfp_netdevs) - set(obj.vnics))
+
+    # To enable tests to use a single reference, we store the physical port
+    # netdevs. For representor type apps, these will be the representors, for
+    # legacy apps these will be the vnics.
+    obj.phys_netdevs = []
+    if len(obj.reprs) != 0:
+        # We need to jump through some hoops here to only include phys reprs in
+        # this list. ip link actually provides this information quite easily,
+        # but this has only recently been added so we can't assume its available
+        # just yet.
+        _, lookup = obj.dut.cmd('find -L /sys/class/net -maxdepth 2 ' +
+                                '-name \'phys_port_name\' -exec cat {} \; ' +
+                                '-exec echo -n "{} " \; ' +
+                                '-exec cat {} \; 2>/dev/null | grep -E "^/"')
+        for iface in obj.reprs:
+            if re.search('%s/[^ ]+ p[0-9]' % iface, lookup):
+                obj.phys_netdevs.append(iface)
+    else:
+        obj.phys_netdevs = obj.vnics
+
 ###############################################################################
 # Test with cleanup
 ###############################################################################
@@ -715,6 +737,8 @@ class CommonNetdevTest(CommonTest):
         LOG_sec("NFP netdevs")
         LOG("all: " + str(self.nfp_netdevs))
         LOG("vnics: " + str(self.vnics))
+        LOG("reprs: " + str(self.reprs))
+        LOG("phys_netdevs: " + str(self.phys_netdevs))
         LOG_endsec()
 
     def execute(self):

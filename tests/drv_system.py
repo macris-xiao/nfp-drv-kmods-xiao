@@ -89,13 +89,6 @@ class DrvSystem(System):
 
         return
 
-    def count_our_netdevs(self):
-        cmd = 'ls /sys/bus/pci/devices/%s/net/ | wc -l' % self.grp.pci_dbdf
-
-        _, out = self.cmd(cmd)
-
-        return int(out)
-
     def link_wait(self, ifc, timeout=8, state=True):
         tgt_time = time.time() + timeout
         up_time = 0

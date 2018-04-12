@@ -167,7 +167,7 @@ class DevlinkSplit(CommonNetdevTest):
         self.check_fails_unsplit(idx)
 
     def unsplit_check(self, card_info):
-        cur_cnt = self.dut.count_our_netdevs()
+        cur_cnt = len(self.dut.phys_netdevs)
         bad_ports = range(cur_cnt, cur_cnt + 2)
         if card_info[0] > 1:
             bad_ports.append(0) # fail because of order
@@ -188,12 +188,12 @@ class DevlinkSplit(CommonNetdevTest):
             idxs = range(i * card_info[1], (i + 1) * card_info[1])
             self.dut.devlink_unsplit(random.choice(idxs))
 
-        cur_cnt = self.dut.count_our_netdevs()
+        cur_cnt = len(self.dut.phys_netdevs)
         if cur_cnt:
             raise NtiError('Not all netdevs disappeared %d left' % (cur_cnt))
 
     def split_check(self, card_info):
-        cur_cnt = self.dut.count_our_netdevs()
+        cur_cnt = len(self.dut.phys_netdevs)
         bad_ports = [x for x in range(1, (cur_cnt + 1) * card_info[1])
                         if x % card_info[1] != 0]
         if card_info[0] > 1:
@@ -213,7 +213,7 @@ class DevlinkSplit(CommonNetdevTest):
         for i in [x * card_info[1] for x in range(0, card_info[0])]:
             self.dut.devlink_split(i, card_info[1])
 
-        cur_cnt = self.dut.count_our_netdevs()
+        cur_cnt = len(self.dut.phys_netdevs)
         if cur_cnt:
             raise NtiError('Not all netdevs disappeared %d left' % (cur_cnt))
 
@@ -242,7 +242,7 @@ class DevlinkSplit(CommonNetdevTest):
         }
 
         partno = self.dut.get_hwinfo('assembly.partno')
-        cur_cnt = self.dut.count_our_netdevs()
+        cur_cnt = len(self.dut.phys_netdevs)
 
         # All cards not in supported_splits can't do splits
         if not partno in supported_splits:
