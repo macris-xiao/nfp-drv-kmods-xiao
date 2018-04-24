@@ -15,12 +15,7 @@ from ..drv_grp import NFPKmodAppGrp
 from ..ebpf_test import *
 from xdp import *
 from maps import *
-
-class BPF_TLV:
-    FUNC		= 1
-    ADJUST_HEAD		= 2
-    MAPS		= 3
-    RANDOM		= 4
+from defs import *
 
 ###########################################################################
 # Group
@@ -283,7 +278,7 @@ class NFPKmodBPF(NFPKmodAppGrp):
                ('array_init', XDParrayInitialise, 'Check array is initialised to 0'),
                ('xdp_stack_corruption_on_lookup', XDPpassAll,
                 'stack contents after map lookup calls'),
-               ('xdp_stack_corruption_on_update', XDPpassAll,
+               ('xdp_stack_corruption_on_update', XDPpassAllUpdate,
                 'stack contents after map update calls'),
                ('xdp_imm_neg', XDPpassAll, 'immediate negation optimization'),
                ('map_limits', XDPmapLimits, 'Check limits on map parameters'),
@@ -884,3 +879,10 @@ class eBPFld_shift_combine(eBPFdrop):
     def __init__(self, src, dut, group=None, name="", summary=None):
         eBPFtest.__init__(self, src, dut, obj_name="ld_shift_combine.o",
                           group=group, name=name, summary=summary)
+
+class XDPpassAllUpdate(XDPpassAll):
+    def prepare(self):
+        if BPF_HELPER.MAP_UPDATE_ELEM not in self.dut.bpf_caps["funcs"]:
+            return NrtResult(name=self.name, testtype=self.__class__.__name__,
+                             passed=None, comment="no map update on datapath")
+        return super.prepare(self)

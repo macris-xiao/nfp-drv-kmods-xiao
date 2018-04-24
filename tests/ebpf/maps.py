@@ -9,13 +9,7 @@ import netro.testinfra
 from netro.testinfra.nti_exceptions import NtiError
 from netro.testinfra.test import *
 from ..common_test import *
-
-class XDP_ACTION:
-    ABORTED	= 0
-    DROP	= 1
-    PASS	= 2
-    TX		= 3
-    REDIRECT	= 4
+from defs import *
 
 ################################################################################
 # Helpers
@@ -240,6 +234,12 @@ class XDPupdate2lookup(MapTest):
         """
         pass
 
+    def prepare(self):
+        if BPF_HELPER.MAP_UPDATE_ELEM not in self.dut.bpf_caps["funcs"]:
+            return NrtResult(name=self.name, testtype=self.__class__.__name__,
+                             passed=None, comment="no map update on datapath")
+        return super.prepare(self)
+
     def execute(self):
         self.xdp_start(self.get_prog_name(), mode=self.group.xdp_mode())
 
@@ -276,6 +276,12 @@ class XDPupdateFlagsAndDelete(MapTest):
         Program should perform map updates followed by delete.
         """
         pass
+
+    def prepare(self):
+        if BPF_HELPER.MAP_UPDATE_ELEM not in self.dut.bpf_caps["funcs"]:
+            return NrtResult(name=self.name, testtype=self.__class__.__name__,
+                             passed=None, comment="no map update on datapath")
+        return super.prepare(self)
 
     def execute(self):
         self.xdp_start(self.get_prog_name(), mode=self.group.xdp_mode())
