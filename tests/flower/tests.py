@@ -52,6 +52,7 @@ class NFPKmodFlower(NFPKmodGrp):
              ('flower_match_frag_ipv6', FlowerMatchFragIPv6, "Checks basic flower fragmentation for IPv6 match capabilities"),
              ('flower_match_vxlan', FlowerMatchVXLAN, "Checks basic flower vxlan match capabilities"),
              ('flower_match_geneve', FlowerMatchGeneve, "Checks basic flower Geneve match capabilities"),
+             ('flower_match_block', FlowerMatchBlock, "Checks basic flower block match capabilities"),
              ('flower_modify_mtu', FlowerModifyMTU, "Checks the setting of a mac repr MTU"),
              ('flower_match_whitelist', FlowerMatchWhitelist, "Checks basic flower match whitelisting"),
              ('flower_vxlan_whitelist', FlowerVxlanWhitelist, "Checks that unsupported vxlan rules are not offloaded"),
@@ -553,6 +554,43 @@ class FlowerMatchGeneve(FlowerBase):
 
         self.cleanup_filter('gene0')
         M.cmd('ip link del gene0')
+
+class FlowerMatchBlock(FlowerBase):
+    def netdev_execute(self):
+        if len(self.dut_ifn) < 2 or len(self.src_ifn) < 2:
+            raise NtiError('At least 2 ports are required to test blocks')
+
+        M = self.dut
+        A = self.src
+        iface = self.dut_ifn[0]
+        iface2 = self.dut_ifn[1]
+
+        ingress = self.src_ifn[0]
+        ingress2 = self.src_ifn[1]
+
+        # Add 2 interfaces to a block
+        M.cmd('tc qdisc del dev %s ingress_block 22 ingress' % iface, fail=False)
+        M.cmd('tc qdisc del dev %s ingress_block 22 ingress' % iface2, fail=False)
+        M.cmd('tc qdisc add dev %s ingress_block 22 ingress' % iface)
+        M.cmd('tc qdisc add dev %s ingress_block 22 ingress' % iface2)
+
+        # Add filter to block
+        M.cmd('tc filter add block 22 protocol ip parent ffff: flower skip_sw ip_proto tcp action drop')
+
+        pkt_cnt = 100
+        exp_pkt_cnt = 100
+        pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP()/TCP()/Raw('\x00'*64)
+        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+
+        pkt_cnt = 100
+        exp_pkt_cnt = 200
+        pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP()/TCP()/Raw('\x00'*64)
+        self.test_filter(iface2, ingress2, pkt, pkt_cnt, exp_pkt_cnt)
+
+        # Clean up the filter
+        M.cmd('tc filter del block 22 protocol ip parent ffff: prio 49152')
+        M.cmd('tc qdisc del dev %s ingress_block 22 ingress' % iface, fail=False)
+        M.cmd('tc qdisc del dev %s ingress_block 22 ingress' % iface2, fail=False)
 
 class FlowerMatchMPLS(FlowerBase):
     def netdev_execute(self):
