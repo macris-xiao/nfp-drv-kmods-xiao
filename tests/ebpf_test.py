@@ -58,25 +58,19 @@ class eBPFtest(CommonTest):
         self.validate_cntr(d, '%s_pkts' % name, t[0], t[1])
         self.validate_cntr(d, '%s_bytes' % name, t[2], t[3])
 
-    def validate_cntr_e2e(self, diff, e_name, t_name):
-        if diff.ethtool[e_name] != diff.ethtool[t_name]:
+    def validate_cntr_e2e(self, diff, e_name, t_name, delta):
+        if diff.ethtool[e_name] != diff.ethtool[t_name] + delta:
             raise NtiError("e2e %s != %s (%d, %d)" %
                            (e_name, t_name, diff.ethtool[e_name],
                             diff.ethtool[t_name]))
 
-    def validate_cntr_e2e_pair(self, diff, e_name, t_name):
-        self.validate_cntr_e2e(diff, '%s_pkts' % e_name, '%s_pkts' % t_name)
-        self.validate_cntr_e2e(diff, '%s_bytes' % e_name, '%s_bytes' % t_name)
-
-    def validate_cntr_e2t(self, diff, e_name, t_name):
-        if diff.ethtool[e_name] != diff.tc_ing[t_name]:
-            raise NtiError("e2t %s != %s (%d, %d)" %
-                           (e_name, t_name, diff.ethtool[e_name],
-                            diff.tc_ing[t_name]))
-
-    def validate_cntr_e2t_pair(self, diff, e_name, t_name):
-        self.validate_cntr_e2t(diff, '%s_pkts' % e_name, '%s_pkts' % t_name)
-        self.validate_cntr_e2t(diff, '%s_bytes' % e_name, '%s_bytes' % t_name)
+    def validate_cntr_e2e_pair(self, diff, t_name):
+        self.validate_cntr_e2e(diff, 'mac.rx_frames_received_ok',
+                               '%s_pkts' % t_name, 0)
+        # Account for FCS in byte counter comparison
+        self.validate_cntr_e2e(diff, 'mac.rx_octets',
+                               '%s_bytes' % t_name,
+                               diff.ethtool['mac.rx_frames_received_ok'] * 4)
 
     def _validate_cntrs(self, rx_t, pass_all, app1_all, app2_all, app3_all,
                         exact_filter):
@@ -97,7 +91,10 @@ class eBPFtest(CommonTest):
 
         self.stats = new_stats
 
-        self.validate_cntr_pair(diff.ethtool, 'dev_rx', rx_t)
+        self.validate_cntr(diff.ethtool, 'mac.rx_frames_received_ok',
+                           rx_t[0], rx_t[1])
+        self.validate_cntr(diff.ethtool, 'mac.rx_octets',
+                           rx_t[2], rx_t[3])
 
         # Exact filter means we want exactly lower bound dropped, the rest ignored
         if exact_filter:
@@ -106,22 +103,22 @@ class eBPFtest(CommonTest):
             return
 
         if pass_all:
-            self.validate_cntr_e2e_pair(diff, 'dev_rx', 'bpf_pass')
+            self.validate_cntr_e2e_pair(diff, 'bpf_pass')
         else:
             self.validate_cntr_pair(diff.ethtool, 'bpf_pass', NO_PKTS)
 
         if app1_all:
-            self.validate_cntr_e2e_pair(diff, 'dev_rx', 'bpf_app1')
+            self.validate_cntr_e2e_pair(diff, 'bpf_app1')
         else:
             self.validate_cntr_pair(diff.ethtool, 'bpf_app1', NO_PKTS)
 
         if app2_all:
-            self.validate_cntr_e2e_pair(diff, 'dev_rx', 'bpf_app2')
+            self.validate_cntr_e2e_pair(diff, 'bpf_app2')
         else:
             self.validate_cntr_pair(diff.ethtool, 'bpf_app2', NO_PKTS)
 
         if app3_all:
-            self.validate_cntr_e2e_pair(diff, 'dev_rx', 'bpf_app3')
+            self.validate_cntr_e2e_pair(diff, 'bpf_app3')
         else:
             self.validate_cntr_pair(diff.ethtool, 'bpf_app3', NO_PKTS)
 

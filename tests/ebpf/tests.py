@@ -631,7 +631,7 @@ class eBPFskbLen(eBPFtest):
         self.ping(port=0, size=1193, should_fail=True)
         self.ping(port=0, size=1200, should_fail=True)
 
-        counts = (20, 300, 24850, 50000)
+        counts = (20, 300, 24770, 50000)
         self.validate_cntrs(rx_t=counts, exact_filter=True)
 
 class eBPFtcp58(eBPFtest):
@@ -649,7 +649,7 @@ class eBPFtcp58(eBPFtest):
 
         self.tcpping(port=0, sport=100, dport=58, should_fail=True)
 
-        counts = (10, 16, 1080, 1800)
+        counts = (10, 16, 1040, 1800)
         self.validate_cntrs(rx_t=counts, exact_filter=True)
 
 class eBPFda(eBPFtest):
