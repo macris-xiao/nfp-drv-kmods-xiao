@@ -285,6 +285,7 @@ class NFPKmodBPF(NFPKmodAppGrp):
                 'stack contents after map lookup calls'),
                ('xdp_stack_corruption_on_update', XDPpassAll,
                 'stack contents after map update calls'),
+               ('xdp_imm_neg', XDPpassAll, 'immediate negation optimization'),
                ('map_limits', XDPmapLimits, 'Check limits on map parameters'),
                ('map_stress', XDPmapStress,
                 'Multi-threaded stress test of maps'),
