@@ -235,10 +235,10 @@ class XDPupdate2lookup(MapTest):
         pass
 
     def prepare(self):
-        if BPF_HELPER.MAP_UPDATE_ELEM not in self.dut.bpf_caps["funcs"]:
-            return NrtResult(name=self.name, testtype=self.__class__.__name__,
-                             passed=None, comment="no map update on datapath")
-        return super.prepare(self)
+        res = require_helper(self, BPF_HELPER.MAP_UPDATE_ELEM, "map update")
+        if res:
+            return res
+        return super(XDPupdate2lookup, self).prepare()
 
     def execute(self):
         self.xdp_start(self.get_prog_name(), mode=self.group.xdp_mode())
@@ -278,10 +278,10 @@ class XDPupdateFlagsAndDelete(MapTest):
         pass
 
     def prepare(self):
-        if BPF_HELPER.MAP_UPDATE_ELEM not in self.dut.bpf_caps["funcs"]:
-            return NrtResult(name=self.name, testtype=self.__class__.__name__,
-                             passed=None, comment="no map update on datapath")
-        return super.prepare(self)
+        res = require_helper(self, BPF_HELPER.MAP_UPDATE_ELEM, "map update")
+        if res:
+            return res
+        return super(XDPupdateFlagsAndDelete, self).prepare()
 
     def execute(self):
         self.xdp_start(self.get_prog_name(), mode=self.group.xdp_mode())

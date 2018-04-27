@@ -882,7 +882,7 @@ class eBPFld_shift_combine(eBPFdrop):
 
 class XDPpassAllUpdate(XDPpassAll):
     def prepare(self):
-        if BPF_HELPER.MAP_UPDATE_ELEM not in self.dut.bpf_caps["funcs"]:
-            return NrtResult(name=self.name, testtype=self.__class__.__name__,
-                             passed=None, comment="no map update on datapath")
-        return super.prepare(self)
+        res = require_helper(self, BPF_HELPER.MAP_UPDATE_ELEM, "map update")
+        if res:
+            return res
+        return super(XDPpassAllUpdate, self).prepare()
