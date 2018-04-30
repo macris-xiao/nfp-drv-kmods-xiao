@@ -226,6 +226,55 @@ class XDPlookupTwice(MapTest):
         self.xdp_stop(mode=self.group.xdp_mode())
 
 
+class XDPlookupShared(MapTest):
+    def get_prog_name(self):
+        """
+        Return the name of XDP program to load for the test.
+        Program should use two maps and do look ups in both.
+        """
+        pass
+
+    def execute(self):
+        self.xdp_start(self.get_prog_name(), mode=self.group.xdp_mode())
+
+        maps = self.bpftool_maps_get()
+        zero = maps[0] if maps[0]["max_entries"] == 128 else maps[1]
+        one  = maps[0] if maps[0]["max_entries"] == 256 else maps[1]
+
+        pkt = self.std_pkt()
+        pkt = pkt[:14] + '\x00\x00' + pkt[16:]
+        pcap_src = self.prep_pcap(pkt)
+
+        self.test_with_traffic(pcap_src, None,
+                               (self.dut, self.dut_ifn[0], self.src))
+
+        # Add to a correct key, PASS
+        self.dut.bpftool("map update id %d key %s value %s" %
+                         (zero["id"], int2str("I", 0),
+                          int2str("Q", XDP_ACTION.PASS)))
+
+        self.test_with_traffic(pcap_src, pkt,
+                               (self.dut, self.dut_ifn[0], self.src))
+
+        pkt = self.std_pkt()
+        pkt = pkt[:14] + '\x00\x01' + pkt[16:]
+        pcap_src = self.prep_pcap(pkt)
+
+        self.test_with_traffic(pcap_src, None,
+                               (self.dut, self.dut_ifn[0], self.src))
+
+        # Add to a correct key, PASS
+        self.dut.bpftool("map update id %d key %s value %s" %
+                         (one["id"], int2str("I", 0),
+                          int2str("Q", XDP_ACTION.PASS)))
+
+        self.test_with_traffic(pcap_src, pkt,
+                               (self.dut, self.dut_ifn[0], self.src))
+
+    def cleanup(self):
+        self.xdp_stop(mode=self.group.xdp_mode())
+
+
 class XDPupdate2lookup(MapTest):
     def get_prog_name(self):
         """
@@ -683,6 +732,10 @@ class XDPhtabLookup(XDPlookup):
 class XDPhtabLookupTwice(XDPlookupTwice):
     def get_prog_name(self):
         return 'map_htab256_256.o'
+
+class XDPsharedCall(XDPlookupShared):
+    def get_prog_name(self):
+        return 'map_shared_call.o'
 
 class XDParrayU2L(XDPupdate2lookup):
     def get_prog_name(self):

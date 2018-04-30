@@ -293,6 +293,8 @@ class NFPKmodBPF(NFPKmodAppGrp):
                ('map_array', XDParrayCtrl, 'Test basic ctrl path of arrays'),
                ('map_dp_array', XDParrayLookup,
                 'Test basic data path lookups for arrays'),
+               ('map_shared_call', XDPsharedCall,
+                'Lookup in different arrays from the same call instruction'),
                ('map_dp_array_twice', XDParrayLookupTwice,
                 'Test two data path lookups for (two separate) arrays'),
                ('map_array_u2l', XDParrayU2L,
