@@ -44,7 +44,8 @@ class eBPFtest(CommonTest):
             self.tc_flags = tc_flags
             self.should_fail = should_fail
             self.mode = mode
-            self.verifier_log = verifier_log
+            if self.group.xdp_mode() == "offload":
+                self.verifier_log = verifier_log
             self.extack = extack
             self.needle_noextack = needle_noextack
         return

@@ -43,6 +43,9 @@ class XDPTest(CommonTest):
     def cleanup(self):
         self.xdp_reset()
 
+    def is_offload_mode(self):
+        return self.group.xdp_mode() == "offload"
+
 class XDPLoadTest(XDPTest):
     def execute(self):
         self.xdp_start(xdp_test_name_to_prog(self), mode=self.group.xdp_mode())
@@ -50,8 +53,8 @@ class XDPLoadTest(XDPTest):
 class XDPLoadFailTest(XDPTest):
     def __init__(self, src, dut, group=None, name="", summary=None,
                  verifier_log=""):
-        self.verifier_log = verifier_log
         XDPTest.__init__(self, src, dut, group, name, summary)
+        self.verifier_log = verifier_log if self.is_offload_mode() else ""
 
     def execute(self):
         self.xdp_start(xdp_test_name_to_prog(self), mode=self.group.xdp_mode(),
