@@ -909,6 +909,9 @@ class XDPatomicCntMulti64(XDPatomicCntMulti):
 
 class XDPprandomU32(MapTest):
     def prepare(self):
+        res = require_helper(self, BPF_HELPER.MAP_UPDATE_ELEM, "map update")
+        if res:
+            return res
         if self.group.xdp_mode() == "offload" and \
            not self.dut.bpf_caps["random"]:
             return NrtResult(name=self.name, testtype=self.__class__.__name__,
