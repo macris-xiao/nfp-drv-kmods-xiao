@@ -16,6 +16,7 @@ class BPF_TLV:
     ADJUST_HEAD		= 2
     MAPS		= 3
     RANDOM		= 4
+    QSEL		= 5
 
 class BPF_HELPER:
     MAP_LOOKUP_ELEM	= 1

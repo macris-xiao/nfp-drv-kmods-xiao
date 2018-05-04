@@ -17,6 +17,7 @@ from xdp import *
 from maps import *
 from defs import *
 from perf_event_output import *
+from queue_select import *
 
 ###########################################################################
 # Group
@@ -49,13 +50,14 @@ class NFPKmodBPF(NFPKmodAppGrp):
                 "max_elem_sz"		: 0,
             },
             "random"		: False,
+            "qsel"		: False,
         }
 
         value = self._tests["xdp_pass"].read_sym_nffw("_abi_bpf_capabilities")
         if value is None:
             return
 
-        while len(value) > 8:
+        while len(value) >= 8:
             tlv_type = struct.unpack("<I", value[0:4])[0]
             tlv_len  = struct.unpack("<I", value[4:8])[0]
             value = value[8:]
@@ -90,6 +92,9 @@ class NFPKmodBPF(NFPKmodAppGrp):
 
             elif tlv_type == BPF_TLV.RANDOM:
                 self.dut.bpf_caps["random"] = True
+
+            elif tlv_type == BPF_TLV.QSEL:
+                self.dut.bpf_caps["qsel"] = True
 
             else:
                 LOG_sec("Unknown TLV")
@@ -389,7 +394,9 @@ class NFPKmodBPF(NFPKmodAppGrp):
                ('xdp_perf_event_output_cpu0', XDPLoadNoOffloadTest,
                 'perf event output helper use with CPU specified'),
                ('xdp_perf_event_output_cpu_dyn', XDPLoadNoOffloadTest,
-                'perf event output helper use with dynamic CPU')
+                'perf event output helper use with dynamic CPU'),
+               ('xdp_queue_select', QueueSelectTest,
+                'queue select/programmable RSS')
         )
 
         for i in (0, 1, 3, 7, 8, 11):
