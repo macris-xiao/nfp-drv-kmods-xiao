@@ -781,10 +781,10 @@ class FlowerModifyMTU(FlowerBase):
         M = self.dut
         A = self.src
 
-        # Test for high MTU set - 9262 should be max
-        ret = M.cmd('ip link set mtu 9263 dev %s' % iface, fail=False)
+        # Test for high MTU set - 9420 should be max
+        ret = M.cmd('ip link set mtu 9421 dev %s' % iface, fail=False)
         if not ret:
-            raise NtiError('invalid MTU of 9263 accepted on %s' %iface)
+            raise NtiError('invalid MTU of 9421 accepted on %s' %iface)
 
         # Test for high MTU set - 68 should be min
         ret = M.cmd('ip link set mtu 67 dev %s' % iface, fail=False)
@@ -801,8 +801,8 @@ class FlowerModifyMTU(FlowerBase):
 
         pkt_cnt = 100
         exp_pkt_cnt = 0
-        # Length 14 + 20 + 20 + 9208 = 9262
-        pkt = Ether()/IP()/TCP()/Raw('\x00'*9208)
+        # Length 14 + 20 + 20 + 9366 = 9420
+        pkt = Ether()/IP()/TCP()/Raw('\x00'*9366)
 
         dump_file = os.path.join('/tmp/', 'dump.pcap')
         self.capture_packs(ingress, pkt, dump_file)
@@ -812,8 +812,8 @@ class FlowerModifyMTU(FlowerBase):
 
         self.cleanup_filter(iface)
 
-        # Set mtu to 9262 and check it passes
-        ret = M.cmd('ip link set mtu 9262 dev %s' % iface)
+        # Set mtu to 9420 and check it passes
+        ret = M.cmd('ip link set mtu 9420 dev %s' % iface)
 
         self.install_filter(iface, match, action)
         pkt_cnt = 100
