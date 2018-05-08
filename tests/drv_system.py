@@ -678,10 +678,7 @@ class DrvSystem(System):
             return self.cmd_nsp('-F ' + fw, fail=fail)
 
     def nffw_unload(self, fail=True):
-        if self.kernel_ver.find("debug") == -1:
-            return self.bsp_cmd('nffw unload', '', fail=fail)
-        else:
-            return self.cmd_nsp('-R', fail=fail)
+        return self.cmd_nsp('-R', fail=fail)
 
     def cmd_reg(self, cmd, fail=True):
         return self.bsp_cmd('reg', cmd, fail=fail)
