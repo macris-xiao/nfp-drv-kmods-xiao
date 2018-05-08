@@ -51,6 +51,8 @@ class NFPKmodGrp(netro.testinfra.Group):
     _config["General"] = collections.OrderedDict([
         ('noclean', [False, "Don't clean the systems after a run (default "
                             "False). Useful for debugging test failures."]),
+        ('force_fw_reload', [False, "Force firmware to be reloaded between"
+                                    "tests."]),
         ('rm_fw_dir', [False, "Allow test code to remove the "
                               "/lib/firmware/netronome directory if present"]),
         ('installed_drv', [False, "Use upstream/installed driver"]),
@@ -105,6 +107,7 @@ class NFPKmodGrp(netro.testinfra.Group):
         # Set up attributes initialised by the config file.
         # If no config was provided these will be None.
         self.noclean = False
+        self.force_fw_reload = False
         self.rm_fw_dir = False
         self.installed_drv = False
         self.tun_net = None
@@ -295,6 +298,8 @@ class NFPKmodGrp(netro.testinfra.Group):
         # General
         if self.cfg.has_option("General", "noclean"):
             self.noclean = self.cfg.getboolean("General", "noclean")
+        if self.cfg.has_option("General", "force_fw_reload"):
+            self.force_fw_reload = self.cfg.getboolean("General", "force_fw_reload")
         if self.cfg.has_option("General", "rm_fw_dir"):
             self.rm_fw_dir = self.cfg.getboolean("General", "rm_fw_dir")
         if self.cfg.has_option("General", "installed_drv"):

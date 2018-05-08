@@ -439,9 +439,12 @@ class DrvSystem(System):
             fsname = self.get_mip_name(fwpath)
             _, out = self.nffw_status()
             loaded = re.search('Firmware name: (.*)\n', out).groups()[0]
-            if fsname != loaded:
-                LOG("FW loaded is '%s' but expected '%s', reloading" %
-                    (loaded, fsname))
+            if fsname != loaded or self.grp.force_fw_reload:
+                if fsname != loaded:
+                    LOG("FW loaded is '%s' but expected '%s', reloading" %
+                        (loaded, fsname))
+                else:
+                    LOG("Forcing firmware reload")
                 self.rmmod()
                 self.insmod(netdev=False)
                 self.nfp_reset()
