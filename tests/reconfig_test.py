@@ -16,8 +16,7 @@ class ReconfigTest(CommonNetdevTest):
     Linux Driver Test
     """
 
-    def __init__(self, src, dst, group=None, name="", summary=None,
-                 fail_policy=True):
+    def __init__(self, src, dst, group=None, name="", summary=None):
         """
         @src:        A tuple of System and interface name from which to send
         @dst:        A tuple of System and interface name which should receive
@@ -27,7 +26,7 @@ class ReconfigTest(CommonNetdevTest):
         """
         CommonNetdevTest.__init__(self, src, dst, group, name, summary)
 
-        self.fail_policy = fail_policy
+        self.fail_policy = group.fail_policy()
 
     def netdev_wait(self):
         # Wait for netdev to appear

@@ -26,6 +26,9 @@ class NFPKmodRand(NFPKmodGrp):
         NFPKmodGrp.__init__(self, name=name, cfg=cfg, quick=quick,
                             dut_object=dut_object)
 
+    def fail_policy(self):
+        return True
+
     def populate_tests(self):
         dut = (self.dut, self.addr_x, self.eth_x, self.addr_v6_x)
         src = (self.host_a, self.addr_a, self.eth_a, self.addr_v6_a)
@@ -38,28 +41,9 @@ class NFPKmodRand(NFPKmodGrp):
             self._tests[t[0]] = t[1](src, dut, self, t[0], t[2])
 
 
-class NFPKmodRandErr(NFPKmodGrp):
-    """Randized tests for the NFP Linux drivers with error injection"""
-
-    summary = "Randomized tests of NFP Linux driver with error injection."
-
-    def __init__(self, name, cfg=None, quick=False, dut_object=None,
-                 dut=None, nfp=None, nfpkmods=None, mefw=None):
-
-        NFPKmodGrp.__init__(self, name=name, cfg=cfg, quick=quick,
-                            dut_object=dut_object)
-
-    def populate_tests(self):
-        dut = (self.dut, self.addr_x, self.eth_x, self.addr_v6_x)
-        src = (self.host_a, self.addr_a, self.eth_a, self.addr_v6_a)
-
-        T = (
-            ('reconfig', RandomReconfig, "Test reconfig"),
-        )
-
-        for t in T:
-            self._tests[t[0]] = t[1](src, dut, self, t[0], t[2],
-                                     fail_policy=False)
+class NFPKmodRandErr(NFPKmodRand):
+    def fail_policy(self):
+        return False
 
 
 class RandomReconfig(ReconfigTest):

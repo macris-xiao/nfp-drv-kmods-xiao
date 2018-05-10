@@ -29,6 +29,8 @@ class NFPKmodUnit(NFPKmodGrp):
         NFPKmodGrp.__init__(self, name=name, cfg=cfg, quick=quick,
                             dut_object=dut_object)
 
+    def fail_policy(self):
+        return True
 
     def populate_tests(self):
         dut = (self.dut, self.addr_x, self.eth_x, self.addr_v6_x)
