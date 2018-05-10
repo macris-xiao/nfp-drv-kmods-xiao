@@ -1,3 +1,4 @@
 samples/c/map_stress
+samples/c/udp_netcons_sink
 *.nffw
 *.llvm

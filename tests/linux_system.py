@@ -29,3 +29,44 @@ class LinuxSystem(System):
         _, out = self.cmd('ethtool -S %s' % (ifc))
 
         return _parse_ethtool(out)
+
+    def ethtool_pause_get(self, ifc):
+        ret = None
+
+        LOG_sec("GET PAUSE %s for %s" % (self.host, ifc))
+        try:
+            _, out = self.cmd("ethtool -a " + ifc)
+            m = re.search("Autonegotiate:\s+(\w+)\s+RX:\s+(\w+)\s+TX:\s+(\w+)",
+                          out, flags=re.M)
+
+            ret = { "autoneg"	: m.groups()[0] == "on",
+                    "rx"	: m.groups()[1] == "on",
+                    "tx"	: m.groups()[2] == "on",
+            }
+            LOG(str(ret))
+        finally:
+            LOG_endsec()
+
+        return ret
+
+    def ethtool_pause_set(self, ifc, settings, force=False, fail=True):
+        ret = None
+
+        LOG_sec("SET PAUSE %s for %s to %s" % (self.host, ifc, str(settings)))
+        try:
+            if not force:
+                # ethtool will return an error if we set the same thing twice
+                current = self.ethtool_pause_get(ifc)
+                if current == settings:
+                    LOG("Correct values already set")
+                    return
+
+                cmd = 'ethtool -A ' + ifc
+                for k in settings.keys():
+                    cmd += ' %s %s' % (k, "on" if settings[k] else "off")
+
+                ret = self.cmd(cmd)
+        finally:
+            LOG_endsec()
+
+        return ret

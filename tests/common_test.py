@@ -250,6 +250,29 @@ class CommonTest(Test):
             raise NtiSkip("NSP version %d, test requires %d" %
                           (nsp_ver, exp_ver))
 
+    def kill_pidfile(self, host, pidfile, sig="-HUP", max_fail=0):
+        cmd = ''' # kill_pidfile
+        fail=0
+
+        PID=$(cat {pid}) &&
+        echo $PID &&
+        rm {pid} ||
+        exit 1
+
+        for p in $PID; do
+            kill {sig} $p || ((fail++))
+        done
+        for p in $PID; do
+            while [ -d /proc/$p ]; do true; done
+        done
+
+        if [ $fail -gt {max_fail} ]; then
+            exit 1
+        fi
+        '''
+
+        return host.cmd(cmd.format(pid=pidfile, sig=sig, max_fail=max_fail))
+
     def ifc_all_up(self):
         for i in range(0, len(self.dut_ifn)):
             self.dut.cmd('ethtool -G %s rx 512 tx 512' % (self.dut_ifn[i]),
