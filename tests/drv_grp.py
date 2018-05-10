@@ -172,8 +172,13 @@ class NFPKmodGrp(netro.testinfra.Group):
             cmd += 'ip link set dev %s up;' % (self.eth_a[i])
         self.host_a.cmd(cmd)
 
-        # Disable DAD on Host A
         cmd = ''
+        # Enable verbose logging
+        cmd += 'sysctl -w kernel.printk="7 6";'
+        self.dut.cmd(cmd)
+        # Don't reinit @cmd to run the common commands on both
+
+        # Disable DAD on Host A
         for ifc in self.eth_a:
             cmd += 'sysctl -w net.ipv6.conf.%s.accept_dad=0;' % (ifc)
             cmd += 'sysctl -w net.ipv6.conf.%s.dad_transmits=0;' % (ifc)
