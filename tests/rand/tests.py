@@ -9,6 +9,7 @@ import math
 import netro.testinfra
 from ..reconfig_test import *
 from ..drv_grp import NFPKmodGrp
+from netconsole import NetconsoleRandTest
 
 ###########################################################################
 # Unit Tests
@@ -35,6 +36,8 @@ class NFPKmodRand(NFPKmodGrp):
 
         T = (
             ('reconfig', RandomReconfig, "Test reconfig"),
+            ('netconsole', NetconsoleRandTest,
+             "Netconsole surviving reconfigs"),
         )
 
         for t in T:

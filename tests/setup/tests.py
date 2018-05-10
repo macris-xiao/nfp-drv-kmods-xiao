@@ -74,6 +74,16 @@ class DebugFSSetupTest(CommonNTHTest):
                          testtype=self.__class__.__name__)
 
 class Tools(CommonTest):
+    def check_tool(self, host, hostname, tool, toolname):
+        ret, _ = host.cmd(tool, fail=False)
+        if ret:
+            raise NtiGeneralError("%s not installed on %s" % (toolname,
+                                                              hostname))
+
+    def check_tool_both(self, tool, toolname=None):
+        self.check_tool(self.src, "SRC", tool, toolname)
+        self.check_tool(self.dut, "DUT", tool, toolname)
+
     def execute(self):
         # We need to set the NFP id for hwinfo to something, without actually
         # loading the module it will be None
@@ -84,15 +94,11 @@ class Tools(CommonTest):
         ret, _ = self.dut.cmd_hwinfo('-h 2>&1 | grep " -Z"', fail=False)
         if ret:
             raise NtiGeneralError("BSP tools too old, -Z not supported")
-        ret, _ = self.src.cmd('hping3 -h', fail=False)
-        if ret:
-            raise NtiGeneralError("hping3 not installed on SRC")
-        ret, _ = self.dut.cmd('hping3 -h', fail=False)
-        if ret:
-            raise NtiGeneralError("hping3 not installed on DUT")
-        ret, _ = self.dut.cmd('devlink', fail=False)
-        if ret:
-            raise NtiGeneralError("devlink not installed on DUT")
+
+        self.check_tool_both('hping3 -h', 'hping3')
+        self.check_tool_both('devlink', 'devlink')
+        self.check_tool_both('bash -c "compgen -c netserver"', 'netserver')
+        self.check_tool_both('bash -c "compgen -c netperf"', 'netperf')
 
 class Mefw(CommonTest):
     def execute(self):
