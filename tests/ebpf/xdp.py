@@ -561,7 +561,7 @@ class XDPshiftsind_1(XDPpassBaseWithCodegenScan):
     def get_prog_name(self):
         return 'shifts_ind_1.o'
 
-class XDPshiftsind_2(XDPpassBaseWithCodegenScan):
+class XDPshiftsind_cond_head(XDPpassBaseWithCodegenScan):
     def get_src_pkt(self, size=96):
         pkt = ''
         for b in self.group.hwaddr_x[0].split(':'):
@@ -581,6 +581,7 @@ class XDPshiftsind_2(XDPpassBaseWithCodegenScan):
 
         return pkt
 
+class XDPshiftsind_2(XDPshiftsind_cond_head):
     def get_exp_pkt(self):
         pkt = self.get_src_pkt()
         M = (1 << 64) - 1
@@ -596,6 +597,23 @@ class XDPshiftsind_2(XDPpassBaseWithCodegenScan):
 
     def get_prog_name(self):
         return 'shifts_ind_2.o'
+
+class XDPshiftsind_3(XDPshiftsind_cond_head):
+    def get_exp_pkt(self):
+        pkt = self.get_src_pkt()
+        M = (1 << 64) - 1
+
+        return pkt[0:24] + \
+                 struct.pack('<Q', 0x1122334455667788 << 33 & M) + \
+                 struct.pack('<Q', 0x1122334455667788 << 63 & M) + \
+                 struct.pack('<Q', 0x1122334455667788 << 32 & M) + \
+                 struct.pack('<Q', 0x1122334455667788 >> 31 & M) + \
+                 struct.pack('<Q', 0x1122334455667788 >> 16 & M) + \
+                 struct.pack('<Q', 0x1122334455667788 >>  1 & M) + \
+               pkt[72:]
+
+    def get_prog_name(self):
+        return 'shifts_ind_3.o'
 
 class XDPswap(XDPpassBase):
     def get_src_pkt(self):
