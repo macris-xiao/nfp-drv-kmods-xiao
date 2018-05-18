@@ -145,6 +145,19 @@ class XDPpassBase(XDPadjBase):
     def get_tcpdump_params(self):
         return (self.dut, self.dut_ifn[0], self.src)
 
+class XDPpassBaseWithCodegenScan(XDPpassBase):
+    def get_jit_patterns_file_name(self):
+        if self.is_drv_mode():
+            return None
+        prog_name = self.get_prog_name()
+        return os.path.join(self.group.samples_xdp,
+                            os.path.splitext(prog_name)[0] + ".S")
+
+    def install_filter(self):
+        self.xdp_start(self.get_prog_name(), mode=self.group.xdp_mode())
+        self.check_bpf_jit_codegen()
+        return 0
+
 class XDPpassAll(XDPpassBase):
     def get_src_pkt(self):
         return self.std_pkt()
@@ -527,6 +540,26 @@ class XDPshifts(XDPpassBase):
 
     def get_prog_name(self):
         return 'shifts.o'
+
+class XDPshiftsind_1(XDPpassBaseWithCodegenScan):
+    def get_src_pkt(self):
+        return self.std_pkt()
+
+    def get_exp_pkt(self):
+        pkt = self.get_src_pkt()
+        M = (1 << 64) - 1
+
+        return pkt[0:16] + \
+                 struct.pack('<Q', 0x1122334455667788 <<  5 & M) + \
+                 struct.pack('<Q', 0x1122334455667788 << 32 & M) + \
+                 struct.pack('<Q', 0x1122334455667788 << 63 & M) + \
+                 struct.pack('<Q', 0x1122334455667788 >>  1 & M) + \
+                 struct.pack('<Q', 0x1122334455667788 >> 32 & M) + \
+                 struct.pack('<Q', 0x1122334455667788 >> 33 & M) + \
+               pkt[64:]
+
+    def get_prog_name(self):
+        return 'shifts_ind_1.o'
 
 class XDPswap(XDPpassBase):
     def get_src_pkt(self):
