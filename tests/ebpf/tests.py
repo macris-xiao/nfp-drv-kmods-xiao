@@ -178,6 +178,8 @@ class NFPKmodBPF(NFPKmodAppGrp):
                 'XDP test of logic indirect shift operations (shift amount runtime unknown, full)'),
                ('xdp_shifts_ind_3', XDPshiftsind_3,
                 'XDP test of logic indirect shift operations (shift amount runtime unknown, partial)'),
+               ('xdp_ashifts', XDPashifts,
+                'XDP test of arithmetic right shift operations'),
                ('xdp_cmp', XDPcmp, "Test compare instructions"),
                ('xdp_swap', XDPswap, 'Perform byte swaps'),
                ('xdp_dpa_rd', XDPpassDPArd, 'XDP direct packet access test'),

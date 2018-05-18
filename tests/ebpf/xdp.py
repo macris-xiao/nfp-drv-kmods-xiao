@@ -615,6 +615,26 @@ class XDPshiftsind_3(XDPshiftsind_cond_head):
     def get_prog_name(self):
         return 'shifts_ind_3.o'
 
+class XDPashifts(XDPpassBase):
+    def get_src_pkt(self):
+        return self.std_pkt()
+
+    def get_exp_pkt(self):
+        pkt = self.get_src_pkt()
+        M = (1 << 64) - 1
+
+        return pkt[0:16] + \
+                 struct.pack('<Q', 0x1122334455667788 >>  1 & M) + \
+                 struct.pack('<Q', 0x1122334455667788 >> 32 & M) + \
+                 struct.pack('<Q', 0x1122334455667788 >> 33 & M) + \
+                 struct.pack('<Q', 0xff02446688aaccef) + \
+                 struct.pack('<Q', 0xffffffff81223344) + \
+                 struct.pack('<Q', 0xffffffffffffffff) + \
+               pkt[64:]
+
+    def get_prog_name(self):
+        return 'ashifts.o'
+
 class XDPswap(XDPpassBase):
     def get_src_pkt(self):
         std_mac_hdr = self.std_pkt()
