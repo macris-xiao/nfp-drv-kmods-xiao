@@ -561,6 +561,42 @@ class XDPshiftsind_1(XDPpassBaseWithCodegenScan):
     def get_prog_name(self):
         return 'shifts_ind_1.o'
 
+class XDPshiftsind_2(XDPpassBaseWithCodegenScan):
+    def get_src_pkt(self, size=96):
+        pkt = ''
+        for b in self.group.hwaddr_x[0].split(':'):
+            pkt += chr(int('0x' + b, 16))
+        for b in self.group.hwaddr_a[0].split(':'):
+            pkt += chr(int('0x' + b, 16))
+        pkt += '\x12\x22'
+
+        pkt += '\xaa'
+        pkt += '\xf1'
+        pkt += '\xf2'
+        pkt += '\xf1'
+        pkt += '\xf0'
+        pkt += '\xf1'
+        pkt += '\xf1' * (size - 21)
+        pkt += '\x55'
+
+        return pkt
+
+    def get_exp_pkt(self):
+        pkt = self.get_src_pkt()
+        M = (1 << 64) - 1
+
+        return pkt[0:24] + \
+                 struct.pack('<Q', 0x1122334455667788 <<  1 & M) + \
+                 struct.pack('<Q', 0x1122334455667788 << 63 & M) + \
+                 struct.pack('<Q', 0x1122334455667788 << 32 & M) + \
+                 struct.pack('<Q', 0x1122334455667788 >> 31 & M) + \
+                 struct.pack('<Q', 0x1122334455667788 >> 33 & M) + \
+                 struct.pack('<Q', 0x1122334455667788 >> 32 & M) + \
+               pkt[72:]
+
+    def get_prog_name(self):
+        return 'shifts_ind_2.o'
+
 class XDPswap(XDPpassBase):
     def get_src_pkt(self):
         std_mac_hdr = self.std_pkt()
