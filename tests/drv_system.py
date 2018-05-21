@@ -408,7 +408,7 @@ class DrvSystem(System):
 
     def __get_mip_info(self, fwpath):
         _, out = self.cmd('readelf -p .note.build_info ' + fwpath)
-        return re.search('Name: ([^^]{1,15})(\^JVersion: (.*)\^JBuild Number: (.*)\^J)?\n', out).groups()
+        return re.search('Name: ([^^]{1,15})(\^JVersion: (.*)\^JBuild Number: ?(.*)(\^J)?)?\n', out).groups()
 
     def get_mip_name(self, fwpath):
         return self.__get_mip_info(fwpath)[0]
