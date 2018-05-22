@@ -65,6 +65,7 @@ class NFPKmodFlower(NFPKmodGrp):
              ('flower_action_set_tcp', FlowerActionSetTCP, "Checks basic flower set TCP action capabilities"),
              ('flower_vlan_repr', FlowerVlanRepr, "Checks that unsupported vxlan rules are not offloaded"),
              ('flower_repr_linkstate', FlowerReprLinkstate, "Checks that repr link state is handled correctly"),
+             ('flower_bond_egress', FlowerActionBondEgress, "Checks egressing to a linux bond"),
         )
 
         for t in T:
@@ -180,6 +181,33 @@ class FlowerBase(CommonNetdevTest):
         A.cmd("killall -KILL tcpdump")
         A.cmd("rm %s" % pcap_src)
 
+    def capture_packs_multiple_ifaces(self, sending_port, ingress_list, send_pkt, pack_dump_list, dump_filter='', loop=100):
+        A = self.src
+
+        assert len(ingress_list) == len(pack_dump_list)
+
+        pcap_local = os.path.join(self.group.tmpdir, 'pcap_%s_input' % (self.name))
+        pcap_src = os.path.join(self.group.tmpdir, 'pcap_%s_src' % (self.name))
+
+        dump = 0
+        for ing in ingress_list:
+            dump_src = os.path.join(self.group.tmpdir, 'dump_%s_src' % (dump))
+            A.cmd("tcpdump -U -i %s -w %s -Q in %s " % (ing, dump_src, dump_filter), background=True)
+            dump += 1
+
+        wrpcap(pcap_local, send_pkt)
+        A.mv_to(pcap_local, pcap_src)
+        sleep(5)
+        A.cmd("tcpreplay --intf1=%s --pps=100 --loop=%s -K %s " % (sending_port, loop, pcap_src))
+        sleep(5)
+
+        A.cmd("killall -KILL tcpdump")
+        dump = 0
+        for ing in ingress_list:
+            dump_src = os.path.join(self.group.tmpdir, 'dump_%s_src' % (dump))
+            A.mv_from(dump_src, pack_dump_list[dump])
+            dump += 1
+
     def pcap_check_bytes(self, exp_cnt, cap_packs, pkt, pkt_len_diff=0):
         if len(cap_packs) != exp_cnt:
             raise NtiError('Pcap count missmatch. Expected: %s, Got: %s' % (exp_cnt, len(cap_packs)))
@@ -189,6 +217,23 @@ class FlowerBase(CommonNetdevTest):
             total_bytes += len(p) + len(Ether())
         if total_bytes != exp_bytes:
             raise NtiError('Pcap byte missmatch. Expected: %s, Got: %s' % (exp_bytes, total_bytes))
+
+    def pcap_check_count_multiple_ifaces(self, exp_cnt, cap_packs, spread=True):
+        pkt_total = 0
+        different_ports = False
+        for cap in cap_packs:
+            pkt_total += len(cap)
+            # If packets are not spread among ports, running count will always be 0 or expected total
+            if pkt_total != 0 and pkt_total != exp_cnt:
+                if spread:
+                    different_ports = True
+                else:
+                    raise NtiError('Packets received on more than one port')
+
+        if spread and not different_ports:
+            raise NtiError('Packets not spread over different ports')
+        if pkt_total != exp_cnt:
+            raise NtiError('Pcap count missmatch. Expected: %s, Got: %s' % (exp_cnt, pkt_total))
 
     def pcap_cmp_pkt_bytes(self, pack_cap, exp_field, offset):
         # offset is in bytes but packet treated as hex string so double offset
@@ -1417,3 +1462,100 @@ class FlowerReprLinkstate(CommonNetdevTest):
 
         self.dut.reset_mods()
         self.dmesg_check()
+
+class FlowerActionBondEgress(FlowerBase):
+    def netdev_execute(self):
+        iface, ingress = self.configure_flower()
+        M = self.dut
+        A = self.src
+
+        # Reload bonding module if required
+        M.cmd('modprobe -r bonding || :', fail=False)
+        M.cmd('modprobe bonding mode=balance-xor miimon=100 xmit_hash_policy=layer3+4', fail=False)
+
+        # Ensure bond0 exists
+        M.cmd('ip link add name bond0 type bond', fail=False)
+
+        # Enslave port to bond0
+        M.cmd('ip link set dev bond0 down')
+        M.cmd('ip link set dev %s down' % iface)
+        self.dut.link_wait(iface, state=False)
+        M.cmd('ip link set dev %s master bond0'  % iface)
+        M.cmd('ip link set dev bond0 up')
+        M.cmd('ip link set dev %s up' % iface)
+        self.dut.link_wait(iface, state=True)
+
+        # Install filter outputting to bond0
+        match = 'ip flower'
+        action = 'mirred egress redirect dev bond0'
+        self.install_filter(iface, match, action)
+
+        pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
+        self.test_packet(ingress, pkt, pkt)
+
+        if len(self.dut_ifn) < 2 or len(self.src_ifn) < 2:
+            print 'Not enough interfaces in config file -  skipping some bond tests\n'
+            self.cleanup_filter(iface)
+            M.cmd('ip link set %s nomaster' % iface)
+            M.cmd('modprobe -r bonding || :', fail=False)
+            return
+
+        iface2 = self.dut_ifn[1]
+        ingress2 = self.src_ifn[1]
+
+        # Enslave second port to bond0
+        M.cmd('ip link set dev bond0 down')
+        M.cmd('ip link set dev %s down' % iface2)
+        self.dut.link_wait(iface2, state=False)
+        M.cmd('ip link set dev %s master bond0'  % iface2)
+        M.cmd('ip link set dev bond0 up')
+        M.cmd('ip link set dev %s up' % iface2)
+        self.dut.link_wait(iface2, state=True)
+
+        dump_file = os.path.join(self.group.tmpdir, 'dump.pcap')
+        dump_file2 = os.path.join(self.group.tmpdir, 'dump2.pcap')
+
+        # Generate packets with incrementing IP addresses so they hash differently
+        pkts = []
+        for i in range (100):
+                src_ip = "10.0.0.%s" % i
+                pkts.append(Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src=src_ip, dst='11.0.0.11')/TCP()/Raw('\x00'*64))
+
+        self.capture_packs_multiple_ifaces(ingress, [ingress, ingress2], pkts, [dump_file, dump_file2], loop=1)
+
+        pack_cap = rdpcap(dump_file)
+        pack_cap2 = rdpcap(dump_file2)
+
+        self.pcap_check_count_multiple_ifaces(100, [pack_cap, pack_cap2], spread=True)
+
+        # Test active/backup mode
+        M.cmd('ip link set dev bond0 down')
+        M.cmd('ip link set dev %s down' % iface)
+        self.dut.link_wait(iface, state=False)
+        M.cmd('ip link set dev %s down' % iface2)
+        self.dut.link_wait(iface2, state=False)
+        M.cmd('ip link set %s nomaster' % iface)
+        M.cmd('ip link set %s nomaster' % iface2)
+        ret=M.cmd('echo 1 >/sys/class/net/bond0/bonding/mode', fail=False)
+        M.cmd('ip link set dev %s master bond0'  % iface)
+        M.cmd('ip link set dev %s master bond0'  % iface2)
+        M.cmd('ip link set dev bond0 up')
+        M.cmd('ip link set dev %s up' % iface)
+        self.dut.link_wait(iface, state=True)
+        M.cmd('ip link set dev %s up' % iface2)
+        self.dut.link_wait(iface2, state=True)
+
+        self.capture_packs_multiple_ifaces(ingress, [ingress, ingress2], pkts, [dump_file, dump_file2], loop=1)
+
+        pack_cap = rdpcap(dump_file)
+        pack_cap2 = rdpcap(dump_file2)
+
+        self.pcap_check_count_multiple_ifaces(100, [pack_cap, pack_cap2], spread=False)
+
+        A.cmd("rm %s" % dump_file)
+        A.cmd("rm %s" % dump_file2)
+
+        self.cleanup_filter(iface)
+        M.cmd('ip link set %s nomaster' % iface)
+        M.cmd('ip link set %s nomaster' % iface2)
+        M.cmd('modprobe -r bonding || :', fail=False)
