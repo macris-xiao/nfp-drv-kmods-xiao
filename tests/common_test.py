@@ -181,6 +181,9 @@ class CommonTest(Test):
         self.dut_addr_v6 = dut[3]
 
         self.active_xdp = [None] * len(self.dut_ifn)
+        self.test_metrics = []
+        self.test_comment = ""
+        self.test_result = True
         return
 
     def prepare(self):
@@ -208,11 +211,11 @@ class CommonTest(Test):
         if res:
             return res
 
-        res = NrtResult(name=self.name, testtype=self.__class__.__name__,
-                        passed=True)
-
         try:
             self.execute()
+            res = NrtResult(name=self.name, testtype=self.__class__.__name__,
+                            passed=self.test_result, comment=self.test_comment,
+                            res=self.test_metrics)
         except NtiSkip as err:
             res = NrtResult(name=self.name, testtype=self.__class__.__name__,
                             passed=None, comment=str(err))
