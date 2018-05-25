@@ -69,6 +69,7 @@ test_prepare:
 	$(MAKE) -C tests/samples/mefw -j1
 	$(MAKE) -C tests/samples/bpf
 	$(MAKE) -C tests/samples/xdp
+	$(MAKE) -C tests/samples/xdp_performance
 	$(MAKE) $(COMMON_ARGS) CONFIG_NFP=n CONFIG_NFP_TEST_HARNESS=m
 
 .PHONY: build nfp_net noisy coccicheck sparse clean install uninstall test_prepare
