@@ -71,6 +71,8 @@ class NFPKmodGrp(netro.testinfra.Group):
         ("netdevfw", [True, "Path to netdev firmware"]),
         ("netdevfw_dir", [False, "Path to netdev firmwares"]),
         ("samples", [True, "Path to directory with test samples"]),
+        ("ebpf_perf_baseline", [False,
+                                "Path to file with target eBPF performance"]),
         ("serial", [False, "Serial number for adapter selection "
                            "(default to nfp 0, takes precedence over @nfp)"]),
         ("bsppath", [False, "Path to the BSP installation "
@@ -123,6 +125,7 @@ class NFPKmodGrp(netro.testinfra.Group):
         self.netdevfw = None
         self.netdevfw_dir = None
         self.samples = None
+        self.ebpf_baseline_file = None
         self.serial = None
         self.bsppath = '/opt/netronome'
 
@@ -328,7 +331,11 @@ class NFPKmodGrp(netro.testinfra.Group):
             self.samples_trafgen = os.path.join(self.samples, 'trafgen')
             self.samples_bpf = os.path.join(self.samples, 'bpf')
             self.samples_xdp = os.path.join(self.samples, 'xdp')
+            self.samples_xdp_perf = os.path.join(self.samples,
+                                                 'xdp_performance')
             self.samples_c = os.path.join(self.samples, 'c')
+        if self.cfg.has_option("DUT", "ebpf_perf_baseline"):
+            self.ebpf_baseline_file  = self.cfg.get("DUT", 'ebpf_perf_baseline')
         if self.cfg.has_option("DUT", "serial"):
             self.serial = self.cfg.get("DUT", "serial")
         if self.cfg.has_option("DUT", "bsppath"):

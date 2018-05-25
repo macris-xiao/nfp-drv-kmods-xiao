@@ -53,7 +53,8 @@ class NFPKmodBPF(NFPKmodAppGrp):
             "qsel"		: False,
         }
 
-        value = self._tests["xdp_pass"].read_sym_nffw("_abi_bpf_capabilities")
+        basetest = self._tests.keys()[0]
+        value = self._tests[basetest].read_sym_nffw("_abi_bpf_capabilities")
         if value is None:
             return
 

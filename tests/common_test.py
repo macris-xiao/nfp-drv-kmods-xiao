@@ -49,6 +49,13 @@ def assert_lt(threshold, actual, error_message):
         raise NtiGeneralError("%s: %r >= %r" % (error_message, actual,
                                                 threshold))
 
+def assert_range(threshold_min, threshold_max, actual, error_message):
+    assert_ge(threshold_min, actual, error_message)
+    assert_lt(threshold_max, actual, error_message)
+
+def assert_approx(expected, diff, actual, error_message):
+    assert_range(expected - diff, expected + diff, actual, error_message)
+
 def assert_in(allowed, actual, error_message):
     if actual not in allowed:
         raise NtiGeneralError("%s: %r, not in %r" % (error_message, actual,
@@ -397,9 +404,12 @@ class CommonTest(Test):
             self.check_no_extack(err, needle_noextack)
         return ret
 
-    def xdp_start(self, prog, port=0, mode="", should_fail=False,
+    def xdp_start(self, prog, port=0, mode="", progdir="", should_fail=False,
                   verifier_log="", extack="", needle_noextack=""):
-        prog_path = os.path.join(self.dut.xdp_samples_dir, prog)
+        if progdir == "":
+                progdir = self.dut.xdp_samples_dir
+
+        prog_path = os.path.join(progdir, prog)
         cmd = 'ip -force link set dev %s xdp%s obj %s sec ".text"' % \
               (self.dut_ifn[port], mode, prog_path)
 

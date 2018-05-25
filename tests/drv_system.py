@@ -93,6 +93,15 @@ class DrvSystem(System):
 
         return
 
+    def copy_bpf_perf_samples(self):
+        if hasattr(self, 'xdp_perf_dir'):
+            return
+
+        self.xdp_perf_dir = os.path.join(self.tmpdir, 'xdp_perf')
+        self.cmd('mkdir %s' % self.xdp_perf_dir)
+        self.cp_to(os.path.join(self.grp.samples_xdp_perf, '*.o'),
+                   self.xdp_perf_dir)
+
     def link_wait(self, ifc, timeout=8, state=True):
         tgt_time = time.time() + timeout
         up_time = 0
@@ -228,6 +237,12 @@ class DrvSystem(System):
         _, out = self.cmd(cmd)
 
         return json.loads(out)
+
+    def bpftool_timed(self, param, fail=True):
+        start_time = time.time()
+        ret, out = self.cmd("bpftool " + param, fail=fail)
+        elaps_time = time.time() - start_time
+        return ret, out, elaps_time
 
     def bpftool(self, param, fail=True):
         ret, out = self.cmd("bpftool -p " + param, fail=fail)

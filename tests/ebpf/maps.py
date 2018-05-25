@@ -62,7 +62,7 @@ class MapTest(CommonTest):
         cmd = 'map delete id %d key %s' % (m["id"], int2str("I", key))
         return self.dut.bpftool(cmd, fail=fail)
 
-    def bpftool_batch(self, cmds):
+    def bpftool_batch(self, cmds, log_cmds=True):
         fd, bf = tempfile.mkstemp(dir=self.group.tmpdir, text=True)
         f = os.fdopen(fd, 'w')
         f.write(cmds)
@@ -70,12 +70,14 @@ class MapTest(CommonTest):
         fn = os.path.basename(bf)
         try:
             LOG_sec("BPFTOOL batch %s" % (fn))
-            LOG(cmds)
+            if log_cmds:
+                LOG(cmds)
             self.dut.mv_to(bf, self.dut.tmpdir)
-            self.dut.bpftool('batch file %s' %
-                             (os.path.join(self.dut.tmpdir, fn)))
+            batch_cmd = 'batch file %s' %  os.path.join(self.dut.tmpdir, fn)
+            ret, out, elaps_time = self.dut.bpftool_timed(batch_cmd)
         finally:
             LOG_endsec()
+        return elaps_time
 
     def map_fill_simple(self, m, mul=3):
         batch = ""

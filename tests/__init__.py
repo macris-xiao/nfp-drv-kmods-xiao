@@ -6,6 +6,7 @@ import netro.testinfra
 from setup import NFPKmodSetup
 from unit import NFPKmodUnit
 from ebpf import NFPKmodBPF, NFPKmodXDPdrv
+from ebpf_perf import NFPKmodBPFPerf, NFPKmodBPFPerfdrv
 from rand import NFPKmodRand, NFPKmodRandErr
 from reload import NFPKmodReload
 from reboot import NFPKmodReboot
@@ -22,6 +23,8 @@ class Project(netro.testinfra.Project):
                 "unit" :  NFPKmodUnit,
                 "ebpf" :  NFPKmodBPF,
                 "ebpfdrv" :  NFPKmodXDPdrv,
+                "ebpf_perf" :  NFPKmodBPFPerf,
+                "ebpf_perf_drv" :  NFPKmodBPFPerfdrv,
                 "rand" :  NFPKmodRand,
                 "rand_err" : NFPKmodRandErr,
                 "reload" :   NFPKmodReload,
