@@ -20,10 +20,10 @@ class QueueSelectTest(MapTest):
             if prog:
                 self.xdp_start(prog, mode=self.group.xdp_mode())
 
-            before = ethtool_stats(self.dut, dst_ifc)
+            before = self.dut.ethtool_stats(dst_ifc)
             self.src.cmd("tcpreplay --intf1=%s --pps=100 %s " %
                          (src_ifc, pcap_src))
-            after = ethtool_stats(self.dut, dst_ifc)
+            after = self.dut.ethtool_stats(dst_ifc)
 
             for i in range(64):
                 s = 'rvec_%u_rx_pkts' % i

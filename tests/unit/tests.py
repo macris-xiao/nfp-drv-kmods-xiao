@@ -687,7 +687,7 @@ class SriovNDOs(CommonNetdevTest):
                               (self.group.pci_dbdf, ifc), fail=False)
         report = ret == 0
         # Whether interface is the VF
-        info = ethtool_drvinfo(self.dut, ifc)
+        info = self.dut.ethtool_drvinfo(ifc)
         is_vf = info["driver"] == "nfp_netvf"
 
         # Test SR-IOV ndo functions
@@ -734,7 +734,7 @@ class SriovNDOs(CommonNetdevTest):
             { "name" : "cNIC", "caps" : 0x0f, "reprs" : False },
         )
 
-        info = ethtool_drvinfo(self.dut, self.nfp_netdevs[0])
+        info = self.dut.ethtool_drvinfo(self.nfp_netdevs[0])
         caps = None
         reprs = 0
         LOG_sec("Checking app name")
@@ -1100,7 +1100,7 @@ class DrvInfoEthtool(CommonNetdevTest):
         new_ifcs = self.spawn_vf_netdev()
 
         for ifc in new_ifcs:
-            info = ethtool_drvinfo(self.dut, ifc)
+            info = self.dut.ethtool_drvinfo(ifc)
             if info["driver"] == "nfp":
                 self.check_info_repr(info)
             elif info["driver"] == "nfp_netvf":
@@ -1109,7 +1109,7 @@ class DrvInfoEthtool(CommonNetdevTest):
                 raise NtiError("Driver not reported")
 
         for ifc in self.nfp_netdevs:
-            info = ethtool_drvinfo(self.dut, ifc)
+            info = self.dut.ethtool_drvinfo(ifc)
             if info["bus-info"]:
                 self.check_info_pf(info)
             else:
@@ -1256,8 +1256,8 @@ class StatsEthtool(CommonNetdevTest):
                                   % (ifc))
             names[ifc] = out.strip()
 
-            infos[ifc] = ethtool_drvinfo(self.dut, ifc)
-            stats[ifc] = ethtool_stats(self.dut, ifc)
+            infos[ifc] = self.dut.ethtool_drvinfo(ifc)
+            stats[ifc] = self.dut.ethtool_stats(ifc)
 
         LOG_sec("Checking statistics")
 
@@ -1319,11 +1319,11 @@ class MacStatsEthtool(CommonNetdevTest):
 
         LOG_sec("MAC stat " + self.dut_ifn[ifidx] + ' ' + stat_name)
 
-        before = ethtool_stats(self.dut, self.dut_ifn[ifidx])
+        before = self.dut.ethtool_stats(self.dut_ifn[ifidx])
 
         self.ping(ifidx, count=repeat, size=size, ival=0.01)
 
-        after = ethtool_stats(self.dut, self.dut_ifn[ifidx])
+        after = self.dut.ethtool_stats(self.dut_ifn[ifidx])
 
         LOG_sec("Stat diff")
         for name in before.keys():

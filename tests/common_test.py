@@ -15,7 +15,6 @@ from scapy.all import Ether, rdpcap, wrpcap, Raw
 from netro.testinfra.nrt_result import NrtResult
 from netro.testinfra.nti_exceptions import NtiError, NtiGeneralError
 from netro.testinfra.test import Test
-from netro.testinfra.system import _parse_ethtool
 from netro.testinfra import LOG_init, LOG_sec, LOG, LOG_endsec, CMD
 from netro.tests.tcpdump import TCPDump
 
@@ -85,23 +84,6 @@ class NtiSkip(Exception):
 ###############################################################################
 # Helper functions
 ###############################################################################
-def ethtool_drvinfo(host, ifc):
-    _, out = host.cmd('ethtool -i %s' % (ifc))
-
-    ret = {}
-
-    lines = out.split('\n')
-    for l in lines:
-        vals = l.split(': ')
-        ret[vals[0]] = ': '.join(vals[1:])
-
-    return ret
-
-def ethtool_stats(host, ifc):
-    _, out = host.cmd('ethtool -S %s' % (ifc))
-
-    return _parse_ethtool(out)
-
 def drv_load_record_ifcs(obj, group, fwname=None):
     # Load the driver and remember which interfaces got spawned
     obj.dut._get_netifs()
@@ -118,7 +100,7 @@ def drv_load_record_ifcs(obj, group, fwname=None):
     # vNIC netdevs
     obj.vnics = []
     for ifc in obj.nfp_netdevs:
-        info = ethtool_drvinfo(obj.dut, ifc)
+        info = obj.dut.ethtool_drvinfo(ifc)
         if info["bus-info"] in group.pci_dbdfs:
             obj.vnics.append(ifc)
 

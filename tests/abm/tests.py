@@ -553,7 +553,7 @@ class BnicTest(CommonTest):
 
 class BnicNames(BnicTest):
     def execute(self):
-        out = ethtool_drvinfo(self.dut, self.group.vnics[0])
+        out = self.dut.ethtool_drvinfo(self.group.vnics[0])
         if not out['firmware-version'].endswith('abm'):
             raise NtiError('Incorrect driver app name')
         if not out['firmware-version'].count(' abm-'):
@@ -1201,7 +1201,7 @@ class BnicRedRaw(BnicQlvl):
             for name in qds[i]:
                 assert_equal(s[i], qdisc[name], "Statistic %s wrong" % (name))
 
-        ethtool = ethtool_stats(self.dut, ifc)
+        ethtool = self.dut.ethtool_stats(ifc)
         assert_equal(s[2], ethtool["q0_no_wait"], "q0_no_wait wrong")
         assert_equal(s[3], ethtool["q0_delayed"], "q0_delayed wrong")
 
@@ -1295,7 +1295,7 @@ class BnicPerQState:
         self._dict['pkts'] = {}
         self._dict['bytes'] = {}
         for i in range(self.group.n_ports):
-            ets = ethtool_stats(self.dut, self.group.pf_ports[i])
+            ets = self.dut.ethtool_stats(self.group.pf_ports[i])
             rxq_regs = self.dut.nfd_reg_read_le32(self.group.vnics[i],
                                                   0x1400, MAX_QUEUES * 4)
             rxq_pkts = []
@@ -1765,7 +1765,7 @@ class BnicRedMqRaw(BnicTest):
         for ifc in self.group.pf_ports:
             # Extract the ifc stats
             qlist = self.qdiscs_to_handle_list(qdiscs, ifc)
-            ets = ethtool_stats(self.dut, ifc)
+            ets = self.dut.ethtool_stats(ifc)
 
             for nqid in range(self.state['nqs'][ifc]):
                 qid = self.nqid_to_qid(ifc, nqid)

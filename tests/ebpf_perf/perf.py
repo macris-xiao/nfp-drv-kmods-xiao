@@ -21,12 +21,12 @@ class BPFPerf(MapTest):
         rate = {}
 
         t0 = time.time()
-        bef = ethtool_stats(host, self.dut_ifn[port])
+        bef = host.ethtool_stats(self.dut_ifn[port])
 
         sleeptime = sample_period - (time.time() - t0)
         time.sleep(sleeptime)
 
-        aft = ethtool_stats(host, self.dut_ifn[port])
+        aft = host.ethtool_stats(self.dut_ifn[port])
 
         for key in aft:
                 rate[key] = (int(aft[key]) - int(bef[key])) / sample_period

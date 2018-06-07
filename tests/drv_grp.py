@@ -354,7 +354,7 @@ class NFPKmodGrp(netro.testinfra.Group):
                              quick=self.quick)
 
         # Host A
-        self.host_a = NrtSystem(self.cfg.get("HostA", "name"), self.quick)
+        self.host_a = LinuxSystem(self.cfg.get("HostA", "name"), self.quick)
         self.eth_a = self.cfg.get("HostA", "ethA").split()
         self.addr_a = self.cfg.get("HostA", "addrA").split()
         self.addr_v6_a = self.cfg.get("HostA", "addr6A").split()
