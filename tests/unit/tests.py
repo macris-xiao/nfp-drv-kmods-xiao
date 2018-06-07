@@ -820,39 +820,65 @@ class NetdevTest(CommonDrvTest):
             if int(out) != max_vfs:
                 raise NtiError("SR-IOV VF limit not reported")
 
-class PhysPortName(CommonNonUpstreamTest):
+class PhysPortName(CommonTest):
     def prepare(self):
         return self.kernel_min(4, 1)
 
     def netdev_execute(self):
-        M = self.dut
-
         cmd =  '''
-        cd /sys/class/net/;
-        for i in `ls`;
+        cd /sys/class/net/
+
+        for i in `ls`
         do
-            echo $i $([ -e $i/device ] && basename $(readlink $i/device) || echo no_dev) $(cat $i/phys_port_name || echo no_name) $(ip -o li show dev $i | cut -d" " -f20);
+            echo $i \
+                 $([ -e $i/device ] && basename $(readlink $i/device) || echo no_dev) \
+                 $(cat $i/phys_port_name || echo /no_name/) \
+                 $(ip -o li show dev $i | cut -d" " -f20)
         done
         '''
-
-        _, devs = M.cmd(cmd)
-
-        tbl = M.dfs_read_raw('nth/eth_table')
-
+        _, devs = self.dut.cmd(cmd)
         devices = devs.split('\n')[:-1]
+
+        for d in devices:
+            ifc, pci_dbdf, port_name, ethaddr = d.split()
+
+            if not re.match("^p\d+$", port_name) and \
+               not re.match("^p\d+s\d+$", port_name) and \
+               not re.match("^n\d+$", port_name) and \
+               not re.match("^pf\d+$", port_name) and \
+               not re.match("^pf\d+vf\d+$", port_name) and \
+               not re.match("^n\d+$", port_name) and \
+               not port_name == '/no_name/':
+                raise NtiError('Unexpected phys_port_name: ' + port_name)
+
+            _, pci_info = self.dut.cmd('lspci -s %s -n' % pci_dbdf)
+            drvinfo = self.dut.ethtool_drvinfo(ifc)
+
+            # VF or flower PF vNIC without a port
+            if port_name == '/no_name/' and \
+               pci_info.count('19ee:6003') == 0 and \
+               drvinfo["firmware-version"].count("AOTC") == 0:
+                raise NtiError("Only VFs and Flower FW uses no-name vNICs")
+
+            if port_name != '/no_name/' and \
+               (pci_info.count('19ee:6003') != 0 or \
+                drvinfo["firmware-version"].count("AOTC") != 0):
+                raise NtiError("VFs and Flower FW must use no-name vNICs")
+
+        # The rest of the checks requires BSP access
+        if self.group.upstream_drv:
+            return
+
+        tbl = self.dut.dfs_read_raw('nth/eth_table')
+
         found = 0
         for d in devices:
-            # <ifname> <pci_id> <phys_port_name> <ethaddr>
-            info = d.split()
-            ifc = info[0]
-            pci_id = info[1]
-            port_name = info[2]
-            ethaddr = info[3]
+            ifc, pci_dbdf, port_name, ethaddr = d.split()
 
-            if pci_id[5:] != self.group.pci_id:
+            if pci_dbdf[5:] != self.group.pci_id:
                 continue
-            if not re.match("^p\d*$", port_name) and \
-               not re.match("^p\d*s\d*$", port_name):
+            if not re.match("^p\d+$", port_name) and \
+               not re.match("^p\d+s\d+$", port_name):
                 continue
 
             found += 1
@@ -1267,7 +1293,7 @@ class StatsEthtool(CommonNetdevTest):
             keys = stats[ifc].keys()
 
             # VF vNIC or PF vNIC (not a physical port vNIC)
-            if re.match('^n\d*', names[ifc]):
+            if names[ifc] == "" or re.match('^n\d*', names[ifc]):
                 self.check_sw_stats_present(keys)
                 self.check_vnic_stats_present(keys)
                 self.check_vnic_queue_stats_present(keys)
