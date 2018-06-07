@@ -13,6 +13,30 @@ from netro.testinfra.nti_exceptions import NtiError, NtiGeneralError
 from common_test import NtiSkip
 
 class LinuxSystem(System):
+    ###############################
+    # bpftool
+    ###############################
+    def bpftool(self, param, fail=True):
+        ret, out = self.cmd("bpftool -p " + param, fail=fail)
+        if len(out) == 0:
+            return ret, {}
+        return ret, json.loads(out)
+
+    def bpftool_prog_show(self, ident):
+        return self.bpftool("prog show id %d" % (ident))
+
+    def bpftool_prog_list(self, fail=True):
+        return self.bpftool("prog", fail=fail)
+
+    def bpftool_map_show(self, ident):
+        return self.bpftool("map show id %d" % (ident))
+
+    def bpftool_map_list(self, fail=True):
+        return self.bpftool("map", fail=fail)
+
+    ###############################
+    # ethtool
+    ###############################
     def ethtool_drvinfo(self, ifc):
         _, out = self.cmd('ethtool -i %s' % (ifc))
 

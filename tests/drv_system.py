@@ -253,24 +253,6 @@ class DrvSystem(LinuxSystem):
         elaps_time = time.time() - start_time
         return ret, out, elaps_time
 
-    def bpftool(self, param, fail=True):
-        ret, out = self.cmd("bpftool -p " + param, fail=fail)
-        if len(out) == 0:
-            return ret, {}
-        return ret, json.loads(out)
-
-    def bpftool_prog_show(self, ident):
-        return self.bpftool("prog show id %d" % (ident))
-
-    def bpftool_prog_list(self, fail=True):
-        return self.bpftool("prog", fail=fail)
-
-    def bpftool_map_show(self, ident):
-        return self.bpftool("map show id %d" % (ident))
-
-    def bpftool_map_list(self, fail=True):
-        return self.bpftool("map", fail=fail)
-
     def bpf_wait_maps_clear(self, expected=0, n_retry=30):
         for i in range(n_retry):
             ret, maps = self.bpftool_map_list(fail=False)
