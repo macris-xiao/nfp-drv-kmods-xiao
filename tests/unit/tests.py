@@ -854,6 +854,16 @@ class PhysPortName(CommonTest):
             _, pci_info = self.dut.cmd('lspci -s %s -n' % pci_dbdf)
             drvinfo = self.dut.ethtool_drvinfo(ifc)
 
+            # Check vNIC names are not on reprs
+            if not self.nfp_ifc_is_vnic(drvinfo) and \
+               re.match("^n\d+$", port_name):
+                raise NtiError("Non-vNIC has a vNIC phys_port_name")
+
+            # Check repr names are not on vNICs
+            if not self.nfp_ifc_is_repr(drvinfo) and \
+               re.match("^pf\d+", port_name):
+                raise NtiError("vNIC has a repr-only phys_port_name")
+
             # VF or flower PF vNIC without a port
             if port_name == '/no_name/' and \
                pci_info.count('19ee:6003') == 0 and \
@@ -1313,7 +1323,8 @@ class StatsEthtool(CommonNetdevTest):
                 continue
 
             # Physical port representor
-            if re.match('^p\d*$', names[ifc]) and infos[ifc]["bus-info"] == "":
+            if self.nfp_ifc_is_repr(infos[ifc]) and \
+               re.match('^p\d+', names[ifc]):
                 self.check_mac_stats_present(keys)
 
                 if not all([x.startswith('mac.') for x in keys]):
@@ -1323,7 +1334,8 @@ class StatsEthtool(CommonNetdevTest):
                 continue
 
             # Physical port vNIC
-            if re.match('^p\d*$', names[ifc]) and infos[ifc]["bus-info"] != "":
+            if self.nfp_ifc_is_vnic(infos[ifc]) and \
+               re.match('^p\d+', names[ifc]):
                 self.check_sw_stats_present(keys)
                 self.check_vnic_stats_present(keys)
                 self.check_vnic_queue_stats_present(keys)

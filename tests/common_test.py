@@ -719,6 +719,12 @@ class CommonNTHTest(CommonTest):
         self.dut.reset_mods()
 
 class CommonNetdevTest(CommonTest):
+    def nfp_ifc_is_vnic(self, ethtool_info):
+        return ethtool_info["firmware-version"][0] == "0" # NFD version
+
+    def nfp_ifc_is_repr(self, ethtool_info):
+        return ethtool_info["firmware-version"][0] == "*"
+
     def spawn_vf_netdev(self):
         # Enable VFs if supported
         max_vfs = self.read_scalar_nffw('nfd_vf_cfg_max_vfs')
