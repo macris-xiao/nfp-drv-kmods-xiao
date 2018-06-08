@@ -28,6 +28,9 @@ def assert_equal(expected, actual, error_message):
                                                                   expected,
                                                                   actual))
 
+def assert_eq(expected, actual, error_message):
+    assert_equal(expected, actual, error_message)
+
 def assert_neq(expected, actual, error_message):
     if expected == actual:
         raise NtiGeneralError("%s: value %r not allowed" % (error_message,

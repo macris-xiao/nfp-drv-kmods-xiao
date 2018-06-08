@@ -12,6 +12,7 @@ from netro.testinfra.test import *
 from ..drv_grp import NFPKmodGrp
 from ..drv_system import NfpNfdCtrl
 from ..ebpf.xdp import XDPTest
+from ifstats import IFstats
 from netconsole import NetconsoleTest
 
 ###########################################################################
@@ -60,6 +61,7 @@ class NFPKmodUnit(NFPKmodGrp):
               "Test user space access existence and basic functionality"),
              ('kernel_fw_load', KernelLoadTest, "Test kernel firmware loader"),
              ('bsp_diag', BSPDiag, "Test the basic BSP diagnostics"),
+             ('ifstats_reconfig', IFstats, "Interface statstics vs reconfig"),
              ('channel_reconfig', ChannelReconfig, "Ethtool channel reconfig"),
              ('ethtool_drvinfo', DrvInfoEthtool, "Ethtool -i test"),
              ('ethtool_get_speed', LinkSpeedEthtool, "Ethtool get settings"),

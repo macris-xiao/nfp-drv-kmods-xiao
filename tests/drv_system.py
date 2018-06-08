@@ -105,39 +105,6 @@ class DrvSystem(LinuxSystem):
         self.cp_to(os.path.join(self.grp.samples_xdp_perf, '*.o'),
                    self.xdp_perf_dir)
 
-    def link_wait(self, ifc, timeout=8, state=True):
-        tgt_time = time.time() + timeout
-        up_time = 0
-        down_time = 0
-
-        while True:
-            ret, _ = self.cmd('ip link show dev %s | grep LOWER_UP' %
-                              (ifc), fail=False)
-
-            now = time.time()
-            # Carbon triggers spurious up events, which are followed by an
-            # immediate down.  We need to make sure link is stable for at
-            # least half a second.
-            if ret == 0:
-                down_time = 0
-                if up_time == 0:
-                    up_time = now
-                if state and (now - up_time >= 0.5):
-                    return
-            else:
-                up_time = 0
-                if down_time == 0:
-                    down_time = now
-                if (not state) and (now - down_time >= 0.5):
-                    return
-
-            if now >= tgt_time:
-                if state:
-                    raise NtiError("Timeout waiting for LINK UP on interface %s" % (ifc))
-                else:
-                    raise NtiError("Timeout waiting for LINK DOWN on interface %s" % (ifc))
-            time.sleep(0.1)
-
     def devlink_split(self, index, count, fail=True):
         return self.cmd('devlink port split pci/%s/%d count %d' %
                         (self.grp.pci_dbdf, index, count), fail=fail)
@@ -156,6 +123,11 @@ class DrvSystem(LinuxSystem):
     def devlink_eswitch_mode_set(self, mode, fail=True):
         return self.cmd('devlink dev eswitch set pci/%s mode %s' %
                         (self.grp.pci_dbdf, mode), fail=fail)
+
+    def skip_test_if_mode_switchdev(self):
+        _, mode = self.devlink_eswitch_mode_get(fail=False)
+        if mode == "switchdev":
+            raise NtiSkip("Switchdev-only app")
 
     def devlink_any_list(self, param, obj, fail=True):
         devlink = "pci/" + self.grp.pci_dbdf
