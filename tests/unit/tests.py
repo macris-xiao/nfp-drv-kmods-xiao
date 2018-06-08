@@ -1096,8 +1096,8 @@ class DrvInfoEthtool(CommonNetdevTest):
             raise NtiError("Driver not reported as nfp")
         if info["supports-register-dump"] != "no":
             raise NtiError("Representor with register dump")
-        if info["bus-info"]:
-            raise NtiError("Representor with bus info")
+        if info["bus-info"] != self.group.pci_dbdf:
+            raise NtiError("Incorrect bus info")
 
         fw_ver = info["firmware-version"].strip().split(' ')
         if len(fw_ver) != 4:

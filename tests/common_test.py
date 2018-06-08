@@ -104,7 +104,7 @@ def drv_load_record_ifcs(obj, group, fwname=None):
     obj.vnics = []
     for ifc in obj.nfp_netdevs:
         info = obj.dut.ethtool_drvinfo(ifc)
-        if info["bus-info"] in group.pci_dbdfs:
+        if info["firmware-version"][0] != "*":
             obj.vnics.append(ifc)
 
     # Store repr netdevs, assuming all non-vnic NFP netdevs are representors.
