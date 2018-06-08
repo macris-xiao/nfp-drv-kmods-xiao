@@ -1251,8 +1251,8 @@ class AutonegEthtool(CommonNonUpstreamTest):
         self.state_check()
 
 class StatsEthtool(CommonNetdevTest):
-    def check_sw_stats_present(self, keys):
-        if len(filter(lambda x: x.startswith('rvec_'), keys)) < 3:
+    def check_sw_stats_present(self, keys, num_rings=1):
+        if len(filter(lambda x: x.startswith('rvec_'), keys)) < 3 * num_rings:
             raise NtiError("rvec stats missing")
         if 'hw_rx_csum_ok' not in keys:
             raise NtiError("SW stats missing")
@@ -1263,10 +1263,10 @@ class StatsEthtool(CommonNetdevTest):
         if len(keys) != 26:
             raise NtiError("Expected 26 vNIC stats, got %d" % (len(keys)))
 
-    def check_vnic_queue_stats_present(self, keys):
-        if len(filter(lambda x: x.startswith('txq_'), keys)) < 2:
+    def check_vnic_queue_stats_present(self, keys, num_rings=1):
+        if len(filter(lambda x: x.startswith('txq_'), keys)) < 2 * num_rings:
             raise NtiError("txq stats missing")
-        if len(filter(lambda x: x.startswith('rxq_'), keys)) < 2:
+        if len(filter(lambda x: x.startswith('rxq_'), keys)) < 2 * num_rings:
             raise NtiError("rxq stats missing")
 
     def check_mac_stats_present(self, keys):
@@ -1304,9 +1304,11 @@ class StatsEthtool(CommonNetdevTest):
 
             # VF vNIC or PF vNIC (not a physical port vNIC)
             if names[ifc] == "" or re.match('^n\d*', names[ifc]):
-                self.check_sw_stats_present(keys)
+                num_rings = self.dut.ethtool_channels_get(ifc)["max"]["rx"]
+
+                self.check_sw_stats_present(keys, num_rings)
                 self.check_vnic_stats_present(keys)
-                self.check_vnic_queue_stats_present(keys)
+                self.check_vnic_queue_stats_present(keys, num_rings)
 
                 LOG("Bare vNIC (PF representor/VF) OK: " + ifc)
                 continue
@@ -1336,9 +1338,11 @@ class StatsEthtool(CommonNetdevTest):
             # Physical port vNIC
             if self.nfp_ifc_is_vnic(infos[ifc]) and \
                re.match('^p\d+', names[ifc]):
-                self.check_sw_stats_present(keys)
+                num_rings = self.dut.ethtool_channels_get(ifc)["max"]["rx"]
+
+                self.check_sw_stats_present(keys, num_rings)
                 self.check_vnic_stats_present(keys)
-                self.check_vnic_queue_stats_present(keys)
+                self.check_vnic_queue_stats_present(keys, num_rings)
                 self.check_mac_stats_present(keys)
 
                 LOG("Physical port vNIC OK: " + ifc)

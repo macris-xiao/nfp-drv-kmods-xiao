@@ -94,3 +94,57 @@ class LinuxSystem(System):
             LOG_endsec()
 
         return ret
+
+    def ethtool_channels_get(self, ifc):
+        ret = {}
+
+        LOG_sec("GET CHAN %s for %s" % (self.host, ifc))
+        try:
+            r = \
+"""Channel parameters for \w+:
+Pre-set maximums:
+RX:		(\d+)
+TX:		(\d+)
+Other:		(\d+)
+Combined:	(\d+)
+Current hardware settings:
+RX:		(\d+)
+TX:		(\d+)
+Other:		(\d+)
+Combined:	(\d+)"""
+
+            _, out = self.cmd("ethtool -l " + ifc)
+            m = re.search(r, out, flags=re.M)
+
+            ret = {
+                "max"		: {
+                    "rx"	: int(m.groups()[0]),
+                    "tx"	: int(m.groups()[1]),
+                    "other"	: int(m.groups()[2]),
+                    "combined"	: int(m.groups()[3]),
+                },
+                "current"	: {
+                    "rx"	: int(m.groups()[4]),
+                    "tx"	: int(m.groups()[5]),
+                    "other"	: int(m.groups()[6]),
+                    "combined"	: int(m.groups()[7]),
+                },
+            }
+            LOG(str(ret))
+        finally:
+            LOG_endsec()
+
+        return ret
+
+    def ethtool_channels_set(self, ifc, settings):
+        LOG_sec("SET CHAN %s for %s to %s" % (self.host, ifc, str(settings)))
+        try:
+                cmd = 'ethtool -L ' + ifc
+                for k in settings.keys():
+                    cmd += ' %s %s' % (k, settings[k])
+
+                ret = self.cmd(cmd)
+        finally:
+            LOG_endsec()
+
+        return ret
