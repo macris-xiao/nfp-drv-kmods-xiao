@@ -242,12 +242,16 @@ class FlowerBase(CommonNetdevTest):
         if pkt_total != exp_cnt:
             raise NtiError('Pcap count missmatch. Expected: %s, Got: %s' % (exp_cnt, pkt_total))
 
-    def pcap_cmp_pkt_bytes(self, pack_cap, exp_field, offset):
+    def pcap_cmp_pkt_bytes(self, pack_cap, exp_field, offset, fail=False):
         # offset is in bytes but packet treated as hex string so double offset
         offset *= 2
         for p in pack_cap:
             if str(p).encode("hex")[offset:offset+len(exp_field)] != exp_field:
-                raise NtiError('Bad byte match for %s at offset %s  - %s' % (exp_field, offset, str(p).encode("hex")[offset:offset+len(exp_field)]))
+                if not fail:
+                    raise NtiError('Bad byte match for %s at offset %s  - %s' % (exp_field, offset, str(p).encode("hex")[offset:offset+len(exp_field)]))
+            else:
+                if fail:
+                    raise NtiError('Bytes match unexpected for %s at offset %s  - %s' % (exp_field, offset, str(p).encode("hex")[offset:offset+len(exp_field)]))
 
 class FlowerMatchMAC(FlowerBase):
     def netdev_execute(self):
@@ -1140,6 +1144,12 @@ class FlowerActionVXLAN(FlowerBase):
         ip_addresses = str(exp_pkt).encode("hex")[(len(Ether()) + 12)*2: (len(Ether()) + len(IP()))*2]
         ip_proto = str(exp_pkt).encode("hex")[(len(Ether()) + 9)*2: (len(Ether()) + 10)*2]
         dest_port = str(exp_pkt).encode("hex")[(len(Ether()) + len(IP()) + 2)*2: (len(Ether()) + len(IP()) + 4)*2]
+        no_ttl = '00'
+
+        # copy a captured packet and get scapy to calculate its checksum
+        first = pack_cap[0].copy()
+        del(first[UDP].chksum)
+        udp_csum = str(first).encode("hex")[(len(Ether()) + len(IP()) + 6)*2: (len(Ether()) + len(IP()) + 8)*2]
 
         # check VXLAN header
         self.pcap_cmp_pkt_bytes(pack_cap, vxlan_header, len(Ether()) + len(IP()) + len(UDP()))
@@ -1147,12 +1157,28 @@ class FlowerActionVXLAN(FlowerBase):
         self.pcap_cmp_pkt_bytes(pack_cap, mac_header, 0)
         # check tunnel IP addresses
         self.pcap_cmp_pkt_bytes(pack_cap, ip_addresses, len(Ether()) + 12)
+        # check tunnel TTL is non zero
+        self.pcap_cmp_pkt_bytes(pack_cap, no_ttl, len(Ether()) + 8, fail=True)
         # check tunnel IP proto
         self.pcap_cmp_pkt_bytes(pack_cap, ip_proto, len(Ether()) + 9)
         # check tunnel destination UDP port
         self.pcap_cmp_pkt_bytes(pack_cap, dest_port, len(Ether()) + len(IP()) + 2)
+        # check udp checksum
+        self.pcap_cmp_pkt_bytes(pack_cap, udp_csum, len(Ether()) + len(IP()) + 6)
         # check encapsulated packet
         self.pcap_cmp_pkt_bytes(pack_cap, str(pkt).encode("hex"), len(Ether()) + len(IP()) + len(UDP()) + 8)
+
+        self.cleanup_filter(iface)
+
+        # modify action to uncheck the udp checksum flag
+        action = 'tunnel_key set id 123 src_ip %s dst_ip %s dst_port 4789 nocsum action mirred egress redirect dev vxlan0' % (dut_ip, src_ip)
+        self.install_filter(iface, match, action)
+        self.capture_packs(ingress, pkt, dump_file)
+        pack_cap = rdpcap(dump_file)
+
+        no_csum = '0000'
+        # verify checksum is 0
+        self.pcap_cmp_pkt_bytes(pack_cap, no_csum, len(Ether()) + len(IP()) + 6)
 
         self.cleanup_filter(iface)
 
