@@ -153,6 +153,11 @@ class LinuxSystem(System):
         finally:
             LOG_endsec()
 
+    def ip_link_set_mtu(self, ifc, mtu, fail=True):
+        return self.cmd('ip link set dev {ifc} mtu {mtu}'.format(ifc=ifc,
+                                                                 mtu=mtu),
+                        fail=fail)
+
     ###############################
     # bpftool
     ###############################

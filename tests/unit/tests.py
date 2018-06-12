@@ -1441,19 +1441,21 @@ class MacStatsEthtool(CommonNetdevTest):
         for t in pkt_stats_bidir:
             self.test_stat(ifidx, t[0], t[1], 1)
 
-        ret, _ = self.dut.cmd('ip link set dev %s mtu %d' %
-                              (self.dut_ifn[ifidx], 1600),
-                              fail=False)
+        ret, _ = self.dut.ip_link_set_mtu(self.dut_ifn[ifidx], 1600, fail=False)
         # If we can't do jumbo just skip the jumbo counter tests
         if ret:
             return
+        # For switchdev-only FWs we need to adjust MTU on vNICs, too
+        if self.dut_ifn[ifidx] not in self.vnics:
+            for vnic in self.vnics:
+                ret, _ = self.dut.ip_link_set_mtu(vnic, 1600, fail=False)
+                if ret:
+                    return
 
-        self.src.cmd('ip link set dev %s mtu %d' % (self.src_ifn[ifidx], 1600))
+        self.src.ip_link_set_mtu(self.src_ifn[ifidx], 1600)
 
         for t in jumbo_stats:
             self.test_stat(ifidx, t[0], t[1], 1)
-
-        self.src.cmd('ip link set dev %s mtu %d' % (self.src_ifn[ifidx], 1500))
 
     def netdev_execute(self):
         if self.read_sym_nffw('_mac_stats') is None:
@@ -1461,6 +1463,11 @@ class MacStatsEthtool(CommonNetdevTest):
 
         for i in range(0, len(self.dut_ifn)):
             self.test_one_ifc(i)
+
+    def cleanup(self):
+        for ifc in self.src_ifn:
+            self.src.ip_link_set_mtu(ifc, 1500)
+        return super(MacStatsEthtool, self).cleanup()
 
 class MtuFlbufCheck(CommonNetdevTest):
     def get_bar_rx_offset(self):
