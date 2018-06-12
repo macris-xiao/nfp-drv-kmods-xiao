@@ -40,6 +40,39 @@ class LinuxSystem(System):
     ###############################
     # Traffic generation
     ###############################
+    def _ping(self, prog, wait, addr, ifc, count, size, pattern, ival, tos,
+              should_fail):
+        cmd = "%s -W%d %s " % (prog, wait, addr)
+        if ifc is not None:
+            cmd += "-I %s " % (ifc)
+        if count is not None:
+            cmd += "-c %d " % (count)
+        if size is not None:
+            cmd += "-s %d " % (size)
+        if pattern:
+            cmd += "-p %s " % (pattern)
+        if ival is not None:
+            cmd += "-i %s " % (ival)
+        if tos is not None:
+            cmd += "-Q %d " % (tos)
+
+        ret, _ = self.cmd(cmd, fail=False)
+        if ret and should_fail == False:
+            raise NtiError("Couldn't %s endpoint" % (prog))
+        if ret == 0 and should_fail == True:
+            raise NtiError("Could %s endpoint" % (prog))
+        return ret
+
+    def ping(self, addr, ifc=None, count=10, size=None, pattern="",
+             ival="0.05", tos=None, should_fail=False):
+        return self._ping("ping", 2, addr, ifc, count, size, pattern, ival,
+                          tos, should_fail)
+
+    def ping6(self, addr, ifc=None, count=10, size=None, pattern="",
+              ival="0.05", tos=None, should_fail=False):
+        return self._ping("ping6", 5, addr, ifc, count, size, pattern, ival,
+                          tos, should_fail)
+
     def tcpping(self, addr, ifc=None, count=10, sport=100, dport=58, size=50,
                 tos=None, keep=True, speed="fast",
                 fail=False, should_fail=False):

@@ -483,47 +483,19 @@ class CommonTest(Test):
     def check_verifier_log_nfp(self, output, reference):
         self.check_verifier_log(output, "[nfp] " + reference)
 
-    def _ping_opts(self, addr, ifc, count, size, pattern, ival, tos):
-        opts = "%s " % (addr)
-        if ifc is not None:
-            opts += "-I %s " % (ifc)
-        if count is not None:
-            opts += "-c %d " % (count)
-        if size:
-            opts += "-s %d " % (size)
-        if pattern:
-            opts += "-p %s " % (pattern)
-        if ival:
-            opts += "-i %s " % (ival)
-        if tos is not None:
-            opts += "-Q %d " % (tos)
-        return opts
-
     def ping(self, port, count=10, size=0, pattern="", ival="0.05", tos=None,
              should_fail=False):
-        opts = self._ping_opts(addr=self.dut_addr[port][:-3],
-                               ifc=self.src_ifn[port], count=count, size=size,
-                               pattern=pattern, ival=ival, tos=tos)
+        return self.src.ping(addr=self.dut_addr[port][:-3],
+                             ifc=self.src_ifn[port],
+                             count=count, size=size, pattern=pattern,
+                             ival=ival, tos=tos, should_fail=should_fail)
 
-        ret, _ = self.src.cmd('ping -W2 ' + opts, fail=False)
-        if ret and should_fail == False:
-            raise NtiGeneralError("Couldn't ping endpoint")
-        if ret == 0 and should_fail == True:
-            raise NtiGeneralError("Could ping endpoint")
-        return ret
-
-    def ping6(self, port, count=10, size=0, pattern="", ival="0.1", tos=None,
-              should_fail=False):
-        opts = self._ping_opts(addr=self.dut_addr_v6[port][:-3],
-                               ifc=self.src_ifn[port], count=count, size=size,
-                               pattern=pattern, ival=ival, tos=tos)
-
-        ret, _ = self.src.cmd('ping6 -W5 ' + opts, fail=False)
-        if ret and should_fail == False:
-            raise NtiGeneralError("Couldn't ping6 endpoint")
-        if ret == 0 and should_fail == True:
-            raise NtiGeneralError("Could ping6 endpoint")
-        return ret
+    def ping6(self, port, count=10, size=0, pattern="", ival="0.05", tos=None,
+             should_fail=False):
+        return self.src.ping6(addr=self.dut_addr_v6[port][:-3],
+                              ifc=self.src_ifn[port],
+                              count=count, size=size, pattern=pattern,
+                              ival=ival, tos=tos, should_fail=should_fail)
 
     def tcpping(self, port, count=10, sport=100, dport=58, size=50, tos=None,
                 keep=True, speed="fast", fail=False, should_fail=False):
