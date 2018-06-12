@@ -56,6 +56,7 @@ class NFPKmodFlower(NFPKmodGrp):
              ('flower_modify_mtu', FlowerModifyMTU, "Checks the setting of a mac repr MTU"),
              ('flower_match_whitelist', FlowerMatchWhitelist, "Checks basic flower match whitelisting"),
              ('flower_vxlan_whitelist', FlowerVxlanWhitelist, "Checks that unsupported vxlan rules are not offloaded"),
+             ('flower_csum_whitelist', FlowerCsumWhitelist, "Checks that unsupported checksum rules are not offloaded"),
              ('flower_action_encap_vxlan', FlowerActionVXLAN, "Checks basic flower vxlan encapsulation action capabilities"),
              ('flower_action_encap_geneve', FlowerActionGENEVE, "Checks basic flower geneve encapsulation action capabilities"),
              ('flower_action_set_ether', FlowerActionSetEth, "Checks basic flower set ethernet action capabilities"),
@@ -1048,6 +1049,53 @@ class FlowerVxlanWhitelist(FlowerBase):
         M.cmd('ip link delete vxlan0')
         M.cmd('ip link delete vxlan1')
         M.cmd('ip link delete vxlan2')
+
+class FlowerCsumWhitelist(FlowerBase):
+    def netdev_execute(self):
+        iface, _ = self.configure_flower()
+
+        # Check that set ipv4 without csum update is installed in software only (not_in_hw)
+        match = 'ip flower'
+        action = 'pedit ex munge ip src set 20.30.40.50 munge ip dst set 120.130.140.150 pipe mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action, False)
+        self.cleanup_filter(iface)
+
+        # Check that set ipv6 without csum update is installed in software only (not_in_hw)
+        match = 'ipv6 flower'
+        action = 'pedit ex munge ip6 src set 1234:2345:3456:4567:5678:6789:7890:8901 munge ' +\
+                 'ip6 dst set 1000:2000:3000:4000:5000:6000:7000:8000 pipe mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action, False)
+        self.cleanup_filter(iface)
+
+        # Check that set tcp without csum update is installed in software only (not_in_hw)
+        match = 'ip flower ip_proto tcp'
+        action = 'pedit ex munge tcp dport set 2000 pipe mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action, False)
+        self.cleanup_filter(iface)
+
+        # Check that set udp without csum update is installed in software only (not_in_hw)
+        match = 'ip flower ip_proto udp'
+        action = 'pedit ex munge udp dport set 4000 pipe mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action, False)
+        self.cleanup_filter(iface)
+
+        # Check that set tcp with a udp csum update is installed in software only (not_in_hw)
+        match = 'ip flower ip_proto tcp'
+        action = 'pedit ex munge tcp dport set 2000 pipe csum udp pipe mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action, False)
+        self.cleanup_filter(iface)
+
+        # Check that set udp with a tcp csum update is installed in software only (not_in_hw)
+        match = 'ip flower ip_proto udp'
+        action = 'pedit ex munge udp dport set 4000 pipe csum tcp pipe mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action, False)
+        self.cleanup_filter(iface)
+
+        # Check that set tcp with a tcp csum update without a tcp is installed in software only (not_in_hw)
+        match = 'ip flower'
+        action = 'pedit ex munge tcp dport set 1500 pipe csum tcp pipe mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action, False)
+        self.cleanup_filter(iface)
 
 class FlowerActionVXLAN(FlowerBase):
     def netdev_execute(self):
