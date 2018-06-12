@@ -1238,8 +1238,8 @@ class FlowerActionSetIPv4(FlowerBase):
         self.cleanup_filter(iface)
 
         # Test Set SRC and DST IPv4
-        match = 'ip flower'
-        action = 'pedit ex munge ip src set 20.30.40.50 munge ip dst set 120.130.140.150 pipe mirred egress redirect dev %s' % iface
+        match = 'ip flower ip_proto tcp'
+        action = 'pedit ex munge ip src set 20.30.40.50 munge ip dst set 120.130.140.150 pipe csum ip and tcp pipe mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
         dump_fil='ip'
@@ -1250,8 +1250,8 @@ class FlowerActionSetIPv4(FlowerBase):
         self.cleanup_filter(iface)
 
         # Test Set DST IPv4
-        match = 'ip flower'
-        action = 'pedit ex munge ip dst set 22.33.44.55 pipe mirred egress redirect dev %s' % iface
+        match = 'ip flower ip_proto tcp'
+        action = 'pedit ex munge ip dst set 22.33.44.55 pipe csum ip and tcp pipe mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
         dump_fil='ip'
@@ -1262,8 +1262,8 @@ class FlowerActionSetIPv4(FlowerBase):
         self.cleanup_filter(iface)
 
         # Test Set SRC IPv4
-        match = 'ip flower'
-        action = 'pedit ex munge ip src set 22.33.44.55 pipe mirred egress redirect dev %s' % iface
+        match = 'ip flower ip_proto tcp'
+        action = 'pedit ex munge ip src set 22.33.44.55 pipe csum ip and tcp pipe mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
         dump_fil='ip'
@@ -1289,9 +1289,9 @@ class FlowerActionSetIPv6(FlowerBase):
         self.cleanup_filter(iface)
 
         # Test Set SRC and DST IPv6
-        match = 'ipv6 flower'
+        match = 'ipv6 flower ip_proto tcp'
         action = 'pedit ex munge ip6 src set 1234:2345:3456:4567:5678:6789:7890:8901 munge ' +\
-                 'ip6 dst set 1000:2000:3000:4000:5000:6000:7000:8000 pipe mirred egress redirect dev %s' % iface
+                 'ip6 dst set 1000:2000:3000:4000:5000:6000:7000:8000 pipe csum tcp pipe mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
         dump_fil='ip6'
@@ -1303,8 +1303,8 @@ class FlowerActionSetIPv6(FlowerBase):
         self.cleanup_filter(iface)
 
         # Test Set DST IPv6
-        match = 'ipv6 flower'
-        action = 'pedit ex munge ip6 dst set 1234:2345:3456:4567:5678:6789:7890:8901 pipe mirred egress redirect dev %s' % iface
+        match = 'ipv6 flower ip_proto tcp'
+        action = 'pedit ex munge ip6 dst set 1234:2345:3456:4567:5678:6789:7890:8901 pipe csum tcp pipe mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
         dump_fil='ip6'
@@ -1316,8 +1316,8 @@ class FlowerActionSetIPv6(FlowerBase):
         self.cleanup_filter(iface)
 
         # Test Set SRC IPv6
-        match = 'ipv6 flower'
-        action = 'pedit ex munge ip6 src set 1234:2345:3456:4567:5678:6789:7890:8901 pipe mirred egress redirect dev %s' % iface
+        match = 'ipv6 flower ip_proto tcp'
+        action = 'pedit ex munge ip6 src set 1234:2345:3456:4567:5678:6789:7890:8901 pipe csum tcp pipe mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
         dump_fil='ip6'
@@ -1345,7 +1345,7 @@ class FlowerActionSetUDP(FlowerBase):
 
         # Test Set SRC and DST UDP
         match = 'ip flower ip_proto udp'
-        action = 'pedit ex munge udp sport set 4282 munge udp dport set 8242 pipe mirred egress redirect dev %s' % iface
+        action = 'pedit ex munge udp sport set 4282 munge udp dport set 8242 pipe csum udp pipe mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
         dump_fil=''
@@ -1357,7 +1357,7 @@ class FlowerActionSetUDP(FlowerBase):
 
         # Test Set DST UDP
         match = 'ip flower ip_proto udp'
-        action = 'pedit ex munge udp dport set 2000 pipe mirred egress redirect dev %s' % iface
+        action = 'pedit ex munge udp dport set 2000 pipe csum udp pipe mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
         dump_fil=''
@@ -1369,7 +1369,7 @@ class FlowerActionSetUDP(FlowerBase):
 
         # Test Set SRC UDP
         match = 'ip flower ip_proto udp'
-        action = 'pedit ex munge udp sport set 4000 pipe mirred egress redirect dev %s' % iface
+        action = 'pedit ex munge udp sport set 4000 pipe csum udp pipe mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
         dump_fil=''
@@ -1396,7 +1396,7 @@ class FlowerActionSetTCP(FlowerBase):
 
         # Test Set SRC and DST TCP
         match = 'ip flower ip_proto tcp'
-        action = 'pedit ex munge tcp sport set 4282 munge tcp dport set 8242 pipe mirred egress redirect dev %s' % iface
+        action = 'pedit ex munge tcp sport set 4282 munge tcp dport set 8242 pipe csum tcp pipe mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
         dump_fil=''
@@ -1408,7 +1408,7 @@ class FlowerActionSetTCP(FlowerBase):
 
         # Test Set DST TCP
         match = 'ip flower ip_proto tcp'
-        action = 'pedit ex munge tcp dport set 2000 pipe mirred egress redirect dev %s' % iface
+        action = 'pedit ex munge tcp dport set 2000 pipe csum tcp pipe mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
         dump_fil=''
@@ -1420,7 +1420,7 @@ class FlowerActionSetTCP(FlowerBase):
 
         # Test Set SRC UDP
         match = 'ip flower ip_proto tcp'
-        action = 'pedit ex munge tcp sport set 4000 pipe mirred egress redirect dev %s' % iface
+        action = 'pedit ex munge tcp sport set 4000 pipe csum tcp pipe mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
         dump_fil=''
