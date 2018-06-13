@@ -2,13 +2,14 @@
 # Copyright (C) 2018,  Netronome Systems, Inc.  All rights reserved.
 #
 
-import netro.testinfra
-from netro.testinfra.test import *
-from ..common_test import *
+import os
 import random
 import string
+import netro.testinfra
+from netro.testinfra.test import *
+from ..common_test import CommonTest, assert_equal
 
-class NetconsoleTest(CommonNetdevTest):
+class NetconsoleTest(CommonTest):
     def prepare(self):
         self.port = 0
         self.netconsname = None
@@ -115,7 +116,7 @@ class NetconsoleTest(CommonNetdevTest):
 
         self.dut.link_wait(self.dut_ifn[self.port])
 
-    def netdev_execute(self):
+    def execute(self):
         self.netcons_prep()
 
         self.spawn_netcons()

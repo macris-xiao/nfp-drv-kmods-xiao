@@ -129,6 +129,14 @@ def drv_load_record_ifcs(obj, group, fwname=None):
     else:
         obj.phys_netdevs = obj.vnics
 
+    # TODO: currently some tests expect the netdev lists on the group or test
+    #       this is wrong!  New tests should use them on dut, and we can move
+    #       this code into dut class once all are migrated.
+    obj.dut.nfp_netdevs = obj.nfp_netdevs
+    obj.dut.vnics = obj.vnics
+    obj.dut.reprs = obj.reprs
+    obj.dut.phys_netdevs = obj.phys_netdevs
+
 ###############################################################################
 # Test with cleanup
 ###############################################################################
@@ -275,6 +283,12 @@ class CommonTest(Test):
         '''
 
         return host.cmd(cmd.format(pid=pidfile, sig=sig, max_fail=max_fail))
+
+    def nfp_ifc_is_vnic(self, ethtool_info):
+        return ethtool_info["firmware-version"][0] == "0" # NFD version
+
+    def nfp_ifc_is_repr(self, ethtool_info):
+        return ethtool_info["firmware-version"][0] == "*"
 
     def ifc_all_up(self):
         for i in range(0, len(self.dut_ifn)):
@@ -681,6 +695,20 @@ class CommonTest(Test):
 
         return value
 
+    def spawn_vf_netdev(self):
+        # Enable VFs if supported
+        max_vfs = self.read_scalar_nffw('nfd_vf_cfg_max_vfs')
+        if max_vfs > 0:
+            self.dut.cmd('modprobe -r vfio_pci')
+            ret, _ = self.dut.cmd('echo %d > /sys/bus/pci/devices/0000:%s/sriov_numvfs' %
+                                  (1, self.group.pci_id))
+
+        netifs_old = self.dut._netifs
+        self.dut.cmd("udevadm settle")
+        self.dut._get_netifs()
+
+        return list(set(self.dut._netifs) - set(netifs_old))
+
 class CommonDrvTest(CommonTest):
     def cleanup(self):
         self.dut.reset_mods()
@@ -706,26 +734,6 @@ class CommonNTHTest(CommonTest):
         self.dut.reset_mods()
 
 class CommonNetdevTest(CommonTest):
-    def nfp_ifc_is_vnic(self, ethtool_info):
-        return ethtool_info["firmware-version"][0] == "0" # NFD version
-
-    def nfp_ifc_is_repr(self, ethtool_info):
-        return ethtool_info["firmware-version"][0] == "*"
-
-    def spawn_vf_netdev(self):
-        # Enable VFs if supported
-        max_vfs = self.read_scalar_nffw('nfd_vf_cfg_max_vfs')
-        if max_vfs > 0:
-            self.dut.cmd('modprobe -r vfio_pci')
-            ret, _ = self.dut.cmd('echo %d > /sys/bus/pci/devices/0000:%s/sriov_numvfs' %
-                                  (1, self.group.pci_id))
-
-        netifs_old = self.dut._netifs
-        self.dut.cmd("udevadm settle")
-        self.dut._get_netifs()
-
-        return list(set(self.dut._netifs) - set(netifs_old))
-
     def netdev_prep(self, fwname=None):
         LOG_sec("NFP netdev test prep")
 
