@@ -5,7 +5,7 @@
 import netro.testinfra
 from netro.testinfra.test import *
 from ..common_test import *
-from ..unit.netconsole import NetconsoleTest
+from ..netdev.netconsole import NetconsoleTest
 import random
 import string
 import time

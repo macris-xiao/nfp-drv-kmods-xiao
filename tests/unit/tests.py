@@ -13,7 +13,6 @@ from ..drv_grp import NFPKmodGrp
 from ..drv_system import NfpNfdCtrl
 from ..ebpf.xdp import XDPTest
 from ifstats import IFstats
-from netconsole import NetconsoleTest
 
 ###########################################################################
 # Unit Tests
@@ -77,7 +76,6 @@ class NFPKmodUnit(NFPKmodGrp):
               "Check interface operable after FW load with combinations of ifup/ifdown"),
              ('sriov_ndos', SriovNDOs, 'Test SR-IOV VF config NDO functions'),
              ('fec_modes', FECModesTest, 'Test FEC modes configuration'),
-             ('netconsole', NetconsoleTest, 'Test netconsole over the NFP'),
         )
 
         for t in T:
