@@ -100,12 +100,16 @@ def drv_load_record_ifcs(obj, group, fwname=None):
     # All netdevs
     obj.nfp_netdevs = list(set(netifs_new) - set(netifs_old))
 
+    cmd = ''
+
     # vNIC netdevs
     obj.vnics = []
     for ifc in obj.nfp_netdevs:
         info = obj.dut.ethtool_drvinfo(ifc)
         if info["firmware-version"][0] != "*":
             obj.vnics.append(ifc)
+            # Use less buffers to speed up things, especially on debug kernels
+            cmd += 'ethtool -G %s rx 512 tx 512 && ' % (ifc)
 
     # Store repr netdevs, assuming all non-vnic NFP netdevs are representors.
     obj.reprs = list(set(obj.nfp_netdevs) - set(obj.vnics))
@@ -128,6 +132,9 @@ def drv_load_record_ifcs(obj, group, fwname=None):
                 obj.phys_netdevs.append(iface)
     else:
         obj.phys_netdevs = obj.vnics
+
+    cmd += 'true'
+    obj.dut.cmd(cmd)
 
     # TODO: currently some tests expect the netdev lists on the group or test
     #       this is wrong!  New tests should use them on dut, and we can move
@@ -292,8 +299,6 @@ class CommonTest(Test):
 
     def ifc_all_up(self):
         for i in range(0, len(self.dut_ifn)):
-            self.dut.cmd('ethtool -G %s rx 512 tx 512' % (self.dut_ifn[i]),
-                         fail=False)
             self.dut.cmd('ifconfig %s %s up' % (self.dut_ifn[i],
                                                 self.dut_addr[i]))
 

@@ -428,7 +428,6 @@ class NFPKmodAppGrp(NFPKmodGrp):
 
         # Init DUT
         for p in range(len(self.eth_x)):
-            cmd += 'ethtool -G {ifc} rx 512 tx 512 && '
             cmd += 'ip link set dev {ifc} promisc on up && '
             cmd += 'ip addr add dev {ifc} {ipv4} && '
             cmd += 'ip addr add dev {ifc} {ipv6} && '
