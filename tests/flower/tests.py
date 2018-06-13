@@ -1657,10 +1657,51 @@ class FlowerActionBondEgress(FlowerBase):
 
         self.pcap_check_count_multiple_ifaces(100, [pack_cap, pack_cap2], spread=False)
 
+        self.cleanup_filter(iface)
+        M.cmd('ip link set %s nomaster' % iface)
+        M.cmd('ip link set %s nomaster' % iface2)
+        M.cmd('modprobe -r bonding || :', fail=False)
+
+        # Run a test on Team
+        M.cmd('modprobe -r team_mode_loadbalance || :', fail=False)
+        M.cmd('modprobe -r team || :', fail=False)
+        M.cmd('modprobe team', fail=False)
+
+        # Create team team0 and set to loadbalance
+        M.cmd('ip link del dev team0', fail=False)
+        M.cmd('ip link add name team0 type team')
+        M.cmd('teamnl team0 setoption mode loadbalance')
+
+        # Enslave ports to team0
+        M.cmd('ip link set dev team0 down')
+        M.cmd('ip link set dev %s down' % iface)
+        self.dut.link_wait(iface, state=False)
+        M.cmd('ip link set dev %s down' % iface2)
+        self.dut.link_wait(iface2, state=False)
+        M.cmd('ip link set dev %s master team0'  % iface)
+        M.cmd('ip link set dev %s master team0'  % iface2)
+        M.cmd('ip link set dev team0 up')
+        M.cmd('ip link set dev %s up' % iface)
+        self.dut.link_wait(iface, state=True)
+        M.cmd('ip link set dev %s up' % iface2)
+        self.dut.link_wait(iface2, state=True)
+
+        action = 'mirred egress redirect dev team0'
+        self.install_filter(iface, match, action)
+
+        self.capture_packs_multiple_ifaces(ingress, [ingress, ingress2], pkts, [dump_file, dump_file2], loop=1)
+
+        pack_cap = rdpcap(dump_file)
+        pack_cap2 = rdpcap(dump_file2)
+
+        self.pcap_check_count_multiple_ifaces(100, [pack_cap, pack_cap2], spread=True)
+
         A.cmd("rm %s" % dump_file)
         A.cmd("rm %s" % dump_file2)
 
         self.cleanup_filter(iface)
         M.cmd('ip link set %s nomaster' % iface)
         M.cmd('ip link set %s nomaster' % iface2)
-        M.cmd('modprobe -r bonding || :', fail=False)
+        M.cmd('ip link del dev team0')
+        M.cmd('modprobe -r team_mode_loadbalance || :', fail=False)
+        M.cmd('modprobe -r team || :', fail=False)
