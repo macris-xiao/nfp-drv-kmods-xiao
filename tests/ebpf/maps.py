@@ -45,7 +45,7 @@ class MapTest(CommonTest):
 
     def bpftool_maps_get(self, port=0):
         links = self.dut.ip_link_show(ifc=self.dut_ifn[port])
-        _, prog = self.dut.bpftool_prog_show(links[0]["xdp"]["prog"]["id"])
+        _, prog = self.dut.bpftool_prog_show(links["xdp"]["prog"]["id"])
         _, maps = self.dut.bpftool_map_list()
 
         res = []
@@ -457,7 +457,7 @@ class XDPmapLimits(MapTest):
                 self.xdp_start('map_htab256k.o', mode=mode)
                 link = self.dut.ip_link_show(port=0)
                 # Keep the program around so it won't get unloaded
-                prog_id = link[0]["xdp"]["prog"]["id"]
+                prog_id = link["xdp"]["prog"]["id"]
                 self.dut.bpftool("prog pin id %d /sys/fs/bpf/nfp/%d" %
                                  (prog_id, prog_id))
 
@@ -479,7 +479,7 @@ class XDPmapLimits(MapTest):
                 self.xdp_start('map_htab2x16.o', mode=mode)
                 link = self.dut.ip_link_show(port=0)
                 # Keep the program around so it won't get unloaded
-                prog_id = link[0]["xdp"]["prog"]["id"]
+                prog_id = link["xdp"]["prog"]["id"]
                 self.dut.bpftool("prog pin id %d /sys/fs/bpf/nfp/%d" %
                                  (prog_id, prog_id))
 
