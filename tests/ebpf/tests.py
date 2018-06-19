@@ -325,6 +325,8 @@ class NFPKmodBPF(NFPKmodAppGrp):
                ('map_htab_dp_update_flags_delete',
                 XDPhtabUpdateFlagsAndDelete,
                 'Update with different flags followed by delete on datapath (hash)'),
+               ('map_htab_memcpy_opt', XDPhtabMemcpyOpt,
+                'Memcpy from map to packet data'),
                ('xdp_imm_relo', XDPimmRelo,
                 'Immediate relocation (return address)'),
                ('xdp_imm_relo2', XDPimmRelo2,

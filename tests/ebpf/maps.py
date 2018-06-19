@@ -991,3 +991,18 @@ class XDPmapMemcpyOpt(MapTest):
         exp_pkt = self.get_exp_pkt()
         self.test_with_traffic(pcap_src, exp_pkt,
                                (self.dut, self.dut_ifn[0], self.src))
+
+class XDPhtabMemcpyOpt(XDPmapMemcpyOpt):
+    def get_exp_pkt(self):
+        pkt = self.std_pkt()
+        return pkt[:14] + \
+                 '\x00' * 4 + \
+                 "".join([chr(i) for i in range(7)]) + \
+               pkt[25:32] + \
+                 "".join([chr(i) for i in range(14)]) + \
+               pkt[46:48] + \
+                 "".join([chr(i) for i in range(33)]) + \
+               pkt[81:]
+
+    def get_prog_name(self):
+        return 'map_htab_memcpy_opt.o'
