@@ -942,3 +942,52 @@ class XDPprandomU32(MapTest):
 
     def cleanup(self):
         self.xdp_stop(mode=self.group.xdp_mode())
+
+################################################################################
+# For JIT memcpy optimizations related with map, we want the following test
+# flow:
+#
+#   Read from map-> Copy to packet -> Compare packet
+#
+# Therefore, we inherit MapTest and extend it to support packet payload
+# comparison. We'd also want to do JIT code generation scan to make sure
+# some optimizations happened.
+################################################################################
+
+class XDPmapMemcpyOpt(MapTest):
+    def is_drv_mode(self):
+        return self.group.xdp_mode() == "drv"
+
+    def get_jit_patterns_file_name(self):
+        if self.is_drv_mode():
+            return None
+        prog_name = self.get_prog_name()
+        return os.path.join(self.group.samples_xdp,
+                            os.path.splitext(prog_name)[0] + ".S")
+
+    def get_exp_pkt(self):
+        pkt = self.std_pkt()
+        return pkt[:14] + '\x00' * 4 + pkt[18:]
+
+    def map_fill_simple(self, m):
+        batch = ""
+        memcpy_source_value = ""
+        for i in range(0, m["bytes_value"]):
+            memcpy_source_value += "".join(" " + int2str("B", i))
+        cmd = "map update id %d key %s value %s\n" % \
+                     (m["id"], int2str("I", 0), memcpy_source_value)
+        self.dut.bpftool(cmd)
+
+    def execute(self):
+        self.xdp_start(self.get_prog_name(), mode=self.group.xdp_mode())
+        self.check_bpf_jit_codegen()
+
+        m = self.bpftool_maps_get()[0]
+        self.map_fill_simple(m)
+
+        pkt = self.std_pkt()
+        pcap_src = self.prep_pcap_simple_seq(pkt)
+
+        exp_pkt = self.get_exp_pkt()
+        self.test_with_traffic(pcap_src, exp_pkt,
+                               (self.dut, self.dut_ifn[0], self.src))
