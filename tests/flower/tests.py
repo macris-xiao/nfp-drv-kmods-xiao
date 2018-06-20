@@ -7,7 +7,7 @@ Flower test group for the NFP Linux drivers.
 
 from netro.testinfra.nti_exceptions import NtiError
 from netro.testinfra.system import cmd_log
-from ..common_test import CommonNetdevTest
+from ..common_test import CommonNetdevTest, NtiSkip
 from ..drv_grp import NFPKmodGrp
 from time import sleep
 import os
@@ -110,6 +110,12 @@ class FlowerBase(CommonNetdevTest):
         M.cmd('tc qdisc del dev %s handle ffff: ingress' % iface, fail=False)
         M.cmd('tc qdisc add dev %s handle ffff: ingress' % iface)
         M.refresh()
+
+    def check_prereq(self, check, description):
+        M = self.dut
+        res, _ = M.cmd(check, fail=False)
+        if res == 1:
+            raise NtiSkip('DUT does not support feature: %s' % description)
 
     def install_filter(self, iface, match, action, in_hw=True):
         M = self.dut
@@ -639,10 +645,11 @@ class FlowerMatchBlock(FlowerBase):
 
 class FlowerMatchMPLS(FlowerBase):
     def netdev_execute(self):
+        self.check_prereq('tc filter add flower help 2>&1 | grep mpls', 'MPLS Flower classification')
         iface, ingress = self.configure_flower()
 
         # Hit test
-        match = 'mpls flower mpls_label 1111'
+        match = '0x8847 flower mpls_label 1111'
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
@@ -654,7 +661,7 @@ class FlowerMatchMPLS(FlowerBase):
         self.cleanup_filter(iface)
 
         # Miss test
-        match = 'mpls flower mpls_label 2222'
+        match = '0x8847 flower mpls_label 2222'
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
