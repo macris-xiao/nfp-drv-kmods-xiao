@@ -14,6 +14,7 @@ from ..common_test import *
 from ..drv_grp import NFPKmodAppGrp
 from ..ebpf_test import *
 from xdp import *
+from xdp_replace import XDPReplaceTest
 from maps import *
 from defs import *
 from perf_event_output import *
@@ -122,6 +123,8 @@ class NFPKmodBPF(NFPKmodAppGrp):
 
         XDP = (('xdp_pass', XDPpass, 'XDP pass test'),
                ('xdp_drop', XDPdrop, 'XDP drop test'),
+               ('xdp_replace', XDPReplaceTest,
+                'Handling of XDP program replace'),
                ('xdp_multi_port', XDPmultiPort, 'XDP on multi port cards'),
                ('xdp_pass_adj_head', XDPpassAdjZero,
                 'XDP adjust head by zero pass test'),

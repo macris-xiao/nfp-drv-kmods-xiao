@@ -412,14 +412,19 @@ class CommonTest(Test):
             self.check_no_extack(err, needle_noextack)
         return ret
 
-    def xdp_start(self, prog, port=0, mode="", progdir="", should_fail=False,
-                  verifier_log="", extack="", needle_noextack=""):
+    def xdp_start(self, prog, port=0, ifc=None, mode="", progdir="",
+                  should_fail=False, verifier_log="", extack="",
+                  needle_noextack=""):
+        if ifc is None:
+            ifc = self.dut_ifn[port]
+        else:
+            port = None
         if progdir == "":
                 progdir = self.dut.xdp_samples_dir
 
         prog_path = os.path.join(progdir, prog)
         cmd = 'ip -force link set dev %s xdp%s obj %s sec ".text"' % \
-              (self.dut_ifn[port], mode, prog_path)
+              (ifc, mode, prog_path)
 
         ret, (out, err) = self.dut.cmd(cmd, fail=False, include_stderr=True)
         if ret and should_fail == False:
@@ -436,15 +441,22 @@ class CommonTest(Test):
             return ret, out
 
         # Record what we added so we can reset in case of error
-        self.active_xdp[port] = mode
+        if port is not None:
+            self.active_xdp[port] = mode
 
         return ret, out
 
-    def xdp_stop(self, port=0, mode=""):
-        self.active_xdp[port] = None
+    def xdp_stop(self, port=0, ifc=None, mode=""):
+        if ifc is None:
+            ifc = self.dut_ifn[port]
+        else:
+            port = None
+
+        if port is not None:
+            self.active_xdp[port] = None
 
         return self.dut.cmd('ip -force link set dev %s xdp%s off' %
-                            (self.dut_ifn[port], mode))
+                            (ifc, mode))
 
     def xdp_reset(self):
         for p in range(0, len(self.active_xdp)):

@@ -11,9 +11,32 @@ import netro.testinfra
 from netro.testinfra.system import *
 from netro.testinfra.system import _parse_ethtool
 from netro.testinfra.nti_exceptions import NtiError, NtiGeneralError
-from common_test import NtiSkip
+from common_test import assert_eq, NtiSkip
 
 class LinuxSystem(System):
+    ###############################
+    # Stats handling
+    ###############################
+    def stats_diff(self, old_stats, new_stats):
+        res = {}
+
+        assert_eq(len(new_stats.keys()), len(old_stats.keys()),
+                  "stat dict key count")
+
+        for k in new_stats.keys():
+            if k not in old_stats:
+                raise NtiError("old stats don't have key '%s'" % (k))
+
+            if isinstance(new_stats[k], int) or isinstance(new_stats[k], long):
+                res[k] = new_stats[k] - old_stats[k]
+            elif isinstance(new_stats[k], dict):
+                res[k] = self.stats_diff(old_stats[k], new_stats[k])
+            else:
+                raise NtiError("unhandled value type for key '%s': %r" %
+                               (k, new_stats[k]))
+
+        return res
+
     ###############################
     # Traffic generation
     ###############################
@@ -137,6 +160,10 @@ class LinuxSystem(System):
         _, out = self.cmd('ethtool -S %s' % (ifc))
 
         return _parse_ethtool(out)
+
+    def ethtool_stats_diff(self, ifc, old_stats):
+        new_stats = self.ethtool_stats(ifc)
+        return self.stats_diff(old_stats, new_stats)
 
     def ethtool_pause_get(self, ifc):
         ret = None
