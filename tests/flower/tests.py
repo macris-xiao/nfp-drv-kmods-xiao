@@ -649,6 +649,30 @@ class FlowerMatchMPLS(FlowerBase):
         iface, ingress = self.configure_flower()
 
         # Hit test
+        match = '0x8847 flower'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        pkt_cnt = 100
+        exp_pkt_cnt = 100
+        pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/MPLS(label=3333)/Raw('\x00'*64)
+        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+
+        self.cleanup_filter(iface)
+
+        # Miss test
+        match = '0x8847 flower'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        pkt_cnt = 100
+        exp_pkt_cnt = 0
+        pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP()/TCP()/Raw('\x00'*64)
+        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+
+        self.cleanup_filter(iface)
+
+        # Hit test
         match = '0x8847 flower mpls_label 1111'
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
