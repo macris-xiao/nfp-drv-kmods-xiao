@@ -611,11 +611,10 @@ class eBPFrefcnt(eBPFtest):
 
     def test_xdp(self):
         self.check_xdp("pass.o", mode="drv")
-        self.check_xdp("map_ro_hash.o", mode="drv")
+        self.check_xdp("map_htab256.o", mode="drv")
 
         self.check_xdp("pass.o", mode="offload")
-        # TODO: add when map offload lands
-        #self.check_xdp("map_ro_hash.o", mode="offload")
+        self.check_xdp("map_htab256.o", mode="offload")
 
     def execute(self):
         # The TC offload will be loaded by the eBPFtest base class
