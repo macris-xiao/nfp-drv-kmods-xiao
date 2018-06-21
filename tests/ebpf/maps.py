@@ -430,6 +430,9 @@ class XDPmapStress(MapTest):
 
 class XDPmapLimits(MapTest):
     def execute(self):
+        self.bpffs_dir = "/sys/fs/bpf/nfp_" + \
+            os.path.basename(self.group.tmpdir)
+
         _, maps = self.dut.bpftool_map_list()
         self.n_start_maps = len(maps)
 
@@ -448,7 +451,7 @@ class XDPmapLimits(MapTest):
         map_elems = 1 << 18
         cap = self.dut.bpf_caps["maps"]
 
-        self.dut.cmd("mkdir -p /sys/fs/bpf/nfp/")
+        self.dut.cmd("mkdir -p " + self.bpffs_dir)
 
         # Too many elements for FW to handle
         LOG_sec("Too many elements")
@@ -458,15 +461,15 @@ class XDPmapLimits(MapTest):
                 link = self.dut.ip_link_show(port=0)
                 # Keep the program around so it won't get unloaded
                 prog_id = link["xdp"]["prog"]["id"]
-                self.dut.bpftool("prog pin id %d /sys/fs/bpf/nfp/%d" %
-                                 (prog_id, prog_id))
+                self.dut.bpftool("prog pin id %d %s/%d" %
+                                 (prog_id, self.bpffs_dir, prog_id))
 
             self.xdp_stop(mode=mode)
             self.xdp_start('map_htab256k.o',
                            mode=mode, should_fail=should_fail)
             self.xdp_stop(mode=mode)
 
-            self.dut.cmd("rm -f /sys/fs/bpf/nfp/*")
+            self.dut.cmd("rm -f %s/*" % (self.bpffs_dir))
         finally:
             LOG_endsec()
 
@@ -480,15 +483,15 @@ class XDPmapLimits(MapTest):
                 link = self.dut.ip_link_show(port=0)
                 # Keep the program around so it won't get unloaded
                 prog_id = link["xdp"]["prog"]["id"]
-                self.dut.bpftool("prog pin id %d /sys/fs/bpf/nfp/%d" %
-                                 (prog_id, prog_id))
+                self.dut.bpftool("prog pin id %d %s/%d" %
+                                 (prog_id, self.bpffs_dir, prog_id))
 
             self.xdp_stop(mode=mode)
             self.xdp_start('map_array1.o',
                            mode=mode, should_fail=should_fail)
             self.xdp_stop(mode=mode)
 
-            self.dut.cmd("rm -f /sys/fs/bpf/nfp/*")
+            self.dut.cmd("rm -f %s/*" % (self.bpffs_dir))
         finally:
             LOG_endsec()
 
@@ -496,7 +499,7 @@ class XDPmapLimits(MapTest):
 
     def cleanup(self):
         self.xdp_stop(mode=self.group.xdp_mode())
-        self.dut.cmd("rm -rf /sys/fs/bpf/nfp/")
+        self.dut.cmd("rm -rf " + self.bpffs_dir)
         self.dut.bpf_wait_maps_clear(expected=self.n_start_maps)
 
 
