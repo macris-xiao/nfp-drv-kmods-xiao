@@ -45,9 +45,6 @@ class BPFPerf(MapTest):
                     break
         return target_pps, target_mapwrite
 
-    def cleanup(self):
-        self.xdp_stop(mode=self.group.xdp_mode())
-
 class XDPperf(BPFPerf):
     def __init__(self, *args, **kwargs):
         self.filename = kwargs.pop('objfile')

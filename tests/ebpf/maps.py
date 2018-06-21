@@ -43,6 +43,9 @@ class MapTest(CommonTest):
             return NrtResult(name=self.name, testtype=self.__class__.__name__,
                              passed=None, comment="no FW map cap")
 
+    def cleanup(self):
+        self.xdp_stop(mode=self.group.xdp_mode())
+
     def bpftool_maps_get(self, port=0):
         links = self.dut.ip_link_show(ifc=self.dut_ifn[port])
         _, prog = self.dut.bpftool_prog_show(links["xdp"]["prog"]["id"])
@@ -162,9 +165,6 @@ class XDPlookup(MapTest):
         self.test_with_traffic(pcap_src, None,
                                (self.dut, self.dut_ifn[0], self.src))
 
-    def cleanup(self):
-        self.xdp_stop(mode=self.group.xdp_mode())
-
 
 class XDPlookupTwice(MapTest):
     def get_prog_name(self):
@@ -224,9 +224,6 @@ class XDPlookupTwice(MapTest):
         self.test_with_traffic(pcap_src, None,
                                (self.dut, self.dut_ifn[0], self.src))
 
-    def cleanup(self):
-        self.xdp_stop(mode=self.group.xdp_mode())
-
 
 class XDPlookupShared(MapTest):
     def get_prog_name(self):
@@ -273,9 +270,6 @@ class XDPlookupShared(MapTest):
         self.test_with_traffic(pcap_src, pkt,
                                (self.dut, self.dut_ifn[0], self.src))
 
-    def cleanup(self):
-        self.xdp_stop(mode=self.group.xdp_mode())
-
 
 class XDPupdate2lookup(MapTest):
     def get_prog_name(self):
@@ -315,9 +309,6 @@ class XDPupdate2lookup(MapTest):
             val = str2int(e["value"])
             assert_equal(str2int(e["key"]), str2int(e["value"]),
                          "Key and value are equal")
-
-    def cleanup(self):
-        self.xdp_stop(mode=self.group.xdp_mode())
 
 
 class XDPupdateFlagsAndDelete(MapTest):
@@ -359,9 +350,6 @@ class XDPupdateFlagsAndDelete(MapTest):
             val = str2int(e["value"])
             assert_equal(str2int(e["key"]), str2int(e["value"]),
                          "Key and value are equal")
-
-    def cleanup(self):
-        self.xdp_stop(mode=self.group.xdp_mode())
 
 ################################################################################
 # Actual test classes - control path
@@ -423,9 +411,6 @@ class XDPmapStress(MapTest):
                                    int2str("Q", 1)), fail=False)
         if ret == 0:
             raise NtiError("table overflow allowed!")
-
-    def cleanup(self):
-        self.xdp_stop(mode=self.group.xdp_mode())
 
 
 class XDPmapLimits(MapTest):
@@ -607,9 +592,6 @@ class XDPhtabCtrl(MapTest):
             if idx * mul != val:
                 raise NtiError("Bad value key: %d value: %d" % (idx, val))
 
-    def cleanup(self):
-        self.xdp_stop(mode=self.group.xdp_mode())
-
 
 class XDParrayCtrl(MapTest):
     def array_check_getnext(self, m, max_idx):
@@ -698,9 +680,6 @@ class XDParrayCtrl(MapTest):
         # And dump once more...
         self.map_validate(m, sw_m)
 
-    def cleanup(self):
-        self.xdp_stop(mode=self.group.xdp_mode())
-
 class XDParrayInitialise(MapTest):
     def execute(self):
         self.xdp_start('map_array_256_varying_val_size.o',
@@ -714,9 +693,6 @@ class XDParrayInitialise(MapTest):
         self.map_validate_empty(maps[2])
         self.map_validate_empty(maps[3])
         self.map_validate_empty(maps[4])
-
-    def cleanup(self):
-        self.xdp_stop(mode=self.group.xdp_mode())
 
 ################################################################################
 # Actual test classes - data path
@@ -795,9 +771,6 @@ class XDPatomicCnt(MapTest):
             assert_ge(cnt + 100 * step & mask, val, "Counter value")
             assert_lt(cnt + 120 * step & mask, val, "Counter value")
 
-    def cleanup(self):
-        self.xdp_stop(mode=self.group.xdp_mode())
-
 class XDPatomicCntMulti(MapTest):
     def get_params(self):
         # len, prog name
@@ -828,9 +801,6 @@ class XDPatomicCntMulti(MapTest):
         assert_lt(120, val[1], "Counter value[1]")
         assert_ge(200 * step, val[2], "Counter value[2]")
         assert_lt(220 * step, val[2], "Counter value[2]")
-
-    def cleanup(self):
-        self.xdp_stop(mode=self.group.xdp_mode())
 
 ################################################################################
 # Actual test classes - atomic adds

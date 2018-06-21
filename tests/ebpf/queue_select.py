@@ -58,6 +58,3 @@ class QueueSelectTest(MapTest):
         self.test_one("queue_select_q63.o", pcap_src, src_ifc,  dst_ifc, 0)
         self.test_one("queue_select_q123456.o", pcap_src, src_ifc,  dst_ifc, 0)
         self.test_one("queue_select_q-1.o", pcap_src, src_ifc,  dst_ifc, 0)
-
-    def cleanup(self):
-        self.xdp_stop(mode=self.group.xdp_mode())

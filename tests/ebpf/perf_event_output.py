@@ -109,7 +109,6 @@ class PerfEventOutputTest(MapTest):
 
     def cleanup(self):
         self.dut.background_procs_cleanup()
-        self.xdp_stop(mode=self.group.xdp_mode())
 
         super(PerfEventOutputTest, self).cleanup()
 
