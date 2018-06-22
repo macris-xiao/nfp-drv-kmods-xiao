@@ -363,7 +363,8 @@ class DrvSystem(LinuxSystem):
 
     def __get_mip_info(self, fwpath):
         _, out = self.cmd('readelf -p .note.build_info ' + fwpath)
-        return re.search('Name: ([^^]{1,15})(\^JVersion: (.*)\^JBuild Number: ?(.*)(\^J)?)?\n', out).groups()
+        res = re.search('Name: ([^^]{1,15})(\^JVersion: (.*)\^JBuild Number: ?(.*)(\^J)?)?\n', out).groups()
+        return [x.strip() if isinstance(x, str) else None for x in res]
 
     def get_mip_name(self, fwpath):
         return self.__get_mip_info(fwpath)[0]
