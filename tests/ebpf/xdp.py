@@ -972,10 +972,10 @@ class XDPpassOversized(XDPpassBase):
 
     def get_exp_pkt_raw(self):
         pkt = self.get_src_pkt()
-        return pkt[:12] + '\x12\x34' + '\x00' * 242 + pkt
+        return pkt[:12] + '\x12\x34' + '\x00' * 210 + pkt
 
     def get_prog_name(self):
-        return 'adjust_head_prep_256_pass.o'
+        return 'adjust_head_prep_224_pass.o'
 
 class XDPadjHeadDecIpIp(XDPtunBase):
     def execute(self):
