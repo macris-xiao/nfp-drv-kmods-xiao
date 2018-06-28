@@ -219,6 +219,42 @@ class DrvSystem(LinuxSystem):
             res = res[0]
         return res
 
+    def ip_link_xdp_progs(self, ifc):
+        res = { "generic" : None, "drv" : None, "offload" : None }
+        remap = { 1 : "drv", 2 : "generic", 3 : "offload" }
+
+        links = self.ip_link_show(ifc=ifc)
+        if "xdp" not in links or "attached" not in links["xdp"]:
+            return res
+
+        _, progs = self.bpftool_prog_list()
+
+        for attached in links["xdp"]["attached"]:
+            for p in progs:
+                if p["id"] == attached["prog"]["id"]:
+                    res[remap[attached["mode"]]] = p
+                    break
+
+        return res
+
+    def ip_link_xdp_maps(self, ifc):
+        res = { "generic" : [], "drv" : [], "offload" : [] }
+
+        progs = self.ip_link_xdp_progs(ifc=ifc)
+        if progs == { "generic" : None, "drv" : None, "offload" : None }:
+            return res
+
+        _, maps = self.bpftool_map_list()
+        for k in res.keys():
+            if progs[k] is None:
+                continue
+
+            for m in maps:
+                if m["id"] in progs[k]["map_ids"]:
+                    res[k].append(m)
+
+        return res
+
     def bpftool_timed(self, param, fail=True):
         start_time = time.time()
         ret, out = self.cmd("bpftool " + param, fail=fail)

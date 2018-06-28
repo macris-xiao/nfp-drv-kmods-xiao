@@ -13,6 +13,7 @@ from netro.testinfra.test import *
 from ..common_test import *
 from ..drv_grp import NFPKmodAppGrp
 from ..ebpf_test import *
+from drv_and_offload import XDPDrvOffCnt
 from xdp import *
 from xdp_replace import XDPReplaceTest
 from maps import *
@@ -481,6 +482,8 @@ class NFPKmodBPF(NFPKmodAppGrp):
               'eBPF ld/mask insn pair combination'),
              ('bpf_ld_shift_combine', eBPFld_shift_combine,
               'eBPF ld/shift insn pair combination'),
+             ('xdp_d&o_pass_cnt', XDPDrvOffCnt,
+              'Driver & offload - count packets and pass'),
         )
 
         for t in T:
