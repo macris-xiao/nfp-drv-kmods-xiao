@@ -17,7 +17,7 @@ from drv_and_offload import XDPDrvOffCnt
 from xdp import *
 from xdp_replace import XDPReplaceTest
 from maps import *
-from obj_sharing import XDPProgMapShare
+from obj_sharing import XDPProgMapShare, XDPProgXIfc
 from defs import *
 from perf_event_output import *
 from queue_select import *
@@ -487,6 +487,8 @@ class NFPKmodBPF(NFPKmodAppGrp):
               'Driver & offload - count packets and pass'),
              ('xdp_shared_cnt', XDPProgMapShare,
               'Per-ASIC sharing - same program and map, count packets'),
+             ('xdp_shared_cross_port', XDPProgXIfc,
+              'Per-ASIC sharing - complex programs swap interfaces'),
         )
 
         for t in T:

@@ -2,10 +2,15 @@
 # Copyright (C) 2018,  Netronome Systems, Inc.  All rights reserved.
 #
 
+import json
 import os
+from netro.testinfra import LOG_sec, LOG, LOG_endsec
+from netro.testinfra.system import cmd_log
 from ..linux_system import int2str, str2int
 from ..common_test import CommonTest, NtiSkip, \
     assert_lt, assert_ge, assert_range
+from defs import *
+from perf_event_output import stack_data
 
 class XDPProgMapShare(CommonTest):
     def check_with_ping(self, port, m):
@@ -49,3 +54,74 @@ class XDPProgMapShare(CommonTest):
         self.xdp_reset()
         self.dut.cmd('rm -f ' + self.prog_path)
         return super(XDPProgMapShare, self).cleanup()
+
+# Install different programs on two interfaces, then swap them around
+class XDPProgXIfc(CommonTest):
+    def prepare(self):
+        res = require_helper(self, BPF_HELPER.PERF_EVENT_OUTPUT, "event output")
+        if res:
+            return res
+        if len(self.dut_ifn) < 2:
+            return NrtResult(name=self.name, testtype=self.__class__.__name__,
+                             passed=None, comment="single port card")
+        return super(XDPProgXIfc, self).prepare()
+
+    def execute(self):
+        self.ping_cnt = 10
+        self.prog_path = '/sys/fs/bpf/' + os.path.basename(self.group.tmpdir)
+
+        if len(self.dut_ifn) < 2:
+            raise NtiSkip("single port card")
+
+        # Load the programs for interfaces 0 and 1
+        self.dut.bpftool_prog_load_xdp('map_atomic.o', self.prog_path + '_0',
+                                       ifc=self.dut_ifn[0])
+        self.dut.bpftool_prog_load_xdp('perf_event_output_stack.o',
+                                       self.prog_path + '_1',
+                                       ifc=self.dut_ifn[1])
+        # Install on the opposite port
+        self.dut.cmd('ip -force link set dev %s xdpoffload pinned %s' %
+                     (self.dut_ifn[0], self.prog_path + '_1'))
+        self.dut.cmd('ip -force link set dev %s xdpoffload pinned %s' %
+                     (self.dut_ifn[1], self.prog_path + '_0'))
+
+        perf_map = self.dut.ip_link_xdp_maps(ifc=self.dut_ifn[0])["offload"][0]
+        cnt_map = self.dut.ip_link_xdp_maps(ifc=self.dut_ifn[1])["offload"][0]
+
+        # Run ping on first interface and expect perf events
+        events, pid = self.dut.bpftool_map_perf_capture_start(m=perf_map)
+        self.ping(port=0, ival="0.02", count=20)
+        events_out = self.dut.bpftool_map_perf_capture_stop(events, pid)
+
+        # Pinged on the perf interface, counter should not move much
+        _, elems = self.dut.bpftool_map_dump(m=cnt_map)
+        cnt = str2int(elems[0]["value"])
+        assert_lt(10, cnt, "Counter value mismatch")
+
+        # We should have all the events
+        self.bpftool_map_perf_capture_validate(events_out, stack_data,
+                                               exp_num=20)
+
+        # Run ping on second interface and expect map counter
+        events, pid = self.dut.bpftool_map_perf_capture_start(m=perf_map)
+        self.ping(port=1, ival="0.02", count=20)
+        events_out = self.dut.bpftool_map_perf_capture_stop(events, pid)
+
+        _, elems = self.dut.bpftool_map_dump(m=cnt_map)
+        cnt = str2int(elems[0]["value"])
+        assert_ge(20, cnt, "Counter value mismatch")
+
+        # Manually check we got few perf events now
+        LOG_sec('Events from: ' + events_out)
+        cmd_log('cat ' + events_out)
+        LOG_endsec()
+
+        events = json.load(open(events_out))
+        assert_lt(10, len(events), 'Number of events')
+
+    def cleanup(self):
+        for ifc in self.dut_ifn:
+            self.dut.cmd('ip -force link set dev %s xdpoffload off' % (ifc))
+        self.dut.cmd('rm -f ' + self.prog_path + '*')
+        self.dut.background_procs_cleanup()
+        return super(XDPProgXIfc, self).cleanup()

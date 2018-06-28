@@ -234,6 +234,20 @@ class LinuxSystem(System):
     def bpftool_prog_list(self, fail=True):
         return self.bpftool("prog", fail=fail)
 
+    def bpftool_prog_load(self, obj, pin, ifc=None, prog_type=None):
+        cmd = 'prog load %s %s' % (obj, pin)
+        if ifc is not None:
+            cmd += ' dev ' + ifc
+        if prog_type is not None:
+            cmd += ' type ' + prog_type
+
+        return self.bpftool(cmd)
+
+    def bpftool_prog_load_xdp(self, obj, pin, ifc=None):
+        obj = os.path.join(self.xdp_samples_dir, obj)
+        return self.bpftool_prog_load(obj=obj, pin=pin, ifc=ifc,
+                                      prog_type="xdp")
+
     def bpftool_map_show(self, m=None, ident=None, pin=None):
         cmd = 'map show' + self._bpftool_obj_id(m, ident, pin)
         return self.bpftool(cmd)
