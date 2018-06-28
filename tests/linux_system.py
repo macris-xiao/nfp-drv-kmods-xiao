@@ -161,20 +161,31 @@ class LinuxSystem(System):
     ###############################
     # bpftool
     ###############################
+    def _bpftool_obj_id(self, bpf_obj, ident, pin):
+        if bpf_obj is not None:
+            return ' id ' + str(bpf_obj["id"])
+        elif ident is not None:
+            return ' id ' + str(ident)
+        elif pin is not None:
+            return ' pinned ' + pin
+        return ''
+
     def bpftool(self, param, fail=True):
         ret, out = self.cmd("bpftool -p " + param, fail=fail)
         if len(out) == 0:
             return ret, {}
         return ret, json.loads(out)
 
-    def bpftool_prog_show(self, ident):
-        return self.bpftool("prog show id %d" % (ident))
+    def bpftool_prog_show(self, prog=None, ident=None, pin=None):
+        cmd = 'prog show' + self._bpftool_obj_id(prog, ident, pin)
+        return self.bpftool(cmd)
 
     def bpftool_prog_list(self, fail=True):
         return self.bpftool("prog", fail=fail)
 
-    def bpftool_map_show(self, ident):
-        return self.bpftool("map show id %d" % (ident))
+    def bpftool_map_show(self, m=None, ident=None, pin=None):
+        cmd = 'map show' + self._bpftool_obj_id(m, ident, pin)
+        return self.bpftool(cmd)
 
     def bpftool_map_list(self, fail=True):
         return self.bpftool("map", fail=fail)
