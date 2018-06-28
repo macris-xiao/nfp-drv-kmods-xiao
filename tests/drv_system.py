@@ -218,7 +218,7 @@ class DrvSystem(LinuxSystem):
             res = res[0]
         return res
 
-    def ip_link_xdp_progs(self, ifc):
+    def ip_link_xdp_prog_ids(self, ifc):
         res = { "generic" : None, "drv" : None, "offload" : None }
         remap = { 1 : "drv", 2 : "generic", 3 : "offload" }
 
@@ -226,20 +226,30 @@ class DrvSystem(LinuxSystem):
         if "xdp" not in links or "attached" not in links["xdp"]:
             return res
 
+        for attached in links["xdp"]["attached"]:
+            res[remap[attached["mode"]]] = attached["prog"]["id"]
+
+        return res
+
+    def ip_link_xdp_progs(self, ifc):
+        res = self.ip_link_xdp_prog_ids(ifc)
         _, progs = self.bpftool_prog_list()
 
-        for attached in links["xdp"]["attached"]:
+        for k in res.keys():
             for p in progs:
-                if p["id"] == attached["prog"]["id"]:
-                    res[remap[attached["mode"]]] = p
+                if res[k] is None:
+                    continue
+                if p["id"] == res[k]:
+                    res[k] = p
                     break
 
         return res
 
-    def ip_link_xdp_maps(self, ifc):
+    def ip_link_xdp_maps(self, ifc, progs=None):
         res = { "generic" : [], "drv" : [], "offload" : [] }
 
-        progs = self.ip_link_xdp_progs(ifc=ifc)
+        if progs is None:
+            progs = self.ip_link_xdp_progs(ifc=ifc)
         if progs == { "generic" : None, "drv" : None, "offload" : None }:
             return res
 
