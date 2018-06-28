@@ -3,35 +3,13 @@
 #
 
 import os
-import struct
 import tempfile
 import netro.testinfra
 from netro.testinfra.nti_exceptions import NtiError
 from netro.testinfra.test import *
 from ..common_test import *
 from defs import *
-
-################################################################################
-# Helpers
-################################################################################
-
-def int2str(fmt, val):
-    ret = list(bytearray(struct.pack(fmt, val)))
-    return " ".join(map(lambda x: str(x), ret))
-
-def str2int(strtab):
-    inttab = []
-    for i in strtab:
-        inttab.append(int(i, 16))
-    ba = bytearray(inttab)
-    if len(strtab) == 4:
-        fmt = "I"
-    elif len(strtab) == 8:
-        fmt = "Q"
-    else:
-        raise Exception("String array of len %d can't be unpacked to an int" %
-                        (len(strtab)))
-    return struct.unpack(fmt, ba)[0]
+from ..linux_system import int2str, str2int
 
 ################################################################################
 # Base classes
@@ -58,12 +36,10 @@ class MapTest(CommonTest):
         return res
 
     def bpftool_map_dump(self, m):
-        _, elems = self.dut.bpftool("map dump id %d" % (m["id"]))
-        return elems
+        return self.dut.bpftool_map_dump(m=m)[1]
 
     def bpftool_map_del(self, m, key, fail=True):
-        cmd = 'map delete id %d key %s' % (m["id"], int2str("I", key))
-        return self.dut.bpftool(cmd, fail=fail)
+        return self.dut.bpftool_map_del_int(m=m, key=key, fail=fail)
 
     def bpftool_batch(self, cmds, log_cmds=True):
         fd, bf = tempfile.mkstemp(dir=self.group.tmpdir, text=True)

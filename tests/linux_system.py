@@ -5,13 +5,41 @@
 Driver System class
 """
 
+import os
 import re
+import struct
 import json
 import netro.testinfra
 from netro.testinfra.system import *
 from netro.testinfra.system import _parse_ethtool
 from netro.testinfra.nti_exceptions import NtiError, NtiGeneralError
 from common_test import assert_eq, NtiSkip
+
+################################################################################
+# Helpers
+################################################################################
+
+def int2str(fmt, val):
+    ret = list(bytearray(struct.pack(fmt, val)))
+    return " ".join(map(lambda x: str(x), ret))
+
+def str2int(strtab):
+    inttab = []
+    for i in strtab:
+        inttab.append(int(i, 16))
+    ba = bytearray(inttab)
+    if len(strtab) == 4:
+        fmt = "I"
+    elif len(strtab) == 8:
+        fmt = "Q"
+    else:
+        raise Exception("String array of len %d can't be unpacked to an int" %
+                        (len(strtab)))
+    return struct.unpack(fmt, ba)[0]
+
+################################################################################
+# Linux System class
+################################################################################
 
 class LinuxSystem(System):
     ###############################
@@ -186,6 +214,16 @@ class LinuxSystem(System):
     def bpftool_map_show(self, m=None, ident=None, pin=None):
         cmd = 'map show' + self._bpftool_obj_id(m, ident, pin)
         return self.bpftool(cmd)
+
+    def bpftool_map_dump(self, m=None, ident=None, pin=None):
+        cmd = 'map dump' + self._bpftool_obj_id(m, ident, pin)
+        return self.bpftool(cmd)
+
+    def bpftool_map_del_int(self, m=None, ident=None, pin=None, key=None,
+                            fail=True):
+        cmd = 'map delete %s key %s' % (self._bpftool_obj_id(m, ident, pin),
+                                        int2str("I", key))
+        return self.bpftool(cmd, fail=fail)
 
     def bpftool_map_list(self, fail=True):
         return self.bpftool("map", fail=fail)
