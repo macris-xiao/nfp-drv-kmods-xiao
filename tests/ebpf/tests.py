@@ -613,7 +613,7 @@ class eBPFrefcnt(eBPFtest):
         return len(prog) + len(maps)
 
     def bpf_objects_nb_differs(self):
-        return self.bpf_obj_cnt() != self.n_start
+        return self.bpf_obj_cnt() != self.n_start + self.prog_cnt
 
     def check_xdp(self, obj, mode):
         self.xdp_start(obj, mode=mode)
@@ -630,6 +630,8 @@ class eBPFrefcnt(eBPFtest):
         self.check_xdp("map_htab256.o", mode="offload")
 
     def execute(self):
+        self.prog_cnt = 0
+
         # The TC offload will be loaded by the eBPFtest base class
         eBPFtest.cleanup(self)
         if self.bpf_objects_nb_differs():
@@ -640,6 +642,8 @@ class eBPFrefcnt(eBPFtest):
         # Check two ports at the same time
         if len(self.dut_ifn) < 2:
             return
+
+        self.prog_cnt += 1
 
         self.xdp_start("pass.o", port=1, mode="drv")
         self.test_xdp()
