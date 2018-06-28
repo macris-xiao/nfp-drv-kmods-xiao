@@ -187,7 +187,10 @@ class CommonTest(Test):
         self.dut_ifn = dut[2]
         self.dut_addr_v6 = dut[3]
 
-        self.active_xdp = [None] * len(self.dut_ifn)
+        self.active_xdp = [{ ""		: None,
+                             "generic"	: None,
+                             "drv"	: None,
+                             "offload"	: None }] * len(self.dut_ifn)
         self.test_metrics = []
         self.test_comment = ""
         self.test_result = True
@@ -461,7 +464,7 @@ class CommonTest(Test):
 
         # Record what we added so we can reset in case of error
         if port is not None:
-            self.active_xdp[port] = mode
+            self.active_xdp[port][mode] = prog_path
 
         return ret, out
 
@@ -472,15 +475,16 @@ class CommonTest(Test):
             port = None
 
         if port is not None:
-            self.active_xdp[port] = None
+            self.active_xdp[port][mode] = None
 
         return self.dut.cmd('ip -force link set dev %s xdp%s off' %
                             (ifc, mode))
 
     def xdp_reset(self):
         for p in range(0, len(self.active_xdp)):
-            if not self.active_xdp[p] is None:
-                self.xdp_stop(port=p, mode=self.active_xdp[p])
+            for m in self.active_xdp[p].keys():
+                if self.active_xdp[p][m] is not None:
+                    self.xdp_stop(port=p, mode=m)
 
     def check_extack(self, output, reference):
         lines = output.split("\n")
