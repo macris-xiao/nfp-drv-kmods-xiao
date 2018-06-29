@@ -13,7 +13,7 @@ from netro.testinfra.test import *
 from ..common_test import *
 from ..drv_grp import NFPKmodAppGrp
 from ..ebpf_test import *
-from drv_and_offload import XDPDrvOffCnt
+from drv_and_offload import XDPDrvOffCnt, XDPDrvOffAdjHead
 from xdp import *
 from xdp_replace import XDPReplaceTest
 from maps import *
@@ -485,6 +485,8 @@ class NFPKmodBPF(NFPKmodAppGrp):
               'eBPF ld/shift insn pair combination'),
              ('xdp_d&o_pass_cnt', XDPDrvOffCnt,
               'Driver & offload - count packets and pass'),
+             ('xdp_d&o_adj_head', XDPDrvOffAdjHead,
+              'Driver & offload - adjust head on offload and drv'),
              ('xdp_shared_cnt', XDPProgMapShare,
               'Per-ASIC sharing - same program and map, count packets'),
              ('xdp_shared_cross_port', XDPProgXIfc,

@@ -69,3 +69,23 @@ class XDPDrvOffCnt(CommonTest):
     def cleanup(self):
         self.xdp_reset()
         return super(XDPDrvOffCnt, self).cleanup()
+
+class XDPDrvOffAdjHead(CommonTest):
+    def execute(self):
+        self.port = 0
+        self.ifc = self.dut_ifn[self.port]
+
+        self.ping(port=self.port, ival="0.02", count=10)
+
+        # Load prepend for offload
+        self.xdp_start("adjust_head_push32.o", port=self.port, mode="offload")
+        # Now we shouldn't be able to ping, because frames will be mangled
+        self.ping(port=self.port, ival="0.02", count=10, should_fail=True)
+        # Install the driver program to remove the prepend
+        self.xdp_start("adjust_head_pull32.o", port=self.port, mode="drv")
+        # And ping should be back to working
+        self.ping(port=self.port, ival="0.02", count=10)
+
+    def cleanup(self):
+        self.xdp_reset()
+        return super(XDPDrvOffAdjHead, self).cleanup()
