@@ -30,7 +30,7 @@ class DrvSystem(LinuxSystem):
     """
 
     def __init__(self, host, grp, quick=False, _noendsec=False):
-        LinuxSystem.__init__(self, host, quick, _noendsec)
+        LinuxSystem.__init__(self, host, grp, quick, _noendsec)
 
         self.part_no = None
         self.fw_name = None
@@ -73,7 +73,6 @@ class DrvSystem(LinuxSystem):
         self.cmd('modprobe devlink; modprobe vxlan', fail=False)
         self._mods = set()
         self._dirs = set()
-        self._bck_pids = []
 
     def copy_bpf_samples(self):
         if hasattr(self, 'bpf_samples_dir'):
@@ -477,20 +476,6 @@ class DrvSystem(LinuxSystem):
         while self._mods:
             m = self._mods.pop()
             self.rmmod(module=m)
-
-    def background_procs_add(self, pid):
-        self._bck_pids.append(pid)
-
-    def background_procs_remove(self, pid):
-        self._bck_pids.remove(pid)
-
-    def background_procs_cleanup(self):
-        cmds = ""
-        for pid in self._bck_pids:
-            cmds += 'kill -9 $(cat %s);' % pid
-        if cmds:
-            self.cmd(cmds, fail=False)
-        self._bck_pids = []
 
     def nfp_reset(self):
         self.cmd_nsp("-R")

@@ -3,6 +3,7 @@
 ##
 
 import binascii
+import json
 import os
 import struct
 import time
@@ -14,6 +15,7 @@ from scapy.all import Ether, rdpcap, wrpcap, Raw
 
 from netro.testinfra.nrt_result import NrtResult
 from netro.testinfra.nti_exceptions import NtiError, NtiGeneralError
+from netro.testinfra.system import cmd_log
 from netro.testinfra.test import Test
 from netro.testinfra import LOG_init, LOG_sec, LOG, LOG_endsec, CMD
 from netro.tests.tcpdump import TCPDump
@@ -634,6 +636,38 @@ class CommonTest(Test):
 
         LOG_sec("Capture test OK exp: %d got: %d/%d" % (exp_num, found,
                                                         len(result_pkts)))
+        LOG_endsec()
+
+    def bpftool_map_perf_capture_validate(self, events, event_data,
+                                          exp_num=100):
+        LOG_sec('Events from: ' + events)
+        cmd_log('cat ' + events)
+        LOG_endsec()
+
+        events = json.load(open(events))
+        exp_data = [ord(c) for c in event_data]
+
+        found = 0
+
+        assert_ge(exp_num, len(events), 'Number of events')
+        LOG_sec('Looking for samples')
+        try:
+            for e in events:
+                assert_equal(9, e["type"], 'Event type')
+                if exp_data == e["data"][:len(event_data)] and \
+                   len(exp_data) + 8 > len(e["data"]):
+                    found += 1
+                else:
+                    self.log('Bad sample',
+                             ':'.join("%02x" % x for x in e["data"])
+                             + "\n\n" +
+                             ':'.join("%02x" % x for x in exp_data))
+        finally:
+            LOG_endsec()
+
+        assert_ge(exp_num, found, "Events found")
+
+        LOG_sec("Events OK exp: %d got: %d/%d" % (exp_num, found, len(events)))
         LOG_endsec()
 
     def read_sym_nffw(self, name, nffw_path=None, fail=False):

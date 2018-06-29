@@ -8,7 +8,6 @@ import struct
 import tempfile
 import netro.testinfra
 from netro.testinfra.nti_exceptions import NtiError
-from netro.testinfra.system import cmd_log
 from netro.testinfra.test import *
 from ..common_test import *
 from defs import *
@@ -36,15 +35,7 @@ class PerfEventOutputTest(MapTest):
         return super(PerfEventOutputTest, self).prepare()
 
     def start_capture(self, m):
-        bpftool_pid = os.path.join(self.dut.tmpdir, 'bpftool%s_pid' % (m["id"]))
-        events = os.path.join(self.dut.tmpdir, 'events%s.json' % (m["id"]))
-
-        self.dut.cmd('bpftool -jp map event_pipe id %d > %s 2>/dev/null ' \
-                     '& command ; echo $! > %s' %
-                     (m["id"], events, bpftool_pid))
-        self.dut.background_procs_add(bpftool_pid)
-
-        return events, bpftool_pid
+        return self.dut.bpftool_map_perf_capture_start(m=m)
 
     def send_packets(self, port=0):
         pkt = self.get_src_pkt()
@@ -54,48 +45,10 @@ class PerfEventOutputTest(MapTest):
                                (self.dut, self.dut_ifn[port], self.src))
 
     def stop_capture(self, events, bpftool_pid):
-        self.dut.cmd('PID=$(cat {pid}) && echo $PID && rm {pid} && ' \
-                     'kill -INT $PID && ' \
-                     'while [ -d /proc/$PID ]; do true; done'
-                     .format(pid=bpftool_pid))
-        self.dut.background_procs_remove(bpftool_pid)
-
-        self.dut.mv_from(events, self.group.tmpdir)
-        return os.path.join(self.group.tmpdir, os.path.basename(events))
+        return self.dut.bpftool_map_perf_capture_stop(events, bpftool_pid)
 
     def validate_capture(self, events, event_data):
-        LOG_sec('Events from: ' + events)
-        cmd_log('cat ' + events)
-        LOG_endsec()
-
-        events = json.load(open(events))
-        exp_data = [ord(c) for c in event_data]
-
-        exp_num = 100
-        found = 0
-
-        assert_ge(100, len(events), 'Number of events')
-        LOG_sec('Looking for samples')
-        try:
-            for e in events:
-                assert_equal(9, e["type"], 'Event type')
-                if exp_data == e["data"][:len(event_data)] and \
-                   len(exp_data) + 8 > len(e["data"]):
-                    found += 1
-                else:
-                    self.log('Bad sample',
-                             ':'.join("%02x" % x for x in e["data"])
-                             + "\n\n" +
-                             ':'.join("%02x" % x for x in exp_data))
-        finally:
-            LOG_endsec()
-
-        if found < exp_num:
-            raise NtiError("Found %d events, was looking for %d" %
-                           (found, exp_num))
-
-        LOG_sec("Events OK exp: %d got: %d/%d" % (exp_num, found, len(events)))
-        LOG_endsec()
+        self.bpftool_map_perf_capture_validate(events, event_data)
 
     def execute(self):
         self.xdp_start(xdp_test_name_to_prog(self), mode=self.group.xdp_mode())

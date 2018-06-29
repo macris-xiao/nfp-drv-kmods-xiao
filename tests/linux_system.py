@@ -42,6 +42,29 @@ def str2int(strtab):
 ################################################################################
 
 class LinuxSystem(System):
+    def __init__(self, host, group, quick=False, _noendsec=False):
+        super(LinuxSystem, self).__init__(host, quick, _noendsec)
+
+        self.group = group
+        self._bck_pids = []
+
+    ###############################
+    # Standard OS helpers
+    ###############################
+    def background_procs_add(self, pid):
+        self._bck_pids.append(pid)
+
+    def background_procs_remove(self, pid):
+        self._bck_pids.remove(pid)
+
+    def background_procs_cleanup(self):
+        cmds = ""
+        for pid in self._bck_pids:
+            cmds += 'kill -9 $(cat %s);' % pid
+        if cmds:
+            self.cmd(cmds, fail=False)
+        self._bck_pids = []
+
     ###############################
     # Stats handling
     ###############################
@@ -227,6 +250,31 @@ class LinuxSystem(System):
 
     def bpftool_map_list(self, fail=True):
         return self.bpftool("map", fail=fail)
+
+    def bpftool_map_perf_capture_start(self, m=None, ident=None, pin=None,
+                                       name=None):
+        if name is None:
+            name = str(ident) if ident is not None else str(m["id"])
+
+        bpftool_pid = os.path.join(self.tmpdir, 'bpftool%s_pid' % (name))
+        events = os.path.join(self.tmpdir, 'events%s.json' % (name))
+
+        self.cmd('bpftool -jp map event_pipe %s > %s 2>/dev/null ' \
+                 '& command ; echo $! > %s' %
+                 (self._bpftool_obj_id(m, ident, pin), events, bpftool_pid))
+        self.background_procs_add(bpftool_pid)
+
+        return events, bpftool_pid
+
+    def bpftool_map_perf_capture_stop(self, events, bpftool_pid):
+        self.cmd('PID=$(cat {pid}) && echo $PID && rm {pid} && ' \
+                 'kill -INT $PID && ' \
+                 'while [ -d /proc/$PID ]; do true; done'
+                 .format(pid=bpftool_pid))
+        self.background_procs_remove(bpftool_pid)
+
+        self.mv_from(events, self.group.tmpdir)
+        return os.path.join(self.group.tmpdir, os.path.basename(events))
 
     ###############################
     # ethtool
