@@ -669,6 +669,53 @@ class XDPashiftsind_2(XDPshiftsind_cond_head):
     def get_prog_name(self):
         return 'ashifts_ind_2.o'
 
+class XDPmul16(XDPpassBaseWithCodegenScan):
+    def get_src_pkt(self):
+        return self.std_pkt()
+
+    def get_exp_pkt(self):
+        pkt = self.get_src_pkt()
+        M = (1 << 64) - 1
+
+        return pkt[0:16] + \
+                 struct.pack('<Q', 0x3344 * 0x5566) + \
+                 struct.pack('<Q', 0x8877 * 0x44) + \
+                 struct.pack('<Q', 0x112 * 0x8556) + \
+                 struct.pack('<Q', 0x887 * 0x433) + \
+                 struct.pack('<Q', 0x3344 * 0x5566) + \
+                 struct.pack('<Q', 0x8877 * 0x44) + \
+                 struct.pack('<Q', 0x112 * 0x8556) + \
+                 struct.pack('<Q', 0x887 * 0x433) + \
+                 struct.pack('<Q', 0x112 * 0x8556) + \
+                 struct.pack('<Q', 0x887 * 0x433)
+
+    def get_prog_name(self):
+        return 'mul16.o'
+
+class XDPmul32(XDPpassBaseWithCodegenScan):
+    def get_src_pkt(self):
+        return self.std_pkt()
+
+    def get_exp_pkt(self):
+        pkt = self.get_src_pkt()
+        M = (1 << 64) - 1
+        M_32 = (1 << 32) - 1
+
+        return pkt[0:16] + \
+                 struct.pack('<Q', 0x11223344 * 0x55667788) + \
+                 struct.pack('<Q', 0x88776655 * 0x44332211) + \
+                 struct.pack('<Q', 0x11223344 * 0x556) + \
+                 struct.pack('<Q', 0x887 * 0x84332211) + \
+                 struct.pack('<Q', 0x11223344 * 0x55667788) + \
+                 struct.pack('<Q', 0x88776655 * 0xa0) + \
+                 struct.pack('<Q', 0x11223344 * 0x556) + \
+                 struct.pack('<Q', 0x887 * 0x74332211) + \
+                 struct.pack('<Q', 0x88776655 * 0x44332211 & M_32) + \
+                 struct.pack('<Q', 0x11223344 * -1088 & M_32)
+
+    def get_prog_name(self):
+        return 'mul32.o'
+
 class XDPswap(XDPpassBase):
     def get_src_pkt(self):
         std_mac_hdr = self.std_pkt()
