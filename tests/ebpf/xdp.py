@@ -692,6 +692,28 @@ class XDPdiv32(XDPpassBase):
     def get_prog_name(self):
         return 'div32.o'
 
+class XDPdiv32_fast(XDPpassBaseWithCodegenScan):
+    def get_src_pkt(self):
+        return self.std_pkt()
+
+    def get_exp_pkt(self):
+        pkt = self.get_src_pkt()
+        M = (1 << 64) - 1
+
+        return pkt[0:16] + \
+                 struct.pack('<Q', 0x11223344 / 7) + \
+                 struct.pack('<Q', 0x11223344 / 10) + \
+                 struct.pack('<Q', 0x81223344 / 14) + \
+                 struct.pack('<Q', 0x81223344 / 64) + \
+                 struct.pack('<Q', 0x81223344 / 0x1220) + \
+                 struct.pack('<Q', 0x81223344 / 0x80000000) + \
+                 struct.pack('<Q', 0x81223344 / 0x82223344) + \
+                 struct.pack('<Q', 0x81223344 / 0x81223343) + \
+               pkt[80:]
+
+    def get_prog_name(self):
+        return 'div32_fast_path.o'
+
 class XDPmul16(XDPpassBaseWithCodegenScan):
     def get_src_pkt(self):
         return self.std_pkt()
