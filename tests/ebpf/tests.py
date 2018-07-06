@@ -189,6 +189,7 @@ class NFPKmodBPF(NFPKmodAppGrp):
                ('xdp_ashifts_ind_2', XDPashiftsind_2,
                 'XDP test of arithmetic indirect right shift operations (shift amount runtime unknown, partial'),
                ('xdp_cmp', XDPcmp, "Test compare instructions"),
+               ('xdp_div32', XDPdiv32, 'XDP test of divide operations'),
                ('xdp_mul16', XDPmul16, 'XDP test of multiply operations (16x16)'),
                ('xdp_mul32', XDPmul32, 'XDP test of multiply operations (32x32)'),
                ('xdp_swap', XDPswap, 'Perform byte swaps'),

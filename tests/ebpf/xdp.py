@@ -669,6 +669,29 @@ class XDPashiftsind_2(XDPshiftsind_cond_head):
     def get_prog_name(self):
         return 'ashifts_ind_2.o'
 
+class XDPdiv32(XDPpassBase):
+    def get_src_pkt(self):
+        return self.std_pkt()
+
+    def get_exp_pkt(self):
+        pkt = self.get_src_pkt()
+        M = (1 << 64) - 1
+
+        return pkt[0:16] + \
+                 struct.pack('<Q', 0x11223344 / 1) + \
+                 struct.pack('<Q', 0x11223344 / 0x7fffffff) + \
+                 struct.pack('<Q', 0x81223344 / 64) + \
+                 struct.pack('<Q', 0x81223344 / 0x1121) + \
+                 struct.pack('<Q', 0x11223344 / 1) + \
+                 struct.pack('<Q', 0x11223344 / 38) + \
+                 struct.pack('<Q', 0x81223344 / 64) + \
+                 struct.pack('<Q', 0x81223344 / 0x7fffffff) + \
+                 struct.pack('<Q', 0x81223344 / 0x1121) + \
+                 struct.pack('<Q', 0x81223344 / 64)
+
+    def get_prog_name(self):
+        return 'div32.o'
+
 class XDPmul16(XDPpassBaseWithCodegenScan):
     def get_src_pkt(self):
         return self.std_pkt()
