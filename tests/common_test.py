@@ -192,7 +192,8 @@ class CommonTest(Test):
         self.active_xdp = [{ ""		: None,
                              "generic"	: None,
                              "drv"	: None,
-                             "offload"	: None }] * len(self.dut_ifn)
+                             "offload"	: None }
+                           for x in range(len(self.dut_ifn))]
         self.test_metrics = []
         self.test_comment = ""
         self.test_result = True
@@ -483,7 +484,7 @@ class CommonTest(Test):
                             (ifc, mode))
 
     def xdp_reset(self):
-        for p in range(0, len(self.active_xdp)):
+        for p in range(len(self.active_xdp)):
             for m in self.active_xdp[p].keys():
                 if self.active_xdp[p][m] is not None:
                     self.xdp_stop(port=p, mode=m)
