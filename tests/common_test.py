@@ -508,15 +508,15 @@ class CommonTest(Test):
     def check_verifier_log_nfp(self, output, reference):
         self.check_verifier_log(output, "[nfp] " + reference)
 
-    def ping(self, port, count=10, size=0, pattern="", ival="0.05", tos=None,
-             should_fail=False):
+    def ping(self, port, count=10, size=None, pattern="", ival="0.05",
+             tos=None, should_fail=False):
         return self.src.ping(addr=self.dut_addr[port][:-3],
                              ifc=self.src_ifn[port],
                              count=count, size=size, pattern=pattern,
                              ival=ival, tos=tos, should_fail=should_fail)
 
-    def ping6(self, port, count=10, size=0, pattern="", ival="0.05", tos=None,
-             should_fail=False):
+    def ping6(self, port, count=10, size=None, pattern="", ival="0.05",
+              tos=None, should_fail=False):
         return self.src.ping6(addr=self.dut_addr_v6[port][:-3],
                               ifc=self.src_ifn[port],
                               count=count, size=size, pattern=pattern,
