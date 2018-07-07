@@ -128,10 +128,12 @@ class eBPFtest(CommonTest):
                        exact_filter=False):
 
         LOG_sec("Validate counters")
-        self._validate_cntrs(rx_t=rx_t, pass_all=pass_all,
-                             app1_all=app1_all, app2_all=app2_all,
-                             app3_all=app3_all, exact_filter=exact_filter)
-        LOG_endsec()
+        try:
+            self._validate_cntrs(rx_t=rx_t, pass_all=pass_all,
+                                 app1_all=app1_all, app2_all=app2_all,
+                                 app3_all=app3_all, exact_filter=exact_filter)
+        finally:
+            LOG_endsec()
 
     def prepare(self):
         cmd  = 'ethtool -K %s hw-tc-offload on && ' % (self.dut_ifn[0])
