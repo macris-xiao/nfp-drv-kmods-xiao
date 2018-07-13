@@ -2,7 +2,6 @@
 # Copyright (C) 2018,  Netronome Systems, Inc.  All rights reserved.
 #
 
-import json
 import os
 import struct
 import tempfile
