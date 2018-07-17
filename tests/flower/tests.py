@@ -921,6 +921,11 @@ class FlowerModifyMTU(FlowerBase):
 
         self.cleanup_filter(iface)
 
+    def cleanup(self):
+        self.src.ip_link_set_mtu(self.src_ifn[0], 1500)
+        self.dut.ip_link_set_mtu(self.dut_ifn[0], 1500)
+        return super(FlowerModifyMTU, self).cleanup()
+
 class FlowerMatchWhitelist(FlowerBase):
     def netdev_execute(self):
         iface, _ = self.configure_flower()
