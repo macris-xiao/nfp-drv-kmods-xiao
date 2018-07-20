@@ -314,7 +314,7 @@ class DrvSystem(LinuxSystem):
 
     def kernel_ver_ge(self, major, minor):
         return (self.kernel_maj == major and self.kernel_min >= minor) or \
-            self.kernel_maj >= major
+            self.kernel_maj > major
 
     # Reimplement cp_to with -r parameter
     def cp_to(self, src, dst):
