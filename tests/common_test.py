@@ -250,12 +250,9 @@ class CommonTest(Test):
         self.log("Interface stats difference", diff)
 
     def kernel_min(self, major, minor):
-        M = self.dut
-
-        if M.kernel_maj < major or \
-           (M.kernel_maj == major and M.kernel_min < minor):
-            comment = "Kernel version %d.%d < %d.%d" % \
-                (M.kernel_maj, M.kernel_min, major, minor)
+        if not self.dut.kernel_ver_ge(major, minor):
+            comment = "Kernel version %s < %d.%d" % \
+                (self.dut.kernel_ver(), major, minor)
             return NrtResult(name=self.name, testtype=self.__class__.__name__,
                              passed=None, comment=comment)
 

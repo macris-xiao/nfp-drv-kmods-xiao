@@ -66,6 +66,26 @@ class LinuxSystem(System):
         self._bck_pids = []
 
     ###############################
+    # Version checks
+    ###############################
+    def _kernel_ver_read(self):
+        if not hasattr(self, '_kernel_maj') or not hasattr(self, '_kernel_min'):
+            if not hasattr(self, 'kernel_ver') or self.kernel_ver is None:
+                _, self.kernel_ver = self.cmd('uname -r')
+
+            self._kernel_maj = int(self.kernel_ver.split('.')[0])
+            self._kernel_min = int(self.kernel_ver.split('.')[1])
+
+    def get_kernel_ver(self):
+        self._kernel_ver_read()
+        return self.kernel_ver
+
+    def kernel_ver_ge(self, major, minor):
+        self._kernel_ver_read()
+        return (self._kernel_maj == major and self._kernel_min >= minor) or \
+            self._kernel_maj > major
+
+    ###############################
     # Stats handling
     ###############################
     def stats_diff(self, old_stats, new_stats):

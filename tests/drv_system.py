@@ -39,11 +39,6 @@ class DrvSystem(LinuxSystem):
         self.grp = grp
         self.tmpdir = self.make_temp_dir()
 
-        # Check kernel version
-        _, self.kernel_ver = self.cmd('uname -r')
-        self.kernel_maj = int(self.kernel_ver.split('.')[0])
-        self.kernel_min = int(self.kernel_ver.split('.')[1])
-
         # Find DebugFS
         self.dfs_dir = None
         ret, dfs_mount = self.cmd('mount | grep debugfs', fail=False)
@@ -311,10 +306,6 @@ class DrvSystem(LinuxSystem):
         if out == "":
             return 0
         return int(out, 16)
-
-    def kernel_ver_ge(self, major, minor):
-        return (self.kernel_maj == major and self.kernel_min >= minor) or \
-            self.kernel_maj > major
 
     # Reimplement cp_to with -r parameter
     def cp_to(self, src, dst):
@@ -682,7 +673,7 @@ class DrvSystem(LinuxSystem):
         return self.bsp_cmd('nffw status', '', fail=fail)
 
     def nffw_load(self, fw, fail=True):
-        if self.kernel_ver.find("debug") == -1:
+        if self.get_kernel_ver().find("debug") == -1:
             return self.bsp_cmd('nffw load', fw, fail=fail)
         else:
             return self.cmd_nsp('-F ' + fw, fail=fail)
