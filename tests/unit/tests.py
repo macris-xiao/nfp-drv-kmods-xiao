@@ -558,7 +558,13 @@ class SriovTest(CommonDrvTest):
         M.cmd('echo 19ee 6003 > /sys/bus/pci/drivers/vfio-pci/new_id')
 
         M.insmod()
-        M.nfp_reset()
+        # Check NFD FW is not loaded
+        nvfs = self.dut.get_rtsym_scalar("nfd_vf_cfg_max_vfs")
+        if nvfs != ~0:
+            M.nfp_reset()
+            M.rmmod()
+            M.insmod()
+
         _, out = M.cmd('cat /sys/bus/pci/devices/0000:%s/sriov_totalvfs' %
                        (self.group.pci_id))
         out = out.strip()
@@ -696,10 +702,10 @@ class SriovNDOs(CommonNetdevTest):
                                (rcaps, caps))
 
         # Enable VFs if supported
-        if max_vfs > 0:
-            self.dut.cmd('modprobe -r vfio_pci')
-            self.dut.cmd('echo %d > /sys/bus/pci/devices/0000:%s/sriov_numvfs' %
-                         (1, self.group.pci_id))
+        self.dut.cmd('modprobe -r vfio_pci')
+        ret, _ = self.dut.cmd('echo %d > /sys/bus/pci/devices/%s/sriov_numvfs' %
+                              (1, self.group.pci_dbdf), fail=False)
+        assert_eq(ret == 0, max_vfs > 0, 'Status enabling VFs')
 
         netifs_old = self.dut._netifs
         self.dut.cmd("udevadm settle")
@@ -749,11 +755,21 @@ class NetdevTest(CommonDrvTest):
         if not ret:
             raise NtiGeneralError('SR-IOV VF limit not obeyed')
 
-        if max_vfs > 0:
+        if max_vfs > 0 or self.dut.kernel_ver_ge(4, 18):
             _, out = M.cmd('cat /sys/bus/pci/devices/%s/sriov_totalvfs' %
                            (self.group.pci_dbdf))
             if int(out) != max_vfs:
                 raise NtiError("SR-IOV VF limit not reported")
+
+        # Check TotalVFs goes back to max after rmmod
+        self.dut.rmmod()
+        _, out = self.dut.cmd('cat /sys/bus/pci/devices/%s/sriov_totalvfs' %
+                              (self.group.pci_dbdf))
+        sysfs = int(out)
+
+        _, out = self.dut.cmd('lspci -vv -s %s' % (self.group.pci_dbdf))
+        hw = int(re.search(r'Total VFs: (\d*)', out).groups()[0])
+        assert_eq(hw, sysfs, "Total VFs without driver loaded")
 
 class ParamsIncompatTest(CommonTest):
     def execute(self):
