@@ -673,7 +673,7 @@ class SriovNDOs(CommonNetdevTest):
         # We have no way to read the cap upstream right now,
         # hardcode the project capabilities
         sriov_caps = (
-            { "name" : "flow", "caps" : 0x03, "reprs" : True },
+            { "name" : "flow", "caps" : 0x0b, "reprs" : True },
             { "name" : "cNIC", "caps" : 0x0f, "reprs" : False },
         )
 
