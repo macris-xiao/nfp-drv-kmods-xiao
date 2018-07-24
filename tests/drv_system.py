@@ -673,10 +673,7 @@ class DrvSystem(LinuxSystem):
         return self.bsp_cmd('nffw status', '', fail=fail)
 
     def nffw_load(self, fw, fail=True):
-        if self.get_kernel_ver().find("debug") == -1:
-            return self.bsp_cmd('nffw load', fw, fail=fail)
-        else:
-            return self.cmd_nsp('-F ' + fw, fail=fail)
+        return self.cmd_nsp('-F ' + fw, fail=fail)
 
     def nffw_unload(self, fail=True):
         return self.cmd_nsp('-R', fail=fail)
