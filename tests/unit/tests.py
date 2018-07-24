@@ -554,12 +554,18 @@ class SriovTest(CommonDrvTest):
         M = self.dut
 
         # Load vfio_pci first so it binds to the VFs
-        M.cmd('modprobe vfio_pci')
-        M.cmd('echo 19ee 6003 > /sys/bus/pci/drivers/vfio-pci/new_id')
+        if self.dut.kernel_ver_ge(4, 12):
+            cmd = 'echo 0 > /sys/bus/pci/devices/%s/sriov_drivers_autoprobe' % \
+                self.group.pci_dbdf
+            self.dut.cmd(cmd)
+        else:
+            self.dut.cmd('modprobe vfio_pci')
+            cmd = 'echo 19ee 6003 > /sys/bus/pci/drivers/vfio-pci/new_id'
+            self.dut.cmd(cmd)
 
         M.insmod()
         # Check NFD FW is not loaded
-        nvfs = self.dut.get_rtsym_scalar("nfd_vf_cfg_max_vfs")
+        nvfs = self.dut.get_rtsym_scalar("nfd_vf_cfg_max_vfs", fail=False)
         if nvfs != ~0:
             M.nfp_reset()
             M.rmmod()
@@ -584,6 +590,15 @@ class SriovTest(CommonDrvTest):
                        (self.group.pci_id), fail=False)
         if ret == 0:
             raise NtiGeneralError('Incorrect SR-IOV number "65" allowed')
+
+    def cleanup(self):
+        if self.dut.kernel_ver_ge(4, 12):
+            cmd = 'echo 1 > /sys/bus/pci/devices/%s/sriov_drivers_autoprobe' % \
+                self.group.pci_dbdf
+            self.dut.cmd(cmd)
+        else:
+            self.dut.cmd('modprobe -r vfio_pci')
+        return super(SriovTest, self).cleanup()
 
 class SriovNDOs(CommonNetdevTest):
     def gen_macs(self, num_macs=10):
@@ -702,7 +717,6 @@ class SriovNDOs(CommonNetdevTest):
                                (rcaps, caps))
 
         # Enable VFs if supported
-        self.dut.cmd('modprobe -r vfio_pci')
         ret, _ = self.dut.cmd('echo %d > /sys/bus/pci/devices/%s/sriov_numvfs' %
                               (1, self.group.pci_dbdf), fail=False)
         assert_eq(ret == 0, max_vfs > 0, 'Status enabling VFs')

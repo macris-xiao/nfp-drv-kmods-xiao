@@ -740,9 +740,10 @@ class CommonTest(Test):
         # Enable VFs if supported
         max_vfs = self.read_scalar_nffw('nfd_vf_cfg_max_vfs')
         if max_vfs > 0:
-            self.dut.cmd('modprobe -r vfio_pci')
-            ret, _ = self.dut.cmd('echo %d > /sys/bus/pci/devices/0000:%s/sriov_numvfs' %
-                                  (1, self.group.pci_id))
+            if not self.dut.kernel_ver_ge(4, 12):
+                self.dut.cmd('modprobe -r vfio_pci')
+            ret, _ = self.dut.cmd('echo %d > /sys/bus/pci/devices/%s/sriov_numvfs' %
+                                  (1, self.group.pci_dbdf))
 
         netifs_old = self.dut._netifs
         self.dut.cmd("udevadm settle")
