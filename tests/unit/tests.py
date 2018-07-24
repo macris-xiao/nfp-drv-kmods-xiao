@@ -728,38 +728,35 @@ class NetdevTest(CommonDrvTest):
         M = self.dut
 
         # Check FW loading from the user space
-        M.insmod()
-        M.nfp_reset()
-        M.nffw_load(os.path.join(self.dut.tmpdir,
-                                 os.path.basename(self.group.netdevfw)))
+        self.dut.insmod()
+        self.dut.nfp_reset()
+        self.dut.nffw_load(os.path.join(self.dut.tmpdir,
+                                        os.path.basename(self.group.netdevfw)))
 
-        max_vfs = M.get_rtsym_scalar('nfd_vf_cfg_max_vfs')
-        M.rmmod()
+        max_vfs = self.dut.get_rtsym_scalar('nfd_vf_cfg_max_vfs')
+        self.dut.rmmod()
 
-        M.refresh()
-        netifs_old = len(M._netifs)
+        self.dut.refresh()
+        netifs_old = len(self.dut._netifs)
 
-        M.insmod(netdev=True)
+        self.dut.insmod(netdev=True)
+        self.dut.cmd("udevadm settle")
         time.sleep(1)
-        M.refresh()
+        self.dut.refresh()
 
-        netifs_new = len(M._netifs)
-
-        if netifs_new <= netifs_old:
-            raise NtiGeneralError('Interfaces was:%s is:%d, expected new ones' %
-                                  (netifs_old, netifs_new))
+        netifs_new = len(self.dut._netifs)
+        assert_lt(netifs_new, netifs_old,
+                  "Interface count after enabling SR-IOV")
 
         # See if after kernel load SR-IOV limit was set correctly
-        ret, _ = M.cmd('echo %d > /sys/bus/pci/devices/0000:%s/sriov_numvfs' %
-                       (max_vfs + 1, self.group.pci_id), fail=False)
-        if not ret:
-            raise NtiGeneralError('SR-IOV VF limit not obeyed')
+        ret, _ = self.dut.cmd('echo %d > /sys/bus/pci/devices/%s/sriov_numvfs' %
+                              (max_vfs + 1, self.group.pci_dbdf), fail=False)
+        assert_neq(0, ret, "SR-IOV VF limit not obeyed")
 
         if max_vfs > 0 or self.dut.kernel_ver_ge(4, 18):
-            _, out = M.cmd('cat /sys/bus/pci/devices/%s/sriov_totalvfs' %
-                           (self.group.pci_dbdf))
-            if int(out) != max_vfs:
-                raise NtiError("SR-IOV VF limit not reported")
+            _, out = self.dut.cmd('cat /sys/bus/pci/devices/%s/sriov_totalvfs' %
+                                  (self.group.pci_dbdf))
+            assert_eq(max_vfs, int(out), "SR-IOV VF limit not reported")
 
         # Check TotalVFs goes back to max after rmmod
         self.dut.rmmod()
