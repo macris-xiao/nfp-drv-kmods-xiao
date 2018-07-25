@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Tests Diplayer</title>
+    <style>
+      .options {
+	  display: table-row;
+	  background-color: blue;
+	  color:white;
+	  float:left;
+	  border:0.3px solid black;
+      }
+      .options:hover{
+	  display: table-row;
+	  background-color: white;
+	  color: blue;
+	  float:left;
+	  border: 0.3px solid black;
+      }
+      .lastClicked {
+	  display: table-row;
+	  color: black;
+	  float: left;
+	  border: 0.3px solid black;
+      }
+      #testsTable {
+	  position: fixed;
+	  top: 0;
+	  left: 13em;
+	  width: 85%;
+	  height: 100%;
+	  overflow-x: scroll;
+      }
+      body {
+	  background-color: lightgrey;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="testsTable">
+    </div>
+
+    <div style="display:table; float: left;">
+      <!-- X_CONTENT_X -->
+    </div>
+  </body>
+  <script>
+    var arr = [
+	    <!-- X_SCRIPT_TBL_X -->
+    ];
+
+    var x = -1;
+    function buttonClick(i) {
+	document.getElementById("div" + i).classList.remove("options");
+	document.getElementById("div" + i).classList.add("lastClicked");
+
+	if (x >= 0) {
+	    document.getElementById("div" + x).classList.remove("lastClicked");
+	    document.getElementById("div" + x).classList.add("options");
+	}
+
+	var xhttp = new XMLHttpRequest();
+
+	xhttp.onreadystatechange = function() {
+	    if (this.readyState == 4 && this.status == 200) {
+		document.getElementById("testsTable").innerHTML = this.responseText;
+	    }
+	};
+
+	xhttp.open("GET", arr[i], true);
+	xhttp.send();
+	x = i;
+    }
+
+    document.onkeydown =  testsToggle;
+
+    function testsToggle(i) {
+	if (i.keyCode == '38' && arr[x-1] != null) {
+	    document.getElementById("div" + (x-1)).classList.remove("options");
+	    document.getElementById("div" + (x-1)).classList.add("lastClicked");
+
+	    if (x >= 0) {
+		document.getElementById("div" + x).classList.remove("lastClicked");
+		document.getElementById("div" + x).classList.add("options");
+	    }
+
+	    var xhttp = new XMLHttpRequest();
+
+	    xhttp.onreadystatechange = function() {
+		if (this.readyState == 4 && this.status == 200) {
+		    document.getElementById("testsTable").innerHTML = this.responseText;
+		}
+	    };
+
+	    xhttp.open("GET", arr[--x], true);
+	    xhttp.send();
+	}
+
+	if (i.keyCode == '40' && arr[x+1] != "done") {
+	    document.getElementById("div" + (x+1)).classList.remove("options");
+	    document.getElementById("div" + (x+1)).classList.add("lastClicked");
+
+	    if (x >= 0) {
+		document.getElementById("div" + x).classList.remove("lastClicked");
+		document.getElementById("div" + x).classList.add("options"); }
+
+	    var xhttp = new XMLHttpRequest();
+
+	    xhttp.onreadystatechange = function() {
+		if (this.readyState == 4 && this.status == 200) {
+		    document.getElementById("testsTable").innerHTML = this.responseText;
+		}
+	    };
+
+	    xhttp.open("GET", arr[++x], true);
+	    xhttp.send();
+	}
+    }
+  </script>
+</html>
