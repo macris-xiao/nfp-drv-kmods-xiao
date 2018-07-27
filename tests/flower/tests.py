@@ -1144,12 +1144,16 @@ class FlowerActionVXLAN(FlowerBase):
         self.install_filter(iface, match, action)
 
         pkt_cnt = 100
-        exp_pkt_cnt = 99
+        exp_pkt_cnt = 100
 
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP()/TCP()/Raw('\x00'*64)
 
+        sleep(2)
+        self.send_packs(iface, ingress, pkt)
+        sleep(2)
+
         dump_file = os.path.join('/tmp/', 'dump.pcap')
-        self.capture_packs(iface, ingress, pkt, dump_file)
+        self.capture_packs(iface, ingress, pkt, dump_file, 'udp dst port 4789')
         pack_cap = rdpcap(dump_file)
         cmd_log("rm %s" % dump_file)
         pkt_diff = len(Ether()) + len(IP()) + len(UDP()) + 8
@@ -1192,7 +1196,7 @@ class FlowerActionVXLAN(FlowerBase):
         # modify action to uncheck the udp checksum flag
         action = 'tunnel_key set id 123 src_ip %s dst_ip %s dst_port 4789 nocsum action mirred egress redirect dev vxlan0' % (dut_ip, src_ip)
         self.install_filter(iface, match, action)
-        self.capture_packs(iface, ingress, pkt, dump_file)
+        self.capture_packs(iface, ingress, pkt, dump_file, 'udp dst port 4789')
         pack_cap = rdpcap(dump_file)
 
         no_csum = '0000'
@@ -1231,12 +1235,16 @@ class FlowerActionGENEVE(FlowerBase):
         self.install_filter(iface, match, action)
 
         pkt_cnt = 100
-        exp_pkt_cnt = 99
+        exp_pkt_cnt = 100
 
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP()/TCP()/Raw('\x00'*64)
 
+        sleep(2)
+        self.send_packs(iface, ingress, pkt)
+        sleep(2)
+
         dump_file = os.path.join('/tmp/', 'dump.pcap')
-        self.capture_packs(iface, ingress, pkt, dump_file)
+        self.capture_packs(iface, ingress, pkt, dump_file, 'udp dst port 6081')
         pack_cap = rdpcap(dump_file)
         cmd_log("rm %s" % dump_file)
         pkt_diff = len(Ether()) + len(IP()) + len(UDP()) + 8
