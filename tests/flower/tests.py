@@ -621,14 +621,21 @@ class FlowerMatchGeneve(FlowerBase):
 
 class FlowerMatchBlock(FlowerBase):
     def netdev_execute(self):
-        if len(self.dut_ifn) < 2 or len(self.src_ifn) < 2:
-            raise NtiError('At least 2 ports are required to test blocks')
-
         M = self.dut
         A = self.src
         iface = self.dut_ifn[0]
-        iface2 = self.dut_ifn[1]
 
+        # Blocks are only supported from kernel 4.18
+        if not self.dut.kernel_ver_ge(4, 18):
+            ret = M.cmd('tc qdisc add dev %s ingress_block 22 ingress' % iface, fail=False)
+            if not ret:
+                raise NtiError('TC block was not rejected on a kernel lower than 4.18')
+            return
+
+        if len(self.dut_ifn) < 2 or len(self.src_ifn) < 2:
+            raise NtiError('At least 2 ports are required to test blocks')
+
+        iface2 = self.dut_ifn[1]
         ingress = self.src_ifn[0]
         ingress2 = self.src_ifn[1]
 
@@ -651,10 +658,12 @@ class FlowerMatchBlock(FlowerBase):
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP()/TCP()/Raw('\x00'*64)
         self.test_filter(iface2, ingress2, pkt, pkt_cnt, exp_pkt_cnt)
 
-        # Clean up the filter
-        M.cmd('tc filter del block 22 protocol ip parent ffff: prio 49152')
-        M.cmd('tc qdisc del dev %s ingress_block 22 ingress' % iface, fail=False)
-        M.cmd('tc qdisc del dev %s ingress_block 22 ingress' % iface2, fail=False)
+    def cleanup(self):
+        self.dut.cmd('tc filter del block 22 protocol ip parent ffff: prio 49152', fail=False)
+        self.dut.cmd('tc qdisc del dev %s ingress_block 22 ingress' % self.dut_ifn[0], fail=False)
+        if len(self.dut_ifn) > 1:
+            self.dut.cmd('tc qdisc del dev %s ingress_block 22 ingress' % self.dut_ifn[1], fail=False)
+        return super(FlowerMatchBlock, self).cleanup()
 
 class FlowerMatchMPLS(FlowerBase):
     def netdev_execute(self):
