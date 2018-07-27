@@ -8,6 +8,7 @@ Flower test group for the NFP Linux drivers.
 from netro.testinfra.nti_exceptions import NtiError
 from netro.testinfra.system import cmd_log
 from netro.tests.tcpdump import TCPDump
+from netro.tests.tcpreplay import TCPReplay
 from ..common_test import CommonNetdevTest, NtiSkip
 from ..drv_grp import NFPKmodGrp
 from time import sleep
@@ -177,7 +178,8 @@ class FlowerBase(CommonNetdevTest):
         M.link_wait(iface, state=True)
         A.link_wait(ingress, state=True)
 
-        A.cmd("tcpreplay --intf1=%s --pps=100 --loop=%s -K %s " % (ingress, loop, pcap_src))
+        self.tcpreplay = TCPReplay(A, ingress, pcap_src, loop, 100)
+        self.tcpreplay.run()
         A.cmd("rm %s" % pcap_src)
 
     def capture_packs(self, iface, ingress, send_pkt, pack_dump, dump_filter='',
