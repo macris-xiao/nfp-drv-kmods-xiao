@@ -871,17 +871,17 @@ class FlowerModifyMTU(FlowerBase):
         A = self.src
 
         # Test for high MTU set - 9420 should be max
-        ret = M.cmd('ip link set mtu 9421 dev %s' % iface, fail=False)
+        ret = M.ip_link_set_mtu(iface, 9421, fail=False)
         if not ret:
             raise NtiError('invalid MTU of 9421 accepted on %s' %iface)
 
         # Test for high MTU set - 68 should be min
-        ret = M.cmd('ip link set mtu 67 dev %s' % iface, fail=False)
+        ret = M.ip_link_set_mtu(iface, 67, fail=False)
         if not ret:
             raise NtiError('invalid MTU of 67 accepted on %s' %iface)
 
         # ensure the sending interface can handle jumbo frames
-        A.cmd('ip link set mtu 9420 dev %s' % ingress)
+        ret = A.ip_link_set_mtu(ingress, 9421)
 
         # Hit test
         match = 'ip flower'
@@ -894,7 +894,7 @@ class FlowerModifyMTU(FlowerBase):
         pkt = Ether()/IP()/TCP()/Raw('\x00'*9366)
 
         dump_file = os.path.join('/tmp/', 'dump.pcap')
-        self.capture_packs(iface, ingress, pkt, dump_file)
+        self.capture_packs(iface, ingress, pkt, dump_file, snaplen=None)
         pack_cap = rdpcap(dump_file)
         cmd_log("rm %s" % dump_file)
         self.pcap_check_bytes(exp_pkt_cnt, pack_cap, pkt, 0)
@@ -902,13 +902,13 @@ class FlowerModifyMTU(FlowerBase):
         self.cleanup_filter(iface)
 
         # Set mtu to 9420 and check it passes
-        ret = M.cmd('ip link set mtu 9420 dev %s' % iface)
+        ret = M.ip_link_set_mtu(iface, 9420)
 
         self.install_filter(iface, match, action)
         pkt_cnt = 100
         exp_pkt_cnt = 100
         dump_file = os.path.join('/tmp/', 'dump.pcap')
-        self.capture_packs(iface, ingress, pkt, dump_file)
+        self.capture_packs(iface, ingress, pkt, dump_file, snaplen=None)
         pack_cap = rdpcap(dump_file)
         cmd_log("rm %s" % dump_file)
         self.pcap_check_bytes(exp_pkt_cnt, pack_cap, pkt, 0)
@@ -916,13 +916,13 @@ class FlowerModifyMTU(FlowerBase):
         self.cleanup_filter(iface)
 
         # Mark MTU below packet size and check it fails
-        ret = M.cmd('ip link set mtu 9000 dev %s' % iface)
+        ret = M.ip_link_set_mtu(iface, 9000)
 
         self.install_filter(iface, match, action)
         pkt_cnt = 100
         exp_pkt_cnt = 0
         dump_file = os.path.join('/tmp/', 'dump.pcap')
-        self.capture_packs(iface, ingress, pkt, dump_file)
+        self.capture_packs(iface, ingress, pkt, dump_file, snaplen=None)
         pack_cap = rdpcap(dump_file)
         cmd_log("rm %s" % dump_file)
         self.pcap_check_bytes(exp_pkt_cnt, pack_cap, pkt, 0)
