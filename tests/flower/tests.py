@@ -7,6 +7,7 @@ Flower test group for the NFP Linux drivers.
 
 from netro.testinfra.nti_exceptions import NtiError
 from netro.testinfra.system import cmd_log
+from netro.tests.tcpdump import TCPDump
 from ..common_test import CommonNetdevTest, NtiSkip
 from ..drv_grp import NFPKmodGrp
 from time import sleep
@@ -179,17 +180,20 @@ class FlowerBase(CommonNetdevTest):
         A.cmd("tcpreplay --intf1=%s --pps=100 --loop=%s -K %s " % (ingress, loop, pcap_src))
         A.cmd("rm %s" % pcap_src)
 
-    def capture_packs(self, iface, ingress, send_pkt, pack_dump, dump_filter=''):
+    def capture_packs(self, iface, ingress, send_pkt, pack_dump, dump_filter='',
+                      snaplen=8192, wait=2):
         A = self.src
+        dump_src = os.path.join(self.src.tmpdir, 'dump_%s_src' % (self.name))
 
         # Grab packets on egress interface - Assume packets are being mirrored
-        # Start TCPdump - Would want to use built-in NTI class here,
-        # but it does not provide us with al the required features
-        A.cmd("tcpdump -U -i %s -w %s -Q in %s " % (ingress, pack_dump, dump_filter), background=True)
-        sleep(1)
+        stderr = os.path.join(A.tmpdir, 'tcpdump_err.txt')
+        self.tcpdump = TCPDump(A, ingress, dump_src, resolve=False,
+                               direction='in', stderrfn=stderr,
+                               filter_expr=dump_filter, snaplen=snaplen)
+        self.tcpdump.start(wait)
         self.send_packs(iface, ingress, send_pkt)
-        sleep(1)
-        A.cmd("killall -KILL tcpdump")
+        self.tcpdump.stop(wait)
+        A.mv_from(dump_src, pack_dump)
 
     def capture_packs_multiple_ifaces(self, iface, sending_port, ingress_list, send_pkt, pack_dump_list, dump_filter='', loop=100):
         A = self.src
