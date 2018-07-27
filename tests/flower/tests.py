@@ -534,7 +534,10 @@ class FlowerMatchVXLAN(FlowerBase):
         self.test_filter('vxlan0', ingress, pkt, pkt_cnt, exp_pkt_cnt)
 
         self.cleanup_filter('vxlan0')
-        M.cmd('ip link del vxlan0')
+
+    def cleanup(self):
+        self.dut.cmd('ip link del vxlan0', fail=False)
+        return super(FlowerMatchVXLAN, self).cleanup()
 
 class FlowerMatchGeneve(FlowerBase):
     def netdev_execute(self):
@@ -605,7 +608,10 @@ class FlowerMatchGeneve(FlowerBase):
         self.test_filter('gene0', ingress, pkt, pkt_cnt, exp_pkt_cnt)
 
         self.cleanup_filter('gene0')
-        M.cmd('ip link del gene0')
+
+    def cleanup(self):
+        self.dut.cmd('ip link del gene0', fail=False)
+        return super(FlowerMatchGeneve, self).cleanup()
 
 class FlowerMatchBlock(FlowerBase):
     def netdev_execute(self):
@@ -996,8 +1002,11 @@ class FlowerMatchWhitelist(FlowerBase):
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter('dummy1', match, action, False)
         self.cleanup_filter('dummy1')
-        M.cmd('ip link del dummy1')
-        M.cmd('rmmod dummy')
+
+    def cleanup(self):
+        self.dut.cmd('ip link del dummy1', fail=False)
+        self.dut.cmd('rmmod dummy', fail=False)
+        return super(FlowerMatchWhitelist, self).cleanup()
 
 class FlowerVxlanWhitelist(FlowerBase):
     def netdev_execute(self):
@@ -1051,9 +1060,12 @@ class FlowerVxlanWhitelist(FlowerBase):
         action = 'tunnel_key set id 123 src_ip 10.0.0.1 dst_ip 10.0.0.2 dst_port 4789 action mirred egress mirror dev vxlan1 action mirred egress redirect dev vxlan2'
         self.install_filter('vxlan0', match, action, False)
         self.cleanup_filter('vxlan0')
-        M.cmd('ip link delete vxlan0')
-        M.cmd('ip link delete vxlan1')
-        M.cmd('ip link delete vxlan2')
+
+    def cleanup(self):
+        self.dut.cmd('ip link delete vxlan0', fail=False)
+        self.dut.cmd('ip link delete vxlan1', fail=False)
+        self.dut.cmd('ip link delete vxlan2', fail=False)
+        return super(FlowerVxlanWhitelist, self).cleanup()
 
 class FlowerCsumWhitelist(FlowerBase):
     def netdev_execute(self):
@@ -1183,7 +1195,11 @@ class FlowerActionVXLAN(FlowerBase):
 
         self.cleanup_filter(iface)
 
-        M.cmd('ip link delete vxlan0')
+    def cleanup(self):
+        src_ip = self.src_addr[0].split('/')[0]
+        self.dut.cmd('arp -i %s -d %s' % (self.dut_ifn[0], src_ip), fail=False)
+        self.dut.cmd('ip link delete vxlan0', fail=False)
+        return super(FlowerActionVXLAN, self).cleanup()
 
 class FlowerActionGENEVE(FlowerBase):
     def netdev_execute(self):
@@ -1244,7 +1260,11 @@ class FlowerActionGENEVE(FlowerBase):
 
         self.cleanup_filter(iface)
 
-        M.cmd('ip link delete gene0')
+    def cleanup(self):
+        src_ip = self.src_addr[0].split('/')[0]
+        self.dut.cmd('arp -i %s -d %s' % (self.dut_ifn[0], src_ip), fail=False)
+        self.dut.cmd('ip link delete gene0', fail=False)
+        return super(FlowerActionGENEVE, self).cleanup()
 
 class FlowerActionSetEth(FlowerBase):
     def netdev_execute(self):
@@ -1701,8 +1721,13 @@ class FlowerActionBondEgress(FlowerBase):
         cmd_log("rm %s" % dump_file2)
 
         self.cleanup_filter(iface)
-        M.cmd('ip link set %s nomaster' % iface)
-        M.cmd('ip link set %s nomaster' % iface2)
-        M.cmd('ip link del dev team0')
-        M.cmd('modprobe -r team_mode_loadbalance || :', fail=False)
-        M.cmd('modprobe -r team || :', fail=False)
+
+    def cleanup(self):
+        self.dut.cmd('ip link set %s nomaster' % self.dut_ifn[0], fail=False)
+        if len(self.dut_ifn) > 1:
+            self.dut.cmd('ip link set %s nomaster' % self.dut_ifn[1], fail=False)
+        self.dut.cmd('modprobe -r bonding || :', fail=False)
+        self.dut.cmd('ip link del dev team0', fail=False)
+        self.dut.cmd('modprobe -r team_mode_loadbalance || :', fail=False)
+        self.dut.cmd('modprobe -r team || :', fail=False)
+        return super(FlowerActionBondEgress, self).cleanup()
