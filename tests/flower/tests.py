@@ -137,13 +137,8 @@ class FlowerBase(CommonNetdevTest):
     def test_filter(self, interface, ingress, pkt, send_cnt, exp_cnt, pkt_len_diff=0):
         M = self.dut
         A = self.src
-        pcap_local = os.path.join(self.group.tmpdir, 'pcap')
-        pcap_src = os.path.join('/tmp/', 'pcap')
 
-        #Here we could consider using sendp(pkt, iface=ingress, count=send_cnt) instead
-        wrpcap(pcap_local, pkt)
-        cmd_log('scp -q %s %s:%s' % (pcap_local, A.rem, pcap_src))
-        A.cmd("tcpreplay --intf1=%s --pps=100 --loop=%s -K %s " % (ingress, send_cnt, pcap_src))
+        self.send_packs(interface, ingress, pkt, send_cnt)
 
         exp_bytes = (len(pkt) + len(Ether()) + pkt_len_diff) * exp_cnt
         lo_exp_cnt = exp_cnt - 10
@@ -154,13 +149,13 @@ class FlowerBase(CommonNetdevTest):
         if int(stats.tc_ing['tc_49152_bytes']) < lo_exp_exp_bytes or int(stats.tc_ing['tc_49152_bytes']) > exp_bytes:
             raise NtiError('Counter missmatch. Expected: %s, Got: %s' % (exp_bytes, stats.tc_ing['tc_49152_bytes']))
 
-    def test_packet(self, ingress, send_pkt, exp_pkt, dump_filter=''):
+    def test_packet(self, iface, ingress, send_pkt, exp_pkt, dump_filter=''):
         M = self.dut
         A = self.src
         dump_local = os.path.join('/tmp/', 'pcap-dump-%s' % (self.name))
-        self.capture_packs(ingress, send_pkt, dump_local, dump_filter)
+        self.capture_packs(iface, ingress, send_pkt, dump_local, dump_filter)
         test_pkt = rdpcap(dump_local)
-        A.cmd("rm %s" % dump_local)
+        cmd_log("rm %s" % dump_local)
         if str(exp_pkt) != str(test_pkt[0]):
             print "Expected:"
             exp_pkt.show()
@@ -168,33 +163,37 @@ class FlowerBase(CommonNetdevTest):
             test_pkt[0].show()
             raise NtiError('Packet missmatch')
 
-    def capture_packs(self, ingress, send_pkt, pack_dump, dump_filter=''):
+    def send_packs(self, iface, ingress, pkt, loop=100):
         M = self.dut
         A = self.src
-        pcap_local = os.path.join(self.group.tmpdir, 'pcap_%s_input' %(self.name))
-        pcap_src = os.path.join('/tmp/', 'pcap_%s_src' %(self.name))
+
+        pcap_local = os.path.join(self.group.tmpdir, 'pcap_%s_input' % (self.name))
+        pcap_src = os.path.join(self.src.tmpdir, 'pcap_%s_src' % (self.name))
+        wrpcap(pcap_local, pkt)
+        A.mv_to(pcap_local, pcap_src)
+
+        #Ensure both ports are live before sending/receiving traffic
+        M.link_wait(iface, state=True)
+        A.link_wait(ingress, state=True)
+
+        A.cmd("tcpreplay --intf1=%s --pps=100 --loop=%s -K %s " % (ingress, loop, pcap_src))
+        A.cmd("rm %s" % pcap_src)
+
+    def capture_packs(self, iface, ingress, send_pkt, pack_dump, dump_filter=''):
+        A = self.src
 
         # Grab packets on egress interface - Assume packets are being mirrored
         # Start TCPdump - Would want to use built-in NTI class here,
         # but it does not provide us with al the required features
         A.cmd("tcpdump -U -i %s -w %s -Q in %s " % (ingress, pack_dump, dump_filter), background=True)
-
-        wrpcap(pcap_local, send_pkt)
-        cmd_log('scp -q %s %s:%s' % (pcap_local, A.rem, pcap_src))
         sleep(1)
-        A.cmd("tcpreplay --intf1=%s --pps=100 --loop=100 -K %s " % (ingress, pcap_src))
+        self.send_packs(iface, ingress, send_pkt)
         sleep(1)
-
         A.cmd("killall -KILL tcpdump")
-        A.cmd("rm %s" % pcap_src)
 
-    def capture_packs_multiple_ifaces(self, sending_port, ingress_list, send_pkt, pack_dump_list, dump_filter='', loop=100):
+    def capture_packs_multiple_ifaces(self, iface, sending_port, ingress_list, send_pkt, pack_dump_list, dump_filter='', loop=100):
         A = self.src
-
         assert len(ingress_list) == len(pack_dump_list)
-
-        pcap_local = os.path.join(self.group.tmpdir, 'pcap_%s_input' % (self.name))
-        pcap_src = os.path.join(self.group.tmpdir, 'pcap_%s_src' % (self.name))
 
         dump = 0
         for ing in ingress_list:
@@ -202,12 +201,9 @@ class FlowerBase(CommonNetdevTest):
             A.cmd("tcpdump -U -i %s -w %s -Q in %s " % (ing, dump_src, dump_filter), background=True)
             dump += 1
 
-        wrpcap(pcap_local, send_pkt)
-        A.mv_to(pcap_local, pcap_src)
         sleep(5)
-        A.cmd("tcpreplay --intf1=%s --pps=100 --loop=%s -K %s " % (sending_port, loop, pcap_src))
+        self.send_packs(iface, sending_port, send_pkt, loop)
         sleep(5)
-
         A.cmd("killall -KILL tcpdump")
         dump = 0
         for ing in ingress_list:
@@ -886,9 +882,9 @@ class FlowerModifyMTU(FlowerBase):
         pkt = Ether()/IP()/TCP()/Raw('\x00'*9366)
 
         dump_file = os.path.join('/tmp/', 'dump.pcap')
-        self.capture_packs(ingress, pkt, dump_file)
+        self.capture_packs(iface, ingress, pkt, dump_file)
         pack_cap = rdpcap(dump_file)
-        A.cmd("rm %s" % dump_file)
+        cmd_log("rm %s" % dump_file)
         self.pcap_check_bytes(exp_pkt_cnt, pack_cap, pkt, 0)
 
         self.cleanup_filter(iface)
@@ -900,9 +896,9 @@ class FlowerModifyMTU(FlowerBase):
         pkt_cnt = 100
         exp_pkt_cnt = 100
         dump_file = os.path.join('/tmp/', 'dump.pcap')
-        self.capture_packs(ingress, pkt, dump_file)
+        self.capture_packs(iface, ingress, pkt, dump_file)
         pack_cap = rdpcap(dump_file)
-        A.cmd("rm %s" % dump_file)
+        cmd_log("rm %s" % dump_file)
         self.pcap_check_bytes(exp_pkt_cnt, pack_cap, pkt, 0)
 
         self.cleanup_filter(iface)
@@ -914,9 +910,9 @@ class FlowerModifyMTU(FlowerBase):
         pkt_cnt = 100
         exp_pkt_cnt = 0
         dump_file = os.path.join('/tmp/', 'dump.pcap')
-        self.capture_packs(ingress, pkt, dump_file)
+        self.capture_packs(iface, ingress, pkt, dump_file)
         pack_cap = rdpcap(dump_file)
-        A.cmd("rm %s" % dump_file)
+        cmd_log("rm %s" % dump_file)
         self.pcap_check_bytes(exp_pkt_cnt, pack_cap, pkt, 0)
 
         self.cleanup_filter(iface)
@@ -1135,9 +1131,9 @@ class FlowerActionVXLAN(FlowerBase):
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP()/TCP()/Raw('\x00'*64)
 
         dump_file = os.path.join('/tmp/', 'dump.pcap')
-        self.capture_packs(ingress, pkt, dump_file)
+        self.capture_packs(iface, ingress, pkt, dump_file)
         pack_cap = rdpcap(dump_file)
-        A.cmd("rm %s" % dump_file)
+        cmd_log("rm %s" % dump_file)
         pkt_diff = len(Ether()) + len(IP()) + len(UDP()) + 8
         self.pcap_check_bytes(exp_pkt_cnt, pack_cap, pkt, pkt_diff)
 
@@ -1178,7 +1174,7 @@ class FlowerActionVXLAN(FlowerBase):
         # modify action to uncheck the udp checksum flag
         action = 'tunnel_key set id 123 src_ip %s dst_ip %s dst_port 4789 nocsum action mirred egress redirect dev vxlan0' % (dut_ip, src_ip)
         self.install_filter(iface, match, action)
-        self.capture_packs(ingress, pkt, dump_file)
+        self.capture_packs(iface, ingress, pkt, dump_file)
         pack_cap = rdpcap(dump_file)
 
         no_csum = '0000'
@@ -1218,9 +1214,9 @@ class FlowerActionGENEVE(FlowerBase):
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP()/TCP()/Raw('\x00'*64)
 
         dump_file = os.path.join('/tmp/', 'dump.pcap')
-        self.capture_packs(ingress, pkt, dump_file)
+        self.capture_packs(iface, ingress, pkt, dump_file)
         pack_cap = rdpcap(dump_file)
-        A.cmd("rm %s" % dump_file)
+        cmd_log("rm %s" % dump_file)
         pkt_diff = len(Ether()) + len(IP()) + len(UDP()) + 8
         self.pcap_check_bytes(exp_pkt_cnt, pack_cap, pkt, pkt_diff)
 
@@ -1261,7 +1257,7 @@ class FlowerActionSetEth(FlowerBase):
 
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
-        self.test_packet(ingress, pkt, exp_pkt)
+        self.test_packet(iface, ingress, pkt, exp_pkt)
 
         self.cleanup_filter(iface)
 
@@ -1273,7 +1269,7 @@ class FlowerActionSetEth(FlowerBase):
         dump_fil='ip'
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
         exp_pkt = Ether(src="14:24:34:44:45:46",dst="11:22:33:44:55:66")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
-        self.test_packet(ingress, pkt, exp_pkt, dump_fil)
+        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
 
         self.cleanup_filter(iface)
 
@@ -1285,7 +1281,7 @@ class FlowerActionSetEth(FlowerBase):
         dump_fil='ip'
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="14:24:34:44:45:46")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
-        self.test_packet(ingress, pkt, exp_pkt, dump_fil)
+        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
 
         self.cleanup_filter(iface)
 
@@ -1297,7 +1293,7 @@ class FlowerActionSetEth(FlowerBase):
         dump_fil='ip'
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
         exp_pkt = Ether(src="11:22:33:44:55:66",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
-        self.test_packet(ingress, pkt, exp_pkt, dump_fil)
+        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
 
         self.cleanup_filter(iface)
 
@@ -1312,7 +1308,7 @@ class FlowerActionSetIPv4(FlowerBase):
 
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
-        self.test_packet(ingress, pkt, exp_pkt)
+        self.test_packet(iface, ingress, pkt, exp_pkt)
 
         self.cleanup_filter(iface)
 
@@ -1324,7 +1320,7 @@ class FlowerActionSetIPv4(FlowerBase):
         dump_fil='ip'
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='20.30.40.50', dst='120.130.140.150')/TCP()/Raw('\x00'*64)
-        self.test_packet(ingress, pkt, exp_pkt, dump_fil)
+        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
 
         self.cleanup_filter(iface)
 
@@ -1336,7 +1332,7 @@ class FlowerActionSetIPv4(FlowerBase):
         dump_fil='ip'
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='22.33.44.55')/TCP()/Raw('\x00'*64)
-        self.test_packet(ingress, pkt, exp_pkt, dump_fil)
+        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
 
         self.cleanup_filter(iface)
 
@@ -1348,7 +1344,7 @@ class FlowerActionSetIPv4(FlowerBase):
         dump_fil='ip'
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='22.33.44.55', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
-        self.test_packet(ingress, pkt, exp_pkt, dump_fil)
+        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
 
         self.cleanup_filter(iface)
 
@@ -1363,7 +1359,7 @@ class FlowerActionSetIPv6(FlowerBase):
 
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
-        self.test_packet(ingress, pkt, exp_pkt)
+        self.test_packet(iface, ingress, pkt, exp_pkt)
 
         self.cleanup_filter(iface)
 
@@ -1377,7 +1373,7 @@ class FlowerActionSetIPv6(FlowerBase):
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IPv6(src='11::11', dst='10::10')/TCP()/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IPv6(src='1234:2345:3456:4567:5678:6789:7890:8901',
                         dst='1000:2000:3000:4000:5000:6000:7000:8000')/TCP()/Raw('\x00'*64)
-        self.test_packet(ingress, pkt, exp_pkt, dump_fil)
+        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
 
         self.cleanup_filter(iface)
 
@@ -1390,7 +1386,7 @@ class FlowerActionSetIPv6(FlowerBase):
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IPv6(src='11::11', dst='10::10')/TCP()/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IPv6(src='11::11',
                         dst='1234:2345:3456:4567:5678:6789:7890:8901')/TCP()/Raw('\x00'*64)
-        self.test_packet(ingress, pkt, exp_pkt, dump_fil)
+        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
 
         self.cleanup_filter(iface)
 
@@ -1403,7 +1399,7 @@ class FlowerActionSetIPv6(FlowerBase):
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IPv6(src='11::11', dst='10::10')/TCP()/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IPv6(src='1234:2345:3456:4567:5678:6789:7890:8901',
                         dst='10::10')/TCP()/Raw('\x00'*64)
-        self.test_packet(ingress, pkt, exp_pkt, dump_fil)
+        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
 
         self.cleanup_filter(iface)
 
@@ -1418,7 +1414,7 @@ class FlowerActionSetUDP(FlowerBase):
 
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
-        self.test_packet(ingress, pkt, exp_pkt)
+        self.test_packet(iface, ingress, pkt, exp_pkt)
 
         self.cleanup_filter(iface)
 
@@ -1430,7 +1426,7 @@ class FlowerActionSetUDP(FlowerBase):
         dump_fil=''
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/UDP(sport=1000,dport=2000)/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/UDP(sport=4282,dport=8242)/Raw('\x00'*64)
-        self.test_packet(ingress, pkt, exp_pkt, dump_fil)
+        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
 
         self.cleanup_filter(iface)
 
@@ -1442,7 +1438,7 @@ class FlowerActionSetUDP(FlowerBase):
         dump_fil=''
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/UDP(sport=2222,dport=4444)/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/UDP(sport=2222,dport=2000)/Raw('\x00'*64)
-        self.test_packet(ingress, pkt, exp_pkt, dump_fil)
+        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
 
         self.cleanup_filter(iface)
 
@@ -1454,7 +1450,7 @@ class FlowerActionSetUDP(FlowerBase):
         dump_fil=''
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/UDP(sport=2222,dport=4444)/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/UDP(sport=4000,dport=4444)/Raw('\x00'*64)
-        self.test_packet(ingress, pkt, exp_pkt, dump_fil)
+        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
 
         self.cleanup_filter(iface)
 
@@ -1469,7 +1465,7 @@ class FlowerActionSetTCP(FlowerBase):
 
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
-        self.test_packet(ingress, pkt, exp_pkt)
+        self.test_packet(iface, ingress, pkt, exp_pkt)
 
         self.cleanup_filter(iface)
 
@@ -1481,7 +1477,7 @@ class FlowerActionSetTCP(FlowerBase):
         dump_fil=''
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP(sport=1000,dport=2000)/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP(sport=4282,dport=8242)/Raw('\x00'*64)
-        self.test_packet(ingress, pkt, exp_pkt, dump_fil)
+        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
 
         self.cleanup_filter(iface)
 
@@ -1493,7 +1489,7 @@ class FlowerActionSetTCP(FlowerBase):
         dump_fil=''
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP(sport=2222,dport=4444)/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP(sport=2222,dport=2000)/Raw('\x00'*64)
-        self.test_packet(ingress, pkt, exp_pkt, dump_fil)
+        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
 
         self.cleanup_filter(iface)
 
@@ -1505,7 +1501,7 @@ class FlowerActionSetTCP(FlowerBase):
         dump_fil=''
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP(sport=2222,dport=4444)/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP(sport=4000,dport=4444)/Raw('\x00'*64)
-        self.test_packet(ingress, pkt, exp_pkt, dump_fil)
+        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
 
         self.cleanup_filter(iface)
 
@@ -1601,7 +1597,7 @@ class FlowerActionBondEgress(FlowerBase):
         self.install_filter(iface, match, action)
 
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
-        self.test_packet(ingress, pkt, pkt)
+        self.test_packet(iface, ingress, pkt, pkt)
 
         if len(self.dut_ifn) < 2 or len(self.src_ifn) < 2:
             print 'Not enough interfaces in config file -  skipping some bond tests\n'
@@ -1631,7 +1627,7 @@ class FlowerActionBondEgress(FlowerBase):
                 src_ip = "10.0.0.%s" % i
                 pkts.append(Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src=src_ip, dst='11.0.0.11')/TCP()/Raw('\x00'*64))
 
-        self.capture_packs_multiple_ifaces(ingress, [ingress, ingress2], pkts, [dump_file, dump_file2], loop=1)
+        self.capture_packs_multiple_ifaces(iface, ingress, [ingress, ingress2], pkts, [dump_file, dump_file2], loop=1)
 
         pack_cap = rdpcap(dump_file)
         pack_cap2 = rdpcap(dump_file2)
@@ -1655,7 +1651,7 @@ class FlowerActionBondEgress(FlowerBase):
         M.cmd('ip link set dev %s up' % iface2)
         self.dut.link_wait(iface2, state=True)
 
-        self.capture_packs_multiple_ifaces(ingress, [ingress, ingress2], pkts, [dump_file, dump_file2], loop=1)
+        self.capture_packs_multiple_ifaces(iface, ingress, [ingress, ingress2], pkts, [dump_file, dump_file2], loop=1)
 
         pack_cap = rdpcap(dump_file)
         pack_cap2 = rdpcap(dump_file2)
@@ -1694,15 +1690,15 @@ class FlowerActionBondEgress(FlowerBase):
         action = 'mirred egress redirect dev team0'
         self.install_filter(iface, match, action)
 
-        self.capture_packs_multiple_ifaces(ingress, [ingress, ingress2], pkts, [dump_file, dump_file2], loop=1)
+        self.capture_packs_multiple_ifaces(iface, ingress, [ingress, ingress2], pkts, [dump_file, dump_file2], loop=1)
 
         pack_cap = rdpcap(dump_file)
         pack_cap2 = rdpcap(dump_file2)
 
         self.pcap_check_count_multiple_ifaces(100, [pack_cap, pack_cap2], spread=True)
 
-        A.cmd("rm %s" % dump_file)
-        A.cmd("rm %s" % dump_file2)
+        cmd_log("rm %s" % dump_file)
+        cmd_log("rm %s" % dump_file2)
 
         self.cleanup_filter(iface)
         M.cmd('ip link set %s nomaster' % iface)
