@@ -61,6 +61,7 @@ class NFPKmodFlower(NFPKmodGrp):
              ('flower_csum_whitelist', FlowerCsumWhitelist, "Checks that unsupported checksum rules are not offloaded"),
              ('flower_action_encap_vxlan', FlowerActionVXLAN, "Checks basic flower vxlan encapsulation action capabilities"),
              ('flower_action_encap_geneve', FlowerActionGENEVE, "Checks basic flower geneve encapsulation action capabilities"),
+             ('flower_action_encap_geneve_opt', FlowerActionGENEVEOpt, "Checks flower geneve encap opt action capabilities"),
              ('flower_action_set_ether', FlowerActionSetEth, "Checks basic flower set ethernet action capabilities"),
              ('flower_action_set_ipv4', FlowerActionSetIPv4, "Checks basic flower set IPv4 action capabilities"),
              ('flower_action_set_ipv6', FlowerActionSetIPv6, "Checks basic flower set IPv6 action capabilities"),
@@ -1333,6 +1334,118 @@ class FlowerActionGENEVE(FlowerBase):
         self.dut.cmd('arp -i %s -d %s' % (self.dut_ifn[0], src_ip), fail=False)
         self.dut.cmd('ip link delete gene0', fail=False)
         return super(FlowerActionGENEVE, self).cleanup()
+
+class FlowerActionGENEVEOpt(FlowerBase):
+    def install_geneve_opt(self, iface, ingress, dut_ip, src_ip, dut_mac, src_mac, geneve_opt):
+        match = 'ip flower skip_sw ip_proto tcp'
+        action = 'tunnel_key set id %s src_ip %s dst_ip %s dst_port 6081' \
+                 ' geneve_opts %s:%s:%s action mirred egress redirect dev ' \
+                 'gene0' % (int(geneve_opt['vni_field'], 16), dut_ip, src_ip, \
+                 geneve_opt['opt_class'], geneve_opt['opt_type'], geneve_opt['opt_data'])
+        self.install_filter(iface, match, action)
+
+        pkt_cnt = 100
+        exp_pkt_cnt = 100
+        pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
+
+        sleep(2)
+        self.send_packs(iface, ingress, pkt)
+        sleep(2)
+
+        dump_file = os.path.join('/tmp/', 'dump.pcap')
+        self.capture_packs(iface, ingress, pkt, dump_file, 'udp dst port 6081')
+        pack_cap = rdpcap(dump_file)
+        cmd_log("rm %s" % dump_file)
+        pkt_diff = len(Ether()) + len(IP()) + len(UDP()) + 8 + int(geneve_opt['ver_opt_len'], 16) * 4
+        self.pcap_check_bytes(exp_pkt_cnt, pack_cap, pkt, pkt_diff)
+
+        exp_pkt = Ether(src=dut_mac,dst=src_mac)/IP(src=dut_ip, dst=src_ip)/UDP(sport=0, dport=6081)
+
+        # create matchable strings from the expected packet (non tested fields may differ)
+        geneve_opt_hd = geneve_opt['opt_class'] + geneve_opt['opt_type'] + \
+                        geneve_opt['opt_len'] + geneve_opt['opt_data']
+        geneve_header = geneve_opt['ver_opt_len'] + '00' + geneve_opt['protocol_type'] + \
+                        geneve_opt['vni_field'] + '00' + geneve_opt_hd
+        mac_header = str(exp_pkt).encode("hex")[0:len(Ether())*2]
+        ip_addresses = str(exp_pkt).encode("hex")[(len(Ether()) + 12)*2: (len(Ether()) + len(IP()))*2]
+        ip_proto = str(exp_pkt).encode("hex")[(len(Ether()) + 9)*2: (len(Ether()) + 10)*2]
+        dest_port = str(exp_pkt).encode("hex")[(len(Ether()) + len(IP()) + 2)*2: (len(Ether()) + len(IP()) + 4)*2]
+
+        # check GENEVE header
+        self.pcap_cmp_pkt_bytes(pack_cap, geneve_header, len(Ether()) + len(IP()) + len(UDP()))
+        # check tunnel ethernet header
+        self.pcap_cmp_pkt_bytes(pack_cap, mac_header, 0)
+        # check tunnel IP addresses
+        self.pcap_cmp_pkt_bytes(pack_cap, ip_addresses, len(Ether()) + 12)
+        # check tunnel IP proto
+        self.pcap_cmp_pkt_bytes(pack_cap, ip_proto, len(Ether()) + 9)
+        # check tunnel destination UDP port
+        self.pcap_cmp_pkt_bytes(pack_cap, dest_port, len(Ether()) + len(IP()) + 2)
+        # check encapsulated packet
+        self.pcap_cmp_pkt_bytes(pack_cap, str(pkt).encode("hex"), len(Ether()) + len(IP()) + len(UDP()) + 8 + int(geneve_opt['ver_opt_len'], 16) * 4)
+
+        self.cleanup_filter(iface)
+
+    def netdev_execute(self):
+        self.check_prereq('tc action add tunnel_key help 2>&1 | grep geneve_opts', 'Geneve Option action')
+        iface, ingress = self.configure_flower()
+        M = self.dut
+        A = self.src
+
+        src_ip = self.src_addr[0].split('/')[0]
+        dut_ip = self.dut_addr[0].split('/')[0]
+
+        _, src_mac = A.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.src_ifn[0])
+        _, dut_mac = M.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.dut_ifn[0])
+
+        # the destination port is defined by the tc rule - confirmed in both skip_sw and skip_hw
+        M.cmd('ip link add name gene0 type geneve dstport 0 external')
+        M.cmd('ifconfig gene0 down')
+        M.cmd('ifconfig gene0 up')
+        M.cmd('arp -i %s -s %s %s' % (self.dut_ifn[0], src_ip, src_mac))
+
+        # Hit test - match all tcp packets and encap in geneve
+        geneve_opt = {'ver_opt_len': '02',
+                      'protocol_type': '6558',
+                      'vni_field' : '00007b',
+                      'opt_class' : '0102',
+                      'opt_type' : '80',
+                      'opt_len' : '01',
+                      'opt_data' : '11223344'}
+        self.install_geneve_opt(iface, ingress, dut_ip, src_ip, dut_mac, src_mac, geneve_opt)
+
+        geneve_opt = {'ver_opt_len': '03',
+                      'protocol_type': '6558',
+                      'vni_field' : '0000f6',
+                      'opt_class' : '1234',
+                      'opt_type' : '88',
+                      'opt_len' : '02',
+                      'opt_data' : 'a1a2a3a4b1b2b3b4'}
+        self.install_geneve_opt(iface, ingress, dut_ip, src_ip, dut_mac, src_mac, geneve_opt)
+
+        geneve_opt = {'ver_opt_len': '04',
+                      'protocol_type': '6558',
+                      'vni_field' : '00007b',
+                      'opt_class' : '0406',
+                      'opt_type' : '80',
+                      'opt_len' : '03',
+                      'opt_data' : '11223344a1a2a3a4b1b2b3b4'}
+        self.install_geneve_opt(iface, ingress, dut_ip, src_ip, dut_mac, src_mac, geneve_opt)
+
+        geneve_opt = {'ver_opt_len': '05',
+                      'protocol_type': '6558',
+                      'vni_field' : '0000f6',
+                      'opt_class' : '5678',
+                      'opt_type' : 'aa',
+                      'opt_len' : '04',
+                      'opt_data' : 'a1a2a3a4b1b2b3b41122334455667788'}
+        self.install_geneve_opt(iface, ingress, dut_ip, src_ip, dut_mac, src_mac, geneve_opt)
+
+    def cleanup(self):
+        src_ip = self.src_addr[0].split('/')[0]
+        self.dut.cmd('arp -i %s -d %s' % (self.dut_ifn[0], src_ip), fail=False)
+        self.dut.cmd('ip link delete gene0', fail=False)
+        return super(FlowerActionGENEVEOpt, self).cleanup()
 
 class FlowerActionSetEth(FlowerBase):
     def netdev_execute(self):
