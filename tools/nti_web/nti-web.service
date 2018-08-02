@@ -1,0 +1,13 @@
+[Unit]
+Description=NTI web continuous runner
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/nfp-drv-kmods
+ExecStart=/nfp-drv-kmods/tools/nti_web/daemon.sh
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

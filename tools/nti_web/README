@@ -1,0 +1,45 @@
+# Prerequisites
+
+Clone nfp-drv-kmods.  Obtain firmware files.  Create device and firmware
+specific config files (scripts will look for them in cfg/ directory).
+
+# Daemon
+
+Link the service file to systemd:
+
+ln -vf nfp-drv-kmods/tools/nti_web/nti-web.service  /etc/systemd/system/nti-web.service
+
+Enable on boot and start:
+
+systemctl enable nti-web.service
+systemctl start nti-web.service
+
+Logs can be viewed with journalctl:
+
+journalctl -u nti-web.service -f
+
+# Web
+
+One needs to install apache, or any other Web server to serve contents of
+/var/www/html/.
+
+Scripts will generate files in /var/www/html/gen/.  It's recommended to
+create a redirection from /var/www/html/index.html, like this:
+
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="refresh"  content="0; url=gen/tests_displayer.html">
+  </head>
+  <body> </body>
+</html>
+
+gen/tests_displayer.html is the main file.
+
+Log files are compressed with Gzip, HTTP server has to be able to serve
+those, for apache add:
+
+<Directory /var/www/html/gen>
+  AddEncoding gzip gz
+  ForceType text/html
+</Directory>
