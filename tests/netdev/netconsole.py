@@ -45,9 +45,10 @@ class NetconsoleTest(CommonTest):
 
         # Copy the program over
         if not hasattr(self, 'src_udp_sink'):
-            grp = self.group
-            self.src_udp_sink = os.path.join(grp.tmpdir, 'udp_netcons_sink')
-            self.src.cp_to(os.path.join(grp.samples_c, 'udp_netcons_sink'),
+            self.src_udp_sink = os.path.join(self.src.tmpdir,
+                                             'udp_netcons_sink')
+            self.src.cp_to(os.path.join(self.group.samples_c,
+                                        'udp_netcons_sink'),
                            self.src_udp_sink)
 
         # Start listening
