@@ -15,6 +15,8 @@ from ..drv_grp import NFPKmodAppGrp
 from ..ebpf_test import *
 from drv_and_offload import XDPDrvOffCnt, XDPDrvOffAdjHead
 from xdp import *
+from adjust_tail import XDPadjustTailPassAll, XDPadjustTail14, \
+    XDPadjustTailMulti
 from xdp_replace import XDPReplaceTest
 from maps import *
 from obj_sharing import XDPProgMapShare, XDPProgXIfc
@@ -54,6 +56,7 @@ class NFPKmodBPF(NFPKmodAppGrp):
             },
             "random"		: False,
             "qsel"		: False,
+            "adjust_tail"	: False,
         }
 
         basetest = self._tests.keys()[0]
@@ -99,6 +102,9 @@ class NFPKmodBPF(NFPKmodAppGrp):
 
             elif tlv_type == BPF_TLV.QSEL:
                 self.dut.bpf_caps["qsel"] = True
+
+            elif tlv_type == BPF_TLV.ADJUST_TAIL:
+                self.dut.bpf_caps["adjust_tail"] = True
 
             else:
                 LOG_sec("Unknown TLV")
@@ -177,6 +183,14 @@ class NFPKmodBPF(NFPKmodAppGrp):
                 'XDP adjust head prep 256B two times'),
                ('xdp_tx_adj_head_prep_twice_65k', XDPfailOversized,
                 'XDP adjust head prep 65kB two times'),
+               ('xdp_adjust_tail_14', XDPadjustTail14,
+                "XDP truncate frame to 14B"),
+               ('xdp_adjust_tail_multi', XDPadjustTailMulti,
+                "XDP truncate multiple times"),
+               ('xdp_adjust_tail_negative_bad', XDPadjustTailPassAll,
+                "XDP truncate negative offset error cases"),
+               ('xdp_adjust_tail_positive', XDPadjustTailPassAll,
+                "XDP truncate positive offset error cases"),
                ('xdp_shifts', XDPshifts, 'XDP test of logic shift operations'),
                ('xdp_shifts_ind_1', XDPshiftsind_1,
                 'XDP test of logic indirect shift operations (shift amount runtime known)'),

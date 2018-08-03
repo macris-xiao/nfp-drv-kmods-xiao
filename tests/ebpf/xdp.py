@@ -67,6 +67,9 @@ class XDPLoadNoOffloadTest(XDPTest):
                        should_fail=(mode == "offload"))
 
 class XDPadjBase(CommonPktCompareTest):
+    def is_offload_mode(self):
+        return self.group.xdp_mode() == "offload"
+
     def is_drv_mode(self):
         return self.group.xdp_mode() == "drv"
 
