@@ -18,7 +18,7 @@ class PhysPortName(CommonTest):
             echo $i \
                  $([ -e $i/device ] && basename $(readlink $i/device) || echo no_dev) \
                  $(cat $i/phys_port_name || echo /no_name/) \
-                 $(ip -o li show dev $i | cut -d" " -f20)
+                 $(cat $i/address || echo /no_addr/)
         done
         '''
         _, devs = self.dut.cmd(cmd)
