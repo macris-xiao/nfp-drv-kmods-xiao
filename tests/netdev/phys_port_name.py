@@ -36,7 +36,6 @@ class PhysPortName(CommonTest):
                not re.match("^n\d+$", port_name) and \
                not re.match("^pf\d+$", port_name) and \
                not re.match("^pf\d+vf\d+$", port_name) and \
-               not re.match("^n\d+$", port_name) and \
                not port_name == '/no_name/':
                 raise NtiError('Unexpected phys_port_name: ' + port_name)
 
@@ -50,7 +49,8 @@ class PhysPortName(CommonTest):
 
             # Check repr names are not on vNICs
             if not self.nfp_ifc_is_repr(drvinfo) and \
-               re.match("^pf\d+", port_name):
+               (re.match("^pf\d+", port_name) or
+                re.match("^pf\d+vf\d+$", port_name)):
                 raise NtiError("vNIC has a repr-only phys_port_name")
 
             # VF or flower PF vNIC without a port
@@ -59,14 +59,21 @@ class PhysPortName(CommonTest):
                drvinfo["firmware-version"].count("AOTC") == 0:
                 raise NtiError("Only VFs and Flower FW uses no-name vNICs")
 
+            # VF or flower vNIC with a name
             if port_name != '/no_name/' and \
+               self.nfp_ifc_is_vnic(drvinfo) and \
                (pci_info.count('19ee:6003') != 0 or \
                 drvinfo["firmware-version"].count("AOTC") != 0):
                 raise NtiError("VFs and Flower FW must use no-name vNICs")
 
+            # Non-vNIC netdev on a VF
+            if not self.nfp_ifc_is_vnic(drvinfo) and \
+               pci_info.count('19ee:6003') != 0:
+                raise NtiError("VFs with non-vNIC netdev")
+
             self.log("Interface %s OKAY" % (ifc), '')
 
-        # The rest of the checks requires BSP access
+        # The rest of the checks require BSP access
         if self.group.upstream_drv:
             return
 
