@@ -11,8 +11,9 @@ from netro.tests.tcpdump import TCPDump
 from netro.tests.tcpreplay import TCPReplay
 from ..common_test import CommonNetdevTest, NtiSkip
 from ..drv_grp import NFPKmodGrp
-from struct import unpack
+from struct import unpack, pack
 from time import sleep
+from copy import copy
 import os
 import re
 
@@ -56,6 +57,7 @@ class NFPKmodFlower(NFPKmodGrp):
              ('flower_match_vxlan', FlowerMatchVXLAN, "Checks basic flower vxlan match capabilities"),
              ('flower_match_geneve', FlowerMatchGeneve, "Checks basic flower Geneve match capabilities"),
              ('flower_match_geneve_opt', FlowerMatchGeneveOpt, "Checks flower Geneve option match capabilities"),
+             ('flower_match_geneve_multi_opt', FlowerMatchGeneveMultiOpt, "Checks flower Genevei with multiple options match capabilities"),
              ('flower_match_block', FlowerMatchBlock, "Checks basic flower block match capabilities"),
              ('flower_modify_mtu', FlowerModifyMTU, "Checks the setting of a mac repr MTU"),
              ('flower_match_whitelist', FlowerMatchWhitelist, "Checks basic flower match whitelisting"),
@@ -765,6 +767,156 @@ class FlowerMatchGeneveOpt(FlowerBase):
     def cleanup(self):
         self.dut.cmd('ip link del gene0', fail=False)
         return super(FlowerMatchGeneveOpt, self).cleanup()
+
+class FlowerMatchGeneveMultiOpt(FlowerBase):
+    def geneve_opt_to_str(self, geneve_opt):
+        ver_opt_len = unpack('>h', '\x00' + geneve_opt['ver_opt_len'])[0]
+        opt_class = unpack('>h', geneve_opt['opt_class'])[0]
+        opt_type = unpack('>h', '\x00' + geneve_opt['opt_type'])[0]
+        opt_len = str(len(geneve_opt['opt_data'])/4)
+        opt_data = unpack('>' + opt_len + 'i', geneve_opt['opt_data'])
+        tmp = ''
+        for data in opt_data:
+            tmp += hex(data)[2:]
+        opt_data = tmp
+
+        return ('%s:%s:%s' % (hex(opt_class)[2:], hex(opt_type)[2:], opt_data))
+
+    def hit_geneve_opt(self, iface, ingress, dut_ip, src_ip, dut_mac, src_mac, geneve_opt1, geneve_opt2):
+        tun_id = unpack('>hh', '\x00' + geneve_opt1['vni_field'])[1]
+        ver_opt_len1 = unpack('>h', '\x00' + geneve_opt1['ver_opt_len'])[0]
+        ver_opt_len2 = unpack('>h', '\x00' + geneve_opt2['ver_opt_len'])[0]
+        geneve1 = self.geneve_opt_to_str(geneve_opt1)
+        geneve2 = self.geneve_opt_to_str(geneve_opt2)
+
+        match = 'ip flower enc_src_ip %s enc_dst_ip %s enc_dst_port ' \
+                '6081 enc_key_id %s geneve_opts %s,%s' % \
+                (src_ip, dut_ip, tun_id, geneve1, geneve2)
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter('gene0', match, action)
+        pkt_cnt = 100
+        exp_pkt_cnt = 100
+
+        opt_size = ver_opt_len1 + ver_opt_len2
+        geneve_opt_hd = geneve_opt1['opt_class'] + geneve_opt1['opt_type'] + \
+                        geneve_opt1['opt_len'] + geneve_opt1['opt_data']
+        geneve_opt_hd += geneve_opt2['opt_class'] + geneve_opt2['opt_type'] + \
+                        geneve_opt2['opt_len'] + geneve_opt2['opt_data']
+        geneve_header = pack('h', opt_size) + geneve_opt1['protocol_type'] + \
+                        geneve_opt1['vni_field'] + '\x00' + geneve_opt_hd
+        enc_pkt = Ether(src="aa:bb:cc:dd:ee:ff",dst="01:02:03:04:05:06")/IP()/TCP()/Raw('\x00'*64)
+        geneve_header += str(enc_pkt)
+        pkt = Ether(src=src_mac,dst=dut_mac)/IP(src=src_ip, dst=dut_ip)/UDP(sport=44534, dport=6081)/geneve_header
+        pkt_diff = len(Ether()) + len(IP()) + len(UDP()) + 8 + opt_size * 4
+        self.test_filter('gene0', ingress, pkt, pkt_cnt, exp_pkt_cnt, -pkt_diff)
+
+        self.cleanup_filter('gene0')
+
+    def miss_geneve_opt(self, iface, ingress, dut_ip, src_ip, dut_mac, src_mac, geneve_opt1, geneve_opt2):
+        tun_id = unpack('>hh', '\x00' + geneve_opt1['vni_field'])[1]
+        ver_opt_len1 = unpack('>h', '\x00' + geneve_opt1['ver_opt_len'])[0]
+        ver_opt_len2 = unpack('>h', '\x00' + geneve_opt2['ver_opt_len'])[0]
+        miss_geneve_opt = copy(geneve_opt1)
+        opt_class = unpack('>h', geneve_opt1['opt_class'])[0]
+        miss_geneve_opt['opt_class'] = pack('>h',opt_class*2)
+        geneve1 = self.geneve_opt_to_str(miss_geneve_opt)
+        geneve2 = self.geneve_opt_to_str(geneve_opt2)
+
+        match = 'ip flower enc_src_ip %s enc_dst_ip %s enc_dst_port ' \
+                '6081 enc_key_id %s geneve_opts %s,%s' % \
+                (src_ip, dut_ip, tun_id, geneve1, geneve2)
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter('gene0', match, action)
+        pkt_cnt = 100
+        exp_pkt_cnt = 0
+
+        opt_size = ver_opt_len1 + ver_opt_len2
+        geneve_opt_hd = geneve_opt1['opt_class'] + geneve_opt1['opt_type'] + \
+                        geneve_opt1['opt_len'] + geneve_opt1['opt_data']
+        geneve_opt_hd += geneve_opt2['opt_class'] + geneve_opt2['opt_type'] + \
+                        geneve_opt2['opt_len'] + geneve_opt2['opt_data']
+        geneve_header = pack('h', opt_size) + geneve_opt1['protocol_type'] + \
+                        geneve_opt1['vni_field'] + '\x00' + geneve_opt_hd
+        enc_pkt = Ether(src="aa:bb:cc:dd:ee:ff",dst="01:02:03:04:05:06")/IP()/TCP()/Raw('\x00'*64)
+        geneve_header += str(enc_pkt)
+        pkt = Ether(src=src_mac,dst=dut_mac)/IP(src=src_ip, dst=dut_ip)/UDP(sport=44534, dport=6081)/geneve_header
+        self.test_filter('gene0', ingress, pkt, pkt_cnt, exp_pkt_cnt)
+
+        self.cleanup_filter('gene0')
+
+    def netdev_execute(self):
+        iface, ingress = self.configure_flower()
+        M = self.dut
+        A = self.src
+
+        src_ip = self.src_addr[0].split('/')[0]
+        dut_ip = self.dut_addr[0].split('/')[0]
+
+        _, src_mac = A.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.src_ifn[0])
+        _, dut_mac = M.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.dut_ifn[0])
+
+        M.cmd('ip link add gene0 type geneve dstport 6081 external')
+        M.cmd('ifconfig gene0 up')
+
+        self.add_egress_qdisc('gene0')
+
+        geneve_opt1 = {'ver_opt_len': '\x02',
+                       'protocol_type': '\x65\x58',
+                       'vni_field' : '\x00\x00\x7b',
+                       'opt_class' : '\x01\x02',
+                       'opt_type' : '\x80',
+                       'opt_len' : '\x01',
+                       'opt_data' : '\x11\x22\x33\x44'}
+
+        geneve_opt2 = {'ver_opt_len': '\x02',
+                       'protocol_type': '\x65\x58',
+                       'vni_field' : '\x00\x00\x7b',
+                       'opt_class' : '\x21\x42',
+                       'opt_type' : '\x33',
+                       'opt_len' : '\x01',
+                       'opt_data' : '\x21\x32\x43\x54'}
+        self.hit_geneve_opt(iface, ingress, dut_ip, src_ip, dut_mac, src_mac, geneve_opt1, geneve_opt2)
+        self.miss_geneve_opt(iface, ingress, dut_ip, src_ip, dut_mac, src_mac, geneve_opt1, geneve_opt2)
+
+        geneve_opt1 = {'ver_opt_len': '\x02',
+                       'protocol_type': '\x65\x58',
+                       'vni_field' : '\x00\x00\x7b',
+                       'opt_class' : '\x31\x72',
+                       'opt_type' : '\x80',
+                       'opt_len' : '\x01',
+                       'opt_data' : '\x11\x02\x04\x08'}
+
+        geneve_opt2 = {'ver_opt_len': '\x03',
+                       'protocol_type': '\x65\x58',
+                       'vni_field' : '\x00\x00\xEA',
+                       'opt_class' : '\x14\x09',
+                       'opt_type' : '\x44',
+                       'opt_len' : '\x02',
+                       'opt_data' : '\x11\x11\x12\x13\x15\x18\x19\x15'}
+        self.hit_geneve_opt(iface, ingress, dut_ip, src_ip, dut_mac, src_mac, geneve_opt1, geneve_opt2)
+        self.miss_geneve_opt(iface, ingress, dut_ip, src_ip, dut_mac, src_mac, geneve_opt1, geneve_opt2)
+
+        geneve_opt1 = {'ver_opt_len': '\x03',
+                       'protocol_type': '\x65\x58',
+                       'vni_field' : '\x00\x00\xEA',
+                       'opt_class' : '\x13\x78',
+                       'opt_type' : '\x62',
+                       'opt_len' : '\x02',
+                       'opt_data' : '\x22\x37\x59\x90\x11\x11\x21\x31'}
+
+        geneve_opt2 = {'ver_opt_len': '\x03',
+                       'protocol_type': '\x65\x58',
+                       'vni_field' : '\x00\x00\xEA',
+                       'opt_class' : '\x04\x08',
+                       'opt_type' : '\x12',
+                       'opt_len' : '\x02',
+                       'opt_data' : '\x61\x62\x63\x64\x21\x22\x23\x24'}
+        self.hit_geneve_opt(iface, ingress, dut_ip, src_ip, dut_mac, src_mac, geneve_opt1, geneve_opt2)
+        self.miss_geneve_opt(iface, ingress, dut_ip, src_ip, dut_mac, src_mac, geneve_opt1, geneve_opt2)
+
+    def cleanup(self):
+        self.dut.cmd('ip link del gene0', fail=False)
+        return super(FlowerMatchGeneveMultiOpt, self).cleanup()
 
 class FlowerMatchBlock(FlowerBase):
     def netdev_execute(self):
