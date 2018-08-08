@@ -495,11 +495,11 @@ class FlowerMatchVXLAN(FlowerBase):
         pkt_cnt = 100
         exp_pkt_cnt = 100
 
-        # VXLAN header with VNI 123
+        # VXLAN header with VNI 123, ToS 30, and TTL  99
         vxlan_header = '\x08\x00\x00\x00\x00\x00\x7b\x00'
         enc_pkt = Ether(src="aa:bb:cc:dd:ee:ff",dst="01:02:03:04:05:06")/IP()/TCP()/Raw('\x00'*64)
         vxlan_header += str(enc_pkt)
-        pkt = Ether(src=src_mac,dst=dut_mac)/IP(src=src_ip, dst=dut_ip)/UDP(sport=44534, dport=4789)/vxlan_header
+        pkt = Ether(src=src_mac,dst=dut_mac)/IP(src=src_ip, dst=dut_ip, tos=30, ttl=99)/UDP(sport=44534, dport=4789)/vxlan_header
         pkt_diff = len(Ether()) + len(IP()) + len(UDP()) + 8
         self.test_filter('vxlan0', ingress, pkt, pkt_cnt, exp_pkt_cnt, -pkt_diff)
 
@@ -540,6 +540,38 @@ class FlowerMatchVXLAN(FlowerBase):
         self.test_filter('vxlan0', ingress, pkt, pkt_cnt, exp_pkt_cnt)
 
         self.cleanup_filter('vxlan0')
+
+        # Tunnel ToS and TTL matching are added in kernel 4.19
+        if self.dut.kernel_ver_ge(4, 19):
+            # Match on correct tunnel ToS and TTL
+            match = 'ip flower enc_src_ip %s enc_dst_ip %s enc_dst_port 4789 enc_tos 30 enc_ttl 99' % (src_ip, dut_ip)
+            action = 'mirred egress redirect dev %s' % iface
+            self.install_filter('vxlan0', match, action)
+
+            pkt_cnt = 100
+            exp_pkt_cnt = 100
+            self.test_filter('vxlan0', ingress, pkt, pkt_cnt, exp_pkt_cnt, -pkt_diff)
+            self.cleanup_filter('vxlan0')
+
+            # Miss test - incorrect ToS
+            match = 'ip flower enc_src_ip %s enc_dst_ip %s enc_dst_port 4789 enc_tos 50 enc_ttl 99' % (src_ip, dut_ip)
+            action = 'mirred egress redirect dev %s' % iface
+            self.install_filter('vxlan0', match, action)
+
+            pkt_cnt = 100
+            exp_pkt_cnt = 0
+            self.test_filter('vxlan0', ingress, pkt, pkt_cnt, exp_pkt_cnt)
+            self.cleanup_filter('vxlan0')
+
+            # Miss test - incorrect TTL
+            match = 'ip flower enc_src_ip %s enc_dst_ip %s enc_dst_port 4789 enc_tos 30 enc_ttl 100' % (src_ip, dut_ip)
+            action = 'mirred egress redirect dev %s' % iface
+            self.install_filter('vxlan0', match, action)
+
+            pkt_cnt = 100
+            exp_pkt_cnt = 0
+            self.test_filter('vxlan0', ingress, pkt, pkt_cnt, exp_pkt_cnt)
+            self.cleanup_filter('vxlan0')
 
     def cleanup(self):
         self.dut.cmd('ip link del vxlan0', fail=False)
