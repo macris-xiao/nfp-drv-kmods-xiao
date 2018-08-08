@@ -1181,8 +1181,12 @@ class FlowerActionVXLAN(FlowerBase):
 
         # Hit test - match all tcp packets and encap in vxlan
         match = 'ip flower skip_sw ip_proto tcp'
-        action = 'tunnel_key set id 123 src_ip %s dst_ip %s dst_port 4789 action mirred egress redirect dev vxlan0' % (dut_ip, src_ip)
-        self.install_filter(iface, match, action)
+        if self.dut.kernel_ver_ge(4, 19):
+            action = 'tunnel_key set id 123 src_ip %s dst_ip %s dst_port 4789 tos 30 ttl 99 action mirred egress redirect dev vxlan0' % (dut_ip, src_ip)
+            self.install_filter(iface, match, action)
+        else:
+            action = 'tunnel_key set id 123 src_ip %s dst_ip %s dst_port 4789 action mirred egress redirect dev vxlan0' % (dut_ip, src_ip)
+            self.install_filter(iface, match, action)
 
         pkt_cnt = 100
         exp_pkt_cnt = 100
@@ -1200,7 +1204,7 @@ class FlowerActionVXLAN(FlowerBase):
         pkt_diff = len(Ether()) + len(IP()) + len(UDP()) + 8
         self.pcap_check_bytes(exp_pkt_cnt, pack_cap, pkt, pkt_diff)
 
-        exp_pkt = Ether(src=dut_mac,dst=src_mac)/IP(src=dut_ip, dst=src_ip)/UDP(sport=0, dport=4789)
+        exp_pkt = Ether(src=dut_mac,dst=src_mac)/IP(src=dut_ip, dst=src_ip, ttl=99, tos=30)/UDP(sport=0, dport=4789)
 
         # create matchable strings from the expected packet (non tested fields may differ)
         vxlan_header = '0800000000007b00'
@@ -1209,6 +1213,8 @@ class FlowerActionVXLAN(FlowerBase):
         ip_proto = str(exp_pkt).encode("hex")[(len(Ether()) + 9)*2: (len(Ether()) + 10)*2]
         dest_port = str(exp_pkt).encode("hex")[(len(Ether()) + len(IP()) + 2)*2: (len(Ether()) + len(IP()) + 4)*2]
         no_ttl = '00'
+        ttl = str(exp_pkt).encode("hex")[(len(Ether()) + 8)*2: (len(Ether()) + 9)*2]
+        tos = str(exp_pkt).encode("hex")[(len(Ether()) + 1)*2: (len(Ether()) + 2)*2]
 
         # copy a captured packet and get scapy to calculate its checksum
         first = pack_cap[0].copy()
@@ -1231,6 +1237,13 @@ class FlowerActionVXLAN(FlowerBase):
         self.pcap_cmp_pkt_bytes(pack_cap, udp_csum, len(Ether()) + len(IP()) + 6)
         # check encapsulated packet
         self.pcap_cmp_pkt_bytes(pack_cap, str(pkt).encode("hex"), len(Ether()) + len(IP()) + len(UDP()) + 8)
+
+        # Setting of tunnel ToS and TTL are added in kernel 4.19
+        if self.dut.kernel_ver_ge(4, 19):
+            # check tunnel TTL
+            self.pcap_cmp_pkt_bytes(pack_cap, ttl, len(Ether()) + 8)
+            # check tunnel ToS
+            self.pcap_cmp_pkt_bytes(pack_cap, tos, len(Ether()) + 1)
 
         self.cleanup_filter(iface)
 
