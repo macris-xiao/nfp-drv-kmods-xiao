@@ -44,6 +44,7 @@ class NFPKmodUnit(NFPKmodGrp):
              ('lock_busting', LockBusting, 'Bust resource locks on init'),
              ('nsp_eth_table', NspEthTable, "Test NSP ETH table functions"),
              ('hwinfo', HWInfoTest, 'Test in-kernel HWInfo interface'),
+             ('nsp_hwinfo', HWInfoNspTest, 'Test NSP HWInfo interface'),
              ('rtsym', RTSymTest, 'Test in-kernel RT-Sym interface'),
              ('fw_dump', FwDumpTest, 'Test firmware debug dump'),
              ('fw_names', FwSearchTest, "Test FW requested by the driver"),
@@ -407,6 +408,71 @@ class HWInfoTest(CommonNTHTest):
         self.hwinfo_check(keys, vals)
         shuffle(keys)
         self.hwinfo_check(keys, vals)
+
+class HWInfoNspTest(CommonNTHTest):
+    def lookup_padded(self, key):
+        # We need at least on '\0', so always add them
+        key = key + '\\0' * (8 - len(key) % 8)
+        self.dut.dfs_write('nth/hwinfo_key', key)
+
+        return self.dut.dfs_read('nth/hwinfo_val')
+
+    def nth_execute(self):
+        self.nsp_min(25)
+
+        # Find something in overwrites to test with
+        hwi = self.dut.get_hwinfo_full(what="", params="")
+        hwo = self.dut.get_hwinfo_full(what="", params="-u")
+
+        key = None
+        hwi = set(x[0] for x in hwi)
+        for elemo in hwo:
+            if elemo[0] not in hwi:
+                key = elemo[0]
+                break
+
+        if key:
+            # Check we can't get it from the static DB
+            self.dut.dfs_write('nth/hwinfo_key', hwi[0][0], do_fail=True)
+
+            # Switch to NSP lookup and try again
+            self.dut.dfs_write('nth/hwinfo_static_db', 'n')
+
+            val = self.lookup_padded(hwi[0][0])
+            assert_eq(hwi[0][1], val, "Lookup of HWinfo key " + hwi[0][0])
+        else:
+            self.dut.dfs_write('nth/hwinfo_static_db', 'n')
+
+        # Try to lookup something trivial
+        val = self.lookup_padded('board.state')
+        assert_eq(self.dut.get_hwinfo('board.state'), val,
+                  "Lookup of 'board.state' (non-override key)")
+
+        # Try to lookup something with non-NULL-terminated key
+        ret, data = self.dut.dfs_write('nth/hwinfo_key', '01234567',
+                                       do_fail=True, include_stderr=True)
+        assert_eq(1, data[1].count("Message too long"),
+                  "EMSGSIZE message appears")
+
+        # Try to lookup something we just added
+        self.nti_key_added = True
+        self.dut.cmd_hwinfo('-u nti_test=012345670123456')
+        self.dut.dfs_write('nth/hwinfo_key', 'nti_test' + '\\0' * 8)
+        val = self.dut.dfs_read('nth/hwinfo_val')
+        assert_eq('012345670123456', val, "Test value")
+
+        # Now make the buffer too small
+        self.dut.cmd_hwinfo('-u nti_test=0123456701234567')
+        ret, data = self.dut.dfs_write('nth/hwinfo_key',
+                                       'nti_test' + '\\0' * 8,
+                                       do_fail=True, include_stderr=True)
+        assert_eq(1, data[1].count("Message too long"),
+                  "EMSGSIZE message appears")
+
+    def cleanup(self):
+        if hasattr(self, 'nti_key_added'):
+            self.dut.cmd_hwinfo('-u nti_test=')
+        return super(HWInfoNspTest, self).cleanup()
 
 class RTSymTest(CommonTest):
     def __init__(self, src, dut, group=None, name="", summary=None):

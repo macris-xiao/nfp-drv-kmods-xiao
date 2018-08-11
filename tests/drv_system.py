@@ -539,18 +539,25 @@ class DrvSystem(LinuxSystem):
         # clean up tmp file after cp (mv doesn't work for debugfs file)
         os.remove(local_filename)
 
-    def dfs_write(self, path, data, do_fail=False, timeout=None):
-        cmd = 'echo -n "%s" > %s' % (data,
-                                     os.path.join(self.dfs_dir, path))
+    def dfs_write(self, path, data, do_fail=False, timeout=None,
+                  include_stderr=False):
+        cmd = 'echo -ne "%s" > %s' % (data,
+                                      os.path.join(self.dfs_dir, path))
         if timeout:
             cmd = ('timeout %d ' % (timeout)) + cmd
-        ret, data = self.cmd(cmd, fail=False)
+        ret, data = self.cmd(cmd, fail=False, include_stderr=include_stderr)
         failed = ret != 0
         if do_fail is not None and failed != do_fail:
             raise NtiGeneralError('DebugFS write fail mismatch for file %s' \
                                   ' (did:%s, wanted:%s)' % \
                                   (path, failed, do_fail))
+        if include_stderr:
+            return ret, data
         return ret
+
+    def get_hwinfo_full(self, what, params=''):
+        _, data = self.cmd_hwinfo(params + ' ' + what)
+        return [x.split("=") for x in data.split()]
 
     def get_hwinfo(self, what, params=''):
         _, data = self.cmd_hwinfo(params + ' ' + what)
