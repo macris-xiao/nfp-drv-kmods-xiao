@@ -410,7 +410,7 @@ class NFPKmodAppGrp(NFPKmodGrp):
         NFPKmodGrp.__init__(self, name=name, cfg=cfg, quick=quick,
                             dut_object=dut_object)
 
-    def _init(self):
+    def do_init(self):
         NFPKmodGrp._init(self)
 
         drv_load_record_ifcs(self, self, fwname=None)
@@ -475,6 +475,13 @@ class NFPKmodAppGrp(NFPKmodGrp):
         for i in range(0, len(self.eth_x)):
             self.dut.link_wait(self.eth_x[i])
         return
+
+    def _init(self):
+        try:
+            self.do_init()
+        except:
+            self._fini()
+            raise
 
     def _fini(self):
         self.dut.cmd('rm -rf /lib/firmware/netronome')
