@@ -129,13 +129,13 @@ struct nth nth = {
 		nsp = nfp_nsp_open(cpp);				\
 		if (IS_ERR(nsp)) {					\
 			ret = PTR_ERR(nsp);				\
-			goto err_free_cpp;				\
+			goto exit_free_cpp;				\
 		}							\
 									\
 		ret = __op(nsp);					\
 									\
 		nfp_nsp_close(nsp);					\
-	err_free_cpp:							\
+	exit_free_cpp:							\
 		nfp_cpp_free(cpp);					\
 									\
 		return ret;						\
@@ -175,11 +175,11 @@ static int nth_serial_read(struct seq_file *file, void *data)
 	size = nfp_cpp_serial(cpp, &serial);
 	if (size != 6) {
 		err = -EINVAL;
-		goto err_free;
+		goto exit_free;
 	}
 
 	seq_printf(file, "%pM", serial);
-err_free:
+exit_free:
 	nfp_cpp_free(cpp);
 
 	return err;
@@ -294,13 +294,13 @@ static ssize_t nth_write_hwinfo(struct file *file, const char __user *user_buf,
 	value = nfp_hwinfo_lookup(hwinfo, data);
 	if (!value) {
 		ret = -EINVAL;
-		goto err_free;
+		goto exit_free;
 	}
 
 	memcpy(nth.hwinfo_val_data, value,
 	       strnlen(value, sizeof(nth.hwinfo_val_data)));
 
-err_free:
+exit_free:
 	kfree(hwinfo);
 	nfp_cpp_free(cpp);
 
@@ -345,13 +345,13 @@ static ssize_t nth_write_rtsym(struct file *file, const char __user *user_buf,
 	value = nfp_rtsym_lookup(rtbl, data);
 	if (!value) {
 		ret = -EINVAL;
-		goto err_free;
+		goto exit_free;
 	}
 
 	memcpy(nth.rtsym_val_data, value->name,
 	       strnlen(value->name, sizeof(nth.rtsym_val_data)));
 
-err_free:
+exit_free:
 	kfree(rtbl);
 	nfp_cpp_free(cpp);
 
@@ -392,35 +392,35 @@ static ssize_t nth_write_fw_load(struct file *file, const char __user *user_buf,
 
 	ret = request_firmware(&fw, data, nfp_cpp_device(cpp)->parent);
 	if (ret < 0)
-		goto err_free_cpp;
+		goto exit_free_cpp;
 
 	nsp = nfp_nsp_open(cpp);
 	if (IS_ERR(nsp)) {
 		ret = PTR_ERR(nsp);
-		goto err_release_fw;
+		goto exit_release_fw;
 	}
 
 	ret = nfp_nsp_wait(nsp);
 	if (ret < 0)
-		goto err_nsp_close;
+		goto exit_nsp_close;
 
 	ret = nfp_nsp_device_soft_reset(nsp);
 	if (ret < 0) {
 		pr_err("Failed to soft reset the NFP: %zd\n", ret);
-		goto err_nsp_close;
+		goto exit_nsp_close;
 	}
 
 	ret = nfp_nsp_load_fw(nsp, fw);
 	if (ret) {
 		pr_err("FW loading failed: %zd\n", ret);
-		goto err_nsp_close;
+		goto exit_nsp_close;
 	}
 
-err_nsp_close:
+exit_nsp_close:
 	nfp_nsp_close(nsp);
-err_release_fw:
+exit_release_fw:
 	release_firmware(fw);
-err_free_cpp:
+exit_free_cpp:
 	nfp_cpp_free(cpp);
 
 	return ret ? ret : copied;
