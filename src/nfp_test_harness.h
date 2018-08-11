@@ -44,6 +44,11 @@ struct nth {
 
 	u8 id;
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 4, 0)
+	u32 hwinfo_static_db;
+#else
+	bool hwinfo_static_db;
+#endif
 	u8 hwinfo_key_data[1024];
 	struct debugfs_blob_wrapper hwinfo_key;
 	u8 hwinfo_val_data[1024];

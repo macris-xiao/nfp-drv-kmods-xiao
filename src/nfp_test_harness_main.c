@@ -270,12 +270,12 @@ static ssize_t nth_write_hwinfo(struct file *file, const char __user *user_buf,
 				size_t count, loff_t *ppos)
 {
 	struct debugfs_blob_wrapper *blob = file->private_data;
-	struct nfp_hwinfo *hwinfo;
-	u8 *data = blob->data;
+	u8 *data = blob->data, *tmp_buf = NULL;
+	struct nfp_hwinfo *hwinfo = NULL;
 	struct nfp_cpp *cpp;
 	const char *value;
+	ssize_t ret, len;
 	int srcu_idx;
-	ssize_t ret;
 
 	mutex_lock(&nth.lock);
 
@@ -286,7 +286,7 @@ static ssize_t nth_write_hwinfo(struct file *file, const char __user *user_buf,
 	nth_dfs_file_put(file->f_path.dentry, srcu_idx);
 	if (ret < 0)
 		goto exit_unlock;
-	data[ret] = 0;
+	len = ret;
 
 	cpp = nfp_cpp_from_device_id(nth.id);
 	if (!cpp) {
@@ -296,17 +296,42 @@ static ssize_t nth_write_hwinfo(struct file *file, const char __user *user_buf,
 
 	memset(nth.hwinfo_val_data, 0, sizeof(nth.hwinfo_val_data));
 
-	hwinfo = nfp_hwinfo_read(cpp);
-	value = nfp_hwinfo_lookup(hwinfo, data);
-	if (!value) {
-		ret = -EINVAL;
-		goto exit_free;
+	if (nth.hwinfo_static_db) {
+		data[len] = 0;
+		hwinfo = nfp_hwinfo_read(cpp);
+		value = nfp_hwinfo_lookup(hwinfo, data);
+		if (!value) {
+			ret = -EINVAL;
+			goto exit_free;
+		}
+	} else { /* Indirect access via the NSP */
+		struct nfp_nsp *nsp;
+
+		tmp_buf = kmemdup(data, len, GFP_KERNEL);
+		if (!tmp_buf) {
+			ret = -ENOMEM;
+			goto exit_free;
+		}
+
+		nsp = nfp_nsp_open(cpp);
+		ret = PTR_ERR_OR_ZERO(nsp);
+		if (ret)
+			goto exit_free;
+
+		ret = nfp_nsp_hwinfo_lookup(nsp, tmp_buf, len);
+		nfp_nsp_close(nsp);
+		if (ret)
+			goto exit_free;
+
+		ret = len;
+		value = tmp_buf;
 	}
 
 	memcpy(nth.hwinfo_val_data, value,
 	       strnlen(value, sizeof(nth.hwinfo_val_data)));
 
 exit_free:
+	kfree(tmp_buf);
 	kfree(hwinfo);
 	nfp_cpp_free(cpp);
 exit_unlock:
@@ -1056,6 +1081,9 @@ static int __init nth_init(void)
 	fail |= !debugfs_create_file("interface", 0400, nth.dir,
 				     NULL, &nth_interface_ops);
 
+	nth.hwinfo_static_db = true;
+	fail |= !debugfs_create_bool("hwinfo_static_db", 0600, nth.dir,
+				     &nth.hwinfo_static_db);
 	fail |= !debugfs_create_file("hwinfo_key", 0600, nth.dir,
 				     &nth.hwinfo_key, &nth_hwinfo_ops);
 	fail |= !debugfs_create_blob("hwinfo_val", 0400, nth.dir,

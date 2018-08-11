@@ -165,6 +165,7 @@ EXPORT_SYMBOL_GPL(nfp_eth_config_commit_end);	/* Testing only */
 EXPORT_SYMBOL_GPL(__nfp_eth_set_aneg);	/* Testing only */
 EXPORT_SYMBOL_GPL(__nfp_eth_set_speed);	/* Testing only */
 EXPORT_SYMBOL_GPL(__nfp_eth_set_split);	/* Testing only */
+EXPORT_SYMBOL_GPL(nfp_nsp_hwinfo_lookup);	/* Testing only */
 
 /* Implemented in nfp_net_debugdump.c */
 EXPORT_SYMBOL_GPL(nfp_net_dump_calculate_size);	/* Testing only */
