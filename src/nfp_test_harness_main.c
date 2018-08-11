@@ -255,11 +255,13 @@ static ssize_t nth_read_blob(struct file *file, char __user *user_buf,
 	int srcu_idx;
 	ssize_t ret;
 
+	mutex_lock(&nth.lock);
 	ret = nth_dfs_file_get(file->f_path.dentry, &srcu_idx);
 	if (likely(!ret))
 		ret = simple_read_from_buffer(user_buf, count, ppos,
 					      blob->data, blob->size);
 	nth_dfs_file_put(file->f_path.dentry, srcu_idx);
+	mutex_unlock(&nth.lock);
 
 	return ret;
 }
@@ -275,18 +277,22 @@ static ssize_t nth_write_hwinfo(struct file *file, const char __user *user_buf,
 	int srcu_idx;
 	ssize_t ret;
 
+	mutex_lock(&nth.lock);
+
 	ret = nth_dfs_file_get(file->f_path.dentry, &srcu_idx);
 	if (likely(!ret))
 		ret = simple_write_to_buffer(blob->data, blob->size - 1,
 					     ppos, user_buf, count);
 	nth_dfs_file_put(file->f_path.dentry, srcu_idx);
 	if (ret < 0)
-		return ret;
+		goto exit_unlock;
 	data[ret] = 0;
 
 	cpp = nfp_cpp_from_device_id(nth.id);
-	if (!cpp)
-		return -EBUSY;
+	if (!cpp) {
+		ret = -EBUSY;
+		goto exit_unlock;
+	}
 
 	memset(nth.hwinfo_val_data, 0, sizeof(nth.hwinfo_val_data));
 
@@ -303,6 +309,8 @@ static ssize_t nth_write_hwinfo(struct file *file, const char __user *user_buf,
 exit_free:
 	kfree(hwinfo);
 	nfp_cpp_free(cpp);
+exit_unlock:
+	mutex_unlock(&nth.lock);
 
 	return ret;
 }
