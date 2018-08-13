@@ -88,10 +88,6 @@ class Modinfo(CommonTest):
                    'v000019EEd00006000sv000019EEsd',
                    'netronome/nic_AMDA0081-0001_1x40.nffw']
 
-        if not self.group.upstream_drv:
-            entries += ['v000019EEd00006010sv000019EEsd',
-                        "netronome/%s" % self.dut.get_fw_name()]
-
         _, out = self.dut.cmd('modinfo %s' % (self.dut.mod))
 
         for e in entries:
