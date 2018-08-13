@@ -107,6 +107,40 @@ update_driver() {
     make KSRC=net-next/ -j $NPROC test_prepare
 }
 
+update_iproute2() {
+    bold "Updating the iproute2"
+
+    (
+	if [ -e iproute2-next/ ]; then
+	    cd iproute2-next/
+	    git pull
+	else
+	    git clone git://git.kernel.org/pub/scm/network/iproute2/iproute2-next.git
+	    cd iproute2-next/
+	fi
+
+	make -j $NPROC
+
+	# Update locally
+	if [ -e /bin/ip ]; then
+	    cp ip/ip /bin/
+	else
+	    cp ip/ip /sbin/
+	fi
+	cp devlink/devlink /sbin/
+	cp tc/tc /sbin/
+
+	# Update on DUT
+	if ssh $DUT '[ -e /bin/ip ]'; then
+	    scp ip/ip root@${DUT}:/bin/
+	else
+	    scp ip/ip root@${DUT}:/sbin/
+	fi
+	scp devlink/devlink root@${DUT}:/sbin/
+	scp tc/tc root@${DUT}:/sbin/
+    )
+}
+
 ###
 
 last_kernel_update=x
@@ -117,6 +151,7 @@ while true; do
 	wait_for_dut
 
 	update_nti
+	update_iproute2
 	dut_update_kernel
 	update_driver
 
