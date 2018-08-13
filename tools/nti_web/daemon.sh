@@ -47,9 +47,9 @@ dut_update_kernel()
     (
 	if [ -e net-next/ ]; then
 	    cd net-next/
-	    git pull --depth=1
+	    git pull
 	else
-	    git clone --depth=1 git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git
+	    git clone git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git
 	    cd net-next/
 	fi
 
