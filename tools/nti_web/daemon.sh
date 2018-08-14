@@ -53,6 +53,14 @@ dut_update_kernel()
 	    cd net-next/
 	fi
 
+	# Copy the current config
+	scp root@$DUT:/boot/config-$DUT_kernel .config
+	# Make sure we append git version
+	echo 'CONFIG_LOCALVERSION_AUTO=y' >> .config
+	echo 'CONFIG_NFP_DEBUG=y' >> .config
+	# Update .config to new code
+	make olddefconfig
+
 	# Get running version
 	DUT_kernel=$(ssh root@$DUT uname -r)
 	# Get git version (one we will install)
@@ -61,14 +69,6 @@ dut_update_kernel()
 	if [ $DUT_kernel == $V ]; then
 	    return
 	fi
-
-	# Copy the current config
-	scp root@$DUT:/boot/config-$DUT_kernel .config
-	# Make sure we append git version
-	echo 'CONFIG_LOCALVERSION_AUTO=y' >> .config
-	echo 'CONFIG_NFP_DEBUG=y' >> .config
-	# Update .config to new code
-	make olddefconfig
 
 	# Build
 	make -j $NPROC
