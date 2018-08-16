@@ -74,7 +74,8 @@ dut_update_kernel()
 	make -j $NPROC
 
 	# Remove old kernels with LOCALVERSION
-	ssh root@$DUT "rm $(ls /boot/ | grep '.-g[a-f0-9]*$')"
+	ssh root@$DUT "find /boot/ -maxdepth 1 -regex '.*-g[a-f0-9]*$' -exec rm -r {} \;"
+	ssh root@$DUT "find /lib/modules/ -maxdepth 1 -regex '.*-g[a-f0-9]*$' -exec rm -r {} \;"
 
 	# Install modules locally into /tmp and copy them over
 	MOD_DIR=$(mktemp -d)
