@@ -390,11 +390,8 @@ class HWInfoTest(CommonNTHTest):
 
     def nth_execute(self):
         # We need the keys to be in a specific order
-        keys = ["board.exec", "pcie0.type", "platform.setup.version",
-                "cpld.version", "arm.mem.base", "board.state"]
-        vals = { "board.exec" : "bootloader.bin",
-                 "pcie0.type" : "ep",
-                 "platform.setup.version" : None,
+        keys = ["pcie0.type", "cpld.version", "arm.mem.base", "board.state"]
+        vals = { "pcie0.type" : "ep",
                  "cpld.version" : None,
                  "arm.mem.base" : None,
                  "board.state" : "15" }
