@@ -73,11 +73,11 @@ def assert_nin(disallowed, actual, error_message):
 ###############################################################################
 # Exception for throwing results
 ###############################################################################
-class NtiSkip(Exception):
-    """ Exception raised to skip tests.
+class DrvTestResultException(Exception):
+    """ Exception raised to skip/fail tests.
 
     Attributes:
-        msg  -- explanation of the reason test was skipeed
+        msg  -- explanation of the reason test was terminated
     """
 
     def __init__(self, msg):
@@ -85,6 +85,12 @@ class NtiSkip(Exception):
 
     def __str__(self):
         return repr(self.msg)
+
+class NtiSkip(DrvTestResultException):
+    pass
+
+class NtiFail(DrvTestResultException):
+    pass
 
 ###############################################################################
 # Helper functions
