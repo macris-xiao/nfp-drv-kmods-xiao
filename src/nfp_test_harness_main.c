@@ -385,6 +385,128 @@ static const struct file_operations nth_rtsym_ops = {
 	.llseek = default_llseek,
 };
 
+static ssize_t
+nth_read_rtsym_val(struct file *file, char __user *user_buf,
+		   size_t count, loff_t *ppos)
+{
+	struct nfp_rtsym_table *rtbl;
+	const struct nfp_rtsym *sym;
+	struct nfp_cpp *cpp;
+	int srcu_idx;
+	ssize_t ret;
+	u8 *buf;
+
+	mutex_lock(&nth.lock);
+	ret = nth_dfs_file_get(file->f_path.dentry, &srcu_idx);
+	if (ret)
+		goto exit_unlock;
+
+	cpp = nfp_cpp_from_device_id(nth.id);
+	if (!cpp) {
+		ret = -EBUSY;
+		goto exit_dfs_put;
+	}
+
+	buf = kmalloc(count, GFP_USER);
+	if (!buf) {
+		ret = -ENOMEM;
+		goto exit_free_cpp;
+	}
+
+	rtbl = nfp_rtsym_table_read(cpp);
+	sym = nfp_rtsym_lookup(rtbl, nth.rtsym_key.data);
+	if (sym) {
+		ret = nfp_rtsym_read(cpp, sym, *ppos, buf, count);
+	} else {
+		ret = -ENOENT;
+		goto exit_free_rtbl;
+	}
+
+	if (ret > 0) {
+		if (copy_to_user(user_buf, buf, ret))
+			ret = -EFAULT;
+		else
+			*ppos += ret;
+	}
+
+exit_free_rtbl:
+	kfree(rtbl);
+	kfree(buf);
+exit_free_cpp:
+	nfp_cpp_free(cpp);
+exit_dfs_put:
+	nth_dfs_file_put(file->f_path.dentry, srcu_idx);
+exit_unlock:
+	mutex_unlock(&nth.lock);
+
+	return ret;
+}
+
+static ssize_t
+nth_write_rtsym_val(struct file *file, const char __user *user_buf,
+		    size_t count, loff_t *ppos)
+{
+	struct nfp_rtsym_table *rtbl;
+	const struct nfp_rtsym *sym;
+	struct nfp_cpp *cpp;
+	int srcu_idx;
+	ssize_t ret;
+	u8 *buf;
+
+	mutex_lock(&nth.lock);
+	ret = nth_dfs_file_get(file->f_path.dentry, &srcu_idx);
+	if (ret)
+		goto exit_unlock;
+
+	cpp = nfp_cpp_from_device_id(nth.id);
+	if (!cpp) {
+		ret = -EBUSY;
+		goto exit_dfs_put;
+	}
+
+	buf = kmalloc(count, GFP_USER);
+	if (!buf) {
+		ret = -ENOMEM;
+		goto exit_free_cpp;
+	}
+	if (copy_from_user(buf, user_buf, count)) {
+		ret = -EFAULT;
+		goto exit_free_buf;
+	}
+
+	rtbl = nfp_rtsym_table_read(cpp);
+	sym = nfp_rtsym_lookup(rtbl, nth.rtsym_key.data);
+	if (sym) {
+		ret = nfp_rtsym_write(cpp, sym, *ppos, buf, count);
+	} else {
+		ret = -ENOENT;
+		goto exit_free_rtbl;
+	}
+
+	if (ret > 0)
+		*ppos += ret;
+
+exit_free_rtbl:
+	kfree(rtbl);
+exit_free_buf:
+	kfree(buf);
+exit_free_cpp:
+	nfp_cpp_free(cpp);
+exit_dfs_put:
+	nth_dfs_file_put(file->f_path.dentry, srcu_idx);
+exit_unlock:
+	mutex_unlock(&nth.lock);
+
+	return ret;
+}
+
+static const struct file_operations nth_rtsym_val_ops = {
+	.read	= nth_read_rtsym_val,
+	.write	= nth_write_rtsym_val,
+	.open	= simple_open,
+	.llseek	= default_llseek,
+};
+
 static ssize_t nth_write_fw_load(struct file *file, const char __user *user_buf,
 			       size_t count, loff_t *ppos)
 {
@@ -1091,6 +1213,8 @@ static int __init nth_init(void)
 				     NULL, &nth_rtsym_dump_ops);
 	fail |= !debugfs_create_file("rtsym_key", 0600, nth.dir,
 				     &nth.rtsym_key, &nth_rtsym_ops);
+	fail |= !debugfs_create_file("rtsym_val", 0600, nth.dir,
+				     NULL, &nth_rtsym_val_ops);
 
 	fail |= !debugfs_create_file("fw_load", 0600, nth.dir,
 				     &nth.fw_load, &nth_fw_load_ops);

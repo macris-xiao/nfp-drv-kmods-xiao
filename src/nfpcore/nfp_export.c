@@ -139,6 +139,8 @@ EXPORT_SYMBOL(nfp_rtsym_lookup);
  *	 guaranteed to provide stable API.  We are happy to make them
  *	 normal exports but please let the kernel team know before using them.
  */
+EXPORT_SYMBOL_GPL(nfp_rtsym_read);	/* Testing only */
+EXPORT_SYMBOL_GPL(nfp_rtsym_write);	/* Testing only */
 
 /* Implemented in nfp_hwinfo.c */
 
