@@ -65,10 +65,6 @@ struct nth nth = {
 		.data = nth.rtsym_key_data,
 		.size = sizeof(nth.rtsym_key_data),
 	},
-	.rtsym_val = {
-		.data = nth.rtsym_val_data,
-		.size = sizeof(nth.rtsym_val_data),
-	},
 
 	.fw_load = {
 		.data = nth.fw_load_data,
@@ -372,19 +368,10 @@ static ssize_t nth_write_rtsym(struct file *file, const char __user *user_buf,
 		return -EBUSY;
 
 	rtbl = nfp_rtsym_table_read(cpp);
-
-	memset(nth.rtsym_val_data, 0, sizeof(nth.rtsym_val_data));
-
 	value = nfp_rtsym_lookup(rtbl, data);
-	if (!value) {
-		ret = -EINVAL;
-		goto exit_free;
-	}
+	if (!value)
+		ret = -ENOENT;
 
-	memcpy(nth.rtsym_val_data, value->name,
-	       strnlen(value->name, sizeof(nth.rtsym_val_data)));
-
-exit_free:
 	kfree(rtbl);
 	nfp_cpp_free(cpp);
 
@@ -1104,8 +1091,6 @@ static int __init nth_init(void)
 				     NULL, &nth_rtsym_dump_ops);
 	fail |= !debugfs_create_file("rtsym_key", 0600, nth.dir,
 				     &nth.rtsym_key, &nth_rtsym_ops);
-	fail |= !debugfs_create_blob("rtsym_val", 0400, nth.dir,
-				     &nth.rtsym_val);
 
 	fail |= !debugfs_create_file("fw_load", 0600, nth.dir,
 				     &nth.fw_load, &nth_fw_load_ops);

@@ -56,8 +56,6 @@ struct nth {
 
 	u8 rtsym_key_data[1024];
 	struct debugfs_blob_wrapper rtsym_key;
-	u8 rtsym_val_data[1024];
-	struct debugfs_blob_wrapper rtsym_val;
 
 	u8 fw_load_data[1024];
 	struct debugfs_blob_wrapper fw_load;

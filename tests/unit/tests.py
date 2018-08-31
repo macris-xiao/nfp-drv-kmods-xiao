@@ -500,10 +500,6 @@ class RTSymTest(CommonTest):
 
         last = ['_o', '.mip'][num == 1]
         M.dfs_write('nth/rtsym_key', last, do_fail=(num < 1))
-        val = M.dfs_read('nth/rtsym_val')
-        if val != last and num > 0:
-            raise NtiGeneralError('RTSym failed to look at %s (%s, %s)' % \
-                                  (last, name, val))
 
         syms = M.dfs_read('nth/rtsym_dump')
         syms = syms.split().sort()
