@@ -8,7 +8,7 @@ Unit test group for the NFP Linux drivers.
 import netro.testinfra
 from reconfig import ChannelReconfig
 from fw_dumps import FwDumpTest
-from rtsym import RTSymTest
+from rtsym import RTSymTest, RTSymDataTest
 from netro.testinfra.test import *
 from ..drv_grp import NFPKmodGrp
 from ..drv_system import NfpNfdCtrl
@@ -47,6 +47,7 @@ class NFPKmodUnit(NFPKmodGrp):
              ('hwinfo', HWInfoTest, 'Test in-kernel HWInfo interface'),
              ('nsp_hwinfo', HWInfoNspTest, 'Test NSP HWInfo interface'),
              ('rtsym', RTSymTest, 'Test in-kernel RT-Sym interface'),
+             ('rtsym_data', RTSymDataTest, 'Test in-kernel RT-Sym data interface'),
              ('fw_dump', FwDumpTest, 'Test firmware debug dump'),
              ('fw_names', FwSearchTest, "Test FW requested by the driver"),
              ('vnic_tlv_caps', TLVcapTest, "Test basic parsing of TLV vNIC caps"),

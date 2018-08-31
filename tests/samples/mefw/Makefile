@@ -19,7 +19,7 @@ RTSYM_FILES := rts_0.list rts_1.list rts_2.list rts_3.list rts_17.list \
 # a specific version of it
 FWS = $(patsubst %.list,rm_%.nffw,${RTSYM_FILES}) \
 	rts_100.nffw rm1_rts_100.nffw rm2_rts_100.nffw \
-	rts_dump.nffw
+	rts_dump.nffw rts_vals.nffw
 
 all: $(FWS) clean
 
@@ -34,12 +34,18 @@ rm2_%.nffw: %.list
 rts_dump.nffw: rts_17.list abs_rtsym.list
 	$(NFLD) -L abs_rtsym.list -rtsyms -name $(FWNAME) -mip $(LDFLAGS) \
 	-o $@ -u $(TARGET_MES) $<
+rts_vals.nffw: rts_vals.list abs_rtsym.list
+	$(NFLD) -L abs_rtsym.list -rtsyms -name $(FWNAME) -mip $(LDFLAGS) \
+	-o $@ -u $(TARGET_MES) $<
 
 # This rule will generate different count of RT-SYMS by setting a define
 # and using the single C source as a basis
 rts_%.list: rts.c
 	$(NFCC) $< $(CFLAGS) -o $@ \
 	-D NUM_SYMS=$(subst .list,,$(subst rts_,,$@))
+
+rts_vals.list: rts_vals.c
+	$(NFCC) $< $(CFLAGS) -o $@
 
 abs_rtsym.list: abs_rtsym.uc
 	nfas -o $@ -codeless $<
