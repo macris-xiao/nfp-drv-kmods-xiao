@@ -43,6 +43,8 @@ class NFPKmodFlower(NFPKmodGrp):
         src = (self.host_a, self.addr_a, self.eth_a, self.addr_v6_a)
 
         T = (('flower_match_mac', FlowerMatchMAC, "Checks basic flower mac match capabilities"),
+             ('flower_match_vlan_id', FlowerMatchVLANID, "Checks basic flower vlan id match capabilities"),
+             ('flower_match_vlan_pcp', FlowerMatchVLANPCP, "Checks basic flower vlan pcp match capabilities"),
              ('flower_match_vlan', FlowerMatchVLAN, "Checks basic flower vlan match capabilities"),
              ('flower_match_ipv4', FlowerMatchIPv4, "Checks basic flower ipv4 match capabilities"),
              ('flower_match_ipv6', FlowerMatchIPv6, "Checks basic flower ipv6 match capabilities"),
@@ -294,6 +296,34 @@ class FlowerMatchVLAN(FlowerBase):
         iface, ingress = self.configure_flower()
 
         # Hit test
+        match = '802.1Q flower vlan_id 100 vlan_prio 6'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        pkt_cnt = 100
+        exp_pkt_cnt = 100
+        pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/Dot1Q(vlan=100, prio=6)/IP()/TCP()/Raw('\x00'*64)
+        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+
+        self.cleanup_filter(iface)
+
+        # Miss test
+        match = '802.1Q flower vlan_id 400 vlan_prio 0'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        pkt_cnt = 100
+        exp_pkt_cnt = 0
+        pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/Dot1Q(vlan=100, prio=0)/IP()/TCP()/Raw('\x00'*64)
+        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+
+        self.cleanup_filter(iface)
+
+class FlowerMatchVLANID(FlowerBase):
+    def netdev_execute(self):
+        iface, ingress = self.configure_flower()
+
+        # Hit test
         match = '802.1Q flower vlan_id 600'
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
@@ -313,6 +343,34 @@ class FlowerMatchVLAN(FlowerBase):
         pkt_cnt = 100
         exp_pkt_cnt = 0
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/Dot1Q(vlan=600)/IP()/TCP()/Raw('\x00'*64)
+        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+
+        self.cleanup_filter(iface)
+
+class FlowerMatchVLANPCP(FlowerBase):
+    def netdev_execute(self):
+        iface, ingress = self.configure_flower()
+
+        # Hit test
+        match = '802.1Q flower vlan_prio 3'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        pkt_cnt = 100
+        exp_pkt_cnt = 100
+        pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/Dot1Q(vlan=200, prio=3)/IP()/TCP()/Raw('\x00'*64)
+        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+
+        self.cleanup_filter(iface)
+
+        # Miss test
+        match = '802.1Q flower vlan_prio 2'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        pkt_cnt = 100
+        exp_pkt_cnt = 0
+        pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/Dot1Q(vlan=200, prio=3)/IP()/TCP()/Raw('\x00'*64)
         self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
 
         self.cleanup_filter(iface)
