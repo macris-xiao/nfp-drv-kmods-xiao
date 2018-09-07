@@ -78,6 +78,7 @@ def check_file(f):
                 in_function = context.strip()
             elif 'struct' in context or 'enum' in context or 'union' in context:
                 in_struct = context.strip()
+            continue
         # If it's a diff, we want lines starting with + or space, but not -,
         # and we want to strip the leading + before parsing further.
         # If it's not a diff, we want all lines, but no line should ever
