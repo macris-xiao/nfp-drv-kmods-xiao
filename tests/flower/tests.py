@@ -1387,6 +1387,8 @@ class FlowerVxlanWhitelist(FlowerBase):
 
         src_ip = self.src_addr[0].split('/')[0]
         dut_ip = self.dut_addr[0].split('/')[0]
+        src_ip6 = self.src_addr_v6[0].split('/')[0]
+        dut_ip6 = self.dut_addr_v6[0].split('/')[0]
 
         M.cmd('ip link add vxlan0 type vxlan dstport 4789 dev %s external' % self.dut_ifn[0])
         M.cmd('ifconfig vxlan0 up')
@@ -1423,6 +1425,12 @@ class FlowerVxlanWhitelist(FlowerBase):
         self.install_filter(iface, match, action, False)
         self.cleanup_filter(iface)
 
+        # Check that vxlan with ipv6 header is installed in software only (not_in_hw)
+        match = 'ip flower enc_src_ip %s enc_dst_ip %s enc_dst_port 4789 enc_key_id 123' % (src_ip6, dut_ip6)
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter('vxlan0', match, action, False)
+        self.cleanup_filter('vxlan0')
+
         # Check that multiple vxlan tunnel output is installed in software only (not_in_hw)
         M.cmd('ip link add vxlan1 type vxlan id 0 dstport 4790')
         M.cmd('ifconfig vxlan1 up')
@@ -1432,6 +1440,12 @@ class FlowerVxlanWhitelist(FlowerBase):
         action = 'tunnel_key set id 123 src_ip 10.0.0.1 dst_ip 10.0.0.2 dst_port 4789 action mirred egress mirror dev vxlan1 action mirred egress redirect dev vxlan2'
         self.install_filter('vxlan0', match, action, False)
         self.cleanup_filter('vxlan0')
+
+        # Check that a vxlan tunnel output with ipv6 src/dest is installed in software only (not_in_hw)
+        match = 'ip flower ip_proto tcp'
+        action = 'tunnel_key set id 123 src_ip %s dst_ip %s dst_port 4789 nocsum action mirred egress redirect dev vxlan0' % (dut_ip6, src_ip6)
+        self.install_filter(iface, match, action, False)
+        self.cleanup_filter(iface)
 
     def cleanup(self):
         self.dut.cmd('ip link delete vxlan0', fail=False)
