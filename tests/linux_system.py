@@ -112,7 +112,7 @@ class LinuxSystem(System):
     # Traffic generation
     ###############################
     def _ping(self, prog, wait, addr, ifc, count, size, pattern, ival, tos,
-              should_fail):
+              flood, should_fail):
         cmd = "%s -W%d %s " % (prog, wait, addr)
         if ifc is not None:
             cmd += "-I %s " % (ifc)
@@ -122,10 +122,12 @@ class LinuxSystem(System):
             cmd += "-s %d " % (size)
         if pattern:
             cmd += "-p %s " % (pattern)
-        if ival is not None:
+        if ival is not None and not flood:
             cmd += "-i %s " % (ival)
         if tos is not None:
             cmd += "-Q %d " % (tos)
+        if flood:
+            cmd += "-f "
 
         ret, _ = self.cmd(cmd, fail=False)
         if ret and should_fail == False:
@@ -135,14 +137,14 @@ class LinuxSystem(System):
         return ret
 
     def ping(self, addr, ifc=None, count=10, size=None, pattern="",
-             ival="0.05", tos=None, should_fail=False):
+             ival="0.05", tos=None, flood=False, should_fail=False):
         return self._ping("ping", 2, addr, ifc, count, size, pattern, ival,
-                          tos, should_fail)
+                          tos, flood, should_fail)
 
     def ping6(self, addr, ifc=None, count=10, size=None, pattern="",
-              ival="0.05", tos=None, should_fail=False):
+              ival="0.05", tos=None, flood=False, should_fail=False):
         return self._ping("ping6", 5, addr, ifc, count, size, pattern, ival,
-                          tos, should_fail)
+                          tos, flood, should_fail)
 
     def tcpping(self, addr, ifc=None, count=10, sport=100, dport=58, size=50,
                 tos=None, keep=True, speed="fast",
@@ -472,14 +474,14 @@ TX:		(\d+)
 
         return ret
 
-    def ethtool_rings_set(self, ifc, settings):
+    def ethtool_rings_set(self, ifc, settings, fail=True):
         LOG_sec("GET RING %s for %s to %s" % (self.host, ifc, str(settings)))
         try:
                 cmd = 'ethtool -G ' + ifc
                 for k in settings.keys():
                     cmd += ' %s %s' % (k, settings[k])
 
-                ret = self.cmd(cmd)
+                ret = self.cmd(cmd, fail=fail)
         finally:
             LOG_endsec()
 

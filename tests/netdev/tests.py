@@ -28,6 +28,8 @@ class NFPKmodNetdev(NFPKmodAppGrp):
             self.dut.defaults[vnic]["link"] = self.dut.ip_link_stats(vnic)
             self.dut.defaults[vnic]["chan"] = \
                 self.dut.ethtool_channels_get(vnic)["current"]
+            self.dut.defaults[vnic]["ring"] = \
+                self.dut.ethtool_rings_get(vnic)["current"]
 
     def populate_tests(self):
         dut = (self.dut, self.addr_x, self.eth_x, self.addr_v6_x)
@@ -47,6 +49,7 @@ class NFPKmodNetdev(NFPKmodAppGrp):
             ('netconsole', NetconsoleTest, 'Test netconsole over the NFP'),
             ('mtu_flbufsz_check', MtuFlbufCheck,
              "Check if driver sets correct fl_bufsz and mtu"),
+            ('huge_ring', HugeRings, "Check allocation of huge rings"),
         )
 
         for t in tests:
@@ -61,7 +64,7 @@ import os
 import re
 from netro.testinfra.nti_exceptions import NtiError
 from netro.testinfra.system import cmd_log
-from ..common_test import CommonTest, NtiSkip
+from ..common_test import CommonTest, NtiSkip, assert_eq, assert_ge
 from ..drv_system import NfpNfdCtrl
 
 class BspVerTest(CommonTest):
@@ -285,3 +288,34 @@ class DevlinkPortsShow(CommonTest):
                                    (split, main_port))
             elif subport != "0":
                 raise NtiError("Split group not reported for non-0th subport")
+
+class HugeRings(CommonTest):
+    def execute(self):
+        self.port = 0
+        self.rings_changed = False
+
+        if len(self.dut.nfp_netdevs) != len(self.dut.vnics):
+            raise NtiSkip('switchdev firmware')
+
+        rings = self.dut.ethtool_rings_get(self.dut.vnics[0])
+
+        ret, _ = self.dut.ethtool_rings_set(self.dut.vnics[0], rings["max"],
+                                            fail=False)
+        self.rings_changed = ret == 0
+        if ret:
+            _, dmesg = self.dut.cmd('dmesg | tail -200')
+            assert_eq(0, dmesg.count("Call Trace:"), "stack dumps in the logs")
+            assert_ge(1, dmesg.count("consider lowering descriptor count"),
+                      "our info/warning in the logs")
+        else:
+            pkt_cnt = max(rings["max"]["rx"], rings["max"]["tx"]) + 128
+            self.src.ping(addr=self.dut_addr[self.port][:-3],
+                          ifc=self.src_ifn[self.port],
+                          count=pkt_cnt, flood=True)
+
+    def cleanup(self):
+        if self.rings_changed:
+            defaults = self.dut.defaults[self.dut.vnics[self.port]]["ring"]
+            self.dut.ethtool_rings_set(self.dut.vnics[self.port], defaults)
+
+        return super(HugeRings, self).cleanup()
