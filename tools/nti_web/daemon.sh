@@ -105,6 +105,7 @@ update_driver() {
     git pull
     make KSRC=net-next/ -j $NPROC
     export LIBBPF_PATH=$(pwd)/net-next/tools/lib/bpf/
+    export PATH=${PATH}:/opt/netronome/bin/
     make KSRC=net-next/ -j $NPROC test_prepare
 }
 
