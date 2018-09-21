@@ -757,31 +757,6 @@ class CommonTest(Test):
 
         return list(set(self.dut._netifs) - set(netifs_old))
 
-class CommonDrvTest(CommonTest):
-    def cleanup(self):
-        self.dut.reset_mods()
-        self.dut.reset_dirs()
-
-
-class CommonNTHTest(CommonTest):
-    def execute(self):
-        if self.group.upstream_drv:
-            raise NtiSkip("NTH test on upstream")
-
-        M = self.dut
-
-        M.insmod()
-        M.insmod(module="nth")
-
-        self.nth_execute()
-
-    def nth_execute(self):
-        pass
-
-    def cleanup(self):
-        self.dut.reset_mods()
-
-class CommonNetdevTest(CommonTest):
     def netdev_prep(self, fwname=None):
         LOG_sec("NFP netdev test prep")
 
@@ -807,6 +782,31 @@ class CommonNetdevTest(CommonTest):
         LOG("phys_netdevs: " + str(self.phys_netdevs))
         LOG_endsec()
 
+class CommonDrvTest(CommonTest):
+    def cleanup(self):
+        self.dut.reset_mods()
+        self.dut.reset_dirs()
+
+
+class CommonNTHTest(CommonTest):
+    def execute(self):
+        if self.group.upstream_drv:
+            raise NtiSkip("NTH test on upstream")
+
+        M = self.dut
+
+        M.insmod()
+        M.insmod(module="nth")
+
+        self.nth_execute()
+
+    def nth_execute(self):
+        pass
+
+    def cleanup(self):
+        self.dut.reset_mods()
+
+class CommonNetdevTest(CommonTest):
     def execute(self):
         self.netdev_prep()
 

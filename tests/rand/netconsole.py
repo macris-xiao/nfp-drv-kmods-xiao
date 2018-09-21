@@ -84,7 +84,6 @@ class NetconsoleRandTest(NetconsoleTest):
     def flip_link(self):
         self.ifc_all_down()
         self.ifc_all_up()
-        self.n_bufs = 512
 
         # DUT -> SRC sessions will die from the ifdown
         self.stop_netperfs()
@@ -116,7 +115,10 @@ class NetconsoleRandTest(NetconsoleTest):
         self.spawn_background_netcons_noise()
         self.spawn_netperfs()
 
-    def netdev_execute(self):
+    def execute(self):
+        self.netdev_prep()
+        self.init_state()
+
         self.netcons_prep()
 
         self.has_bpf_offload = self.read_scalar_nffw('_pf0_net_app_id') == 2
@@ -154,4 +156,6 @@ class NetconsoleRandTest(NetconsoleTest):
         if self.netcons_noise_running:
             self.stop_background_netcons_noise()
         self.stop_netperfs()
-        return super(NetconsoleRandTest, self).cleanup()
+        super(NetconsoleRandTest, self).cleanup()
+        self.dut.reset_mods()
+        self.dut.reset_dirs()
