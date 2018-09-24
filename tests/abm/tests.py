@@ -1107,10 +1107,7 @@ class BnicMarkPing(BnicQlvl):
                 assert_lt(30, q[s], 'Statistic %s mismatch' % (s))
 
 class BnicRedNonRoot(BnicTest):
-    def red_on_red(self, offload_base, offload_top):
-        # Set RED on top of RED
-        self.set_root_red_all(1 << 16, ecn=offload_base)
-
+    def red_simple_check(self, offload_base):
         # Validate
         fw_state, qdiscs, reds = self.get_state_simple_root_red()
         handles = {}
@@ -1125,33 +1122,38 @@ class BnicRedNonRoot(BnicTest):
         else:
             self.validate_root_fw_levels(fw_state, ABM_LVL_NOT_SET)
 
+        return handles
+
+    def red_on_red(self, offload_base, offload_top):
+        # Set RED on top of RED
+        self.set_root_red_all(1 << 16, ecn=offload_base)
+
+        handles = self.red_simple_check(offload_base)
+
         # Now replace backing qdiscs with RED, thrs 15000
         for ifc in self.group.pf_ports:
             self.qdisc_replace(ifc, parent=handles[ifc] + "1",
                                kind="red", thrs=15000, ecn=offload_top)
 
-        # Validate again
+        # Validate again, neither should offload
         fw_state = self.read_fw_state()
         _, qdiscs = self.qdisc_show()
-        reds = []
         for ifc in self.group.pf_ports:
             qds = qdiscs[ifc]
             assert_equal(2, len(qds), "Number of qdiscs")
 
-            first = qdiscs[ifc][0]['handle'] == handles[ifc]
-            old = qds[not first]
-            new = qds[first]
+            assert_equal(False, 'offloaded' in qds[0], 'Qdisc 0 offloaded')
+            assert_equal(False, 'offloaded' in qds[1], "Qdisc 1 offloaded")
 
-            # Stash the old one for shared check below
-            reds.append((self.group.pf_ports.index(ifc), ifc, old))
-            assert_equal(offload_base, 'offloaded' in old, 'Base offloaded')
-            # Validate others by hand
-            assert_equal(False, 'offloaded' in new, "New offloaded")
+        self.validate_root_fw_levels(fw_state, ABM_LVL_NOT_SET)
 
-        if offload_base:
-            self.validate_root_basic(fw_state, reds, 1 << 16)
-        else:
-            self.validate_root_fw_levels(fw_state, ABM_LVL_NOT_SET)
+        # We can't easily replace with limit 0 because iproute2 won't let us,
+        # only test replace with limit set
+        for ifc in self.group.pf_ports:
+            self.qdisc_replace(ifc, parent="root", kind="red", thrs=(1 << 16),
+                               ecn=offload_base)
+
+        self.red_simple_check(offload_base)
 
     def execute(self):
         self.switchdev_mode_enable()
