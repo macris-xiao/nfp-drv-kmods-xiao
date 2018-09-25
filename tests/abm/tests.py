@@ -338,13 +338,14 @@ class BnicTest(CommonTest):
         return ret, out
 
     def qdisc_delete(self, ifc, parent=None, kind=None, fail=False):
-        params = ''
+        params = ""
+        if ifc:
+            params += " dev " + ifc
         if parent:
             params += " parent " + parent
         if kind:
             params += " " + kind
-        return self.dut.cmd("tc qdisc delete dev %s parent %s" % (ifc, parent),
-                            fail=fail)
+        return self.dut.cmd("tc qdisc delete" + params, fail=fail)
 
     def qdisc_replace(self, ifc, parent="root", kind="mq", thrs=0, ecn=True,
                       _bulk=False):
@@ -682,7 +683,7 @@ class BnicTcOffload(BnicTest):
 
         # Delete Qdiscs and check again
         for ifc in self.group.pf_ports:
-            self.qdisc_delete(ifc, parent="root", kind="red")
+            self.qdisc_delete(ifc, parent="root")
             self.active[ifc] = False
             self.validate_flag_disable_all()
 
@@ -715,7 +716,7 @@ class BnicTcOffload(BnicTest):
 
         # Remove the childen
         for ifc in self.group.pf_ports:
-            self.qdisc_delete(ifc, parent=mqs[ifc]['handle'] + "1", kind="red")
+            self.qdisc_delete(ifc, parent=mqs[ifc]['handle'] + "1")
             self.validate_flag_disable_all()
 
         # Remove the MQ
@@ -749,7 +750,7 @@ class BnicTcOffload(BnicTest):
         # Now try to re-add the RED Qdiscs with enabled, but MQ was installed
         # without it
         for ifc in self.group.pf_ports:
-            self.qdisc_delete(ifc, parent=mqs[ifc]['handle'] + "1", kind="red")
+            self.qdisc_delete(ifc, parent=mqs[ifc]['handle'] + "1")
         for ifc in self.group.pf_ports:
             self.set_offload(ifc, True)
         for ifc in self.group.pf_ports:
@@ -1018,7 +1019,7 @@ class BnicQlvl(BnicTest):
 
         # Remove all qdiscs (test disable)
         for ifc in self.group.pf_ports:
-            self.qdisc_delete(ifc, parent="root", kind="red")
+            self.qdisc_delete(ifc, parent="root")
             self.check_thrs_match()
 
         # Test stats with taking vNICs down, this avoids counter errors
@@ -1255,7 +1256,7 @@ class BnicRedRaw(BnicQlvl):
         self.check_forced_stats()
 
         for ifc in self.group.pf_ports:
-            self.qdisc_delete(ifc, parent="root", kind="red")
+            self.qdisc_delete(ifc, parent="root")
 
         # Reset - beware blog will be set so check all 0 and the blog
         self.set_root_red_all(1)
@@ -1444,8 +1445,7 @@ class BnicRedMq(BnicTest):
 
     def del_red_one(self, ifc, qid):
         self.qcfg[ifc][qid] = ABM_LVL_NOT_SET
-        self.qdisc_delete(ifc, parent=self.mqs[ifc] + "%x" % (qid + 1),
-                          kind="red")
+        self.qdisc_delete(ifc, parent=self.mqs[ifc] + "%x" % (qid + 1))
 
     def _set_thrs(self, ifc, qid, thrs, ecn):
         if ecn:
