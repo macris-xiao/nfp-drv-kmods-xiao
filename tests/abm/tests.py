@@ -373,7 +373,7 @@ class BnicTest(CommonTest):
         return res
 
     def qdisc_show(self, ifc=None):
-        params=""
+        params = ""
         if ifc:
             params += " dev " + ifc
         ret, out = self.dut.cmd("tc -s -j qdisc show" + params)
@@ -389,7 +389,7 @@ class BnicTest(CommonTest):
         return res
 
     def ip_show(self, ifc=None):
-        params=""
+        params = ""
         if ifc:
             params += " dev " + ifc
         ret, out = self.dut.cmd("ip -j -s link show")
@@ -1815,7 +1815,6 @@ class BnicRedMqRaw(BnicTest):
             # Validate
             for s in BnicQlvl.BASIC:
                 assert_equal(acc[s], mq[s], "MQ stats: " + s)
-
 
     def prepare(self):
         if self.group.upstream_drv:
