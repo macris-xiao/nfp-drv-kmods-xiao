@@ -84,7 +84,9 @@ class NFPKmodBnic(NFPKmodAppGrp):
             "cred_total"	: {
                  2 * 1024		: 0,
                 10 * 1024		: 0,
-                },
+            },
+            "num_prio"		: 1,
+            "num_bands"		: 1,
         }
         value = some_test.read_sym_nffw("_abi_nfd_total_bufs", fail=True)
         if len(value) != 8:
@@ -92,6 +94,16 @@ class NFPKmodBnic(NFPKmodAppGrp):
 
         self.dut.fwcaps["cred_total"][2048] = get_le32(value, 0)
         self.dut.fwcaps["cred_total"][10240] = get_le32(value, 1)
+
+        value = some_test.read_sym_nffw("_abi_pci_dscp_num_prio_0", fail=False)
+        if value is not None:
+            assert_eq(8, len(value), "num_prio sym len")
+            self.dut.fwcaps["num_prio"] = get_le32(value, 0)
+
+        value = some_test.read_sym_nffw("_abi_pci_dscp_num_band_0", fail=False)
+        if value is not None:
+            assert_eq(8, len(value), "num_bands sym len")
+            self.dut.fwcaps["num_bands"] = get_le32(value, 0)
 
         LOG_sec("ABM NIC capabilities")
         LOG(self.pp.pformat(self.dut.fwcaps))
