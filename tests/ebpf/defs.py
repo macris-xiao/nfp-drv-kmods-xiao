@@ -18,6 +18,7 @@ class BPF_TLV:
     RANDOM		= 4
     QSEL		= 5
     ADJUST_TAIL		= 6
+    ABI			= 7
 
 class BPF_HELPER:
     MAP_LOOKUP_ELEM	= 1

@@ -57,6 +57,7 @@ class NFPKmodBPF(NFPKmodAppGrp):
             "random"		: False,
             "qsel"		: False,
             "adjust_tail"	: False,
+            "abi"		: None,
         }
 
         basetest = self._tests.keys()[0]
@@ -105,6 +106,9 @@ class NFPKmodBPF(NFPKmodAppGrp):
 
             elif tlv_type == BPF_TLV.ADJUST_TAIL:
                 self.dut.bpf_caps["adjust_tail"] = True
+
+            elif tlv_type == BPF_TLV.ABI:
+                self.dut.bpf_caps["abi"] = struct.unpack("<I", value[0:4])[0]
 
             else:
                 LOG_sec("Unknown TLV")
