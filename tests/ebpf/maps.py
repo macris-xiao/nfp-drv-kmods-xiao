@@ -390,6 +390,19 @@ class XDPmapStress(MapTest):
 
 
 class XDPmapLimits(MapTest):
+    def map_should_fail(self, key_sz, val_sz):
+        if self.group.xdp_mode() != "offload":
+            return False
+
+        key_sz = (key_sz & ~(8 - 1)) + 8 * bool(key_sz % 8)
+        val_sz = (val_sz & ~(8 - 1)) + 8 * bool(val_sz % 8)
+
+        cap = self.dut.bpf_caps["maps"]
+
+        return cap['max_key_sz'] < key_sz or \
+               cap['max_val_sz'] < val_sz or \
+               cap['max_elem_sz'] < key_sz + val_sz
+
     def execute(self):
         self.bpffs_dir = "/sys/fs/bpf/nfp_" + \
             os.path.basename(self.group.tmpdir)
@@ -401,9 +414,12 @@ class XDPmapLimits(MapTest):
         should_fail = mode == "offload"
 
         # Basic element geometry
-        self.xdp_start('map_bad_key.o', mode=mode, should_fail=should_fail)
-        self.xdp_start('map_bad_value.o', mode=mode, should_fail=should_fail)
-        self.xdp_start('map_bad_elem.o', mode=mode, should_fail=should_fail)
+        self.xdp_start('map_bad_key.o', mode=mode,
+                       should_fail=self.map_should_fail(58, 1))
+        self.xdp_start('map_bad_value.o', mode=mode,
+                       should_fail=self.map_should_fail(1, 58))
+        self.xdp_start('map_bad_elem.o', mode=mode,
+                       should_fail=self.map_should_fail(33, 33))
         self.xdp_start('map_bad_key_array.o', mode=mode, should_fail=True)
         self.xdp_start('map_bad_flags.o', mode=mode, should_fail=should_fail)
         self.xdp_start('map_bad_numa.o', mode=mode, should_fail=should_fail)
