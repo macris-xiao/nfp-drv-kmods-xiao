@@ -1928,8 +1928,6 @@ class BnicReload(BnicTest):
         # Unload while enabled
         self.switchdev_mode_enable()
 
-        self.log('started all ok', '')
-
         for i in range(self.group.n_ports):
             self.qdisc_replace(self.group.pf_ports[i], kind="red", thrs=15000)
 
