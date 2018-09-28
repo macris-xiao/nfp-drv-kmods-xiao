@@ -38,7 +38,7 @@ BUILD_ENV_VERSION=3
 # 312 is 3.12, 402 is 4.2, etc.)
 MIN_KERNEL_VER=308
 # URL to the project repo
-REPO_URL=ssh://hg.netronome.com/data/git/repos/nfp-drv-kmods.git
+REPO_URL=git://source.netronome.com/nfp-drv-kmods.git
 # Build directory (can get huge)
 [ -z "$BUILD_ROOT" ] && BUILD_ROOT=~/tests/auto/
 # Default compiler to use for most testing (must be something conservative
