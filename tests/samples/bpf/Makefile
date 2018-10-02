@@ -1,6 +1,6 @@
 LLVM_VERSION ?= -6.0
 LLVM := $(shell clang$(LLVM_VERSION) --version)
-CLANG_FLAGS ?= -W -Wall \
+CLANG_FLAGS ?= -O2 -W -Wall \
 	-Wno-compare-distinct-pointer-types
 
 SRCS=$(wildcard *.c *.S)
@@ -10,7 +10,7 @@ Q ?= @
 
 %.o: %.c
 	@echo "\tLLVM CC $@"
-	$(Q) clang$(LLVM_VERSION) $(INCLUDE_DIRS) -O2 -emit-llvm -c $< $(CLANG_FLAGS) -o $(patsubst %.o,%.llvm,$@)
+	$(Q) clang$(LLVM_VERSION) $(INCLUDE_DIRS) -emit-llvm -c $< $(CLANG_FLAGS) -o $(patsubst %.o,%.llvm,$@)
 	$(Q) llc$(LLVM_VERSION) -march=bpf -filetype=obj -o $@ $(patsubst %.o,%.llvm,$@)
 	$(Q) rm $(patsubst %.o,%.llvm,$@)
 
