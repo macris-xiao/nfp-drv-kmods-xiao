@@ -193,17 +193,28 @@ class BnicTest(CommonTest):
             10 * 1024		: vals[1],
         }
 
-    def _read_fw_state(self, rtsym_tlvs):
+    def _empty_config_dict(self):
         fw_state = dict()
-        fw_state["qmstate"] = [False] * NUM_PCI_PFS
-        fw_state["cred_excl"] = [{} for i in range(NUM_PCI_PFS)]
-        fw_state["nfd_excl"] = [{} for i in range(NUM_PCI_PFS)]
-        fw_state["mbox_state"] = [() for i in range(NUM_PCI_PFS)]
         fw_state["qlvl"] = [[] for i in range(NUM_PCI_PFS)]
         fw_state["qlen"] = [[] for i in range(NUM_PCI_PFS)]
         fw_state["qblog"] = [[] for i in range(NUM_PCI_PFS)]
         fw_state["qmstat"] = \
             [[() for j in range(MAX_QUEUES)] for i in range(NUM_PCI_PFS)]
+
+        return fw_state
+
+    def _read_fw_state(self, rtsym_tlvs):
+        fw_state = self._empty_config_dict()
+        fw_state["qmstate"] = [False] * NUM_PCI_PFS
+        fw_state["cred_excl"] = [{} for i in range(NUM_PCI_PFS)]
+        fw_state["nfd_excl"] = [{} for i in range(NUM_PCI_PFS)]
+        fw_state["mbox_state"] = [() for i in range(NUM_PCI_PFS)]
+
+        band_range = range(self.dut.fwcaps["num_bands"])
+
+        fw_state["prio"] = [
+            self._empty_config_dict() for i in band_range
+        ]
 
         for t in rtsym_tlvs:
             r = t.value
@@ -224,32 +235,52 @@ class BnicTest(CommonTest):
                 idx = int(r.sym_name[-1:])
                 fw_state["nfd_excl"][idx] = self.unpack_creds(r.reg_data)
             elif r.sym_name.count('_abi_nfd_out_q_lvls_'):
-                idx = int(r.sym_name[-1:])
+                idx = int(r.sym_name[20])
 
                 per_q = 16
-                if len(r.reg_data) / per_q != MAX_QUEUES:
+
+                if r.sym_name.count('per_band'):
+                    tgts = fw_state["prio"]
+                else:
+                    tgts = (fw_state,)
+
+                if len(r.reg_data) / per_q / len(tgts) != MAX_QUEUES:
                     raise NtiError("Qlvl stat symbol bad len, have len %d" %
                                    (len(r.reg_data) / per_q))
 
-                for i in range(MAX_QUEUES):
-                    vals = unpack_from('< I I I',
-                                       r.reg_data[i * per_q:(i + 1) * per_q])
-                    fw_state["qblog"][idx].append(vals[0])
-                    fw_state["qlen"][idx].append(vals[1])
-                    fw_state["qlvl"][idx].append(vals[2])
+                for t in range(len(tgts)):
+                    for i in range(MAX_QUEUES):
+                        start = (t * MAX_QUEUES + i) * per_q
+                        end = (t * MAX_QUEUES + i + 1) * per_q
+
+                        vals = unpack_from('< I I I', r.reg_data[start:end])
+
+                        tgts[t]["qblog"][idx].append(vals[0])
+                        tgts[t]["qlen"][idx].append(vals[1])
+                        tgts[t]["qlvl"][idx].append(vals[2])
             elif r.sym_name.count('_abi_nfdqm') and r.sym_name.count('stats'):
                 idx = int(r.sym_name[10])
 
                 per_q = NUM_QM_STATS * 8
                 qs = len(r.reg_data) / per_q
-                if qs != MAX_QUEUES:
-                    raise NtiError("QM stat symbol bad len, have %d queues" %
-                                   (qs))
 
-                for i in range(MAX_QUEUES):
-                    fw_state["qmstat"][idx][i] = \
-                        unpack_from('< ' + 'Q ' * NUM_QM_STATS,
-                                    r.reg_data[i * per_q:(i + 1) * per_q])
+                if r.sym_name.count('per_band'):
+                    tgts = fw_state["prio"]
+                else:
+                    tgts = (fw_state,)
+
+                if qs / len(tgts) != MAX_QUEUES:
+                    raise NtiError("QM stat symbol '%s' bad len, queues: %d / %d != %d" %
+                                   (r.sym_name, qs, len(tgts), MAX_QUEUES))
+
+                for t in range(len(tgts)):
+                    for i in range(MAX_QUEUES):
+                        start = (t * MAX_QUEUES + i) * per_q
+                        end = (t * MAX_QUEUES + i + 1) * per_q
+                        tgts[t]["qmstat"][idx][i] = \
+                            unpack_from('< ' + 'Q ' * NUM_QM_STATS,
+                                        r.reg_data[start:end])
+
             elif r.sym_name.count('_abi_nfd_pf0_mbox'):
                 idx = int(r.sym_name[-6])
                 fw_state["mbox_state"][idx] = unpack_from('< I I I I I I I I',
