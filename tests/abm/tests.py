@@ -183,7 +183,7 @@ MAX_QUEUES = 64
 NUM_QM_STATS = 4
 NUM_QM_STATS = 4
 
-ABM_LVL_NOT_SET = ((1 << 32) - 1)
+ABM_LVL_NOT_SET = ((1 << 31) - 1)
 
 class BnicTest(CommonTest):
     def unpack_creds(self, data):
