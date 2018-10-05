@@ -448,6 +448,8 @@ class NFPKmodBPF(NFPKmodAppGrp):
 
                ('xdp_function_call', XDPfunctionCall,
                 'Simple BPF-to-BPF function call'),
+               ('xdp_function_call_4_flat', XDPfunctionCall,
+                'BPF-to-BPF function calls: 3 functions, 4 independent calls'),
         )
 
         for i in (0, 1, 3, 7, 8, 11):
