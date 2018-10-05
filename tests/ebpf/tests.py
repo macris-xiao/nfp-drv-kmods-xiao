@@ -462,6 +462,8 @@ class NFPKmodBPF(NFPKmodAppGrp):
                 'BPF-to-BPF function calls passing pointers to stack data'),
                ('xdp_function_call_stack_large', XDPfunctionCall,
                 'BPF-to-BPF function calls with callee using > 64B of stack'),
+               ('xdp_function_call_stack_aligned', XDPfunctionCall,
+                'BPF-to-BPF function call with aligned u32 stack read/write'),
         )
 
         for i in (0, 1, 3, 7, 8, 11):
