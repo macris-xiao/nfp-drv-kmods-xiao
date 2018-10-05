@@ -460,6 +460,8 @@ class NFPKmodBPF(NFPKmodAppGrp):
                 'BPF-to-BPF function calls with callee clobbering R6 to R9'),
                ('xdp_function_call_stack', XDPfunctionCall,
                 'BPF-to-BPF function calls passing pointers to stack data'),
+               ('xdp_function_call_stack_large', XDPfunctionCall,
+                'BPF-to-BPF function calls with callee using > 64B of stack'),
         )
 
         for i in (0, 1, 3, 7, 8, 11):
