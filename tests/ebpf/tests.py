@@ -452,6 +452,8 @@ class NFPKmodBPF(NFPKmodAppGrp):
                 'BPF-to-BPF function calls: 3 functions, 4 independent calls'),
                ('xdp_function_call_8_nested', XDPfunctionCall,
                 'BPF-to-BPF function calls: 8 levels deep calls'),
+               ('xdp_function_call_12_flat_noregs', XDPfunctionCall,
+                'BPF-to-BPF function calls: 12 flat calls, no use for R6~R9'),
         )
 
         for i in (0, 1, 3, 7, 8, 11):
