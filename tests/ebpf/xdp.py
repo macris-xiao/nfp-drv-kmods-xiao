@@ -153,8 +153,13 @@ class XDPpassBaseWithCodegenScan(XDPpassBase):
         if self.is_drv_mode():
             return None
         prog_name = self.get_prog_name()
-        return os.path.join(self.group.samples_xdp,
-                            os.path.splitext(prog_name)[0] + ".S")
+        filename = os.path.join(self.group.samples_xdp,
+                                os.path.splitext(prog_name)[0] + ".c")
+        if os.path.isfile(filename):
+            return filename
+        else:
+            return os.path.join(self.group.samples_xdp,
+                                os.path.splitext(prog_name)[0] + ".S")
 
     def install_filter(self):
         self.xdp_start(self.get_prog_name(), mode=self.group.xdp_mode())
@@ -208,6 +213,16 @@ class XDPpass(XDPTest):
         self.ping(0)
         self.tcpping(0)
         self.ping6(0)
+
+class XDPfunctionCall(XDPpassBaseWithCodegenScan):
+    def get_src_pkt(self):
+        return self.std_pkt()
+
+    def get_exp_pkt(self):
+        return self.std_pkt()
+
+    def get_prog_name(self):
+        return xdp_test_name_to_prog(self)
 
 class XDPdrop(XDPTest):
     def execute(self):

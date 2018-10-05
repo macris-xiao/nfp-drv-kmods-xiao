@@ -444,7 +444,10 @@ class NFPKmodBPF(NFPKmodAppGrp):
                ('xdp_perf_event_output_cpu_dyn', XDPLoadNoOffloadTest,
                 'perf event output helper use with dynamic CPU'),
                ('xdp_queue_select', QueueSelectTest,
-                'queue select/programmable RSS')
+                'queue select/programmable RSS'),
+
+               ('xdp_function_call', XDPfunctionCall,
+                'Simple BPF-to-BPF function call'),
         )
 
         for i in (0, 1, 3, 7, 8, 11):

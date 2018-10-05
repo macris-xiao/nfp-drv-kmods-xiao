@@ -404,6 +404,11 @@ class CommonTest(Test):
         return "".join(errors)
 
     def check_bpf_jit_codegen(self):
+        jit_patterns_file = self.get_jit_patterns_file_name()
+        includes, excludes = self.collect_bpf_jit_patterns(jit_patterns_file)
+        if not includes and not excludes:
+            return
+
         jit_res = self.get_bpf_jit_results()
         if jit_res is None:
             raise NtiError("Can't find JIT codegen output")
@@ -412,10 +417,10 @@ class CommonTest(Test):
             return
         jit_patterns_file = self.get_jit_patterns_file_name()
         includes, excludes = self.collect_bpf_jit_patterns(jit_patterns_file)
-        if includes or excludes:
-            errors = self.scan_bpf_jit_results(jit_res, includes, excludes)
-            if errors is not "":
-                raise NtiError("JIT codegen scan:\n" + errors)
+
+        errors = self.scan_bpf_jit_results(jit_res, includes, excludes)
+        if errors is not "":
+            raise NtiError("JIT codegen scan:\n" + errors)
 
     def tc_bpf_load(self, obj, flags="", act="", verifier_log="", extack="",
                     needle_noextack="", skip_sw=False, skip_hw=False,
