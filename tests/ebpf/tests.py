@@ -470,6 +470,8 @@ class NFPKmodBPF(NFPKmodAppGrp):
                 'BPF-to-BPF call with checks on stack frame size alignment'),
                ('xdp_function_call_stack_limit_pass', XDPfunctionCall,
                 'BPF-to-BPF call allowed iff R6-R9 saving is optimised out'),
+               ('xdp_function_call_stack_limit_gpr', XDPLoadNoOffloadTest,
+                'BPF-to-BPF call rejected due to ret addr & GPR saving'),
         )
 
         for i in (0, 1, 3, 7, 8, 11):
