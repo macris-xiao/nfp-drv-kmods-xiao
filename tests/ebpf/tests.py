@@ -466,6 +466,8 @@ class NFPKmodBPF(NFPKmodAppGrp):
                 'BPF-to-BPF function call with aligned u32 stack read/write'),
                ('xdp_function_call_stack_aligned', XDPfunctionCall,
                 'BPF-to-BPF function call with unaligned u8 stack read/write'),
+               ('xdp_function_call_stack_frame_size', XDPfunctionCall,
+                'BPF-to-BPF call with checks on stack frame size alignment'),
         )
 
         for i in (0, 1, 3, 7, 8, 11):
