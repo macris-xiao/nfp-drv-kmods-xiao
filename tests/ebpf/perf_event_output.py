@@ -158,6 +158,14 @@ class PerfEventOutputOnesTest(PerfEventOutputTest):
     def event_data(self):
         return '\x04\xff'
 
+class PerfEventOutputEightsTest(PerfEventOutputTest):
+    def get_src_pkt(self):
+        return '\xff' + self.std_pkt()[1:]
+
+    def event_data(self):
+        #return '\x08\x07\x06\x05\x04\x03\x02\x01\xff'
+        return '\x08\x07\x06\x05\x00\x00\x00\x00\xff\x00\x00'
+
 class PerfEventOutputDynTest(PerfEventOutputTest):
     def event_data(self):
         return self.std_pkt()
