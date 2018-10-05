@@ -474,6 +474,8 @@ class NFPKmodBPF(NFPKmodAppGrp):
                 'BPF-to-BPF call rejected due to ret addr & GPR saving'),
                ('xdp_function_call_peo_8s', PerfEventOutputEightsTest,
                 'perf event output helper use for 8 byte of data (assembly)'),
+               ('xdp_function_call_helpers_adj_head', XDPpassAdjTwice,
+                'BPF-to-BPF function call with calls to adjust_head() helper'),
         )
 
         for i in (0, 1, 3, 7, 8, 11):
