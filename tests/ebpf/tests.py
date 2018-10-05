@@ -456,6 +456,8 @@ class NFPKmodBPF(NFPKmodAppGrp):
                 'BPF-to-BPF function calls: 12 flat calls, no use for R6~R9'),
                ('xdp_function_call_12_flat_regs', XDPfunctionCall,
                 'BPF-to-BPF function calls: 12 flat calls, using R6~R9'),
+               ('xdp_function_call_callee_saved_reg', XDPfunctionCall,
+                'BPF-to-BPF function calls with callee clobbering R6 to R9'),
         )
 
         for i in (0, 1, 3, 7, 8, 11):
