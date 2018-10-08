@@ -14,6 +14,7 @@ from ..drv_grp import NFPKmodGrp
 from struct import unpack, pack
 from time import sleep
 from copy import copy
+import ipaddress
 import os
 import re
 
@@ -61,6 +62,7 @@ class NFPKmodFlower(NFPKmodGrp):
              ('flower_match_geneve_opt', FlowerMatchGeneveOpt, "Checks flower Geneve option match capabilities"),
              ('flower_match_geneve_multi_opt', FlowerMatchGeneveMultiOpt, "Checks flower Genevei with multiple options match capabilities"),
              ('flower_match_block', FlowerMatchBlock, "Checks basic flower block match capabilities"),
+             ('flower_max_entries', FlowerMaxEntries, "Checks that maximum entries can be installed"),
              ('flower_modify_mtu', FlowerModifyMTU, "Checks the setting of a mac repr MTU"),
              ('flower_match_whitelist', FlowerMatchWhitelist, "Checks basic flower match whitelisting"),
              ('flower_vxlan_whitelist', FlowerVxlanWhitelist, "Checks that unsupported vxlan rules are not offloaded"),
@@ -975,6 +977,41 @@ class FlowerMatchGeneveMultiOpt(FlowerBase):
     def cleanup(self):
         self.dut.cmd('ip link del gene0', fail=False)
         return super(FlowerMatchGeneveMultiOpt, self).cleanup()
+
+class FlowerMaxEntries(FlowerBase):
+    """ Test tries to install 500K entries. We do this using TCs batch
+        command. The alternative of calling 'tc filter add' 500K times
+        is not feasible as this takes too long. Creating the batch file
+        on the orchestrator and copying it over is also not feasible as
+        this file can become very large.
+    """
+    def netdev_execute(self):
+        setup_local = os.path.join(self.group.tmpdir, 'generate_entries.py')
+        setup_dut = os.path.join(self.dut.tmpdir, 'generate_entries.py')
+        entry_filename = os.path.join(self.dut.tmpdir, 'rules.flows')
+        iface, ingress = self.configure_flower()
+        max_entry_cnt = 500000
+
+        with open(setup_local, "w") as entry_file:
+            entry_file.write('import ipaddress\n')
+            entry_file.write('cnt = 0\n')
+            entry_file.write('with open(\'%s\', "w") as entry_file:\n' % entry_filename)
+            entry_file.write('\tfor ip in ipaddress.IPv4Network(u\'22.0.0.0/255.248.0.0\'):\n')
+            entry_file.write('\t\tcnt += 1\n')
+            entry_file.write('\t\tiface = \'%s\'\n' % iface)
+            entry_file.write('\t\tmatch = \'ip prio 1 flower skip_sw dst_ip %s\' % ip\n')
+            entry_file.write('\t\taction = \'drop\'\n')
+            entry_file.write('\t\tcmd = \'filter add dev %s parent ffff: protocol %s action %s\\n\' % (iface, match, action)\n')
+            entry_file.write('\t\tentry_file.write(cmd)\n')
+            entry_file.write('\t\tif (cnt == %s):\n' % max_entry_cnt)
+            entry_file.write('\t\t\tbreak\n')
+
+        M = self.dut
+        M.mv_to(setup_local, setup_dut)
+        M.cmd('python %s' % setup_dut)
+        M.cmd('tc -b %s' % entry_filename)
+
+        self.cleanup_filter(iface)
 
 class FlowerMatchBlock(FlowerBase):
     def netdev_execute(self):
