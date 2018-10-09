@@ -438,7 +438,7 @@ class CommonTest(Test):
         if keep:
             opts += "-k "
         if tos is not None:
-            opts += "-o %d " % (tos)
+            opts += "-o %x " % (tos)
         if ip_id is not None:
             opts += "--id %d " % ip_id
         if ttl is not None:
