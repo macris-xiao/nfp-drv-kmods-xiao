@@ -27,6 +27,13 @@ from ..nfd import NfdBarOff
 def get_le32(arr, idx):
     return struct.unpack("<I", arr[idx * 4 : (idx + 1) * 4])[0]
 
+def qdisc_str(q):
+    return "ifc: '%s' k:'%s' p:'%s' h:'%s'" % \
+        (q["dev"],
+         q["kind"],
+         q["parent"] if "parent" in q else "--",
+         q["handle"])
+
 ###########################################################################
 # Group
 ###########################################################################
@@ -391,24 +398,54 @@ class BnicTest(CommonTest):
         return self.dut.cmd("tc qdisc delete" + params, fail=fail)
 
     def qdisc_replace(self, ifc, parent="root", handle=None, kind="mq", thrs=0,
-                      ecn=True, _bulk=False):
+                      ecn=True, bands=None, default=None, vq=None,
+                      _bulk=False):
         param = "parent " + parent
         if handle is not None:
             param += " handle %s:" % handle
+
         if kind == "red":
             param += " red min {thrs} max {thrs} avpkt {thrs} burst 1 "\
                     "limit 400000 bandwidth 10Mbit {ecn}"\
                     .format(thrs=thrs, ecn=("ecn" * ecn))
+        elif kind == "gred":
+            param += " gred"
+            if bands is not None:
+                param += " setup vqs %d" % (bands)
+                if default is not None:
+                    param += " default %d" % (default)
+                if ecn:
+                    param += " ecn"
+            else:
+                param += " vq %d" % (vq)
+                param += " min {thrs} max {thrs} avpkt {thrs} burst 1 "\
+                    .format(thrs=thrs)
+                param += " limit 400000 bandwidth 10Mbit"
         else:
             param += " " + kind
+
         cmd = "tc qdisc replace dev %s %s" % (ifc, param)
         if _bulk:
             return cmd
         else:
             return self.dut.cmd(cmd)
 
+    def build_gred(self, ifc, parent="root", handle=None, bands=4, default=0,
+                   thrs=[0,0,0,0], ecn=True, _bulk=False):
+        if handle is None:
+            _, qh = self.qdisc_by_handle(ifc)
+            for h in range(4096, 0, -1):
+                handle = hex(h)[2:]
+                if handle not in qh[ifc]:
+                    break
+
+        self.qdisc_replace(ifc, parent=parent, handle=handle, kind="gred",
+                           bands=bands, default=default, ecn=ecn)
+        for i in range(bands):
+            self.qdisc_replace(ifc, parent=parent, handle=handle, kind="gred",
+                               vq=i, thrs=thrs[i])
+
     def _qdisc_json_group_by_dev(self, out):
-        out = json.loads(out)
         res = dict()
         for q in out:
             dev = q['dev']
@@ -418,13 +455,34 @@ class BnicTest(CommonTest):
                 res[dev].append(q)
         return res
 
-    def qdisc_show(self, ifc=None):
+    def _qdisc_json_group_by_dev_handle(self, out):
+        res = dict()
+        for q in out:
+            dev = q['dev']
+            if dev not in res:
+                res[dev] = {}
+            res[dev][q['handle']] = q
+        return res
+
+    def _qdisc_show(self, ifc=None):
         params = ""
         if ifc:
             params += " dev " + ifc
         ret, out = self.dut.cmd("tc -s -j qdisc show" + params)
         if ret == 0 and len(out.strip()) != 0:
-            out = self._qdisc_json_group_by_dev(out)
+            out = json.loads(out)
+        else:
+            out = dict()
+        return ret, out
+
+    def qdisc_show(self, ifc=None):
+        ret, out = self._qdisc_show(ifc)
+        out = self._qdisc_json_group_by_dev(out)
+        return ret, out
+
+    def qdisc_by_handle(self, ifc=None):
+        ret, out = self._qdisc_show(ifc)
+        out = self._qdisc_json_group_by_dev_handle(out)
         return ret, out
 
     def _ip_json_group_by_dev(self, out):
@@ -1229,8 +1287,45 @@ class BnicRedNonRoot(BnicTest):
 
         self.red_on_red(False, False)
         self.red_on_red(False, True)
-        self.red_on_red(True, False)
-        self.red_on_red(True, True)
+
+        # Build a simple MQ + RED
+        self.build_mq_red(1)
+
+        # Now put a RED on first RED
+        firsts = {}
+
+        _, qdiscs = self.qdisc_show()
+        for ifc in self.group.pf_ports:
+            for q in qdiscs[ifc]:
+                if 'parent' in q and q['parent'] == '1000:1':
+                    firsts[ifc] = q['handle']
+                    self.qdisc_replace(ifc, parent=q['handle'] + '1',
+                                       kind="red", thrs=(1 << 16), ecn=True)
+                    break
+
+        # Check both first RED and its child get unoffloaded
+        _, qdiscs = self.qdisc_show()
+        for ifc in self.group.pf_ports:
+            for q in qdiscs[ifc]:
+                offload = q['kind'] == 'mq' or \
+                          (q['kind'] == 'red' and q['parent'][:4] == "1000"
+                           and q['parent'] != "1000:1")
+                assert_eq(offload, 'offloaded' in q and q['offloaded'],
+                          "Qdisc %s offloaded" % qdisc_str(q))
+
+        # Now replace that RED on first with GRED
+        for ifc in self.group.pf_ports:
+            self.build_gred(ifc, parent=firsts[ifc] + "1", handle="999",
+                            bands=4, default=0, thrs=[1, 2, 3, 4])
+
+        # Check both first RED and GRED are not offloaded
+        _, qdiscs = self.qdisc_show()
+        for ifc in self.group.pf_ports:
+            for q in qdiscs[ifc]:
+                offload = q['kind'] == 'mq' or \
+                          (q['kind'] == 'red' and q['parent'] != "1000:1")
+                assert_eq(offload, 'offloaded' in q and q['offloaded'],
+                          "Qdisc %s offloaded" % qdisc_str(q))
 
     def cleanup(self):
         for ifc in self.group.pf_ports:
