@@ -1794,7 +1794,7 @@ class BnicRedMqRaw(BnicTest):
             assert_equal(self.offloaded,
                          'offloaded' in q, "Child Qdisc offloaded")
 
-            qid = int('0x' + q['parent'].split(':')[1], 16) - 1
+            qid = self.qdisc_to_nqid(q)
             res[qid] = q
 
         return res
