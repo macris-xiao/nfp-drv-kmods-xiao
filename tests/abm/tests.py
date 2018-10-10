@@ -722,7 +722,7 @@ class BnicTcOffload(BnicTest):
             self.active[ifc] = True
             self.validate_flag_disable_all()
 
-        self.validate_reds_offloaded()
+        self.validate_no_qdisc_offloaded()
 
         # Delete Qdiscs and check again
         for ifc in self.group.pf_ports:
