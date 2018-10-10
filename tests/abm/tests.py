@@ -1503,10 +1503,13 @@ class BnicRedMq(BnicTest):
         self.qdisc_replace(ifc, parent=self.mqs[ifc] + "%x" % (qid + 1),
                            kind="red", thrs=thrs, ecn=ecn)
 
-    def set_red_all(self, thrs, ecn=True):
+    def set_red_all(self, thrs=0, thrs_func=None, ecn=True):
         cmd = ''
-        for ifc in self.group.pf_ports:
+        for i in range(self.group.n_ports):
+            ifc = self.group.pf_ports[i]
             for qid in range(self.nqs[ifc]):
+                if thrs_func:
+                    thrs = thrs_func(i + 1, qid)
                 self._set_thrs(ifc, qid, thrs, ecn)
                 parent = self.mqs[ifc] + "%x" % (qid + 1)
                 cmd += self.qdisc_replace(ifc, parent=parent, kind="red",
@@ -1519,36 +1522,21 @@ class BnicRedMq(BnicTest):
         self.switchdev_mode_enable()
         self.vnics_all_down()
 
-        LOG_sec('TEST Basic MQ+full RED setup')
+        LOG_sec('TEST Basic MQ+full RED thresholds')
         try:
-            # Set root to RED thrs 1
-            self.set_root_red_all(1)
-
-            fw_state, qdiscs, reds = self.get_state_simple_root_red()
-            self.validate_root_basic(fw_state, reds, 1)
-
             # Set MQ
             self.set_root_mq()
-        finally:
-            LOG_endsec()
 
-        LOG_sec('TEST Replace children with different thresholds')
-        try:
+            # Set all queues to 1
+            self.set_red_all(1)
+            self.validate_qcfg()
+
             # Set all queues to 2
             self.set_red_all(2)
             self.validate_qcfg()
 
-            # Set root to RED thrs 3
-            self.set_root_red_all(3)
-
-            fw_state, qdiscs, reds = self.get_state_simple_root_red()
-            self.validate_root_basic(fw_state, reds, 3)
-
-            # Set MQ
-            self.set_root_mq()
-
-            # Set all queues to 4
-            self.set_red_all(4)
+            # Set all queues to variable
+            self.set_red_all(thrs_func=(lambda x, y: x * 1000 + y))
             self.validate_qcfg()
         finally:
             LOG_endsec()
