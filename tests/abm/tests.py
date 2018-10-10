@@ -390,16 +390,18 @@ class BnicTest(CommonTest):
             params += " " + kind
         return self.dut.cmd("tc qdisc delete" + params, fail=fail)
 
-    def qdisc_replace(self, ifc, parent="root", kind="mq", thrs=0, ecn=True,
-                      _bulk=False):
+    def qdisc_replace(self, ifc, parent="root", handle=None, kind="mq", thrs=0,
+                      ecn=True, _bulk=False):
+        param = "parent " + parent
+        if handle is not None:
+            param += " handle %s:" % handle
         if kind == "red":
-            param = "min {thrs} max {thrs} avpkt {thrs} burst 1 "\
+            param += " red min {thrs} max {thrs} avpkt {thrs} burst 1 "\
                     "limit 400000 bandwidth 10Mbit {ecn}"\
                     .format(thrs=thrs, ecn=("ecn" * ecn))
         else:
-            param = ""
-        cmd = "tc qdisc replace dev %s parent %s %s %s" % (ifc, parent,
-                                                           kind, param)
+            param += " " + kind
+        cmd = "tc qdisc replace dev %s %s" % (ifc, param)
         if _bulk:
             return cmd
         else:
@@ -462,6 +464,21 @@ class BnicTest(CommonTest):
         for i in range(self.group.n_ports):
             self.qdisc_replace(self.group.pf_ports[i], kind='red', thrs=thrs,
                                ecn=ecn)
+
+    def build_mq_red(self, thrs, ecn=True):
+        cmd = ''
+        for i in range(self.group.n_ports):
+            ifc = self.group.pf_ports[i]
+            cmd += self.qdisc_replace(ifc, parent="root", handle="1000",
+                                      kind="mq", _bulk=True)
+            cmd += ' && '
+            for qid in range(self.dut.vnics[i]['total_qs']):
+                cmd += self.qdisc_replace(ifc, parent="1000:%x" % (qid + 1),
+                                          kind="red", thrs=thrs, ecn=ecn,
+                                          _bulk=True)
+                cmd += ' && '
+        cmd += 'true'
+        self.dut.cmd(cmd)
 
     def get_state_simple_root_red(self):
         fw_state = self.read_fw_state()
@@ -1119,7 +1136,7 @@ class BnicMarkPing(BnicQlvl):
         self.switchdev_mode_enable()
 
         # Set threshold to the bare minimum while vNICs down
-        self.set_root_red_all(1)
+        self.build_mq_red(1)
         _, qdiscs = self.qdisc_show()
         self.vnics_all_up()
 
@@ -1132,10 +1149,12 @@ class BnicMarkPing(BnicQlvl):
 
         _, qdiscs = self.qdisc_show()
         for ifc in self.group.pf_ports:
-            q = qdiscs[ifc][0]
-            for s in BnicQlvl.MARKED:
-                assert_equal(0, q[s], 'Statistic %s mismatch' % (s))
-                assert_equal(0, q[s], 'Statistic %s mismatch' % (s))
+            for q in qdiscs[ifc]:
+                if q['kind'] != "red":
+                    continue
+                for s in BnicQlvl.MARKED:
+                    assert_equal(0, q[s], 'Statistic %s mismatch' % (s))
+                    assert_equal(0, q[s], 'Statistic %s mismatch' % (s))
 
         # Send ping (any non-TCP packet would do)
         for i in range(self.group.n_ports):
@@ -1144,10 +1163,17 @@ class BnicMarkPing(BnicQlvl):
 
         _, qdiscs = self.qdisc_show()
         for ifc in self.group.pf_ports:
-            q = qdiscs[ifc][0]
+            accu = {}
             for s in BnicQlvl.MARKED:
-                assert_ge(20, q[s], 'Statistic %s mismatch' % (s))
-                assert_lt(30, q[s], 'Statistic %s mismatch' % (s))
+                accu[s] = 0
+            for q in qdiscs[ifc]:
+                if q['kind'] != "red":
+                    continue
+                for s in BnicQlvl.MARKED:
+                    accu[s] += q[s]
+            for s in BnicQlvl.MARKED:
+                assert_ge(20, accu[s], 'Statistic %s mismatch' % (s))
+                assert_lt(30, accu[s], 'Statistic %s mismatch' % (s))
 
 class BnicRedNonRoot(BnicTest):
     def red_simple_check(self, offload_base):
