@@ -34,6 +34,10 @@ def qdisc_str(q):
          q["parent"] if "parent" in q else "--",
          q["handle"])
 
+def qdisc_offloaded(q, offloaded):
+    assert_eq(offloaded, 'offloaded' in q and q['offloaded'],
+              "Qdisc %s offloaded" % (qdisc_str(q)))
+
 ###########################################################################
 # Group
 ###########################################################################
@@ -156,6 +160,7 @@ class NFPKmodBnic(NFPKmodAppGrp):
             ("red_mq", BnicRedMq, 'RED on top of MQ'),
             ("red_mq_raw", BnicRedMqRaw,
              'RED on top of MQ, force stats with mem writes from user space'),
+            ("gred_mq_bad", BnicGRedBad, 'Non-offloaded GRED on top of MQ'),
             # must be last - will unload the driver
             ("reload", BnicReload, 'reload the driver with things configured'),
         )
@@ -395,7 +400,7 @@ class BnicTest(CommonTest):
         return self.dut.cmd("tc qdisc delete" + params, fail=fail)
 
     def qdisc_replace(self, ifc, parent="root", handle=None, kind="mq", thrs=0,
-                      ecn=True, bands=None, default=None, vq=None,
+                      ecn=True, bands=None, default=None, vq=None, grio=False,
                       _bulk=False):
         param = "parent " + parent
         if handle is not None:
@@ -413,6 +418,8 @@ class BnicTest(CommonTest):
                     param += " default %d" % (default)
                 if ecn:
                     param += " ecn"
+                if grio:
+                    param += " grio"
             else:
                 param += " vq %d" % (vq)
                 param += " min {thrs} max {thrs} avpkt {thrs} burst 1 "\
@@ -1876,3 +1883,201 @@ class BnicReload(BnicTest):
 
         self.switchdev_mode_disable()
         self.dut.reset_mods()
+
+###########################################################################
+# GRED tests
+###########################################################################
+class BnicGRedBad(BnicTest):
+    def check_offload(self, pred):
+        _, qdiscs = self.qdisc_show()
+        for i in range(self.group.n_ports):
+            ifc = self.group.pf_ports[i]
+            assert_eq(self.dut.vnics[i]['total_qs'] + 1, len(qdiscs[ifc]),
+                      "Num Qdiscs")
+            for q in qdiscs[ifc]:
+                qdisc_offloaded(q, pred(q))
+
+    def fix_main(self, bands):
+        cmd = ''
+        for i in range(self.group.n_ports):
+            ifc = self.group.pf_ports[i]
+            for qid in range(self.dut.vnics[i]['total_qs']):
+                cmd += self.qdisc_replace(ifc, parent="1000:%x" % (qid + 1),
+                                          handle=hex(4095 - qid)[2:],
+                                          kind="gred", bands=bands,
+                                          default=0, _bulk=True)
+                cmd += ' && '
+        cmd += 'true'
+        self.dut.cmd(cmd)
+
+    def execute(self):
+        self.switchdev_mode_enable()
+
+        bands = self.dut.fwcaps["num_bands"]
+
+        # Install MQ and base GRED on all ports
+        cmd = ''
+        for i in range(self.group.n_ports):
+            ifc = self.group.pf_ports[i]
+            # MQ
+            cmd += self.qdisc_replace(ifc, parent="root", handle="1000",
+                                      kind="mq", _bulk=True)
+            cmd += ' && '
+            # GREDs
+            for qid in range(self.dut.vnics[i]['total_qs']):
+                cmd += self.qdisc_replace(ifc, parent="1000:%x" % (qid + 1),
+                                          handle=hex(4095 - qid)[2:],
+                                          kind="gred", bands=bands, default=0,
+                                          _bulk=True)
+                cmd += ' && '
+        cmd += 'true'
+        self.dut.cmd(cmd)
+
+        # Check only MQ is offloaded now
+        self.check_offload((lambda q: q['kind'] == "mq"))
+
+        # Set up bands
+        cmd = ''
+        for i in range(self.group.n_ports):
+            ifc = self.group.pf_ports[i]
+            # GREDs
+            for qid in range(self.dut.vnics[i]['total_qs']):
+                for i in range(bands):
+                    cmd += self.qdisc_replace(ifc, parent="1000:%x" % (qid + 1),
+                                              handle=hex(4095 - qid)[2:],
+                                              kind="gred", vq=i,
+                                              thrs=(qid + 1) * 10000 + i * 100,
+                                              _bulk=True)
+                    cmd += ' && '
+        cmd += 'true'
+        self.dut.cmd(cmd)
+
+        # Check all are offloaded now
+        self.check_offload((lambda q: True))
+
+        # Resize the bands
+        cmd = ''
+        for i in range(self.group.n_ports):
+            ifc = self.group.pf_ports[i]
+            for qid in range(self.dut.vnics[i]['total_qs']):
+                cmd += self.qdisc_replace(ifc, parent="1000:%x" % (qid + 1),
+                                          handle=hex(4095 - qid)[2:],
+                                          kind="gred", bands=(bands + 1),
+                                          default=0, _bulk=True)
+                cmd += ' && '
+        cmd += 'true'
+        self.dut.cmd(cmd)
+
+        self.check_offload((lambda q: q['kind'] == "mq"))
+        self.fix_main(bands)
+        self.check_offload((lambda q: True))
+
+        # Change the default
+        cmd = ''
+        for i in range(self.group.n_ports):
+            ifc = self.group.pf_ports[i]
+            for qid in range(self.dut.vnics[i]['total_qs']):
+                cmd += self.qdisc_replace(ifc, parent="1000:%x" % (qid + 1),
+                                          handle=hex(4095 - qid)[2:],
+                                          kind="gred", bands=bands,
+                                          default=1, _bulk=True)
+                cmd += ' && '
+        cmd += 'true'
+        self.dut.cmd(cmd)
+
+        self.check_offload((lambda q: q['kind'] == "mq"))
+        self.fix_main(bands)
+        self.check_offload((lambda q: True))
+
+        # Disable ECN
+        cmd = ''
+        for i in range(self.group.n_ports):
+            ifc = self.group.pf_ports[i]
+            for qid in range(self.dut.vnics[i]['total_qs']):
+                cmd += self.qdisc_replace(ifc, parent="1000:%x" % (qid + 1),
+                                          handle=hex(4095 - qid)[2:],
+                                          kind="gred", bands=bands,
+                                          default=0, ecn=False, _bulk=True)
+                cmd += ' && '
+        cmd += 'true'
+        self.dut.cmd(cmd)
+
+        self.check_offload(lambda q:
+                           q['kind'] == "mq" or
+                           bool(self.dut.fwcaps["act_mask"] & (1 << ACT_DROP)))
+        self.fix_main(bands)
+        self.check_offload((lambda q: True))
+
+        # Enable harddrop
+        cmd = ''
+        for i in range(self.group.n_ports):
+            ifc = self.group.pf_ports[i]
+            for qid in range(self.dut.vnics[i]['total_qs']):
+                cmd += self.qdisc_replace(ifc, parent="1000:%x" % (qid + 1),
+                                          handle=hex(4095 - qid)[2:],
+                                          kind="gred", bands=bands,
+                                          default=0, harddrop=True, _bulk=True)
+                cmd += ' && '
+        cmd += 'true'
+        self.dut.cmd(cmd)
+
+        self.check_offload((lambda q: q['kind'] == "mq"))
+        self.fix_main(bands)
+        self.check_offload((lambda q: True))
+
+        # GRIO
+        cmd = ''
+        for i in range(self.group.n_ports):
+            ifc = self.group.pf_ports[i]
+            for qid in range(self.dut.vnics[i]['total_qs']):
+                cmd += self.qdisc_replace(ifc, parent="1000:%x" % (qid + 1),
+                                          handle=hex(4095 - qid)[2:],
+                                          kind="gred", bands=bands,
+                                          default=0, grio=True, _bulk=True)
+                cmd += ' && '
+        cmd += 'true'
+        self.dut.cmd(cmd)
+
+        self.check_offload((lambda q: q['kind'] == "mq"))
+        self.fix_main(bands)
+        self.check_offload((lambda q: True))
+
+        # Enable harddrop only on one
+        for ifc in self.group.pf_ports:
+            qid = 0
+            self.qdisc_replace(ifc, parent="1000:%x" % (qid + 1),
+                               handle=hex(4095 - qid)[2:],
+                               kind="gred", bands=bands, default=0,
+                               harddrop=True)
+
+        self.check_offload((lambda q: q['handle'] != hex(4095)[2:] + ':'))
+
+        for ifc in self.group.pf_ports:
+            qid = 0
+            self.qdisc_replace(ifc, parent="1000:%x" % (qid + 1),
+                               handle=hex(4095 - qid)[2:],
+                               kind="gred", bands=bands, default=0, ecn=True)
+
+        self.check_offload((lambda q: True))
+
+        # Now onto breaking the virtual queues
+        cmd = ''
+        for i in range(self.group.n_ports):
+            ifc = self.group.pf_ports[i]
+            # GREDs
+            for qid in range(self.dut.vnics[i]['total_qs']):
+                cmd += "tc qdisc replace dev {ifc} "\
+                    "parent {parent} handle {handle}: gred vq {vq} "\
+                    "min {thrs} max 10000 avpkt 5000 burst 1 "\
+                    "limit 400000 bandwidth 10Mbit ecn"\
+                    .format(ifc=ifc, parent="1000:%x" % (qid + 1),
+                            handle=hex(4095 - qid)[2:], vq=0, thrs=5000)
+                cmd += ' && '
+        cmd += 'true'
+        self.dut.cmd(cmd)
+
+        self.check_offload((lambda q: q['kind'] == "mq"))
+
+    def cleanup(self):
+        self.switchdev_mode_disable()
+        return super(BnicGRedBad, self).cleanup()
