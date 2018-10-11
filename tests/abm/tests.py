@@ -430,17 +430,30 @@ class BnicTest(CommonTest):
     def build_gred(self, ifc, parent="root", handle=None, bands=4, default=0,
                    thrs=[0,0,0,0], ecn=True, _bulk=False):
         if handle is None:
+            if _bulk:
+                raise NtiError('No handle and _bulk in GRED build')
             _, qh = self.qdisc_by_handle(ifc)
             for h in range(4096, 0, -1):
                 handle = hex(h)[2:]
                 if handle not in qh[ifc]:
                     break
 
-        self.qdisc_replace(ifc, parent=parent, handle=handle, kind="gred",
-                           bands=bands, default=default, ecn=ecn)
+        cmd = ''
+        cmd += self.qdisc_replace(ifc, parent=parent, handle=handle,
+                                  kind="gred",
+                                  bands=bands, default=default, ecn=ecn,
+                                  _bulk=True)
+        cmd += ' && '
         for i in range(bands):
-            self.qdisc_replace(ifc, parent=parent, handle=handle, kind="gred",
-                               vq=i, thrs=thrs[i])
+            cmd += self.qdisc_replace(ifc, parent=parent, handle=handle,
+                                      kind="gred", vq=i, thrs=thrs[i],
+                                      _bulk=True)
+            cmd += ' && '
+        cmd += 'true'
+        if _bulk:
+            return cmd
+        else:
+            return self.dut.cmd(cmd)
 
     def _qdisc_json_group_by_dev(self, out):
         res = dict()
@@ -1822,24 +1835,44 @@ class BnicRedMqRaw(BnicTest):
         self.switchdev_mode_disable()
 
 class BnicReload(BnicTest):
+    def build_mq_red_gred_mix(self):
+        cmd = ''
+        for i in range(self.group.n_ports):
+            ifc = self.group.pf_ports[i]
+            cmd += self.qdisc_replace(ifc, parent="root", handle="1000",
+                                      kind="mq", _bulk=True)
+            cmd += ' && '
+            for qid in range(2):
+                cmd += self.qdisc_replace(ifc, parent="1000:%x" % (qid + 1),
+                                          kind="red", thrs=1111 * (qid + 1),
+                                          _bulk=True)
+                cmd += ' && '
+            for qid in range(2, 4):
+                cmd += self.build_gred(ifc, parent="1000:%x" % (qid + 1),
+                                       handle=hex(2000 + qid)[2:],
+                                       bands=4, default=0,
+                                       thrs=[1000, 2000, 3000, 4000],
+                                       _bulk=True)
+                cmd += ' && '
+        cmd += 'true'
+        self.dut.cmd(cmd)
+
     def execute(self):
         # Unload while enabled
         self.switchdev_mode_enable()
 
-        for i in range(self.group.n_ports):
-            self.qdisc_replace(self.group.pf_ports[i], kind="red", thrs=15000)
+        self.build_mq_red_gred_mix()
 
         # Reload
         self.dut.reset_mods()
         self.dut.switchdev_on = False
         self.group.refresh_nfp_netdevs(self.dut._netifs)
-        drv_load_record_ifcs(self, self.group)
+        drv_load_record_ifcs(self.group, self.group)
 
         # Config, disable, unload
         self.switchdev_mode_enable()
 
-        for i in range(self.group.n_ports):
-            self.qdisc_replace(self.group.pf_ports[i], kind="red", thrs=15000)
+        self.build_mq_red_gred_mix()
 
         self.switchdev_mode_disable()
         self.dut.reset_mods()
