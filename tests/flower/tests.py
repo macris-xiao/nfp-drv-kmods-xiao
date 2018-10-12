@@ -76,6 +76,7 @@ class NFPKmodFlower(NFPKmodGrp):
              ('flower_action_set_ipv6', FlowerActionSetIPv6, "Checks basic flower set IPv6 action capabilities"),
              ('flower_action_set_udp', FlowerActionSetUDP, "Checks basic flower set UDP action capabilities"),
              ('flower_action_set_tcp', FlowerActionSetTCP, "Checks basic flower set TCP action capabilities"),
+             ('flower_action_set_multi', FlowerActionSetMulti, "Checks multiple flower set action capabilities"),
              ('flower_vlan_repr', FlowerVlanRepr, "Checks that unsupported vxlan rules are not offloaded"),
              ('flower_repr_linkstate', FlowerReprLinkstate, "Checks that repr link state is handled correctly"),
              ('flower_bond_egress', FlowerActionBondEgress, "Checks egressing to a linux bond"),
@@ -2278,6 +2279,81 @@ class FlowerActionSetTCP(FlowerBase):
         dump_fil=''
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP(sport=2222,dport=4444)/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP(sport=1038,dport=4444)/Raw('\x00'*64)
+        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+
+        self.cleanup_filter(iface)
+
+class FlowerActionSetMulti(FlowerBase):
+    def netdev_execute(self):
+        iface, ingress = self.configure_flower()
+
+        # Test Output Action
+        match = 'ip flower'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
+        exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
+        self.test_packet(iface, ingress, pkt, exp_pkt)
+
+        self.cleanup_filter(iface)
+
+        # Test Set SRC ETH, SRC IP and SRC TCP
+        match = 'ip flower ip_proto tcp'
+        action = 'pedit ex munge eth src set 14:24:34:44:45:46 munge '+\
+                 'ip src set 66.77.88.99 munge ' +\
+                 'tcp sport set 4282 pipe '+\
+                 'csum ip and tcp pipe mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        dump_fil='ip'
+        pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP(sport=1000,dport=2000)/Raw('\x00'*64)
+        exp_pkt = Ether(src="14:24:34:44:45:46",dst="02:12:23:34:45:56")/IP(src='66.77.88.99', dst='11.0.0.11')/TCP(sport=4282,dport=2000)/Raw('\x00'*64)
+        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+
+        self.cleanup_filter(iface)
+
+        # Test Set DST ETH, DST IP and DST TCP
+        match = 'ip flower ip_proto tcp'
+        action = 'pedit ex munge eth dst set 15:25:35:45:55:56 munge '+\
+                 'ip dst set 99.88.77.66 munge ' +\
+                 'tcp dport set 8242 pipe '+\
+                 'csum ip and tcp pipe mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        dump_fil='ip'
+        pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP(sport=1000,dport=2000)/Raw('\x00'*64)
+        exp_pkt = Ether(src="02:01:01:02:02:01",dst="15:25:35:45:55:56")/IP(src='10.0.0.10', dst='99.88.77.66')/TCP(sport=1000,dport=8242)/Raw('\x00'*64)
+        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+
+        self.cleanup_filter(iface)
+
+        # Test Set SRC ETH, SRC IPv6 and SRC TCP
+        match = 'ipv6 flower ip_proto tcp'
+        action = 'pedit ex munge eth src set 14:24:34:44:45:46 munge '+\
+                 'ip6 src set 1000:2000:3000:4000:5000:6000:7000:8000 munge ' +\
+                 'tcp sport set 4282 pipe '+\
+                 'csum tcp pipe mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        dump_fil='ip6'
+        pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IPv6(src='11::11', dst='10::10')/TCP(sport=1000,dport=2000)/Raw('\x00'*64)
+        exp_pkt = Ether(src="14:24:34:44:45:46",dst="02:12:23:34:45:56")/IPv6(src='1000:2000:3000:4000:5000:6000:7000:8000',dst='10::10')/TCP(sport=4282,dport=2000)/Raw('\x00'*64)
+        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+
+        self.cleanup_filter(iface)
+
+        # Test Set DST ETH, DST IPv6 and DST TCP
+        match = 'ipv6 flower ip_proto tcp'
+        action = 'pedit ex munge eth dst set 14:24:34:44:45:46 munge '+\
+                 'ip6 dst set 1000:2000:3000:4000:5000:6000:7000:8000 munge ' +\
+                 'tcp dport set 4282 pipe '+\
+                 'csum tcp pipe mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        dump_fil='ip6'
+        pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IPv6(src='11::11', dst='10::10')/TCP(sport=1000,dport=2000)/Raw('\x00'*64)
+        exp_pkt = Ether(src="02:01:01:02:02:01",dst="14:24:34:44:45:46")/IPv6(src='11::11',dst='1000:2000:3000:4000:5000:6000:7000:8000')/TCP(sport=1000,dport=4282)/Raw('\x00'*64)
         self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
 
         self.cleanup_filter(iface)
