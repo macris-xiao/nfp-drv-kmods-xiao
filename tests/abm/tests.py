@@ -6,6 +6,7 @@ ABM NIC test group for the NFP Linux drivers.
 """
 import copy
 import json
+import math
 import re
 import os, pprint
 from struct import unpack_from
@@ -161,6 +162,8 @@ class NFPKmodBnic(NFPKmodAppGrp):
             ("red_mq_raw", BnicRedMqRaw,
              'RED on top of MQ, force stats with mem writes from user space'),
             ("gred_mq_bad", BnicGRedBad, 'Non-offloaded GRED on top of MQ'),
+            ("eg_u32", BnicU32eg, "Manipulating u32 filters vs qdisc offload"),
+            ("cls_u32", BnicU32, "Manipulating u32 filters"),
             # must be last - will unload the driver
             ("reload", BnicReload, 'reload the driver with things configured'),
         )
@@ -218,6 +221,7 @@ class BnicTest(CommonTest):
         fw_state["cred_excl"] = [{} for i in range(NUM_PCI_PFS)]
         fw_state["nfd_excl"] = [{} for i in range(NUM_PCI_PFS)]
         fw_state["mbox_state"] = [() for i in range(NUM_PCI_PFS)]
+        fw_state["priomap"] = [[] for i in range(NUM_PCI_PFS)]
 
         band_range = range(self.dut.fwcaps["num_bands"])
 
@@ -294,6 +298,14 @@ class BnicTest(CommonTest):
                 idx = int(r.sym_name[-6])
                 fw_state["mbox_state"][idx] = unpack_from('< I I I I I I I I',
                                                           r.reg_data)
+
+            elif r.sym_name.count('_abi_dscp_prio2band'):
+                # Symbol is 2 D array with # PCIe rows
+                per_pf = len(r.reg_data) / NUM_PCI_PFS
+                for i in range(NUM_PCI_PFS):
+                    fw_state["priomap"][i] = \
+                        unpack_from('>' + ' I' * (per_pf / 4),
+                                    r.reg_data[i * per_pf:(i + 1) * per_pf])
 
         return fw_state
 
@@ -389,6 +401,51 @@ class BnicTest(CommonTest):
                     break
         return ret, out
 
+    def encode_prio(self, p):
+        bits = int(math.log(self.dut.fwcaps["num_prio"] - 1, 2)) + 1
+        return p << (8 - bits)
+
+    def u32_add(self, ifc, proto="ip", side="egress", prio=None,
+                v=None, mask=None, flags="skip_sw", band=None, fail=True,
+                _bulk=False):
+        # Defaults
+        if mask is None:
+            bits = int(math.log(self.dut.fwcaps["num_prio"] - 1, 2)) + 1
+            mask = ((1 << bits) - 1) << (8 - bits)
+
+        # Build command
+        cmd = 'tc filter add dev %s %s' % (ifc, side)
+        if prio is not None:
+            cmd += ' prio %d' % (prio)
+        if proto is not None:
+            cmd += ' protocol %s' % (proto)
+        cmd += ' u32 match'
+        if proto == "ipv6":
+            cmd += ' ip6 priority'
+        elif proto == "ip":
+            cmd += ' ip tos'
+        if v is not None:
+            cmd += ' 0x%x' % (v)
+        if mask is not None:
+            cmd += ' 0x%x' % (mask)
+        if flags is not None:
+            cmd += ' %s' % (flags)
+        if band is not None:
+            cmd += ' flowid :%d' % (band)
+
+        if _bulk:
+            return cmd
+        return self.dut.cmd(cmd, fail=fail)
+
+    def u32_remove(self, ifc, proto="ip", side="egress", prio=None, fail=True):
+        cmd = 'tc filter delete dev %s %s' % (ifc, side)
+        if prio is not None:
+            cmd += ' prio %d' % (prio)
+        if proto is not None:
+            cmd += ' protocol %s' % (proto)
+        cmd += ' u32'
+        return self.dut.cmd(cmd, fail=fail)
+
     def qdisc_delete(self, ifc, parent=None, kind=None, fail=False):
         params = ""
         if ifc:
@@ -402,7 +459,9 @@ class BnicTest(CommonTest):
     def qdisc_replace(self, ifc, parent="root", handle=None, kind="mq", thrs=0,
                       ecn=True, bands=None, default=None, vq=None, grio=False,
                       _bulk=False):
-        param = "parent " + parent
+        param = ""
+        if parent is not None:
+            param += "parent " + parent
         if handle is not None:
             param += " handle %s:" % handle
 
@@ -461,6 +520,23 @@ class BnicTest(CommonTest):
             return cmd
         else:
             return self.dut.cmd(cmd)
+
+    def build_mq_gred(self):
+        cmd = ''
+        for i in range(self.group.n_ports):
+            ifc = self.group.pf_ports[i]
+            cmd += self.qdisc_replace(ifc, parent="root", handle="1000",
+                                      kind="mq", _bulk=True)
+            cmd += ' && '
+            for qid in range(self.dut.vnics[i]['total_qs']):
+                cmd += self.build_gred(ifc, parent="1000:%x" % (qid + 1),
+                                       handle=hex(4095 - qid)[2:],
+                                       bands=self.dut.fwcaps["num_bands"],
+                                       default=0, thrs=[1000, 2000, 3000, 4000],
+                                       _bulk=True)
+                cmd += ' && '
+        cmd += 'true'
+        self.dut.cmd(cmd)
 
     def _qdisc_json_group_by_dev(self, out):
         res = dict()
@@ -2081,3 +2157,170 @@ class BnicGRedBad(BnicTest):
     def cleanup(self):
         self.switchdev_mode_disable()
         return super(BnicGRedBad, self).cleanup()
+
+###########################################################################
+# u32 tests
+###########################################################################
+class BnicU32eg(BnicTest):
+    def check_offload(self, cls, pred):
+        _, qdiscs = self.qdisc_show()
+        for i in range(self.group.n_ports):
+            ifc = self.group.pf_ports[i]
+            assert_eq(self.dut.vnics[i]['total_qs'] + 1 + int(cls),
+                      len(qdiscs[ifc]), "Num Qdiscs")
+            for q in qdiscs[ifc]:
+                qdisc_offloaded(q, pred(q))
+
+    def execute(self):
+        self.switchdev_mode_enable()
+
+        # Install egress Qdisc
+        for ifc in self.group.pf_ports:
+            self.qdisc_replace(ifc, parent=None, kind="clsact")
+        # Add some rules
+        for ifc in self.group.pf_ports:
+            self.u32_add(ifc, prio=100, proto="ip", v=0x80, band=0)
+        # Create RED
+        self.build_mq_red(1)
+        # RED should not offload now
+        self.check_offload(True, (lambda q: q['kind'] == "mq"))
+
+        # Remove the rules
+        for ifc in self.group.pf_ports:
+            self.u32_remove(ifc, prio=100, proto="ip")
+        # RED should offload now
+        self.check_offload(True, (lambda q: q['kind'] != "clsact"))
+
+        # Re-add again, this time Qdisc is already there
+        for ifc in self.group.pf_ports:
+            self.u32_add(ifc, prio=100, proto="ip", v=0x80, band=0)
+        # RED should have gotten unoffload again
+        self.check_offload(True, (lambda q: q['kind'] == "mq"))
+
+        # Remove egress Qdisc
+        for ifc in self.group.pf_ports:
+            self.qdisc_delete(ifc, parent=None, kind="clsact")
+        # RED should offload now
+        self.check_offload(False, (lambda q: True))
+
+        # Add only the egress Qdisc
+        for ifc in self.group.pf_ports:
+            self.qdisc_replace(ifc, parent=None, kind="clsact")
+        # Still offloaded
+        self.check_offload(True, (lambda q: q['kind'] != "clsact"))
+        # Add some rules
+        for ifc in self.group.pf_ports:
+            self.u32_add(ifc, prio=100, proto="ip", v=0x80, band=0)
+        # Now not offloaded
+        self.check_offload(True, (lambda q: q['kind'] == "mq"))
+
+        # Nuke the filters with the Qdisc
+        for ifc in self.group.pf_ports:
+            self.qdisc_delete(ifc, parent=None, kind="clsact")
+        # Should offload now
+        self.check_offload(False, (lambda q: True))
+
+        # Now onto GRED
+        self.build_mq_gred()
+        # GRED should offload nicely
+        self.check_offload(False, (lambda q: True))
+
+        # Add the egress Qdisc
+        for ifc in self.group.pf_ports:
+            self.qdisc_replace(ifc, parent=None, kind="clsact")
+        # Still offloaded
+        self.check_offload(True, (lambda q: q['kind'] != "clsact"))
+        # Add some rules
+        for ifc in self.group.pf_ports:
+            self.u32_add(ifc, prio=100, proto="ip", v=0x80, band=0)
+        # Still offloaded
+        self.check_offload(True, (lambda q: q['kind'] != "clsact"))
+        # Nuke the filters with the Qdisc
+        for ifc in self.group.pf_ports:
+            self.qdisc_delete(ifc, parent=None, kind="clsact")
+        # And still offloaded
+        self.check_offload(False, (lambda q: q['kind'] != "clsact"))
+
+    def cleanup(self):
+        self.switchdev_mode_disable()
+        return super(BnicU32eg, self).cleanup()
+
+class BnicU32(BnicTest):
+    def test_one_map(self, ifc, gen):
+        bits = int(math.log(self.dut.fwcaps["num_bands"] - 1, 2)) + 1
+
+        # Set the prios to the values from gen
+        cmd = ''
+        for p in range(self.dut.fwcaps["num_prio"]):
+            band = gen(p)
+            cmd += self.u32_add(ifc, prio=100, proto="ip",
+                                v=self.encode_prio(p), band=band, _bulk=True)
+            cmd += ' && '
+            cmd += self.u32_add(ifc, prio=101, proto="ipv6",
+                                v=self.encode_prio(p), band=band, _bulk=True)
+            cmd += ' && '
+        self.dut.cmd(cmd + 'true')
+
+        # Read FW state
+        fw_state = self.read_fw_state()
+        # Manually compute the prio map
+        pm = []
+        for p in range(self.dut.fwcaps["num_prio"]):
+            band = gen(p)
+            if p * bits / 32 == len(pm):
+                pm.append(0)
+            pm[p * bits / 32] |= band << (p * bits % 32)
+
+        for i in range(len(pm)):
+            assert_eq(pm[i], fw_state["priomap"][self.group.pf_id][i],
+                      "priomap word %d" % (i))
+
+    def execute(self):
+        self.switchdev_mode_enable()
+
+        # Install egress Qdisc
+        for ifc in self.group.pf_ports:
+            self.qdisc_replace(ifc, parent=None, kind="clsact")
+        # File all prios to band 1
+        for ifc in self.group.pf_ports:
+            self.test_one_map(ifc, (lambda p: 1))
+
+        # File all prios to band mod
+        for ifc in self.group.pf_ports:
+            self.qdisc_delete(ifc, parent=None, kind="clsact")
+        for ifc in self.group.pf_ports:
+            self.qdisc_replace(ifc, parent=None, kind="clsact")
+
+        for ifc in self.group.pf_ports:
+            self.test_one_map(ifc, (lambda p: p % 4))
+
+        # Check we can duplicate a good filter
+        for ifc in self.group.pf_ports:
+            self.qdisc_delete(ifc, parent=None, kind="clsact")
+        for ifc in self.group.pf_ports:
+            self.qdisc_replace(ifc, parent=None, kind="clsact")
+
+        self.u32_add(ifc, prio=100, proto="ip", v=self.encode_prio(0), band=1)
+        self.u32_add(ifc, prio=100, proto="ip", v=self.encode_prio(0), band=1)
+
+        # But we can't duplicate a bad one
+        ret, _ = self.u32_add(ifc, prio=100, proto="ip",
+                              v=self.encode_prio(0), band=2, fail=False)
+        assert_neq(ret, 0, "Add bad v4 filter status")
+        # Neither can we on the other proto
+        ret, _ = self.u32_add(ifc, prio=100, proto="ipv6",
+                              v=self.encode_prio(0), band=2, fail=False)
+        assert_neq(ret, 0, "Add bad v6 filter status")
+
+        # But we can't add conflicting mask
+        ret, _ = self.u32_add(ifc, prio=100, proto="ip",
+                              v=self.encode_prio(0), mask=0x80, band=2,
+                              fail=False)
+
+        # We can add good covering mask
+        self.u32_add(ifc, prio=100, proto="ip",
+                     v=self.encode_prio(0), mask=0x80, band=1)
+
+    def cleanup(self):
+        self.switchdev_mode_disable()
+        return super(BnicU32, self).cleanup()
