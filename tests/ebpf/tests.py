@@ -19,7 +19,7 @@ from adjust_tail import XDPadjustTailPassAll, XDPadjustTail14, \
     XDPadjustTailMulti
 from xdp_replace import XDPReplaceTest
 from maps import *
-from obj_sharing import XDPProgMapShare, XDPProgXIfc
+from obj_sharing import XDPProgMapShare, XDPProgXIfc, XDPProgXIfcCheck
 from defs import *
 from perf_event_output import *
 from queue_select import *
@@ -540,6 +540,8 @@ class NFPKmodBPF(NFPKmodAppGrp):
               'Per-ASIC sharing - same program and map, count packets'),
              ('xdp_shared_cross_port', XDPProgXIfc,
               'Per-ASIC sharing - complex programs swap interfaces'),
+             ('xdp_cross_cap_check', XDPProgXIfcCheck,
+              'Per-ASIC sharing - re-check capabilities'),
         )
 
         for t in T:

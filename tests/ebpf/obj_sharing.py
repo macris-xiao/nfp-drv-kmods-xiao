@@ -8,7 +8,7 @@ from netro.testinfra import LOG_sec, LOG, LOG_endsec
 from netro.testinfra.system import cmd_log
 from ..linux_system import int2str, str2int
 from ..common_test import CommonTest, NtiSkip, \
-    assert_lt, assert_ge, assert_range
+    assert_lt, assert_ge, assert_range, assert_neq
 from defs import *
 from perf_event_output import stack_data
 
@@ -125,3 +125,68 @@ class XDPProgXIfc(CommonTest):
         self.dut.cmd('rm -f ' + self.prog_path + '*')
         self.dut.background_procs_cleanup()
         return super(XDPProgXIfc, self).cleanup()
+
+# Install different programs on two interfaces, then swap them around
+class XDPProgXIfcCheck(CommonTest):
+    def prepare(self):
+        if self.group.upstream_drv:
+            return NrtResult(name=self.name, testtype=self.__class__.__name__,
+                             passed=None, comment="upstream driver")
+        return super(XDPProgXIfcCheck, self).prepare()
+
+    def execute(self):
+        self.orig_bar = {}
+
+        self.prog_path = '/sys/fs/bpf/' + os.path.basename(self.group.tmpdir)
+
+        # Read the real caps
+        for off in (0x80, 0x88):
+            _, out = self.dut.cmd_rtsym('_pf%d_net_bar0:0x%x' %
+                                        (self.group.pf_id, off))
+            self.orig_bar[off] = int(out.split()[1], 16)
+
+        # Load a program which uses maps
+        self.dut.bpftool_prog_load_xdp('map_atomic.o', self.prog_path,
+                                       ifc=self.dut_ifn[0])
+
+        # Set the program length to 8, attach should fail
+        cap_80 = self.orig_bar[0x80] & 0xffff
+        cap_80 |= 8 << 16
+
+        self.dut.cmd_rtsym('_pf%d_net_bar0:0x%x 0x%x' %
+                           (self.group.pf_id, 0x80, cap_80))
+
+
+        ret, _ = self.dut.cmd('ip -force link set dev %s xdpoffload pinned %s' %
+                              (self.dut_ifn[0], self.prog_path), fail=False)
+        assert_neq(0, ret, 'Offload with prog len = 8')
+
+        # Fix prog len
+        self.dut.cmd_rtsym('_pf%d_net_bar0:0x%x 0x%x' %
+                           (self.group.pf_id, 0x80, self.orig_bar[0x80]))
+        self.orig_bar.pop(0x80, None)
+
+        # Now set the stack size to 0
+        cap_88 = self.orig_bar[0x88] & 0xffffff00
+
+        self.dut.cmd_rtsym('_pf%d_net_bar0:0x%x 0x%x' %
+                           (self.group.pf_id, 0x88, cap_88))
+
+
+        ret, _ = self.dut.cmd('ip -force link set dev %s xdpoffload pinned %s' %
+                              (self.dut_ifn[0], self.prog_path), fail=False)
+        assert_neq(0, ret, 'Offload with stack size = 0')
+
+        # Fix stack size
+        self.dut.cmd_rtsym('_pf%d_net_bar0:0x%x 0x%x' %
+                           (self.group.pf_id, 0x88, self.orig_bar[0x88]))
+        self.orig_bar.pop(0x88, None)
+
+    def cleanup(self):
+        self.dut.cmd('rm -f ' + self.prog_path)
+        for key in self.orig_bar:
+            self.dut.cmd_rtsym('_pf%d_net_bar0:0x%x 0x%x' %
+                               (self.group.pf_id, key, self.orig_bar[key]))
+        for ifc in self.dut_ifn:
+            self.dut.cmd('ip -force link set dev %s xdpoffload off' % (ifc))
+        return super(XDPProgXIfcCheck, self).cleanup()
