@@ -259,19 +259,36 @@ class LinuxSystem(System):
     def bpftool_prog_list(self, fail=True):
         return self.bpftool("prog", fail=fail)
 
-    def bpftool_prog_load(self, obj, pin, ifc=None, prog_type=None):
+    def bpftool_prog_load(self, obj, pin, ifc=None, prog_type=None, maps=None,
+                          fail=True):
         cmd = 'prog load %s %s' % (obj, pin)
         if ifc is not None:
             cmd += ' dev ' + ifc
         if prog_type is not None:
             cmd += ' type ' + prog_type
+        if maps is not None:
+            for k in maps:
+                cmd += ' map'
+                if isinstance(k, str):
+                    cmd += ' name ' + k
+                elif isinstance(k, int):
+                    cmd += ' idx ' + k
+                else:
+                    raise NtiError('maps key of unknown type %r' % k)
 
-        return self.bpftool(cmd)
+                if isinstance(maps[k], str):
+                    cmd += ' pinned ' + maps[k]
+                elif isinstance(maps[k], int):
+                    cmd += ' id ' + maps[k]
+                else:
+                    raise NtiError('maps value of unknown type %r' % k)
 
-    def bpftool_prog_load_xdp(self, obj, pin, ifc=None):
+        return self.bpftool(cmd, fail=fail)
+
+    def bpftool_prog_load_xdp(self, obj, pin, maps=None, ifc=None, fail=True):
         obj = os.path.join(self.xdp_samples_dir, obj)
         return self.bpftool_prog_load(obj=obj, pin=pin, ifc=ifc,
-                                      prog_type="xdp")
+                                      prog_type="xdp", maps=maps, fail=fail)
 
     def bpftool_map_show(self, m=None, ident=None, pin=None):
         cmd = 'map show' + self._bpftool_obj_id(m, ident, pin)
@@ -289,6 +306,27 @@ class LinuxSystem(System):
 
     def bpftool_map_list(self, fail=True):
         return self.bpftool("map", fail=fail)
+
+    def bpftool_map_create(self, pin, map_type=None, key_size=None,
+                           value_size=None, entries=None, name=None, flags=None,
+                           ifc=None, fail=True):
+        cmd = 'map create %s' % (pin)
+        if map_type is not None:
+            cmd += ' type ' + map_type
+        if key_size is not None:
+            cmd += ' key ' + str(key_size)
+        if value_size is not None:
+            cmd += ' value ' + str(value_size)
+        if entries is not None:
+            cmd += ' entries ' + str(entries)
+        if name is not None:
+            cmd += ' name ' + name
+        if flags is not None:
+            cmd += ' flags ' + str(flags)
+        if ifc is not None:
+            cmd += ' dev ' + ifc
+
+        return self.bpftool(cmd)
 
     def bpftool_map_perf_capture_start(self, m=None, ident=None, pin=None,
                                        name=None):

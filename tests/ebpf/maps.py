@@ -10,6 +10,7 @@ from netro.testinfra.test import *
 from ..common_test import *
 from defs import *
 from ..linux_system import int2str, str2int
+from xdp import XDPLoadTest, XDPLoadNoOffloadTest
 
 ################################################################################
 # Base classes
@@ -971,3 +972,75 @@ class XDPhtabMemcpyOpt(XDPmapMemcpyOpt):
 
     def get_prog_name(self):
         return 'map_htab_memcpy_opt.o'
+
+##############################################################################
+# Atomic + map update load test
+##############################################################################
+
+class XDPatomicInitNonZero(MapTest):
+    def execute(self):
+        self.prog_path = '/sys/fs/bpf/' + \
+            os.path.basename(self.group.tmpdir) + '_p'
+        self.map_path = '/sys/fs/bpf/' + \
+            os.path.basename(self.group.tmpdir) + '_m'
+
+        if self.group.xdp_mode() == "offload":
+            ifc = self.dut_ifn[0]
+        else:
+            ifc = None
+
+        # Pre-create the map
+        self.dut.bpftool_map_create(self.map_path, map_type='array',
+                                    key_size=4, value_size=8, entries=1,
+                                    name='abc', ifc=ifc)
+        # Update the map to something endian-neutral
+        self.dut.bpftool("map update pinned %s key 0 0 0 0 value 1 1 1 1 2 2 2 2" %
+                         (self.map_path))
+        # We should be able to use it in the program
+        self.dut.bpftool_prog_load_xdp('map_atomic.o', self.prog_path, ifc=ifc,
+                                       maps={'rxcnt' : self.map_path})
+        # Okay, remove the program and do the actual test
+        self.dut.cmd('rm -f ' + self.prog_path)
+
+        # Now update to something bad, but its already atomic
+        self.dut.bpftool("map update pinned %s key 0 0 0 0 value 0 1 1 1 2 2 2 2" %
+                         (self.map_path))
+        self.dut.bpftool_prog_load_xdp('map_atomic.o', self.prog_path, ifc=ifc,
+                                       maps={'rxcnt' : self.map_path})
+        self.dut.cmd('rm -f ' + self.prog_path + ' ' + self.map_path)
+
+        # And finally pre-init to non-zero before it's made atomic
+        self.dut.bpftool_map_create(self.map_path, map_type='array',
+                                    key_size=4, value_size=8, entries=1,
+                                    name='abc', ifc=ifc)
+        self.dut.bpftool("map update pinned %s key 0 0 0 0 value 0 1 1 1 2 2 2 2" %
+                         (self.map_path))
+
+        # And this should fail for offload
+        ret, _ = self.dut.bpftool_prog_load_xdp('map_atomic.o',
+                                                self.prog_path, ifc=ifc,
+                                                maps={'rxcnt' : self.map_path},
+                                                fail=False)
+        assert_eq(ifc is None, ret == 0, "Program load status")
+
+    def cleanup(self):
+        for ifc in self.dut_ifn:
+            self.dut.cmd('ip -force link set dev %s xdpoffload off' % (ifc))
+        self.xdp_reset()
+        self.dut.cmd('rm -f ' + self.map_path)
+        self.dut.cmd('rm -f ' + self.prog_path)
+        return super(XDPatomicInitNonZero, self).cleanup()
+
+class XDPupdateAtomicInitZero(XDPLoadTest):
+    def prepare(self):
+        res = require_helper(self, BPF_HELPER.MAP_UPDATE_ELEM, "map update")
+        if res:
+            return res
+        return super(XDPupdateAtomicInitZero, self).prepare()
+
+class XDPupdateAtomicInitNonZero(XDPLoadNoOffloadTest):
+    def prepare(self):
+        res = require_helper(self, BPF_HELPER.MAP_UPDATE_ELEM, "map update")
+        if res:
+            return res
+        return super(XDPupdateAtomicInitNonZero, self).prepare()
