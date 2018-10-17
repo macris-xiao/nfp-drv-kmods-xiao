@@ -163,6 +163,8 @@ class NFPKmodBnic(NFPKmodAppGrp):
              'RED on top of MQ, force stats with mem writes from user space'),
             ("gred_mq", BnicGRed, 'Offloaded GRED on top of MQ'),
             ("gred_mq_bad", BnicGRedBad, 'Non-offloaded GRED on top of MQ'),
+            ("gred_mq_raw", BnicGRedRaw,
+             'GRED on top of MQ, force stats with mem writes from user space'),
             ("eg_u32", BnicU32eg, "Manipulating u32 filters vs qdisc offload"),
             ("cls_u32", BnicU32, "Manipulating u32 filters"),
             # must be last - will unload the driver
@@ -1126,6 +1128,9 @@ class BnicQlvl(BnicTest):
     ALL		= MARKED + PASS + BLOG + OTHER
     BASIC	= ['bytes', 'packets', 'drops', 'overlimits', 'requeues',
                    'backlog', 'qlen']
+
+    GRED_ALL	= ['prob_drop', 'forced_drop', 'prob_mark', 'forced_mark',
+                   'pdrop', 'backlog', 'qave', 'packets', 'bytes']
 
 class BnicMarkPing(BnicQlvl):
     def execute(self):
@@ -2376,6 +2381,217 @@ class BnicGRed(BnicTest):
     def cleanup(self):
         self.switchdev_mode_disable()
         return super(BnicGRed, self).cleanup()
+
+class BnicGRedRaw(BnicTest):
+    def rtsym_get(self, sym, off):
+        _, out = self.dut.cmd_rtsym('%s:%u' % (sym, off))
+        return int(out.split()[1], 16)
+
+    def rtsym_set(self, sym, off, val):
+        self.dut.cmd_rtsym('%s:%u %u' % (sym, off, val))
+
+    def rtsym_add(self, sym, off, add):
+        val = self.rtsym_get(sym, off)
+        val += add
+        self.rtsym_set(sym, off, val)
+
+    def _check_q(self, q, s, val):
+        assert_eq(val, q[s], qdisc_str(q) + "stat: '%s'" % (s))
+
+    def _check_vq(self, q, vq, s, val):
+        assert_eq(val, vq[s],
+                  qdisc_str(q) + "stat '%s' vq %d" % (s, vq["vq"]))
+
+    def _check_zero_q(self, q, s):
+        self._check_q(q, s, 0)
+
+    def _check_zero_vq(self, q, vq, s):
+        self._check_vq(q, vq, s, 0)
+
+    def _check_basic_zero(self, q):
+        for s in BnicQlvl.BASIC:
+            self._check_zero_q(q, s)
+
+    def _check_gred_zero(self, q, vq):
+        for s in BnicQlvl.GRED_ALL:
+            self._check_zero_vq(q, vq, s)
+
+    def check_all_stats(self, offloaded=True, accu=False, backlog=False):
+        _, qdiscs = self.qdisc_show()
+        for ifc in self.group.pf_ports:
+            for q in qdiscs[ifc]:
+                qdisc_offloaded(q, offloaded or q['kind'] != 'gred' or
+                                q['parent'] != '1000:1')
+
+                if q['kind'] == 'gred' and q['parent'] != '1000:1':
+                    self._check_basic_zero(q)
+                else:
+                    self._check_zero_q(q, 'requeues')
+                    if accu:
+                        self._check_q(q, 'packets', 64)
+                        self._check_q(q, 'bytes', 68)
+                        self._check_q(q, 'drops', 80)
+                        self._check_q(q, 'overlimits', 84)
+                    else:
+                        self._check_zero_q(q, 'packets')
+                        self._check_zero_q(q, 'bytes')
+                        self._check_zero_q(q, 'drops')
+                        self._check_zero_q(q, 'overlimits')
+
+                    if backlog:
+                        self._check_q(q, 'backlog', 88)
+                        self._check_q(q, 'qlen', 92)
+                    else:
+                        self._check_zero_q(q, 'backlog')
+                        self._check_zero_q(q, 'qlen')
+
+                if q['kind'] != 'gred':
+                    continue
+
+                for vq in q["options"]["vqs"]:
+                    if q['parent'] != '1000:1':
+                        self._check_gred_zero(q, vq)
+                    else:
+                        for s in ['prob_drop', 'forced_drop', 'prob_mark',
+                                  'qave']:
+                            self._check_zero_vq(q, vq, s)
+                        if accu:
+                            self._check_vq(q, vq, 'packets', vq["vq"] * 10 + 1)
+                            self._check_vq(q, vq, 'bytes', vq["vq"] * 10 + 2)
+                            self._check_vq(q, vq, 'pdrop', vq["vq"] * 10 + 5)
+                            self._check_vq(q, vq, 'forced_mark',
+                                           vq["vq"] * 10 + 6)
+                        else:
+                            self._check_zero_vq(q, vq, 'packets')
+                            self._check_zero_vq(q, vq, 'bytes')
+                            self._check_zero_vq(q, vq, 'pdrop')
+                            self._check_zero_vq(q, vq, 'forced_mark')
+
+                        if backlog:
+                            self._check_vq(q, vq, 'backlog', vq["vq"] * 10 + 7)
+                        else:
+                            self._check_zero_q(q, 'backlog')
+
+    def prepare(self):
+        if self.group.upstream_drv:
+            return NrtResult(name=self.name, testtype=self.__class__.__name__,
+                             passed=None, comment='RT-sym test on upstream')
+
+    def execute(self):
+        self.switchdev_mode_enable()
+
+        self.vnics_all_down()
+
+        # Build GRED hierarchy on all vNICs
+        self.build_mq_gred()
+
+        # Check all stats are zero twice - to make sure stats are stable
+        self.check_all_stats()
+        self.check_all_stats()
+
+        # For stats on GRED 0 add something to all counters
+        for i in range(self.group.n_ports):
+            for b in range(self.dut.fwcaps["num_bands"]):
+                q = self.dut.vnics[i]['base_q'] + b * NfpNfdCtrl.MAX_RXRINGS
+
+                self.rtsym_add("_abi_nfd_rxq_stats%u_per_band" %
+                               (self.group.pf_id), q * 16, b * 10 + 1)
+                self.rtsym_add("_abi_nfd_rxq_stats%u_per_band" %
+                               (self.group.pf_id), q * 16 + 8, b * 10 + 2)
+
+                self.rtsym_add("_abi_nfdqm%u_stats_per_band" %
+                               (self.group.pf_id), q * 32, b * 10 + 3)
+                self.rtsym_add("_abi_nfdqm%u_stats_per_band" %
+                               (self.group.pf_id), q * 32 + 8, b * 10 + 4)
+                self.rtsym_add("_abi_nfdqm%u_stats_per_band" %
+                               (self.group.pf_id), q * 32 + 16, b * 10 + 5)
+                self.rtsym_add("_abi_nfdqm%u_stats_per_band" %
+                               (self.group.pf_id), q * 32 + 24, b * 10 + 6)
+
+                self.rtsym_add("_abi_nfd_out_q_lvls_%u_per_band" %
+                               (self.group.pf_id), q * 16, b * 10 + 7)
+                self.rtsym_add("_abi_nfd_out_q_lvls_%u_per_band" %
+                               (self.group.pf_id), q * 16 + 4, b * 10 + 8)
+
+        # Check the modified counters twice
+        self.check_all_stats(True, True, True)
+        self.check_all_stats(True, True, True)
+
+        # Unoffload - stats should stay almost the same (save for backlog)
+        cmd = ''
+        for i in range(self.group.n_ports):
+            ifc = self.group.pf_ports[i]
+            cmd += "tc qdisc replace dev {ifc} "\
+                "parent {parent} handle {handle}: gred vq {vq} "\
+                "min {thrs} max 10000 avpkt 5000 burst 1 "\
+                "limit 400000 bandwidth 10Mbit ecn"\
+                .format(ifc=ifc, parent="1000:%x" % (1),
+                        handle=hex(4095)[2:], vq=0, thrs=5000)
+            cmd += ' && '
+        cmd += 'true'
+        self.dut.cmd(cmd)
+
+        # Recheck
+        self.check_all_stats(False, True, False)
+        self.check_all_stats(False, True, False)
+
+        # Fix the offload and make sure stats return
+        cmd = ''
+        for i in range(self.group.n_ports):
+            ifc = self.group.pf_ports[i]
+            cmd += "tc qdisc replace dev {ifc} "\
+                "parent {parent} handle {handle}: gred vq {vq} "\
+                "min 5000 max 5000 avpkt 5000 burst 1 "\
+                "limit 400000 bandwidth 10Mbit ecn"\
+                .format(ifc=ifc, parent="1000:%x" % (1),
+                        handle=hex(4095)[2:], vq=0, thrs=5000)
+            cmd += ' && '
+        cmd += 'true'
+        self.dut.cmd(cmd)
+
+        # Recheck
+        self.check_all_stats(True, True, True)
+        self.check_all_stats(True, True, True)
+
+        # Remove / rebuild the structure
+        for ifc in self.group.pf_ports:
+            self.qdisc_delete(ifc, parent="root", kind="mq")
+        self.build_mq_gred()
+
+        # Check all accumulative stats are 0
+        self.check_all_stats(True, False, True)
+        self.check_all_stats(True, False, True)
+
+        # Check the ethtool stat
+        for ifc in self.group.pf_ports:
+            stats = self.dut.ethtool_stats(ifc)
+
+            sto = 0
+            non_sto = 0
+            for b in range(self.dut.fwcaps["num_bands"]):
+                q = self.dut.vnics[i]['base_q'] + b * NfpNfdCtrl.MAX_RXRINGS
+
+                non_sto += self.rtsym_get("_abi_nfdqm%u_stats_per_band" %
+                                          (self.group.pf_id), q * 32)
+                sto += self.rtsym_get("_abi_nfdqm%u_stats_per_band" %
+                                      (self.group.pf_id), q * 32 + 8)
+
+            assert_eq(non_sto, stats['q0_no_wait'], "Ethtool stat 'q0_no_wait'")
+            assert_eq(sto, stats['q0_delayed'], "Ethtool stat 'q0_delayed'")
+
+    def cleanup(self):
+        self.switchdev_mode_disable()
+
+        for i in range(self.group.n_ports):
+            for b in range(self.dut.fwcaps["num_bands"]):
+                q = self.dut.vnics[i]['base_q'] + b * NfpNfdCtrl.MAX_RXRINGS
+
+                self.rtsym_set("_abi_nfd_out_q_lvls_%u_per_band" %
+                               (self.group.pf_id), q * 16, 0)
+                self.rtsym_set("_abi_nfd_out_q_lvls_%u_per_band" %
+                               (self.group.pf_id), q * 16 + 4, 0)
+
+        return super(BnicGRedRaw, self).cleanup()
 
 ###########################################################################
 # u32 tests
