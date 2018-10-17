@@ -224,6 +224,10 @@ class XDPfunctionCall(XDPpassBaseWithCodegenScan):
     def get_prog_name(self):
         return xdp_test_name_to_prog(self)
 
+class XDPfunctionCallAdjPass(XDPfunctionCall):
+    def get_exp_pkt_raw(self):
+        return self.get_src_pkt()
+
 class XDPdrop(XDPTest):
     def execute(self):
         self.ping(0)
