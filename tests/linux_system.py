@@ -85,6 +85,9 @@ class LinuxSystem(System):
         return (self._kernel_maj == major and self._kernel_min >= minor) or \
             self._kernel_maj > major
 
+    def kernel_ver_lt(self, major, minor):
+        return not self.kernel_ver_ge(major, minor)
+
     ###############################
     # Stats handling
     ###############################

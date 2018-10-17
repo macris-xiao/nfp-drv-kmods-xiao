@@ -215,6 +215,11 @@ class XDPpass(XDPTest):
         self.ping6(0)
 
 class XDPfunctionCall(XDPpassBaseWithCodegenScan):
+    def execute(self):
+        if self.dut.kernel_ver_lt(4, 20):
+            raise NtiSkip("kernel rejects offload for function calls")
+        super(XDPfunctionCall, self).execute()
+
     def get_src_pkt(self):
         return self.std_pkt()
 
