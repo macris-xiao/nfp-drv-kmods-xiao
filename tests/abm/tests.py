@@ -99,6 +99,7 @@ class NFPKmodBnic(NFPKmodAppGrp):
             },
             "num_prio"		: 1,
             "num_bands"		: 1,
+            "act_mask"		: 1 << ACT_MARK_DROP,
         }
         value = some_test.read_sym_nffw("_abi_nfd_total_bufs", fail=True)
         if len(value) != 8:
@@ -116,6 +117,11 @@ class NFPKmodBnic(NFPKmodAppGrp):
         if value is not None:
             assert_eq(8, len(value), "num_bands sym len")
             self.dut.fwcaps["num_bands"] = get_le32(value, 0)
+
+        value = some_test.read_sym_nffw("_abi_nfd_out_q_actions_0", fail=False)
+        if value is not None:
+            assert_eq(8, len(value), "act_mask sym len")
+            self.dut.fwcaps["act_mask"] = get_le32(value, 0)
 
         LOG_sec("ABM NIC capabilities")
         LOG(self.pp.pformat(self.dut.fwcaps))
@@ -197,6 +203,9 @@ FW_STATE_DUMP_LVL = 3
 MAX_QUEUES = 64
 NUM_QM_STATS = 4
 NUM_QM_STATS = 4
+
+ACT_MARK_DROP = 0
+ACT_DROP = 2
 
 ABM_LVL_NOT_SET = ((1 << 31) - 1)
 
