@@ -469,8 +469,8 @@ class BnicTest(CommonTest):
         return self.dut.cmd("tc qdisc delete" + params, fail=fail)
 
     def qdisc_replace(self, ifc, parent="root", handle=None, kind="mq", thrs=0,
-                      ecn=True, bands=None, default=None, vq=None, grio=False,
-                      _bulk=False):
+                      ecn=True, harddrop=False, bands=None, default=None,
+                      vq=None, grio=False, _bulk=False):
         param = ""
         if parent is not None:
             param += "parent " + parent
@@ -479,16 +479,17 @@ class BnicTest(CommonTest):
 
         if kind == "red":
             param += " red min {thrs} max {thrs} avpkt {thrs} burst 1 "\
-                    "limit 400000 bandwidth 10Mbit {ecn}"\
-                    .format(thrs=thrs, ecn=("ecn" * ecn))
+                    "limit 400000 bandwidth 10Mbit {ecn} {harddrop}"\
+                    .format(thrs=thrs, ecn=("ecn" * ecn),
+                            harddrop=("harddrop" * harddrop))
         elif kind == "gred":
             param += " gred"
             if bands is not None:
                 param += " setup vqs %d" % (bands)
                 if default is not None:
                     param += " default %d" % (default)
-                if ecn:
-                    param += " ecn"
+                if harddrop:
+                    param += " harddrop"
                 if grio:
                     param += " grio"
             else:
@@ -496,6 +497,8 @@ class BnicTest(CommonTest):
                 param += " min {thrs} max {thrs} avpkt {thrs} burst 1 "\
                     .format(thrs=thrs)
                 param += " limit 400000 bandwidth 10Mbit"
+            if ecn:
+                param += " ecn"
         else:
             param += " " + kind
 
@@ -506,7 +509,7 @@ class BnicTest(CommonTest):
             return self.dut.cmd(cmd)
 
     def build_gred(self, ifc, parent="root", handle=None, bands=4, default=0,
-                   thrs=[0,0,0,0], ecn=True, _bulk=False):
+                   thrs=[0,0,0,0], ecn=True, parent_flags=True, _bulk=False):
         if handle is None:
             if _bulk:
                 raise NtiError('No handle and _bulk in GRED build')
@@ -519,13 +522,14 @@ class BnicTest(CommonTest):
         cmd = ''
         cmd += self.qdisc_replace(ifc, parent=parent, handle=handle,
                                   kind="gred",
-                                  bands=bands, default=default, ecn=ecn,
+                                  bands=bands, default=default,
+                                  ecn=(ecn and parent_flags),
                                   _bulk=True)
         cmd += ' && '
         for i in range(bands):
             cmd += self.qdisc_replace(ifc, parent=parent, handle=handle,
                                       kind="gred", vq=i, thrs=thrs[i],
-                                      _bulk=True)
+                                      ecn=ecn, _bulk=True)
             cmd += ' && '
         cmd += 'true'
         if _bulk:
@@ -533,7 +537,7 @@ class BnicTest(CommonTest):
         else:
             return self.dut.cmd(cmd)
 
-    def build_mq_gred(self, thrs=[1000, 2000, 3000, 4000]):
+    def build_mq_gred(self, thrs=[1000, 2000, 3000, 4000], parent_flags=True):
         cmd = ''
         for i in range(self.group.n_ports):
             ifc = self.group.pf_ports[i]
@@ -544,7 +548,9 @@ class BnicTest(CommonTest):
                 cmd += self.build_gred(ifc, parent="1000:%x" % (qid + 1),
                                        handle=hex(4095 - qid)[2:],
                                        bands=self.dut.fwcaps["num_bands"],
-                                       default=0, thrs=thrs, _bulk=True)
+                                       default=0, thrs=thrs,
+                                       parent_flags=parent_flags,
+                                       _bulk=True)
                 cmd += ' && '
         cmd += 'true'
         self.dut.cmd(cmd)
@@ -622,10 +628,10 @@ class BnicTest(CommonTest):
     def system_refresh(self):
         self.system_refresh_mode()
 
-    def set_root_red_all(self, thrs, ecn=True):
+    def set_root_red_all(self, thrs, harddrop=False):
         for i in range(self.group.n_ports):
             self.qdisc_replace(self.group.pf_ports[i], kind='red', thrs=thrs,
-                               ecn=ecn)
+                               harddrop=harddrop)
 
     def build_mq_red(self, thrs, ecn=True):
         cmd = ''
@@ -1145,8 +1151,9 @@ class BnicMarkPing(BnicQlvl):
     def execute(self):
         self.switchdev_mode_enable()
 
-        # Set threshold to the bare minimum while vNICs down
-        self.build_mq_red(1)
+        # Set threshold to the bare minimum while vNICs down, we want ARPs and
+        # other tiny packets to get through but not the pings
+        self.build_mq_red(128)
         _, qdiscs = self.qdisc_show()
         self.vnics_all_up()
 
@@ -1154,22 +1161,33 @@ class BnicMarkPing(BnicQlvl):
 
         # Send ping without QoS marking, should just pass
         for i in range(self.group.n_ports):
-            self.ping(port=i, count=10)
-            self.ping6(port=i, count=10)
+            self.ping(port=i, count=10, size=200, should_fail=True)
+            self.ping6(port=i, count=10, size=200, should_fail=True)
 
         _, qdiscs = self.qdisc_show()
         for ifc in self.group.pf_ports:
+            acc = {
+                'packets'	: 0,
+                'bytes'	: 0,
+                'drops'	: 0,
+                'pdrop'	: 0,
+            }
             for q in qdiscs[ifc]:
                 if q['kind'] != "red":
                     continue
                 for s in BnicQlvl.MARKED:
                     assert_equal(0, q[s], 'Statistic %s mismatch' % (s))
-                    assert_equal(0, q[s], 'Statistic %s mismatch' % (s))
+                for s in acc.keys():
+                    acc[s] += q[s]
+            for s in ('drops', 'pdrop'):
+                assert_ge(20, acc[s], 'Statistic %s mismatch' % (s))
+            assert_lt(10, acc['packets'], 'Statistic packets mismatch')
+            assert_lt(3000, acc['bytes'], 'Statistic bytes mismatch')
 
         # Send ping (any non-TCP packet would do)
         for i in range(self.group.n_ports):
-            self.ping(port=i, count=10, tos=2)
-            self.ping6(port=i, count=10, tos=2)
+            self.ping(port=i, count=10, size=200, tos=2)
+            self.ping6(port=i, count=10, size=200, tos=2)
 
         _, qdiscs = self.qdisc_show()
         for ifc in self.group.pf_ports:
@@ -1210,7 +1228,7 @@ class BnicRedNonRoot(BnicTest):
 
     def red_on_red(self, offload_base, offload_top):
         # Set RED on top of RED
-        self.set_root_red_all(1 << 16, ecn=offload_base)
+        self.set_root_red_all(1 << 16, harddrop=not offload_base)
 
         handles = self.red_simple_check(offload_base)
 
@@ -1328,7 +1346,7 @@ class BnicPerQState:
     def stat_diff(self, base, kind, ifc, stat):
         return self[kind][ifc][stat] - base[kind][ifc][stat]
 
-    def _validate(self, base, exp_marked):
+    def _validate(self, base, exp_marked, exp_dropped):
         _, qdiscs = self.test.qdisc_show()
 
         for ifc in self.group.pf_ports:
@@ -1337,6 +1355,7 @@ class BnicPerQState:
             for s in BnicQlvl.ALL:
                 acc[s] = 0
 
+            dropped = 0
             marked = 0
             mq = None
             for q in qdiscs[ifc]:
@@ -1350,7 +1369,10 @@ class BnicPerQState:
                     acc[s] += q[s]
                 # Check blog/drops/other
                 for s in BnicQlvl.BLOG + BnicQlvl.OTHER:
-                    assert_equal(0, q[s], 'Statistic %s mismatch' % (s))
+                    if s.count('drop'):
+                        dropped += q[s]
+                    else:
+                        assert_equal(0, q[s], 'Statistic %s mismatch' % (s))
                 # Check or accumulate marked
                 if exp_marked == 0:
                     for s in BnicQlvl.MARKED:
@@ -1377,11 +1399,13 @@ class BnicPerQState:
                     assert_equal(acc[s], mq[s], "MQ stats: " + s)
 
             assert_equal(exp_marked, marked, "Number of marked packets")
+            assert_equal(exp_dropped, dropped, "Number of dropped packets")
 
-    def validate(self, base, exp_marked=0):
-        LOG_sec('Validate, exp_marked %d' % (exp_marked))
+    def validate(self, base, exp_marked=0, exp_dropped=0):
+        LOG_sec('Validate, exp_marked %d exp_dropped %d' %
+                (exp_marked, exp_dropped))
         try:
-            self._validate(base, exp_marked)
+            self._validate(base, exp_marked, exp_dropped)
         finally:
             LOG_endsec()
 
@@ -1461,28 +1485,29 @@ class BnicRedMq(BnicTest):
         self.qcfg[ifc][qid] = ABM_LVL_NOT_SET
         self.qdisc_delete(ifc, parent=self.mqs[ifc] + "%x" % (qid + 1))
 
-    def _set_thrs(self, ifc, qid, thrs, ecn):
-        if ecn:
-            self.qcfg[ifc][qid] = thrs
-        else:
+    def _set_thrs(self, ifc, qid, thrs, harddrop):
+        if harddrop:
             self.qcfg[ifc][qid] = ABM_LVL_NOT_SET
+        else:
+            self.qcfg[ifc][qid] = thrs
 
-    def set_red_one(self, ifc, qid, thrs, ecn=True):
-        self._set_thrs(ifc, qid, thrs, ecn)
+    def set_red_one(self, ifc, qid, thrs, harddrop=False):
+        self._set_thrs(ifc, qid, thrs, harddrop)
         self.qdisc_replace(ifc, parent=self.mqs[ifc] + "%x" % (qid + 1),
-                           kind="red", thrs=thrs, ecn=ecn)
+                           kind="red", thrs=thrs, harddrop=harddrop)
 
-    def set_red_all(self, thrs=0, thrs_func=None, ecn=True):
+    def set_red_all(self, thrs=0, thrs_func=None, harddrop=False):
         cmd = ''
         for i in range(self.group.n_ports):
             ifc = self.group.pf_ports[i]
             for qid in range(self.nqs[ifc]):
                 if thrs_func:
                     thrs = thrs_func(i + 1, qid)
-                self._set_thrs(ifc, qid, thrs, ecn)
+                self._set_thrs(ifc, qid, thrs, harddrop)
                 parent = self.mqs[ifc] + "%x" % (qid + 1)
                 cmd += self.qdisc_replace(ifc, parent=parent, kind="red",
-                                          thrs=thrs, ecn=ecn, _bulk=True)
+                                          thrs=thrs, harddrop=harddrop,
+                                          _bulk=True)
                 cmd += ' && '
         cmd += 'true'
         self.dut.cmd(cmd)
@@ -1513,7 +1538,7 @@ class BnicRedMq(BnicTest):
         LOG_sec('TEST Set root to RED, no offload')
         try:
             # Set root to RED thrs 4, non-offload
-            self.set_root_red_all(4, ecn=False)
+            self.set_root_red_all(4, harddrop=True)
             fw_state = self.read_fw_state()
             self.validate_root_fw_levels(fw_state, ABM_LVL_NOT_SET)
         finally:
@@ -1547,7 +1572,7 @@ class BnicRedMq(BnicTest):
                 elif r == 2:
                     self.set_red_one(ifc, q, random.randint(1, 1 << 24))
                 elif r == 3:
-                    self.set_red_one(ifc, q, 7, ecn=False)
+                    self.set_red_one(ifc, q, 7, harddrop=True)
                 self.validate_qcfg()
         finally:
             LOG_endsec()
@@ -1555,12 +1580,13 @@ class BnicRedMq(BnicTest):
         LOG_sec('TEST Basic traffic tests')
         try:
             # Set all queues to 1
-            self.set_red_all(1)
+            self.set_red_all(90)
             self.validate_qcfg()
 
             # Spray with traffic
             base_stat = BnicPerQState(self)
             exp_marked = 0
+            exp_dropped = 4000
 
             self.vnics_all_up()
             for i in range(self.group.n_ports):
@@ -1570,7 +1596,7 @@ class BnicRedMq(BnicTest):
             self.vnics_all_down()
 
             stat = BnicPerQState(self)
-            stat.validate(base_stat, exp_marked)
+            stat.validate(base_stat, exp_marked, exp_dropped)
         finally:
             LOG_endsec()
 
@@ -1586,17 +1612,17 @@ class BnicRedMq(BnicTest):
             self.vnics_all_down()
 
             stat = BnicPerQState(self)
-            stat.validate(base_stat, exp_marked)
+            stat.validate(base_stat, exp_marked, exp_dropped)
         finally:
             LOG_endsec()
 
         LOG_sec('TEST Replace with non-offload')
         try:
             # Set all queues to 5, non-offload
-            self.set_red_all(5, ecn=False)
+            self.set_red_all(5, harddrop=True)
             self.validate_qcfg()
             # No traffic passed, all stats should be maintained on replace
-            stat.validate(base_stat, exp_marked)
+            stat.validate(base_stat, exp_marked, exp_dropped)
         finally:
             LOG_endsec()
 
@@ -1611,7 +1637,7 @@ class BnicRedMq(BnicTest):
             self.set_red_all(5)
             self.validate_qcfg()
 
-            stat_removed.validate(stat, 0)
+            stat_removed.validate(stat, 0, 0)
         finally:
             LOG_endsec()
 
@@ -1713,18 +1739,18 @@ class BnicRedMqRaw(BnicTest):
         self.base = self.state.clone()
         self.init = self.state.clone()
 
-    def set_mq_config_children(self, ecn=True):
+    def set_mq_config_children(self, harddrop=False):
         cmd = ''
         for ifc in self.group.pf_ports:
             for qid in range(self.state['nqs'][ifc]):
                 parent = self.mqs[ifc] + "%x" % (qid + 1)
                 cmd += self.qdisc_replace(ifc, parent=parent, kind="red",
-                                          thrs=1, ecn=ecn, _bulk=True)
+                                          thrs=1, harddrop=harddrop, _bulk=True)
                 cmd += ' && '
         cmd += 'true'
         self.dut.cmd(cmd)
         # Remember whether we want offload or not
-        self.offloaded = ecn
+        self.offloaded = not harddrop
 
     def set_mq_config(self):
         for ifc in self.group.pf_ports:
@@ -1830,6 +1856,19 @@ class BnicRedMqRaw(BnicTest):
         self.vnics_all_down()
         time.sleep(0.5)
 
+        # Since per-band stats were added we have to wipe the ethtool counters
+        LOG_sec("Wipe ethtool stats from other bands")
+        try:
+            for band in range(1, self.dut.fwcaps["num_bands"]):
+                qmstat = '_abi_nfdqm%u_stats_per_band' % (self.group.pf_id)
+                base = band * NfpNfdCtrl.MAX_RXRINGS
+
+                for qid in range(NfpNfdCtrl.MAX_RXRINGS):
+                    self.dut.cmd_rtsym('%s:%u 0 0 0 0' %
+                                       (qmstat, (base + qid) * 32))
+        finally:
+            LOG_endsec()
+
         # Reset all state
         self.init_all_0()
         self.state.force_apply_all()
@@ -1865,7 +1904,7 @@ class BnicRedMqRaw(BnicTest):
             self.validate()
 
         # Replace with non-offload
-        self.set_mq_config_children(ecn=False)
+        self.set_mq_config_children(harddrop=True)
 
         # After replace with non-offload blog should go back to 0
         for ifc in self.group.pf_ports:
