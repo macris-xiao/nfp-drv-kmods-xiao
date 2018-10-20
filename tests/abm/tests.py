@@ -173,6 +173,7 @@ class NFPKmodBnic(NFPKmodAppGrp):
              'GRED on top of MQ, force stats with mem writes from user space'),
             ("eg_u32", BnicU32eg, "Manipulating u32 filters vs qdisc offload"),
             ("cls_u32", BnicU32, "Manipulating u32 filters"),
+            ("act", BnicAct, "Drop vs mark action"),
             # must be last - will unload the driver
             ("reload", BnicReload, 'reload the driver with things configured'),
         )
@@ -220,6 +221,7 @@ class BnicTest(CommonTest):
     def _empty_config_dict(self):
         fw_state = dict()
         fw_state["qlvl"] = [[] for i in range(NUM_PCI_PFS)]
+        fw_state["qact"] = [[] for i in range(NUM_PCI_PFS)]
         fw_state["qlen"] = [[] for i in range(NUM_PCI_PFS)]
         fw_state["qblog"] = [[] for i in range(NUM_PCI_PFS)]
         fw_state["qmstat"] = \
@@ -278,11 +280,12 @@ class BnicTest(CommonTest):
                         start = (t * MAX_QUEUES + i) * per_q
                         end = (t * MAX_QUEUES + i + 1) * per_q
 
-                        vals = unpack_from('< I I I', r.reg_data[start:end])
+                        vals = unpack_from('< I I I I', r.reg_data[start:end])
 
                         tgts[t]["qblog"][idx].append(vals[0])
                         tgts[t]["qlen"][idx].append(vals[1])
                         tgts[t]["qlvl"][idx].append(vals[2])
+                        tgts[t]["qact"][idx].append(vals[3])
             elif r.sym_name.count('_abi_nfdqm') and r.sym_name.count('stats'):
                 idx = int(r.sym_name[10])
 
@@ -2807,3 +2810,85 @@ class BnicU32(BnicTest):
     def cleanup(self):
         self.switchdev_mode_disable()
         return super(BnicU32, self).cleanup()
+
+###########################################################################
+# Action setting tests
+###########################################################################
+class BnicAct(BnicTest):
+    def check_offload(self, pred):
+        _, qdiscs = self.qdisc_show()
+        for i in range(self.group.n_ports):
+            ifc = self.group.pf_ports[i]
+            assert_eq(self.dut.vnics[i]['total_qs'] + 1, len(qdiscs[ifc]),
+                      "Num Qdiscs")
+            for q in qdiscs[ifc]:
+                qdisc_offloaded(q, pred(q))
+
+    def check_act(self, pred):
+        fw_state = self.read_fw_state()
+        for i in range(self.group.n_ports):
+            for band in range(self.dut.fwcaps["num_bands"]):
+                for qid in self.all_qs(i):
+                    act = fw_state['prio'][band]['qact'][self.group.pf_id][qid]
+                    assert_eq(pred(qid, band), act,
+                              "Queue Action for band: %d queue: %d" %
+                              (band, qid))
+
+    def execute(self):
+        self.switchdev_mode_enable()
+
+        # Build normal GRED with all the ECNs
+        self.build_mq_gred(parent_flags=False)
+
+        # Check all are offloaded
+        self.check_offload((lambda x: True))
+
+        # Check actions are all set to ACT_MARK_DROP
+        self.check_act((lambda q, band: ACT_MARK_DROP))
+
+        if self.dut.fwcaps["num_bands"] > 1:
+            vqs = (0, self.dut.fwcaps["num_bands"] - 1)
+        else:
+            vqs = (0)
+
+        for vq in vqs:
+            # Now disable the ECN
+            cmd = ''
+            for i in range(self.group.n_ports):
+                ifc = self.group.pf_ports[i]
+                for qid in range(self.dut.vnics[i]['total_qs']):
+                    cmd += self.qdisc_replace(ifc, parent="1000:%x" % (qid + 1),
+                                              handle=hex(4095 - qid)[2:],
+                                              kind="gred", vq=vq, thrs=5000,
+                                              ecn=False, _bulk=True)
+                    cmd += ' && '
+            cmd += 'true'
+            self.dut.cmd(cmd)
+
+            # If DROP action is not support there is no offload
+            if self.dut.fwcaps["act_mask"] & (1 << ACT_DROP) == 0:
+                self.check_offload((lambda x: q['kind'] == "mq"))
+            else:
+                self.check_offload((lambda x: True))
+                self.check_act((lambda q, band:
+                                ACT_DROP if band == vq else ACT_MARK_DROP))
+
+            # Go back to the ECN on that band
+            cmd = ''
+            for i in range(self.group.n_ports):
+                ifc = self.group.pf_ports[i]
+                for qid in range(self.dut.vnics[i]['total_qs']):
+                    cmd += self.qdisc_replace(ifc, parent="1000:%x" % (qid + 1),
+                                              handle=hex(4095 - qid)[2:],
+                                              kind="gred", vq=vq, thrs=5000,
+                                              _bulk=True)
+                    cmd += ' && '
+            cmd += 'true'
+            self.dut.cmd(cmd)
+
+            # And check the act is back to MARK/DROP
+            self.check_act((lambda q, band: ACT_MARK_DROP))
+
+    def cleanup(self):
+        self.switchdev_mode_disable()
+        return super(BnicAct, self).cleanup()
