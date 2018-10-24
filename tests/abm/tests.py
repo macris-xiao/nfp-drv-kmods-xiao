@@ -1792,23 +1792,29 @@ class BnicRedMqRaw(BnicTest):
 
         # Set RED root
         for ifc in self.group.pf_ports:
-            self.qdisc_replace(ifc, parent='root', kind='red', thrs=2, ecn=True)
+            self.qdisc_delete(ifc, parent="root")
+        self.build_mq_red(thrs=2)
 
         # Confirm all RED stats are 0 (blog set)
         _, qdiscs = self.qdisc_show()
         for ifc in self.group.pf_ports:
-            assert_equal(1, len(qdiscs[ifc]), 'Wrong number of qdiscs on port')
-            for stat in BnicQlvl.MARKED + BnicQlvl.PASS + BnicQlvl.OTHER:
-                assert_equal(0, qdiscs[ifc][0][stat], "Qdisc stat: " + stat)
+            for q in qdiscs[ifc]:
+                for stat in BnicQlvl.MARKED + BnicQlvl.PASS + BnicQlvl.OTHER:
+                    if stat not in BnicQlvl.BASIC and q['kind'] == "mq":
+                        continue
+                    assert_eq(0, q[stat], "Qdisc %s stat: %s" %
+                              (qdisc_str(q), stat))
 
-            bblog = 0
-            pblog = 0
-            for nqid in range(self.state['nqs'][ifc]):
+                if q['kind'] == "mq":
+                    continue
+
+                nqid = self.qdisc_to_nqid(q)
                 qid = self.nqid_to_qid(ifc, nqid)
-                bblog += self.state['bblog'][qid]
-                pblog += self.state['pblog'][qid]
-            assert_equal(bblog, qdiscs[ifc][0]['backlog'], "Qdisc stat: blog")
-            assert_equal(pblog, qdiscs[ifc][0]['qlen'], "Qdisc stat: qlen")
+
+                assert_equal(self.state['bblog'][qid],
+                             q['backlog'], "Qdisc %s stat: blog" % qdisc_str(q))
+                assert_equal(self.state['pblog'][qid],
+                             q['qlen'], "Qdisc %s stat: qlen" % qdisc_str(q))
 
     def cleanup(self):
         self.state = self.init
