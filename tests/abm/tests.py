@@ -149,13 +149,10 @@ class NFPKmodBnic(NFPKmodAppGrp):
             ('netdevs', BnicNetdevs, 'behaviour of all the netdevs'),
             ('tc_flag', BnicTcOffload, 'behaviour of tc-hw-offload flag'),
             ("sb_config", BnicSbConfig, 'configuration of buffering'),
-            ("red_qlvl", BnicQlvl, 'RED as root'),
             ("red_mark_non_tcp", BnicMarkPing,
              'Marking of non-TCP packets (ICMP)'),
             ("red_topo_bad", BnicRedNonRoot,
              "RED doesn't offload on top of other Qdiscs"),
-            ("red_raw", BnicRedRaw,
-             'RED as root, force stats with mem writes from user space'),
             ("red_mq", BnicRedMq, 'RED on top of MQ'),
             ("red_mq_raw", BnicRedMqRaw,
              'RED on top of MQ, force stats with mem writes from user space'),
@@ -1034,161 +1031,6 @@ class BnicQlvl(BnicTest):
     BASIC	= ['bytes', 'packets', 'drops', 'overlimits', 'requeues',
                    'backlog', 'qlen']
 
-    def _check_root_stats_const(self, reds, stats, val):
-        for (i, ifc, q) in reds:
-            for s in stats:
-                assert_equal(val, q[s], 'Statistic %s mismatch' % (s))
-
-    def _check_pass_stats(self, fw_state, reds, ip_stat, in_stats):
-        stats = [0, 0]
-        for i in range(0, len(in_stats), 2):
-            stats[0] += in_stats[i + 0]
-            stats[1] += in_stats[i + 0] * in_stats[i + 1]
-
-        LOG_sec('Check pass stats')
-        try:
-            for (i, ifc, q) in reds:
-                vnic = self.group.vnics[i]
-                old = self._ip_stat[vnic]['stats64']['rx']
-                new = ip_stat[vnic]['stats64']['rx']
-
-                LOG("%s:%d" % (ifc, i))
-                self.log('qdisc:', self.group.pp.pformat(q))
-                self.log('old stat:', old)
-                self.log('new stat:', new)
-
-                assert_ge(stats[0], q['packets'], 'Packet count')
-                assert_lt(stats[0] + 10, q['packets'], 'Packet count')
-                assert_ge(stats[1], q['bytes'], 'Byte count')
-                assert_lt(stats[1] + 2000, q['bytes'], 'Byte count')
-
-                assert_equal(new['packets'] - old['packets'], q['packets'],
-                             'Packet count against ifstat')
-                assert_equal(new['bytes'] - old['bytes'], q['bytes'],
-                             'Byte count against ifstat')
-        finally:
-            LOG_endsec()
-
-    def _check_root_stats_no_sto(self, fw_state, reds, ip_stat, stats):
-        self._check_root_stats_const(reds, BnicQlvl.MARKED + BnicQlvl.BLOG +
-                                     BnicQlvl.OTHER, 0)
-        self._check_pass_stats(fw_state, reds, ip_stat, stats)
-
-    def _check_root_stats_mark(self, fw_state, reds, ip_stat, stats):
-        self._check_root_stats_const(reds, BnicQlvl.BLOG + BnicQlvl.OTHER, 0)
-        self._check_root_stats_const(reds, BnicQlvl.MARKED, stats[2])
-        self._check_pass_stats(fw_state, reds, ip_stat, stats)
-
-    def check_root(self, thrs, stats=None):
-        fw_state = self.read_fw_state()
-        _, qdiscs = self.qdisc_show()
-        reds = []
-        for ifc in self.group.pf_ports:
-            assert_equal(1, len(qdiscs[ifc]), 'Wrong number of qdiscs on port')
-            reds.append((self.group.pf_ports.index(ifc), ifc, qdiscs[ifc][0]))
-
-        if thrs is not None:
-            self.validate_root_basic(fw_state, reds, thrs)
-
-        if stats is None:
-            self._check_root_stats_const(reds, BnicQlvl.PASS + BnicQlvl.MARKED +
-                                         BnicQlvl.BLOG + BnicQlvl.OTHER, 0)
-            self._fw_state0 = fw_state
-        elif len(stats) == 0:
-            self._check_root_stats_const(reds, BnicQlvl.PASS + BnicQlvl.MARKED +
-                                         BnicQlvl.OTHER, 0)
-        elif len(stats) == 1:
-            self._check_root_stats_const(reds,
-                                         BnicQlvl.MARKED + BnicQlvl.OTHER, 0)
-        elif len(stats) == 2:
-            _, ip_stat = self.ip_show()
-            self._check_root_stats_no_sto(fw_state, reds, ip_stat, stats)
-        elif len(stats) == 4:
-            _, ip_stat = self.ip_show()
-            self._check_root_stats_mark(fw_state, reds, ip_stat, stats)
-
-    def check_thrs_match(self):
-        fw_state = self.read_fw_state()
-        _, qdiscs = self.qdisc_show()
-        thrs = [ABM_LVL_NOT_SET] * self.group.n_ports
-
-        for i in range(self.group.n_ports):
-            ifc = self.group.pf_ports[i]
-            if ifc in qdiscs and qdiscs[ifc][0]['kind'] == 'red':
-                assert_equal(1, len(qdiscs[ifc]),
-                             'Wrong number of qdiscs on port')
-                if 'offloaded' in qdiscs[ifc][0]:
-                    thrs[i] = qdiscs[ifc][0]['options']['min']
-
-        for i in range(self.group.n_ports):
-            for j in self.all_qs(i):
-                assert_equal(thrs[i], fw_state['qlvl'][self.group.pf_id][j],
-                             'Bad threshold on queue %d' % (j))
-
-    def execute(self):
-        self.switchdev_mode_enable()
-
-        # Make sure we can run those configs with vNICs up
-        self.vnics_all_up()
-
-        for t in (1, 15000, 30000, 700000, 1 << 24):
-            self.set_root_red_all(t)
-            self.check_root(t, stats=[0])
-
-        # Remove all qdiscs (test disable)
-        for ifc in self.group.pf_ports:
-            self.qdisc_delete(ifc, parent="root")
-            self.check_thrs_match()
-
-        # Test stats with taking vNICs down, this avoids counter errors
-        self.vnics_all_down()
-
-        # Make sure all stats are starting as 0
-        for t in (1, 15000, 30000, 700000, 1 << 24):
-            self.set_root_red_all(t)
-            self.check_root(t, stats=None)
-
-        # We're left at high marking now from last loop try the counters of pass
-        _, self._ip_stat = self.ip_show()
-
-        self.vnics_all_up()
-        for i in range(self.group.n_ports):
-            self.ping(port=i, size=1300)
-        self.vnics_all_down()
-
-        exp_stats = (10, 1334)
-        self.check_root(t, stats=exp_stats)
-
-        t = 1
-        self.set_root_red_all(1)
-        self.vnics_all_up()
-        for i in range(self.group.n_ports):
-            # Use TCP here, traffic "noise" is usually non-TCP
-            self.tcpping(port=i, size=1300, tos=2)
-        self.vnics_all_down()
-
-        exp_stats = (10, 1334, 10, 1334)
-        self.check_root(t, stats=exp_stats)
-
-        # Make sure stats keep across replace
-        self.set_root_red_all(1)
-        self.check_root(1, stats=exp_stats)
-
-        # Make sure stats keep across replace to non-offloaded
-        self.set_root_red_all(1, ecn=False)
-        self.check_root(None, stats=exp_stats)
-
-        # Make sure stats don't keep across a MQ replace
-        for i in range(self.group.n_ports):
-            self.qdisc_replace(self.group.pf_ports[i], kind='mq')
-            self.check_thrs_match()
-        self.set_root_red_all(1)
-        self.check_root(1, stats=None)
-
-    def cleanup(self):
-        for ifc in self.group.pf_ports:
-            self.qdisc_delete(ifc, parent="root", fail=False)
-
 class BnicMarkPing(BnicQlvl):
     def execute(self):
         self.switchdev_mode_enable()
@@ -1232,6 +1074,11 @@ class BnicMarkPing(BnicQlvl):
             for s in BnicQlvl.MARKED:
                 assert_ge(20, accu[s], 'Statistic %s mismatch' % (s))
                 assert_lt(30, accu[s], 'Statistic %s mismatch' % (s))
+
+    def cleanup(self):
+        for ifc in self.group.pf_ports:
+            self.qdisc_delete(ifc, parent="root", fail=False)
+        return super(BnicMarkPing, self).cleanup()
 
 class BnicRedNonRoot(BnicTest):
     def red_simple_check(self, offload_base):
@@ -1331,115 +1178,6 @@ class BnicRedNonRoot(BnicTest):
         for ifc in self.group.pf_ports:
             self.qdisc_delete(ifc, parent="root", fail=False)
         self.switchdev_mode_disable()
-
-class BnicRedRaw(BnicQlvl):
-    def force_counters(self, q, s):
-        backlog_bytes, backlog_pkts, thru, sto, drop, mark = s
-
-        lvls = '_abi_nfd_out_q_lvls_%u' % (self.group.pf_id)
-        qmstat = '_abi_nfdqm%u_stats' % (self.group.pf_id)
-
-        LOG_sec('Force counters on Q%d %r' % (q, s))
-        try:
-            self.dut.cmd_rtsym('%s:%u %u' % (lvls, 16 * q + 0, backlog_bytes))
-            self.dut.cmd_rtsym('%s:%u %u' % (lvls, 16 * q + 4, backlog_pkts))
-
-            self.dut.cmd_rtsym('%s:%u %u' % (qmstat, 32 * q +  0, thru))
-            self.dut.cmd_rtsym('%s:%u %u' % (qmstat, 32 * q +  8, sto))
-            self.dut.cmd_rtsym('%s:%u %u' % (qmstat, 32 * q + 16, drop))
-            self.dut.cmd_rtsym('%s:%u %u' % (qmstat, 32 * q + 24, mark))
-        finally:
-            LOG_endsec()
-
-    def check_forced_stats_one(self, ifc, s):
-        qds = [["backlog"], ["qlen"], None, None,
-               ["drops", "pdrop"], BnicQlvl.MARKED]
-
-        _, qdiscs = self.qdisc_show()
-        assert_equal(1, len(qdiscs[ifc]), "Qdisc count")
-        qdisc = qdiscs[ifc][0]
-
-        if 'offloaded' not in qdisc:
-            s = (0, 0, s[2], s[3], s[4], s[5])
-
-        for i in range(len(qds)):
-            if qds[i] is None:
-                continue
-            for name in qds[i]:
-                assert_equal(s[i], qdisc[name], "Statistic %s wrong" % (name))
-
-        ethtool = self.dut.ethtool_stats(ifc)
-        assert_equal(s[2], ethtool["q0_no_wait"], "q0_no_wait wrong")
-        assert_equal(s[3], ethtool["q0_delayed"], "q0_delayed wrong")
-
-    def check_forced_stats(self):
-        for i in range(len(self._applied)):
-            if self._applied[i] is None:
-                continue
-            self.check_forced_stats_one(self.group.pf_ports[i],
-                                        self._applied[i])
-
-    def prepare(self):
-        if self.group.upstream_drv:
-            return NrtResult(name=self.name, testtype=self.__class__.__name__,
-                             passed=None, comment='RT-sym test on upstream')
-
-    def execute(self):
-        self.switchdev_mode_enable()
-
-        # All vNICs down, we will break FW state...
-        self.vnics_all_down()
-        time.sleep(0.5)
-
-        for i in range(len(self.dut.vnics)):
-            self.force_counters(self.dut.vnics[i]['base_q'], (0, 0, 0, 0, 0, 0))
-
-        self.set_root_red_all(1)
-        self.check_root(1, stats=None)
-
-        sets = (
-            (0, 0, 0, 0, 0, 0),
-            (0, 0, 0, 0, 0, 0),
-            (1, 1, 1, 1, 1, 1),
-            (2, 2, 2, 2, 2, 2),
-            (7, 7, 7, 7, 7, 7),
-            (10, 11, 12, 13, 14, 15),
-            (70, 70, 70, 70, 70, 70),
-            (70, 70, 70, 70, 70, 70),
-            (70, 70, 70, 70, 70, 70),
-            (70, 70, 70, 70, 70, 70),
-            (0, 0, 70, 70, 70, 70),
-        )
-        nv = len(self.dut.vnics)
-        self._applied = [None] * nv
-        for i in range(len(sets)):
-            self.force_counters(self.dut.vnics[i % nv]['base_q'], sets[i])
-            self._applied[i % nv] = sets[i]
-            self.check_forced_stats()
-
-        # Check stats keep across a reset (check will ignore blog on non-offload
-        self.set_root_red_all(1, ecn=False)
-        self.check_forced_stats()
-
-        for ifc in self.group.pf_ports:
-            self.qdisc_delete(ifc, parent="root")
-
-        # Reset - beware blog will be set so check all 0 and the blog
-        self.set_root_red_all(1)
-        self.check_root(1, stats=())
-        for i in range(self.group.n_ports):
-            ifc = self.group.pf_ports[i]
-            _, qdiscs = self.qdisc_show()
-            assert_equal(1, len(qdiscs[ifc]), "Qdisc count")
-            qdisc = qdiscs[ifc][0]
-
-            assert_equal(self._applied[i][0], qdisc["backlog"], "backlog")
-            assert_equal(self._applied[i][1], qdisc["qlen"], "qlen")
-
-    def cleanup(self):
-        BnicQlvl.cleanup(self)
-        for i in range(len(self.dut.vnics)):
-            self.force_counters(self.dut.vnics[i]['base_q'], (0, 0, 0, 0, 0, 0))
 
 class BnicPerQState:
     def __init__(self, test):
