@@ -73,6 +73,7 @@ class NFPKmodFlower(NFPKmodGrp):
              ('flower_action_encap_geneve_multi_opt', FlowerActionGENEVEMultiOpt, "Checks flower geneve encap opt action capabilities"),
              ('flower_action_set_ether', FlowerActionSetEth, "Checks basic flower set ethernet action capabilities"),
              ('flower_action_set_ipv4', FlowerActionSetIPv4, "Checks basic flower set IPv4 action capabilities"),
+             ('flower_action_set_ipv4_ttl_tos', FlowerActionSetIPv4TTLTOS, "Checks basic flower set IPv4 TTL/TOS action capabilities"),
              ('flower_action_set_ipv6', FlowerActionSetIPv6, "Checks basic flower set IPv6 action capabilities"),
              ('flower_action_set_udp', FlowerActionSetUDP, "Checks basic flower set UDP action capabilities"),
              ('flower_action_set_tcp', FlowerActionSetTCP, "Checks basic flower set TCP action capabilities"),
@@ -1987,6 +1988,57 @@ class FlowerActionSetEth(FlowerBase):
         dump_fil='ip'
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
         exp_pkt = Ether(src="11:22:33:44:55:66",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
+        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+
+        self.cleanup_filter(iface)
+
+class FlowerActionSetIPv4TTLTOS(FlowerBase):
+    def netdev_execute(self):
+        iface, ingress = self.configure_flower()
+
+        # Test Output Action
+        match = 'ip flower'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
+        exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
+        self.test_packet(iface, ingress, pkt, exp_pkt)
+
+        self.cleanup_filter(iface)
+
+        # Test Set TTL and TOS IPv4
+        match = 'ip flower ip_proto tcp'
+        action = 'pedit ex munge ip ttl set 40 munge ip tos set 20 pipe csum ip and tcp pipe mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        dump_fil='ip'
+        pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11', ttl=64, tos=50)/TCP()/Raw('\x00'*64)
+        exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11', ttl=40, tos=20)/TCP()/Raw('\x00'*64)
+        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+
+        self.cleanup_filter(iface)
+
+        # Test Set TTL IPv4
+        match = 'ip flower ip_proto tcp'
+        action = 'pedit ex munge ip ttl set 30 pipe csum ip and tcp pipe mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        dump_fil='ip'
+        pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11', ttl=64, tos=50)/TCP()/Raw('\x00'*64)
+        exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11', ttl=30, tos=50)/TCP()/Raw('\x00'*64)
+        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+
+        self.cleanup_filter(iface)
+
+        # Test Set TOS IPv4
+        match = 'ip flower ip_proto tcp'
+        action = 'pedit ex munge ip tos set 10 pipe csum ip and tcp pipe mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        dump_fil='ip'
+        pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11', ttl=64, tos=50)/TCP()/Raw('\x00'*64)
+        exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11', ttl=64, tos=10)/TCP()/Raw('\x00'*64)
         self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
 
         self.cleanup_filter(iface)
