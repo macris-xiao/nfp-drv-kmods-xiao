@@ -161,6 +161,7 @@ class NFPKmodBnic(NFPKmodAppGrp):
             ("red_mq", BnicRedMq, 'RED on top of MQ'),
             ("red_mq_raw", BnicRedMqRaw,
              'RED on top of MQ, force stats with mem writes from user space'),
+            ("gred_mq", BnicGRed, 'Offloaded GRED on top of MQ'),
             ("gred_mq_bad", BnicGRedBad, 'Non-offloaded GRED on top of MQ'),
             ("eg_u32", BnicU32eg, "Manipulating u32 filters vs qdisc offload"),
             ("cls_u32", BnicU32, "Manipulating u32 filters"),
@@ -521,7 +522,7 @@ class BnicTest(CommonTest):
         else:
             return self.dut.cmd(cmd)
 
-    def build_mq_gred(self):
+    def build_mq_gred(self, thrs=[1000, 2000, 3000, 4000]):
         cmd = ''
         for i in range(self.group.n_ports):
             ifc = self.group.pf_ports[i]
@@ -532,8 +533,7 @@ class BnicTest(CommonTest):
                 cmd += self.build_gred(ifc, parent="1000:%x" % (qid + 1),
                                        handle=hex(4095 - qid)[2:],
                                        bands=self.dut.fwcaps["num_bands"],
-                                       default=0, thrs=[1000, 2000, 3000, 4000],
-                                       _bulk=True)
+                                       default=0, thrs=thrs, _bulk=True)
                 cmd += ' && '
         cmd += 'true'
         self.dut.cmd(cmd)
@@ -2157,6 +2157,225 @@ class BnicGRedBad(BnicTest):
     def cleanup(self):
         self.switchdev_mode_disable()
         return super(BnicGRedBad, self).cleanup()
+
+class BnicGRed(BnicTest):
+    def check_offload(self, pred):
+        _, qdiscs = self.qdisc_show()
+        for i in range(self.group.n_ports):
+            ifc = self.group.pf_ports[i]
+            assert_eq(self.dut.vnics[i]['total_qs'] + 1, len(qdiscs[ifc]),
+                      "Num Qdiscs")
+            for q in qdiscs[ifc]:
+                qdisc_offloaded(q, pred(q))
+
+    def execute(self):
+        self.switchdev_mode_enable()
+
+        self.build_mq_gred(thrs=[1, 2, 3, 4])
+
+        # Check tresholds get set correctly
+        fw_state = self.read_fw_state()
+
+        for i in range(self.group.n_ports):
+            for q in self.all_qs(i):
+                for b in range(self.dut.fwcaps["num_bands"]):
+                    assert_eq(b + 1,
+                              fw_state["prio"][b]['qlvl'][self.group.pf_id][q],
+                              "Threshold on band %d queue %d" % (b, q))
+
+        # Change marking on GRED 0 and last
+        cmd = ''
+        for i in range(self.group.n_ports):
+            ifc = self.group.pf_ports[i]
+            for qid in (0, self.dut.vnics[i]['total_qs'] - 1):
+                cmd += self.build_gred(ifc, parent="1000:%x" % (qid + 1),
+                                       handle=hex(4095 - qid)[2:],
+                                       bands=self.dut.fwcaps["num_bands"],
+                                       default=0, thrs=[qid + 4, qid + 5,
+                                                        qid + 6, qid + 7],
+                                       _bulk=True)
+                cmd += ' && '
+        cmd += 'true'
+        self.dut.cmd(cmd)
+
+        # Check tresholds get set correctly
+        fw_state = self.read_fw_state()
+
+        for i in range(self.group.n_ports):
+            for q in self.all_qs(i):
+                for b in range(self.dut.fwcaps["num_bands"]):
+                    lvl = b + 1
+                    if q == self.dut.vnics[i]['base_q'] or \
+                       q == self.dut.vnics[i]['base_q'] + \
+                            self.dut.vnics[i]['total_qs'] - 1:
+                        lvl = 4 + b + q - self.dut.vnics[i]['base_q']
+                    assert_eq(lvl,
+                              fw_state["prio"][b]['qlvl'][self.group.pf_id][q],
+                              "Threshold on band %d queue %d" % (b, q))
+
+        # Now stats
+        self.vnics_all_up()
+        for i in range(self.group.n_ports):
+            # "faster" will most likely mean we'll get no responses
+            self.tcpping(port=i, count=2000, keep=False, speed="faster",
+                         tos=2, fail=False)
+        self.vnics_all_down()
+
+        _, qdiscs = self.qdisc_show()
+        qh = {}
+        # Should all get marked
+        for ifc in self.group.pf_ports:
+            qh[ifc] = {}
+            marked = 0
+            total_pkts = 0
+            total_bytes = 0
+            mq = None
+            for q in qdiscs[ifc]:
+                qh[ifc][q['handle']] = q
+                if q['kind'] == 'mq':
+                    mq = q
+                if q['kind'] != 'gred':
+                    continue
+                pkts = 0
+                q['vqa'] = [None] * self.dut.fwcaps["num_bands"]
+                for vq in q["options"]["vqs"]:
+                    q['vqa'][vq["vq"]] = vq
+                    for s in ('prob_drop', 'forced_drop', 'other',
+                              'prob_mark', 'backlog', 'qave'):
+                        assert_eq(0, vq[s],
+                                  qdisc_str(q) + "stat '%s' vq %d" %
+                                  (s, vq["vq"]))
+
+                    for s in ('forced_mark', 'pdrop'):
+                        if vq["vq"] != 0:
+                            assert_eq(0, vq[s],
+                                      qdisc_str(q) + "stat '%s' vq %d" %
+                                      (s, vq["vq"]))
+                        else:
+                            marked += vq[s]
+
+                    assert_approx(vq['forced_mark'], 6, vq['packets'],
+                                  qdisc_str(q) + "packets vq %d" % (vq["vq"]))
+                    assert_ge(vq['packets'] * 60, vq['bytes'],
+                              qdisc_str(q) + "bytes vq %d" % (vq["vq"]))
+                    pkts += vq['packets']
+                    total_bytes += vq['bytes']
+                assert_eq(pkts, q['packets'], qdisc_str(q) + "packets")
+                assert_ge(q['packets'] * 60, q['bytes'],
+                          qdisc_str(q) + "bytes")
+                total_pkts += pkts
+            assert_range(2000, 2030, marked, "total marked count")
+            assert_eq(mq["packets"], total_pkts, "total packet count")
+            assert_eq(mq["bytes"], total_bytes, "total byte count")
+
+        # Make sure stats don't change on a down interface
+        _, qdiscs = self.qdisc_show()
+        for ifc in self.group.pf_ports:
+            for q in qdiscs[ifc]:
+                for s in BnicQlvl.BASIC:
+                    assert_eq(qh[ifc][q['handle']][s], q[s],
+                              qdisc_str(q) + "stat: '%s'" % (s))
+                if q['kind'] != 'gred':
+                    continue
+                for vq in q["options"]["vqs"]:
+                    for s in ('prob_drop', 'forced_drop', 'other', 'pdrop',
+                              'prob_mark', 'forced_mark', 'backlog', 'qave'):
+                        assert_eq(qh[ifc][q['handle']]['vqa'][vq['vq']][s],
+                                  vq[s], qdisc_str(q) + "stat: '%s' vq: %d" %
+                                  (s, vq['vq']))
+
+        # Stats don't change on unoffload
+        cmd = ''
+        for i in range(self.group.n_ports):
+            ifc = self.group.pf_ports[i]
+            # GREDs
+            for qid in range(self.dut.vnics[i]['total_qs']):
+                cmd += "tc qdisc replace dev {ifc} "\
+                    "parent {parent} handle {handle}: gred vq {vq} "\
+                    "min {thrs} max 10000 avpkt 5000 burst 1 "\
+                    "limit 400000 bandwidth 10Mbit ecn"\
+                    .format(ifc=ifc, parent="1000:%x" % (qid + 1),
+                            handle=hex(4095 - qid)[2:], vq=0, thrs=5000)
+                cmd += ' && '
+        cmd += 'true'
+        self.dut.cmd(cmd)
+
+        _, qdiscs = self.qdisc_show()
+        for ifc in self.group.pf_ports:
+            for q in qdiscs[ifc]:
+                for s in BnicQlvl.BASIC:
+                    assert_eq(qh[ifc][q['handle']][s], q[s],
+                              qdisc_str(q) + "stat: '%s'" % (s))
+                if q['kind'] != 'gred':
+                    continue
+                for vq in q["options"]["vqs"]:
+                    for s in ('prob_drop', 'forced_drop', 'other', 'pdrop',
+                              'prob_mark', 'forced_mark', 'backlog', 'qave'):
+                        assert_eq(qh[ifc][q['handle']]['vqa'][vq['vq']][s],
+                                  vq[s], qdisc_str(q) + "stat: '%s' vq: %d" %
+                                  (s, vq['vq']))
+
+        # Send to particular band
+        self.build_mq_gred(thrs=[1, 2, 3, 4])
+
+        for ifc in self.group.pf_ports:
+            self.qdisc_replace(ifc, parent=None, kind="clsact")
+            self.u32_add(ifc, prio=100, proto="ip",
+                         v=self.encode_prio(1), band=1)
+
+        self.vnics_all_up()
+        for i in range(self.group.n_ports):
+            self.tcpping(port=i, count=1500, keep=False, speed="faster",
+                         tos=self.encode_prio(1) | 2, fail=False)
+        self.vnics_all_down()
+
+        # Check stats for that band
+        _, qdiscs = self.qdisc_show()
+        for ifc in self.group.pf_ports:
+            marked = [0] * self.dut.fwcaps["num_bands"]
+            total_pkts = 0
+            total_bytes = 0
+            mq = None
+            for q in qdiscs[ifc]:
+                qh[ifc][q['handle']] = q
+                if q['kind'] == 'mq':
+                    mq = q
+                if q['kind'] != 'gred':
+                    continue
+                pkts = 0
+                for vq in q["options"]["vqs"]:
+                    for s in ('prob_drop', 'forced_drop', 'other',
+                              'prob_mark', 'backlog', 'qave'):
+                        assert_eq(0, vq[s],
+                                  qdisc_str(q) + "stat '%s' vq %d" %
+                                  (s, vq["vq"]))
+
+                    for s in ('forced_mark', 'pdrop'):
+                            marked[vq['vq']] += vq[s]
+
+                    assert_approx(vq['forced_mark'], 6, vq['packets'],
+                                  qdisc_str(q) + "packets vq %d" % (vq["vq"]))
+                    assert_ge(vq['packets'] * 60, vq['bytes'],
+                              qdisc_str(q) + "bytes vq %d" % (vq["vq"]))
+                    pkts += vq['packets']
+                    total_bytes += vq['bytes']
+                assert_eq(pkts, q['packets'], qdisc_str(q) + "packets")
+                assert_ge(q['packets'] * 60, q['bytes'],
+                          qdisc_str(q) + "bytes")
+                total_pkts += pkts
+            exp_marked = [2000, 1500, 0, 0]
+            for i in range(len(marked)):
+                if exp_marked[i]:
+                    assert_range(exp_marked[i], exp_marked[i] + 50, marked[i],
+                                 "total marked count vq %d" % (i))
+                else:
+                    assert_eq(0, marked[i], "total marked count vq %d" % (i))
+            assert_eq(mq["packets"], total_pkts, "total packet count")
+            assert_eq(mq["bytes"], total_bytes, "total byte count")
+
+    def cleanup(self):
+        self.switchdev_mode_disable()
+        return super(BnicGRed, self).cleanup()
 
 ###########################################################################
 # u32 tests
