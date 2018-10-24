@@ -75,6 +75,7 @@ class NFPKmodFlower(NFPKmodGrp):
              ('flower_action_set_ipv4', FlowerActionSetIPv4, "Checks basic flower set IPv4 action capabilities"),
              ('flower_action_set_ipv4_ttl_tos', FlowerActionSetIPv4TTLTOS, "Checks basic flower set IPv4 TTL/TOS action capabilities"),
              ('flower_action_set_ipv6', FlowerActionSetIPv6, "Checks basic flower set IPv6 action capabilities"),
+             ('flower_action_set_ipv6_hl_fl', FlowerActionSetIPv6HopLimitFlowLabel, "Checks basic flower set Hop Limit and Flow Label IPv6 action capabilities"),
              ('flower_action_set_udp', FlowerActionSetUDP, "Checks basic flower set UDP action capabilities"),
              ('flower_action_set_tcp', FlowerActionSetTCP, "Checks basic flower set TCP action capabilities"),
              ('flower_action_set_multi', FlowerActionSetMulti, "Checks multiple flower set action capabilities"),
@@ -2118,6 +2119,60 @@ class FlowerActionSetIPv4(FlowerBase):
         dump_fil='ip'
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='66.77.44.55', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
+        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+
+        self.cleanup_filter(iface)
+
+class FlowerActionSetIPv6HopLimitFlowLabel(FlowerBase):
+    def netdev_execute(self):
+        iface, ingress = self.configure_flower()
+
+        # Test Output Action
+        match = 'ip flower'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
+        exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
+        self.test_packet(iface, ingress, pkt, exp_pkt)
+
+        self.cleanup_filter(iface)
+
+        # Test Set Hop Limit and Flow Label IPv6
+        match = 'ipv6 flower ip_proto tcp'
+        action = 'pedit ex munge ip6 hoplimit set 50 munge ip6 flow_lbl set 333 pipe ' +\
+                 'csum tcp pipe mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        dump_fil='ip6'
+        pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IPv6(hlim=34, fl=1111)/TCP()/Raw('\x00'*64)
+        exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IPv6(hlim=50, fl=333)/TCP()/Raw('\x00'*64)
+        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+
+        self.cleanup_filter(iface)
+
+        # Test Set Hop Limit IPv6
+        match = 'ipv6 flower ip_proto tcp'
+        action = 'pedit ex munge ip6 hoplimit set 20 pipe ' +\
+                 'csum tcp pipe mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        dump_fil='ip6'
+        pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IPv6(hlim=34, fl=1111)/TCP()/Raw('\x00'*64)
+        exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IPv6(hlim=20, fl=1111)/TCP()/Raw('\x00'*64)
+        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+
+        self.cleanup_filter(iface)
+
+        # Test Set Flow Label IPv6
+        match = 'ipv6 flower ip_proto tcp'
+        action = 'pedit ex munge ip6 flow_lbl set 242 pipe ' +\
+                 'csum tcp pipe mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        dump_fil='ip6'
+        pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IPv6(hlim=34, fl=1111)/TCP()/Raw('\x00'*64)
+        exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IPv6(hlim=34, fl=242)/TCP()/Raw('\x00'*64)
         self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
 
         self.cleanup_filter(iface)
