@@ -23,6 +23,7 @@ from obj_sharing import XDPProgMapShare, XDPProgXIfc, XDPProgXIfcCheck
 from defs import *
 from perf_event_output import *
 from queue_select import *
+from apps import *
 
 ###########################################################################
 # Group
@@ -451,6 +452,8 @@ class NFPKmodBPF(NFPKmodAppGrp):
                 'perf event output helper use with dynamic CPU'),
                ('xdp_queue_select', QueueSelectTest,
                 'queue select/programmable RSS'),
+               ('xdp_app_l4lb', LoadBalancer,
+                'L4LB from github bpf-samples'),
 
                ('xdp_function_call', XDPfunctionCall,
                 'Simple BPF-to-BPF function call'),
