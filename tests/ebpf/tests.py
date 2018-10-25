@@ -454,6 +454,10 @@ class NFPKmodBPF(NFPKmodAppGrp):
                 'queue select/programmable RSS'),
                ('xdp_app_l4lb', LoadBalancer,
                 'L4LB from github bpf-samples'),
+               ('xdp_app_packetread_fail', PacketReadFail,
+                'Match IP packet based on map values'),
+               ('xdp_app_packetread_pass', PacketReadPass,
+                'Match IP packet based on map values'),
 
                ('xdp_function_call', XDPfunctionCall,
                 'Simple BPF-to-BPF function call'),
