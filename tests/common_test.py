@@ -531,16 +531,38 @@ class CommonTest(Test):
                               count=count, size=size, pattern=pattern,
                               ival=ival, tos=tos, should_fail=should_fail)
 
-    def tcpping(self, port, count=10, sport=100, dport=58, size=50, tos=None,
-                keep=True, speed="fast", fail=False, should_fail=False):
-        opts = "--{speed} --syn ".format(speed=speed)
+    def hping3_cmd(self, port, count=10, sport=100, dport=58, size=50, tos=None,
+                   ip_id=None, ttl=None, seq=None, ack=None, win=None,
+                   keep=True, speed="fast", opts=""):
         if keep:
             opts += "-k "
         if tos is not None:
             opts += "-o %d " % (tos)
-        cmd = 'hping3 {addr} -c {cnt} -s {sport} -p {dport} -d {size} {opts}'
+        if ip_id is not None:
+            opts += "--id %d " % ip_id
+        if ttl is not None:
+            opts += "--ttl %d " % ttl
+        if seq is not None:
+            opts += "--setseq %d " % seq
+        if ack is not None:
+            opts += "--setack %d " % ack
+        if win is not None:
+            opts += "--win %d " % win
+        opts += "--{speed} ".format(speed=speed)
+
+        cmd  = 'hping3 {addr} -c {cnt} -s {sport} -p {dport} -d {size} {opts}'
         cmd = cmd.format(addr=self.dut_addr[port][:-3], cnt=count, sport=sport,
                          dport=dport, size=size, opts=opts)
+        return cmd
+
+    def tcpping(self, port, count=10, sport=100, dport=58, size=50, tos=None,
+                ip_id=None, ttl=None, seq=None, ack=None, win=None, keep=True,
+                speed="fast", fail=False, should_fail=False):
+        opts = "--syn "
+        cmd = self.hping3_cmd(port=port, count=count, sport=sport, dport=dport,
+                              size=size, tos=tos, ip_id=ip_id, ttl=ttl, seq=seq,
+                              ack=ack, win=win, keep=keep, speed=speed,
+                              opts=opts)
         ret, out = self.src.cmd(cmd, fail=False)
         if fail == False:
             return ret, out
