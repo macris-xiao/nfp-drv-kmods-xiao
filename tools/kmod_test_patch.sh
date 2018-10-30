@@ -304,7 +304,7 @@ done
 	    linux32 make CC=$DEFAULT_CC O=../net-next-32bit/ ARCH=i386 defconfig
 	    linux32 make CC=$DEFAULT_CC O=../net-next-32bit/ ARCH=i386 local_defconfig
 	fi
-	make CC=$DEFAULT_CC O=../net-next-32bit/ -j$NJ
+	make CC=$DEFAULT_CC O=../net-next-32bit/ ARCH=i386 -j$NJ
 
 	#
 	# Prepare net.git
