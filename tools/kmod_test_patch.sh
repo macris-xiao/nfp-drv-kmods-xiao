@@ -291,6 +291,11 @@ done
 	    git checkout $v
 	    git checkout-index -a -f --prefix=../linux-$v/
 
+	    # Fix a script that breaks compilation in 3.8
+	    if [ $v == "v3.8" ]; then
+		sed -i 's/if (!defined(@val))/if (!(@val))/' ../linux-$v/kernel/timeconst.pl
+	    fi
+
 	    build_kernel ../linux-$v/
 	done
 
