@@ -129,6 +129,9 @@ function bold_green() { # print in bold green
 function bold_red() { # print in bold red
     echo -e '\e[41;30m'$@'\e[0m'
 }
+function bold_yellow() { # print in bold yellow (foreground only)
+    echo -e '\e[1;33m'$@'\e[0m'
+}
 
 function l() { # draw a horizontal line
     echo -ne "\e[30;47m"
@@ -151,6 +154,12 @@ function build_kernel() {
 	[ -n "$2" ] && DIR="O=$2"
 
 	local_kernel_config $1 > arch/x86/configs/local_defconfig
+
+	if [ $1 == "." -a -n "$2" ]; then
+	    bold_yellow "Building in $2"
+	else
+	    bold_yellow "Building in $1"
+	fi
 
 	make CC=$DEFAULT_CC $DIR defconfig
 	make CC=$DEFAULT_CC $DIR local_defconfig
@@ -305,6 +314,7 @@ done
 	#
 	# Prepare 32bit build of net-next
 	#
+	bold_yellow "Building 32bit version of net-next"
 	if ! [ -d "../net-next-32bit" ]; then
 	    linux32 make CC=$DEFAULT_CC O=../net-next-32bit/ ARCH=i386 defconfig
 	    linux32 make CC=$DEFAULT_CC O=../net-next-32bit/ ARCH=i386 local_defconfig
@@ -323,6 +333,7 @@ done
 	#
 	# Prepare nfp ARM build
 	#
+	bold_yellow "Building nfp ARM build"
 	if ! [ -e "../nfp-bsp-linux" ]; then
 	    (
 		cd ..
@@ -447,12 +458,14 @@ done
 	    # Build in net-next
 	    #
 	    echo > ../build.log
+	    bold_yellow "Building in net-next"
 	    make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../net-next M=`pwd`/src W=1 $next_cflags 2>&1 | tee -a ../build.log
 	    make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../net-next-32bit M=`pwd`/src W=1 $next_cflags 2>&1 | tee -a ../build.log
 
 	    #
 	    # Build in net
 	    #
+	    bold_yellow "Building in net"
 	    make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../net M=`pwd`/src W=1 $next_cflags 2>&1 | tee -a ../build.log
 
 	    #
@@ -470,18 +483,19 @@ done
 		    b_opts="$b_opts ${build_opts[j]}=n"
 		done
 
-		echo "Build with opts=$b_opts"
+		bold_yellow "Building with opts=$b_opts"
 		make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../net-next M=`pwd`/src W=1 $next_cflags $b_opts 2>&1 | tee -a ../build.log
 	    done
-	    echo "Build with opts=CONFIG_NFP_TEST_HARNESS=m"
+	    bold_yellow "Building with opts=CONFIG_NFP_TEST_HARNESS=m"
 	    make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../net-next M=`pwd`/src W=1 $next_cflags CONFIG_NFP_TEST_HARNESS=m 2>&1 | tee -a ../build.log
-	    echo "Build with opts=CONFIG_NFP_NET_PF=n CONFIG_NFP_NET_VF=n CONFIG_NFP_DEBUG=y"
+	    bold_yellow "Building with opts=CONFIG_NFP_NET_PF=n CONFIG_NFP_NET_VF=n CONFIG_NFP_DEBUG=y"
 	    make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../net-next M=`pwd`/src \
 		 W=1 $next_cflags CONFIG_NFP_NET_PF=n CONFIG_NFP_NET_VF=n CONFIG_NFP_DEBUG=y 2>&1 | tee -a ../build.log
 
 	    #
 	    # Check sparse warnings
 	    #
+	    bold_yellow "Check sparse warnings"
 	    make CC=$DEFAULT_CC -j$NJ -C ../net-next M=`pwd`/src C=2 CF=-D__CHECK_ENDIAN__ 2>&1 | tee ../sparse.log
 	    sparse_warnings=$(grep "\(arning:\|rror:\)" ../sparse.log | wc -l)
 	    check_warn_cnt $sparse_warnings $INCUMBENT_SPARSE_WARNINGS sparse
@@ -490,15 +504,18 @@ done
 	    # Build for older kernels
 	    #
 	    for v in $kernels; do
+		bold_yellow "Building for kernel $v"
 		make CC=$DEFAULT_CC -j$NJ -C ../linux-$v M=`pwd`/src 2>&1 | tee -a ../build.log
 	    done
 	    for build_dir in `non_vanilla_kernels`; do
+		bold_yellow "Building for $build_dir"
 		make CC=$DEFAULT_CC -j$NJ -C $build_dir M=`pwd`/src 2>&1 | tee -a ../build.log
 	    done
 
 	    #
 	    # Build for ARM (cross-compile 3.10)
 	    #
+	    bold_yellow "Building for ARM"
 	    make ARCH=arm CROSS_COMPILE=$ARM_TOOLCHAIN -j$NJ -C ../nfp-bsp-linux M=`pwd`/src 2>&1 | tee -a ../build.log
 
 	    build_warnings=$(grep -i "\(warn\|error\)" ../build.log | wc -l)
@@ -507,6 +524,7 @@ done
 	    #
 	    # Run coccicheck
 	    #
+	    bold_yellow "Run coccicheck"
 	    make CC=$DEFAULT_CC -C ../net-next M=`pwd`/src coccicheck | tee ../cocci.log
 	    cocci_warnings=$(grep '^/' ../cocci.log | wc -l)
 	    check_warn_cnt $cocci_warnings $INCUMBENT_COCCI_WARNINGS cocci
