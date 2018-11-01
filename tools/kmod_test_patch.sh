@@ -52,6 +52,8 @@ REPO_URL=git://source.netronome.com/nfp-drv-kmods.git
 NEXT_CC=$(compgen -c gcc | sed -n '/gcc\(-[0-9]\(\.[0-9]\)*\)*$/p' | sort | tail -1)
 # ARM toolchain path
 [ -z "$ARM_TOOLCHAIN" ] && ARM_TOOLCHAIN=${HOME}/cross/gcc-4.6.3-nolibc/arm-unknown-linux-gnueabi/bin/arm-unknown-linux-gnueabi-
+# Silence kernel and module builds by default
+SILENT=-s
 
 source $(dirname $0)/kmod_test_patch_inc.sh
 
@@ -141,6 +143,15 @@ function l() { # draw a horizontal line
     echo -e "\e[0m"
 }
 
+function redirect() {
+    if [ -n "$SILENT" ]; then
+	# By default, print only stderr, but log all output (stdout and stderr)
+	$@ 2>&1 1>&3 | tee -a $BUILD_ROOT/build.log >&2
+    else
+	$@ 2>&1 | tee -a $BUILD_ROOT/build.log
+    fi
+}
+
 #
 # Functions
 #
@@ -161,9 +172,9 @@ function build_kernel() {
 	    bold_yellow "Building in $1"
 	fi
 
-	make CC=$DEFAULT_CC $DIR defconfig
-	make CC=$DEFAULT_CC $DIR local_defconfig
-	make CC=$DEFAULT_CC $DIR -j$NJ
+	make $SILENT CC=$DEFAULT_CC $DIR defconfig
+	make $SILENT CC=$DEFAULT_CC $DIR local_defconfig
+	make $SILENT CC=$DEFAULT_CC $DIR -j$NJ
     )
 }
 
@@ -201,6 +212,7 @@ function usage() {
     echo -e "\t-n	net commit to build against (default origin/master)"
     echo -e "\t-N	net-next commit to build against (default origin/master)"
     echo
+    echo -e "\t-v      verbose output for kernel and module builds"
     echo -e "\t-h      print help"
 
     trap '' EXIT
@@ -211,6 +223,8 @@ function usage() {
 
 function cleanup {
     unset kernels
+    # Close log file FD
+    exec 3>&-
 }
 
 function fail_and_clean {
@@ -232,6 +246,7 @@ while [ $prev_p_cnt != $# ]; do
     prev_p_cnt=$#
 
     [ "$1" == "-h" ] && usage
+    [ "$1" == "-v" ] && SILENT="" && shift
     [ "$1" == "-b" ] && shift && BUILD_ROOT=$1 && shift
     [ "$1" == "-I" ] && shift && IGNORE_CP=1
     [ "$1" == "-X" ] && shift && IGNORE_XT=1
@@ -243,6 +258,11 @@ while [ $prev_p_cnt != $# ]; do
     [ "$1" == "-n" ] && shift && NET_HEAD=$1		&& shift
     [ "$1" == "-N" ] && shift && NET_NEXT_HEAD=$1	&& shift
 done
+
+# By default we suppress stdout output in the console, but print both stdout
+# and stderr to the log file when compiling the module. For this we need a file
+# descriptor for the logs.
+exec 3<>$BUILD_ROOT/build.log
 
 # Do basic checks
 [ $# -lt 1 ] && usage
@@ -321,10 +341,10 @@ done
 	#
 	bold_yellow "Building 32bit version of net-next"
 	if ! [ -d "../net-next-32bit" ]; then
-	    linux32 make CC=$DEFAULT_CC O=../net-next-32bit/ ARCH=i386 defconfig
-	    linux32 make CC=$DEFAULT_CC O=../net-next-32bit/ ARCH=i386 local_defconfig
+	    linux32 make $SILENT CC=$DEFAULT_CC O=../net-next-32bit/ ARCH=i386 defconfig
+	    linux32 make $SILENT CC=$DEFAULT_CC O=../net-next-32bit/ ARCH=i386 local_defconfig
 	fi
-	make CC=$DEFAULT_CC O=../net-next-32bit/ ARCH=i386 -j$NJ
+	make $SILENT CC=$DEFAULT_CC O=../net-next-32bit/ ARCH=i386 -j$NJ
 
 	#
 	# Prepare net.git
@@ -345,8 +365,8 @@ done
 		git clone git://source.netronome.com/nfp-bsp-linux.git
 		cd nfp-bsp-linux
 		git checkout remotes/origin/nfp-bsp-6000-b0
-		make ARCH=arm CROSS_COMPILE=$ARM_TOOLCHAIN nfp_defconfig
-		make ARCH=arm CROSS_COMPILE=$ARM_TOOLCHAIN -j$NJ
+		make $SILENT ARCH=arm CROSS_COMPILE=$ARM_TOOLCHAIN nfp_defconfig
+		make $SILENT ARCH=arm CROSS_COMPILE=$ARM_TOOLCHAIN -j$NJ
 	    )
 	fi
 
@@ -464,14 +484,14 @@ done
 	    #
 	    echo > ../build.log
 	    bold_yellow "Building in net-next"
-	    make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../net-next M=`pwd`/src W=1 $next_cflags 2>&1 | tee -a ../build.log
-	    make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../net-next-32bit M=`pwd`/src W=1 $next_cflags 2>&1 | tee -a ../build.log
+	    redirect make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../net-next M=`pwd`/src W=1 $next_cflags
+	    redirect make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../net-next-32bit M=`pwd`/src W=1 $next_cflags
 
 	    #
 	    # Build in net
 	    #
 	    bold_yellow "Building in net"
-	    make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../net M=`pwd`/src W=1 $next_cflags 2>&1 | tee -a ../build.log
+	    redirect make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../net M=`pwd`/src W=1 $next_cflags
 
 	    #
 	    # Build with different configs
@@ -489,13 +509,13 @@ done
 		done
 
 		bold_yellow "Building with opts=$b_opts"
-		make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../net-next M=`pwd`/src W=1 $next_cflags $b_opts 2>&1 | tee -a ../build.log
+		redirect make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../net-next M=`pwd`/src W=1 $next_cflags $b_opts
 	    done
 	    bold_yellow "Building with opts=CONFIG_NFP_TEST_HARNESS=m"
-	    make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../net-next M=`pwd`/src W=1 $next_cflags CONFIG_NFP_TEST_HARNESS=m 2>&1 | tee -a ../build.log
+	    redirect make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../net-next M=`pwd`/src W=1 $next_cflags CONFIG_NFP_TEST_HARNESS=m
 	    bold_yellow "Building with opts=CONFIG_NFP_NET_PF=n CONFIG_NFP_NET_VF=n CONFIG_NFP_DEBUG=y"
-	    make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../net-next M=`pwd`/src \
-		 W=1 $next_cflags CONFIG_NFP_NET_PF=n CONFIG_NFP_NET_VF=n CONFIG_NFP_DEBUG=y 2>&1 | tee -a ../build.log
+	    redirect make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../net-next M=`pwd`/src \
+		 W=1 $next_cflags CONFIG_NFP_NET_PF=n CONFIG_NFP_NET_VF=n CONFIG_NFP_DEBUG=y
 
 	    #
 	    # Check sparse warnings
@@ -510,18 +530,18 @@ done
 	    #
 	    for v in $kernels; do
 		bold_yellow "Building for kernel $v"
-		make CC=$DEFAULT_CC -j$NJ -C ../linux-$v M=`pwd`/src 2>&1 | tee -a ../build.log
+		redirect make CC=$DEFAULT_CC -j$NJ -C ../linux-$v M=`pwd`/src
 	    done
 	    for build_dir in `non_vanilla_kernels`; do
 		bold_yellow "Building for $build_dir"
-		make CC=$DEFAULT_CC -j$NJ -C $build_dir M=`pwd`/src 2>&1 | tee -a ../build.log
+		redirect make CC=$DEFAULT_CC -j$NJ -C $build_dir M=`pwd`/src
 	    done
 
 	    #
 	    # Build for ARM (cross-compile 3.10)
 	    #
 	    bold_yellow "Building for ARM"
-	    make ARCH=arm CROSS_COMPILE=$ARM_TOOLCHAIN -j$NJ -C ../nfp-bsp-linux M=`pwd`/src 2>&1 | tee -a ../build.log
+	    redirect make ARCH=arm CROSS_COMPILE=$ARM_TOOLCHAIN -j$NJ -C ../nfp-bsp-linux M=`pwd`/src
 
 	    build_warnings=$(grep -i "\(warn\|error\)" ../build.log | wc -l)
 	    check_warn_cnt $build_warnings 0 build
