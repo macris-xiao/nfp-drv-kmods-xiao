@@ -204,15 +204,20 @@ function usage() {
     echo -e "\t-h      print help"
 
     trap '' EXIT
-    unset kernels
+    cleanup
 
     exit 1
 }
 
 function cleanup {
-    local_notify "Tests failed"
+    unset kernels
 }
-trap cleanup EXIT
+
+function fail_and_clean {
+    local_notify "Tests failed"
+    cleanup
+}
+trap fail_and_clean EXIT
 
 #
 # Script starts here
@@ -541,4 +546,4 @@ done
 local_notify "All tests OK!"
 
 trap '' EXIT
-unset kernels
+cleanup
