@@ -429,8 +429,8 @@ class NFPKmodAppGrp(NFPKmodGrp):
         # Init DUT
         for p in range(len(self.eth_x)):
             cmd += 'ip link set dev {ifc} promisc on up && '
-            cmd += 'ip addr add dev {ifc} {ipv4} && '
-            cmd += 'ip addr add dev {ifc} {ipv6} && '
+            cmd += 'ip addr replace dev {ifc} {ipv4} && '
+            cmd += 'ip addr replace dev {ifc} {ipv6} ; '
             cmd = cmd.format(ifc=self.eth_x[p],
                              ipv4=self.addr_x[p], ipv6=self.addr_v6_x[p])
         cmd += 'true'
