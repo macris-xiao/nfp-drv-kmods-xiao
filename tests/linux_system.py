@@ -385,6 +385,20 @@ class LinuxSystem(System):
         new_stats = self.ethtool_stats(ifc)
         return self.stats_diff(old_stats, new_stats)
 
+    def ethtool_features_get(self, ifc):
+        _, out = self.cmd('ethtool -k %s' % (ifc))
+
+        ret = {}
+
+        lines = out.split('\n')
+        for l in lines:
+            vals = l.split(': ')
+            k = vals[0].strip()
+            if k and not k.startswith('Features for '):
+                ret[k] = ': '.join(vals[1:])
+
+        return ret
+
     def ethtool_pause_get(self, ifc):
         ret = None
 

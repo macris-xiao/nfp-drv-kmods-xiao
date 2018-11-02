@@ -13,6 +13,7 @@ from netro.testinfra.system import *
 from netro.testinfra.nti_exceptions import NtiError, NtiGeneralError
 from common_test import NtiSkip
 from linux_system import LinuxSystem
+from nfd import NfdBarOff, NfdTlvCap
 
 class DrvSystem(LinuxSystem):
     """
@@ -509,6 +510,31 @@ class DrvSystem(LinuxSystem):
             return res[0]
         else:
             return res
+
+    def nfd_get_vnic_cap(self, ifc, cap):
+        regs = self.nfd_reg_read_le32(ifc, 0, 4096)
+
+        LOG('regs %d %r' % (len(regs), regs))
+
+        pos = NfdBarOff.TLV_BASE / 4
+        if regs[pos] == 0:
+            return None
+
+        while True:
+            l = regs[pos] & 0xffff
+            t = (regs[pos] << 1) >> 17
+
+            pos += 1
+
+            if t == cap:
+                return regs[pos:pos + l / 4]
+            if t == NfdTlvCap.UNKNOWN:
+                raise NtiError('Parsing vNIC caps failed off:%d - UNKNOWN cap' %
+                               (pos))
+            if t == NfdTlvCap.END:
+                return None
+
+            pos += l / 4
 
     def dfs_read(self, path):
         _, data = self.cmd('echo `cat %s`' % (os.path.join(self.dfs_dir, path)))

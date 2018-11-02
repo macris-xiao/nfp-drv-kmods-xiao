@@ -10,6 +10,7 @@ from drv_info import DrvInfoEthtool
 from mac_stats import MacStatsEthtool
 from netconsole import NetconsoleTest
 from phys_port_name import PhysPortName
+from repr_caps import ReprCaps
 from stats_ethtool import StatsEthtool
 
 class NFPKmodNetdev(NFPKmodAppGrp):
@@ -50,6 +51,7 @@ class NFPKmodNetdev(NFPKmodAppGrp):
             ('mtu_flbufsz_check', MtuFlbufCheck,
              "Check if driver sets correct fl_bufsz and mtu"),
             ('huge_ring', HugeRings, "Check allocation of huge rings"),
+            ('repr_caps', ReprCaps, "Representor capabilities"),
         )
 
         for t in tests:
