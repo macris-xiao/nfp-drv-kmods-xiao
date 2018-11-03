@@ -17,8 +17,8 @@ from netro.testinfra.test import *
 
 from ..common_test import *
 from ..drv_grp import NFPKmodAppGrp
-from ..drv_system import NfpNfdCtrl
 from ..drv_fwdump import *
+from ..nfd import NfdBarOff
 
 ###########################################################################
 # Helpers
@@ -109,8 +109,8 @@ class NFPKmodBnic(NFPKmodAppGrp):
         for i in range(len(self.vnics)):
             ifn = self.eth_x[i]
 
-            st_q = M.nfd_reg_read_le32(ifn, NfpNfdCtrl.START_RXQ)
-            n_qs = M.nfd_reg_read_le32(ifn, NfpNfdCtrl.MAX_RXRINGS)
+            st_q = M.nfd_reg_read_le32(ifn, NfdBarOff.START_RXQ)
+            n_qs = M.nfd_reg_read_le32(ifn, NfdBarOff.MAX_RXRINGS)
 
             M.vnics[i]["name"] = ifn
             M.vnics[i]["base_q"] = st_q / 4

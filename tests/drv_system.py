@@ -14,16 +14,6 @@ from netro.testinfra.nti_exceptions import NtiError, NtiGeneralError
 from common_test import NtiSkip
 from linux_system import LinuxSystem
 
-class NfpNfdCtrl:
-    MTU        = 0x18
-    FLBUFSZ    = 0x1c
-    VERSION    = 0x30
-    MAX_RXRINGS	= 0x40
-    MAX_MTU    = 0x44
-    START_RXQ	= 0x4c
-    RX_OFFSET  = 0x50
-    BPF_STACK_SZ   = 0x88
-
 class DrvSystem(LinuxSystem):
     """
     Class for the system where our driver will be loaded (with an NFP).

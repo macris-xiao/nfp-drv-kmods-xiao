@@ -11,7 +11,6 @@ from fw_dumps import FwDumpTest
 from rtsym import RTSymTest, RTSymDataTest
 from netro.testinfra.test import *
 from ..drv_grp import NFPKmodGrp
-from ..drv_system import NfpNfdCtrl
 from ..ebpf.xdp import XDPTest
 from ifstats import IFstats
 

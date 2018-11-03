@@ -65,7 +65,7 @@ import re
 from netro.testinfra.nti_exceptions import NtiError
 from netro.testinfra.system import cmd_log
 from ..common_test import CommonTest, NtiSkip, assert_eq, assert_ge
-from ..drv_system import NfpNfdCtrl
+from ..nfd import NfdBarOff
 
 class BspVerTest(CommonTest):
     def execute(self):
@@ -175,13 +175,13 @@ class MtuFlbufCheck(CommonTest):
         return self.dut.nfd_reg_read_le32(self.dut.vnics[0], offset)
 
     def get_bar_rx_offset(self):
-        return self.get_vnic_reg(NfpNfdCtrl.RX_OFFSET)
+        return self.get_vnic_reg(NfdBarOff.RX_OFFSET)
 
     def get_bar_mtu(self):
-        return self.get_vnic_reg(NfpNfdCtrl.MTU)
+        return self.get_vnic_reg(NfdBarOff.MTU)
 
     def get_bar_flbufsz(self):
-        return self.get_vnic_reg(NfpNfdCtrl.FLBUFSZ)
+        return self.get_vnic_reg(NfdBarOff.FLBUFSZ)
 
     def check(self, has_xdp):
         check_mtus = [1500, 1024, 2049, 2047, 2048 - 32, 2048 - 64]

@@ -12,7 +12,7 @@ from netro.tests.tcpdump import TCPDump
 from scapy.all import TCP, UDP, IP, Ether, rdpcap, wrpcap, IPv6, ICMP, Raw
 from ..common_test import *
 from ..drv_grp import NFPKmodGrp
-from ..drv_system import NfpNfdCtrl
+from ..nfd import NfdBarOff
 from jit_codegen_scan import JitCodegenCheck
 
 ###############################################################################
@@ -188,7 +188,7 @@ class XDPStackLoadTest(XDPTest):
     def execute(self):
         mode = self.group.xdp_mode()
         stack_size = self.dut.nfd_reg_read_le32(self.dut_ifn[0],
-                                                NfpNfdCtrl.BPF_STACK_SZ)
+                                                NfdBarOff.BPF_STACK_SZ)
         stack_size &= 0xff
         stack_size *= 64
 
@@ -409,7 +409,7 @@ class XDPfailTwiceShort(XDPtxFailBase):
 
 class XDPfailMaybeLong(XDPtxFailBase):
     def get_bar_rx_offset(self):
-        return self.dut.nfd_reg_read_le32(self.dut_ifn[0], NfpNfdCtrl.RX_OFFSET)
+        return self.dut.nfd_reg_read_le32(self.dut_ifn[0], NfdBarOff.RX_OFFSET)
 
     def execute(self):
         if self.get_bar_rx_offset() == 0:
