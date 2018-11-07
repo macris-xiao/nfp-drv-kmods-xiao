@@ -13,6 +13,7 @@ from scapy.all import TCP, UDP, IP, Ether, rdpcap, wrpcap, IPv6, ICMP, Raw
 from ..common_test import *
 from ..drv_grp import NFPKmodGrp
 from ..drv_system import NfpNfdCtrl
+from jit_codegen_scan import JitCodegenCheck
 
 ###############################################################################
 # Helpers
@@ -112,6 +113,10 @@ class XDPtxBase(XDPadjBase):
         return (self.src, self.src_ifn[0], self.src)
 
 class XDPoptBase(XDPtxBase):
+    def __init__(self, src, dut, group, name, summary):
+        super(XDPtxBase, self).__init__(src, dut, group, name, summary)
+        self.jit_codegen = JitCodegenCheck(self.dut)
+
     def get_src_pkt(self):
         pkt = ''
         for b in self.group.hwaddr_x[0].split(':'):
@@ -134,7 +139,7 @@ class XDPoptBase(XDPtxBase):
     def install_filter(self):
         self.xdp_start(self.get_prog_name(), mode=self.group.xdp_mode())
         # Check eBPF JIT codegen for xdp offload.
-        self.check_bpf_jit_codegen()
+        self.jit_codegen.check(self.get_jit_patterns_file_name())
         return 0
 
 class XDPtxFailBase(XDPtxBase):
@@ -149,6 +154,10 @@ class XDPpassBase(XDPadjBase):
         return (self.dut, self.dut_ifn[0], self.src)
 
 class XDPpassBaseWithCodegenScan(XDPpassBase):
+    def __init__(self, src, dut, group, name, summary):
+        super(XDPpassBase, self).__init__(src, dut, group, name, summary)
+        self.jit_codegen = JitCodegenCheck(self.dut)
+
     def get_jit_patterns_file_name(self):
         if self.is_drv_mode():
             return None
@@ -163,7 +172,7 @@ class XDPpassBaseWithCodegenScan(XDPpassBase):
 
     def install_filter(self):
         self.xdp_start(self.get_prog_name(), mode=self.group.xdp_mode())
-        self.check_bpf_jit_codegen()
+        self.jit_codegen.check(self.get_jit_patterns_file_name())
         return 0
 
 class XDPpassAll(XDPpassBase):

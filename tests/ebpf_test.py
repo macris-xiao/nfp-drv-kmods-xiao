@@ -10,6 +10,7 @@ from netro.testinfra.test import *
 from netro.testinfra.nrt_result import NrtResult
 from netro.testinfra.nti_exceptions import NtiError
 from common_test import *
+from ebpf.jit_codegen_scan import JitCodegenCheck
 
 class eBPFtest(CommonTest):
     """Test class for eBPF"""
@@ -48,6 +49,7 @@ class eBPFtest(CommonTest):
                 self.verifier_log = verifier_log
             self.extack = extack
             self.needle_noextack = needle_noextack
+            self.jit_codegen = JitCodegenCheck(self.dut)
         return
 
     def validate_cntr(self, d, name, t0, t1):
@@ -159,7 +161,7 @@ class eBPFtest(CommonTest):
                              passed=False, comment="Loading this filter should fail")
 
         # Check eBPF JIT codegen for tc offload.
-        self.check_bpf_jit_codegen()
+        self.jit_codegen.check(None)
 
         self.stats = self.dut.netifs[self.dut_ifn[0]].stats()
 

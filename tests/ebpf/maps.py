@@ -9,6 +9,7 @@ from netro.testinfra.nti_exceptions import NtiError
 from netro.testinfra.test import *
 from ..common_test import *
 from defs import *
+from jit_codegen_scan import JitCodegenCheck
 from ..linux_system import int2str, str2int
 from xdp import XDPLoadTest, XDPLoadNoOffloadTest
 
@@ -921,6 +922,10 @@ class XDPprandomU32(MapTest):
 ################################################################################
 
 class XDPmapMemcpyOpt(MapTest):
+    def __init__(self, src, dut, group, name, summary):
+        super(MapTest, self).__init__(src, dut, group, name, summary)
+        self.jit_codegen = JitCodegenCheck(self.dut)
+
     def is_drv_mode(self):
         return self.group.xdp_mode() == "drv"
 
@@ -946,7 +951,7 @@ class XDPmapMemcpyOpt(MapTest):
 
     def execute(self):
         self.xdp_start(self.get_prog_name(), mode=self.group.xdp_mode())
-        self.check_bpf_jit_codegen()
+        self.jit_codegen.check(self.get_jit_patterns_file_name())
 
         m = self.bpftool_maps_get()[0]
         self.map_fill_simple(m)
