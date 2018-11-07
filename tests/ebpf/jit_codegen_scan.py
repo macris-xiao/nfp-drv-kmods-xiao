@@ -106,7 +106,6 @@ class JitCodegenCheck(object):
             LOG('JIT codegen scan checks disabled due to no NFP support in bpftool/libbfd')
             LOG_endsec()
             return
-        includes, excludes = self.collect_bpf_jit_patterns(source_file)
 
         errors = self.scan_bpf_jit_results(jit_res, includes, excludes)
         if errors is not "":
