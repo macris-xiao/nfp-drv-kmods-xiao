@@ -68,11 +68,19 @@ class LinuxSystem(System):
     ###############################
     # Version checks
     ###############################
+    def _kernel_ver_detect_net_next(self):
+        _, (_, err) = self.cmd("ip link add przejrzystosc type strzelista",
+                               fail=False, include_stderr=True)
+        if err.rstrip() == "Error: Unknown device type.":
+            return "4.21.0"
+        return self.kernel_ver
+
     def _kernel_ver_read(self):
         if not hasattr(self, '_kernel_maj') or not hasattr(self, '_kernel_min'):
             if not hasattr(self, 'kernel_ver') or self.kernel_ver is None:
                 _, self.kernel_ver = self.cmd('uname -r')
 
+            self.kernel_ver = self._kernel_ver_detect_net_next()
             self._kernel_maj = int(self.kernel_ver.split('.')[0])
             self._kernel_min = int(self.kernel_ver.split('.')[1])
 
