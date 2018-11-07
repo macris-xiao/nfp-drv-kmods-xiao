@@ -908,16 +908,16 @@ class eBPFmtu(eBPFtest):
                             fail=fail)
 
     def execute(self):
-        extack_msg = 'Error: nfp: BPF offload not supported with MTU larger than HW packet split boundary.'
+        extack_msg = 'Error: nfp: BPF offload not supported with potential packet access beyond HW packet split boundary.'
 
         self.set_mtu(3000)
-        ret = self.tc_bpf_load(obj=self.obj_name, skip_sw=True, da=True,
+        ret = self.tc_bpf_load(obj="dpa_var_off_11bit.o", skip_sw=True, da=True,
                                extack=extack_msg)
         self.set_mtu(1500)
         if ret == 0:
             raise NtiGeneralError("loaded hw-only filter with large MTU")
 
-        ret = self.tc_bpf_load(obj=self.obj_name, skip_sw=True, da=True)
+        ret = self.tc_bpf_load(obj="dpa_var_off_11bit.o", skip_sw=True, da=True)
         ret, _ = self.set_mtu(3000, fail=False)
         if ret == 0:
             raise NtiError("Set large MTU when BPF loaded (TC)!")
@@ -925,13 +925,13 @@ class eBPFmtu(eBPFtest):
         eBPFtest.cleanup(self)
 
         self.set_mtu(3000)
-        ret = self.xdp_start("pass.o", mode="offload",
+        ret = self.xdp_start(prog="dpa_var_off_11bit.o", mode="offload",
                              should_fail=True, extack=extack_msg)
         self.set_mtu(1500)
         if ret == 0:
             raise NtiGeneralError("loaded offload XDP with large MTU")
 
-        ret = self.xdp_start("pass.o", mode="offload")
+        ret = self.xdp_start(prog="dpa_var_off_11bit.o", mode="offload")
         ret, _ = self.set_mtu(3000, fail=False)
         if ret == 0:
             raise NtiError("Set large MTU when BPF loaded (XDP)!")
