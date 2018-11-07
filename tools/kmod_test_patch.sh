@@ -344,10 +344,8 @@ exec 3<>$BUILD_ROOT/build.log
 	# Prepare 32bit build of net-next
 	#
 	bold_yellow "Building 32bit version of net-next"
-	if ! [ -d "../net-next-32bit" ]; then
-	    linux32 make $SILENT CC=$DEFAULT_CC O=../net-next-32bit/ ARCH=i386 defconfig
-	    linux32 make $SILENT CC=$DEFAULT_CC O=../net-next-32bit/ ARCH=i386 local_defconfig
-	fi
+	linux32 make $SILENT CC=$DEFAULT_CC O=../net-next-32bit/ ARCH=i386 defconfig
+	linux32 make $SILENT CC=$DEFAULT_CC O=../net-next-32bit/ ARCH=i386 local_defconfig
 	make $SILENT CC=$DEFAULT_CC O=../net-next-32bit/ ARCH=i386 -j$NJ
 
 	#
