@@ -534,6 +534,8 @@ class NFPKmodBPF(NFPKmodAppGrp):
         T = (('bpf_capa', eBPFcapa, "eBPF capability test"),
              ('bpf_refcnt', eBPFrefcnt, "eBPF refcount test"),
              ('bpf_mtu_check', eBPFmtu, 'Check high MTU fails'),
+             ('bpf_mtu_check_dpa_in_range', eBPFmtuDPA9bit,
+              'High MTU but DPA in range'),
              ('tc_pass', eBPFpass, "eBPF pass all filter"),
              ('tc_drop', eBPFdrop, "eBPF drop all filter"),
              ('tc_len', eBPFskbLen, "eBPF skb->len test"),
@@ -939,6 +941,20 @@ class eBPFmtu(eBPFtest):
     def cleanup(self):
         self.xdp_reset()
         self.set_mtu(1500) # in case a subtest fails
+
+class eBPFmtuDPA9bit(eBPFmtu):
+    def execute(self):
+        if self.dut.kernel_ver_lt(4, 21):
+            raise NtiSkip("High MTU with Direct Packet Access in range")
+
+        self.set_mtu(3000)
+        ret = self.tc_bpf_load(obj="dpa_var_off_9bit.o", skip_sw=True, da=True)
+        if ret != 0:
+            raise NtiError("High MTU with Direct Packet Access in range should be allowed");
+        eBPFtest.cleanup(self)
+
+        self.set_mtu(3000)
+        self.xdp_start(prog="dpa_var_off_9bit.o", mode="offload")
 
 class eBPFspurExtack(eBPFtest):
     def prepare(self):
