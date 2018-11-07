@@ -52,6 +52,9 @@ class eBPFtest(CommonTest):
             self.jit_codegen = JitCodegenCheck(self.dut)
         return
 
+    def get_prog_name(self):
+        return self.obj_name
+
     def validate_cntr(self, d, name, t0, t1):
         if not d[name] in range(t0, t1):
             raise NtiError("%s stat is wrong (%d, %d) -> %d" %
@@ -161,7 +164,8 @@ class eBPFtest(CommonTest):
                              passed=False, comment="Loading this filter should fail")
 
         # Check eBPF JIT codegen for tc offload.
-        self.jit_codegen.check(None)
+        if not self.should_fail:
+            self.jit_codegen.check(self.jit_codegen.get_source_name(self))
 
         self.stats = self.dut.netifs[self.dut_ifn[0]].stats()
 

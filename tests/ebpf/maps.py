@@ -926,16 +926,6 @@ class XDPmapMemcpyOpt(MapTest):
         super(MapTest, self).__init__(src, dut, group, name, summary)
         self.jit_codegen = JitCodegenCheck(self.dut)
 
-    def is_drv_mode(self):
-        return self.group.xdp_mode() == "drv"
-
-    def get_jit_patterns_file_name(self):
-        if self.is_drv_mode():
-            return None
-        prog_name = self.get_prog_name()
-        return os.path.join(self.group.samples_xdp,
-                            os.path.splitext(prog_name)[0] + ".S")
-
     def get_exp_pkt(self):
         pkt = self.std_pkt()
         return pkt[:14] + '\x00' * 4 + pkt[18:]
@@ -951,7 +941,7 @@ class XDPmapMemcpyOpt(MapTest):
 
     def execute(self):
         self.xdp_start(self.get_prog_name(), mode=self.group.xdp_mode())
-        self.jit_codegen.check(self.get_jit_patterns_file_name())
+        self.jit_codegen.check(self.jit_codegen.get_source_name(self))
 
         m = self.bpftool_maps_get()[0]
         self.map_fill_simple(m)

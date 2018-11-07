@@ -111,3 +111,35 @@ class JitCodegenCheck(object):
         errors = self.scan_bpf_jit_results(jit_res, includes, excludes)
         if errors is not "":
             raise NtiError("JIT codegen scan:\n" + errors)
+
+    def get_ext_source_name(self, test, extension):
+        """A method to get the source file to search for codegen checks
+        patterns. From the object file used by the test, deduce the name of the
+        associated source file with the given extension. Search fist the
+        directory with XDP samples, fall back on BPF samples.
+
+        @test:      A CommonTest instance for which to find the source file
+        @extension: The file extension to search for
+        """
+        if test.group.xdp_mode() == "drv":
+            return None
+        prog_name = test.get_prog_name()
+        filename = os.path.join(test.group.samples_xdp,
+                                os.path.splitext(prog_name)[0] + extension)
+        if not os.path.isfile(filename):
+            filename = os.path.join(test.group.samples_bpf,
+                                    os.path.splitext(prog_name)[0] + extension)
+        return filename
+
+    def get_source_name(self, test):
+        """A  method to get the source file to search for codegen checks
+        patterns. From the object file used by the test, try to identify first
+        a C file, or fall back to an assembly (.S) file. Search fist the
+        directory with XDP samples, fall back on BPF samples.
+
+        @test:  A CommonTest instance for which to find the source file
+        """
+        filename = self.get_ext_source_name(test, ".c")
+        if not os.path.isfile(filename):
+            filename = self.get_ext_source_name(test, ".S")
+        return filename

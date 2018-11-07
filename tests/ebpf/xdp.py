@@ -71,9 +71,6 @@ class XDPadjBase(CommonPktCompareTest):
     def is_offload_mode(self):
         return self.group.xdp_mode() == "offload"
 
-    def is_drv_mode(self):
-        return self.group.xdp_mode() == "drv"
-
     def get_exp_pkt(self):
         if self.group.xdp_mode() != "offload":
             return self.get_exp_pkt_raw()
@@ -130,11 +127,7 @@ class XDPoptBase(XDPtxBase):
         return pkt
 
     def get_jit_patterns_file_name(self):
-        if self.is_drv_mode():
-            return None
-        prog_name = self.get_prog_name()
-        return os.path.join(self.group.samples_xdp,
-                            os.path.splitext(prog_name)[0] + ".S")
+        return self.jit_codegen.get_source_name(self)
 
     def install_filter(self):
         self.xdp_start(self.get_prog_name(), mode=self.group.xdp_mode())
@@ -159,16 +152,7 @@ class XDPpassBaseWithCodegenScan(XDPpassBase):
         self.jit_codegen = JitCodegenCheck(self.dut)
 
     def get_jit_patterns_file_name(self):
-        if self.is_drv_mode():
-            return None
-        prog_name = self.get_prog_name()
-        filename = os.path.join(self.group.samples_xdp,
-                                os.path.splitext(prog_name)[0] + ".c")
-        if os.path.isfile(filename):
-            return filename
-        else:
-            return os.path.join(self.group.samples_xdp,
-                                os.path.splitext(prog_name)[0] + ".S")
+        return self.jit_codegen.get_source_name(self)
 
     def install_filter(self):
         self.xdp_start(self.get_prog_name(), mode=self.group.xdp_mode())
@@ -927,11 +911,7 @@ class XDPCmembuiltins(XDPoptBase):
         return 'opt_mem_builtins.o'
 
     def get_jit_patterns_file_name(self):
-        if self.is_drv_mode():
-            return None
-        prog_name = self.get_prog_name()
-        return os.path.join(self.group.samples_xdp,
-                            os.path.splitext(prog_name)[0] + ".c")
+        return self.jit_codegen.get_source_name(self)
 
 ###############################################################################
 # eBPF JIT packet cache optimization
