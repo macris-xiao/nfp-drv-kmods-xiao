@@ -98,18 +98,22 @@ class JitCodegenCheck(object):
         if not includes and not excludes:
             return
 
-        jit_res = self.get_bpf_jit_results()
-        if jit_res is None:
-            raise NtiError("Can't find JIT codegen output")
-        elif "support for NFP" in "".join(jit_res):
-            LOG_sec('No Support')
-            LOG('JIT codegen scan checks disabled due to no NFP support in bpftool/libbfd')
-            LOG_endsec()
-            return
+        LOG_sec('JIT codegen scan checks')
+        try:
+            jit_res = self.get_bpf_jit_results()
+            if jit_res is None:
+                raise NtiError("Can't find JIT codegen output")
+            elif "support for NFP" in "".join(jit_res):
+                LOG_sec('No Support')
+                LOG('JIT codegen scan checks disabled due to no NFP support in bpftool/libbfd')
+                LOG_endsec()
+                return
 
-        errors = self.scan_bpf_jit_results(jit_res, includes, excludes)
-        if errors is not "":
-            raise NtiError("JIT codegen scan:\n" + errors)
+            errors = self.scan_bpf_jit_results(jit_res, includes, excludes)
+            if errors is not "":
+                raise NtiError("JIT codegen scan:\n" + errors)
+        finally:
+            LOG_endsec()
 
     def get_ext_source_name(self, test, extension):
         """A method to get the source file to search for codegen checks
