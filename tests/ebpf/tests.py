@@ -139,6 +139,7 @@ class NFPKmodBPF(NFPKmodAppGrp):
                ('xdp_replace', XDPReplaceTest,
                 'Handling of XDP program replace'),
                ('xdp_multi_port', XDPmultiPort, 'XDP on multi port cards'),
+               ('xdp_disable', XDPDisable, 'XDP disable before enable'),
                ('xdp_pass_adj_head', XDPpassAdjZero,
                 'XDP adjust head by zero pass test'),
                ('xdp_pass_adj_head_twice', XDPpassAdjTwice,

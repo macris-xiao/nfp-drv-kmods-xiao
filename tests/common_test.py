@@ -346,7 +346,7 @@ class CommonTest(Test):
             self.check_no_extack(err, needle_noextack)
         return ret
 
-    def xdp_start(self, prog, port=0, ifc=None, mode="", progdir="",
+    def xdp_start(self, prog, port=0, ifc=None, mode="", force=True, progdir="",
                   should_fail=False, verifier_log="", extack="",
                   needle_noextack=""):
         if ifc is None:
@@ -357,8 +357,8 @@ class CommonTest(Test):
                 progdir = self.dut.xdp_samples_dir
 
         prog_path = os.path.join(progdir, prog)
-        cmd = 'ip -force link set dev %s xdp%s obj %s sec ".text"' % \
-              (ifc, mode, prog_path)
+        cmd = 'ip %s link set dev %s xdp%s obj %s sec ".text"' % \
+              ('-force' * force, ifc, mode, prog_path)
 
         ret, (out, err) = self.dut.cmd(cmd, fail=False, include_stderr=True)
         if ret and should_fail == False:

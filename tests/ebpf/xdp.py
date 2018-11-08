@@ -265,6 +265,17 @@ class XDPmultiPort(XDPTest):
 
             self.xdp_start('drop.o', port=p, mode=self.group.xdp_mode())
 
+class XDPDisable(XDPTest):
+    def execute(self):
+        for p in range(len(self.dut_ifn)):
+            self.xdp_stop(port=p, mode=self.group.xdp_mode())
+            self.xdp_start('pass.o', port=p, mode=self.group.xdp_mode(),
+                           force=False)
+            self.xdp_stop(port=p, mode=self.group.xdp_mode())
+            self.xdp_stop(port=p, mode=self.group.xdp_mode())
+            self.xdp_start('pass.o', port=p, mode=self.group.xdp_mode(),
+                           force=False)
+
 class XDPcmp(XDPTest):
     def execute(self):
         self.xdp_start('compares.o', mode=self.group.xdp_mode())
