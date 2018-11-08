@@ -23,8 +23,7 @@ class JitCodegenCheck(object):
         """
         self.dut = dut
 
-    def get_bpf_jit_results(self):
-        _, prog_id = self.dut.cmd('bpftool prog list | grep ^[0-9]*: | cut -d : -f1 | tail -1 | tr -d "\\n"')
+    def get_bpf_jit_results(self, prog_id):
         _, out = self.dut.cmd('bpftool prog dump jited id %s 2>&1' %(prog_id))
 
         return "".join(out).split("\n")
@@ -93,14 +92,14 @@ class JitCodegenCheck(object):
 
         return "".join(errors)
 
-    def check(self, source_file):
+    def check(self, source_file, prog_id):
         includes, excludes = self.collect_bpf_jit_patterns(source_file)
         if not includes and not excludes:
             return
 
         LOG_sec('JIT codegen scan checks')
         try:
-            jit_res = self.get_bpf_jit_results()
+            jit_res = self.get_bpf_jit_results(prog_id)
             if jit_res is None:
                 raise NtiError("Can't find JIT codegen output")
             elif "support for NFP" in "".join(jit_res):

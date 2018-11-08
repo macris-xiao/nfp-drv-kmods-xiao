@@ -130,9 +130,11 @@ class XDPoptBase(XDPtxBase):
         return self.jit_codegen.get_source_name(self)
 
     def install_filter(self):
-        self.xdp_start(self.get_prog_name(), mode=self.group.xdp_mode())
+        mode = self.group.xdp_mode()
+        self.xdp_start(self.get_prog_name(), mode=mode)
         # Check eBPF JIT codegen for xdp offload.
-        self.jit_codegen.check(self.get_jit_patterns_file_name())
+        prog_id = self.dut.ip_link_xdp_progs(ifc=self.dut_ifn[0])[mode]["id"]
+        self.jit_codegen.check(self.get_jit_patterns_file_name(), prog_id)
         return 0
 
 class XDPtxFailBase(XDPtxBase):
@@ -155,8 +157,10 @@ class XDPpassBaseWithCodegenScan(XDPpassBase):
         return self.jit_codegen.get_source_name(self)
 
     def install_filter(self):
-        self.xdp_start(self.get_prog_name(), mode=self.group.xdp_mode())
-        self.jit_codegen.check(self.get_jit_patterns_file_name())
+        mode = self.group.xdp_mode()
+        self.xdp_start(self.get_prog_name(), mode=mode)
+        prog_id = self.dut.ip_link_xdp_progs(ifc=self.dut_ifn[0])[mode]["id"]
+        self.jit_codegen.check(self.get_jit_patterns_file_name(), prog_id)
         return 0
 
 class XDPpassAll(XDPpassBase):

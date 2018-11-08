@@ -940,8 +940,11 @@ class XDPmapMemcpyOpt(MapTest):
         self.dut.bpftool(cmd)
 
     def execute(self):
-        self.xdp_start(self.get_prog_name(), mode=self.group.xdp_mode())
-        self.jit_codegen.check(self.jit_codegen.get_source_name(self))
+        mode = self.group.xdp_mode()
+        self.xdp_start(self.get_prog_name(), mode=mode)
+        prog_id = self.dut.ip_link_xdp_progs(ifc=self.dut_ifn[0])[mode]["id"]
+        self.jit_codegen.check(self.jit_codegen.get_source_name(self),
+                               prog_id)
 
         m = self.bpftool_maps_get()[0]
         self.map_fill_simple(m)

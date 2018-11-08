@@ -165,7 +165,10 @@ class eBPFtest(CommonTest):
 
         # Check eBPF JIT codegen for tc offload.
         if not self.should_fail:
-            self.jit_codegen.check(self.jit_codegen.get_source_name(self))
+            mode = self.mode or "no_skip"
+            progs = self.dut.tc_filter_show_progs(ifc=self.dut_ifn[0])
+            self.jit_codegen.check(self.jit_codegen.get_source_name(self),
+                                   progs[mode][0])
 
         self.stats = self.dut.netifs[self.dut_ifn[0]].stats()
 

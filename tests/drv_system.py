@@ -249,6 +249,19 @@ class DrvSystem(LinuxSystem):
 
         return res
 
+    def tc_filter_show_progs(self, ifc):
+        # To do: fix tc command and processing once JSON is fixed upstream
+        cmd = 'tc filter show dev %s ingress' % ifc
+        _, out = self.cmd(cmd, fail=False)
+        res = { "skip_hw" : [], "skip_sw" : [], "no_skip" : [] }
+        for line in out.split("\n"):
+            search = re.search("(skip_sw|skip_hw)? (?:not_)?in_hw id (\d+)",
+                               line)
+            if search is not None:
+                key = search.group(1) or "no_skip"
+                res[key].append(search.group(2))
+        return res
+
     def bpftool_timed(self, param, fail=True):
         start_time = time.time()
         ret, out = self.cmd("bpftool " + param, fail=fail)
