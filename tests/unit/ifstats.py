@@ -72,6 +72,9 @@ class IFstats(CommonNetdevTest):
         for ifc in self.vnics:
             port = self.dut_ifn.index(ifc)
 
+            # Ping to ensure connectivity
+            self.dut.ping(addr=self.src_addr[port][:-3], ifc=ifc)
+
             chan_settings = self.dut.ethtool_channels_get(ifc)
             queue_cfgs = ({ "rx" : 0, "tx" : 0, "combined" : 1, },
                           { "rx" : 0, "tx" : 0,
