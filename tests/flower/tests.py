@@ -88,15 +88,20 @@ class NFPKmodFlower(NFPKmodGrp):
             self._tests[t[0]] = t[1](src, dut, self, t[0], t[2])
 
 class FlowerBase(CommonNetdevTest):
-    def configure_vlan_flower(self):
+    def configure_vlan_flower(self, vlan_id):
         M = self.dut
         iface = self.dut_ifn[0]
         ret, _ = self.dut.cmd('cat /sys/class/net/%s/phys_port_name' % (iface), fail=False)
         if ret:
             raise NtiError('interface %s is not a valid port' % iface)
 
-        vlan_iface = '%s.100' % (iface)
-        self.dut.cmd('ip link add link %s name %s type vlan id 100' % (iface, vlan_iface), fail=False)
+        vlan_iface = '%s.%s' % (iface, vlan_id)
+        # The length of the interface name will increase, we need to be
+        # sure it does not increase beyond IFNAMSIZ.
+        if len(vlan_iface) > 15:
+            raise NtiSkip('Creating %s as a vlan interface exceeds IFNAMSIZ' % vlan_iface)
+
+        self.dut.cmd('ip link add link %s name %s type vlan id %s' % (iface, vlan_iface, vlan_id), fail=False)
         self.dut.cmd('ip link set dev %s up' % (vlan_iface), fail=False)
 
         M.cmd('tc qdisc del dev %s handle ffff: ingress' % vlan_iface, fail=False)
@@ -2485,7 +2490,15 @@ class FlowerActionSetMulti(FlowerBase):
 
 class FlowerVlanRepr(FlowerBase):
     def netdev_execute(self):
-        iface, _ = self.configure_vlan_flower()
+        iface, _ = self.configure_vlan_flower(50)
+
+        # Check that redirects to upper netdevs is installed in software only (not_in_hw)
+        match = 'ip flower'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action, False)
+        self.cleanup_filter(iface)
+
+        iface, _ = self.configure_vlan_flower(100)
 
         # Check that redirects to upper netdevs is installed in software only (not_in_hw)
         match = 'ip flower'
