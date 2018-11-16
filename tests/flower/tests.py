@@ -210,20 +210,32 @@ class FlowerBase(CommonNetdevTest):
         self.tcpdump.stop(wait)
         A.mv_from(dump_src, pack_dump)
 
-    def capture_packs_multiple_ifaces(self, iface, sending_port, ingress_list, send_pkt, pack_dump_list, dump_filter='', loop=100):
+    def capture_packs_multiple_ifaces(self, iface, sending_port, ingress_list,
+                                      send_pkt, pack_dump_list, dump_filter='',
+                                      loop=100, snaplen=8192, wait=2):
+        active_tcpdumps = []
         A = self.src
         assert len(ingress_list) == len(pack_dump_list)
 
         dump = 0
         for ing in ingress_list:
             dump_src = os.path.join(self.src.tmpdir, 'dump_%s_src' % (dump))
-            A.cmd("tcpdump -U -i %s -w %s -Q in %s " % (ing, dump_src, dump_filter), background=True)
+            stderr = os.path.join(A.tmpdir, 'tcpdump_%s_err.txt' % ing)
+            dump_inst = TCPDump(A, ing, dump_src, resolve=False,
+                                direction='in', stderrfn=stderr,
+                                filter_expr=dump_filter, snaplen=snaplen)
+            dump_inst.start(wait)
+            active_tcpdumps.append(dump_inst)
             dump += 1
 
         sleep(5)
         self.send_packs(iface, sending_port, send_pkt, loop)
         sleep(5)
-        A.cmd("killall -KILL tcpdump")
+        # It would be preferred to traverse the list of tcpdumps,
+        # but the stop function calls killall, so we only need 1.
+        # Hopefully in the future we will be able to kill only the
+        # selected tcpdump.
+        dump_inst.stop(wait)
         dump = 0
         for ing in ingress_list:
             dump_src = os.path.join(self.src.tmpdir, 'dump_%s_src' % (dump))
