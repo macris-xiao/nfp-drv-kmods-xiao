@@ -216,7 +216,7 @@ class FlowerBase(CommonNetdevTest):
 
         dump = 0
         for ing in ingress_list:
-            dump_src = os.path.join(self.group.tmpdir, 'dump_%s_src' % (dump))
+            dump_src = os.path.join(self.src.tmpdir, 'dump_%s_src' % (dump))
             A.cmd("tcpdump -U -i %s -w %s -Q in %s " % (ing, dump_src, dump_filter), background=True)
             dump += 1
 
@@ -226,7 +226,7 @@ class FlowerBase(CommonNetdevTest):
         A.cmd("killall -KILL tcpdump")
         dump = 0
         for ing in ingress_list:
-            dump_src = os.path.join(self.group.tmpdir, 'dump_%s_src' % (dump))
+            dump_src = os.path.join(self.src.tmpdir, 'dump_%s_src' % (dump))
             A.mv_from(dump_src, pack_dump_list[dump])
             dump += 1
 
@@ -2531,6 +2531,7 @@ class FlowerReprLinkstate(CommonNetdevTest):
 
 class FlowerActionBondEgress(FlowerBase):
     def netdev_execute(self):
+        self.check_prereq('teamnl --help 2>&1 | grep setoption', 'OPT_NAME OPT_VALUE')
         iface, ingress = self.configure_flower()
         M = self.dut
         A = self.src
