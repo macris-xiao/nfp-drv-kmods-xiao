@@ -1304,7 +1304,9 @@ class FlowerModifyMTU(FlowerBase):
             raise NtiError('invalid MTU of 67 accepted on %s' %iface)
 
         # ensure the sending interface can handle jumbo frames
-        ret = A.ip_link_set_mtu(ingress, 9421)
+        ret = A.ip_link_set_mtu(ingress, 9216, fail=False)
+        if ret[0]:
+            raise NtiSkip('Cannot set max mtu(9216) on %s' % ingress)
 
         # Hit test
         match = 'ip flower'
@@ -1313,8 +1315,8 @@ class FlowerModifyMTU(FlowerBase):
 
         pkt_cnt = 100
         exp_pkt_cnt = 0
-        # Length 14 + 20 + 20 + 9366 = 9420
-        pkt = Ether()/IP()/TCP()/Raw('\x00'*9366)
+        # Length 14 + 20 + 20 + 9162 = 9216
+        pkt = Ether()/IP()/TCP()/Raw('\x00'*9162)
 
         dump_file = os.path.join('/tmp/', 'dump.pcap')
         self.capture_packs(iface, ingress, pkt, dump_file, snaplen=None)
