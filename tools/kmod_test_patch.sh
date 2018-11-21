@@ -524,11 +524,7 @@ exec 3<>$BUILD_ROOT/build.log
 	    #
 	    bold_yellow "Check sparse warnings"
 	    make CC=$DEFAULT_CC -j$NJ -C ../net-next M=`pwd`/src C=2 CF=-D__CHECK_ENDIAN__ 2>&1 | tee ../sparse.log
-	    sparse_warnings=$(grep "\(arning:\|rror:\)" ../sparse.log | \
-				  sed -e "
-				  /undefined identifier '__builtin_mul_overflow'/d;
-				  /expression using sizeof(void)/d" | \
-				  wc -l)
+	    sparse_warnings=$(grep "\(arning:\|rror:\)" ../sparse.log | wc -l)
 	    check_warn_cnt $sparse_warnings $INCUMBENT_SPARSE_WARNINGS sparse
 
 	    #
