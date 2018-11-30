@@ -670,6 +670,27 @@ class XDPashifts(XDPpassBase):
     def get_prog_name(self):
         return 'ashifts.o'
 
+class XDPashifts32(XDPashifts):
+    def get_exp_pkt(self):
+        pkt = self.get_src_pkt()
+        M = (1 << 64) - 1
+
+        return pkt[0:16] + \
+                 struct.pack('<Q', 0x00000000c2b33bc4) + \
+                 struct.pack('<Q', 0x00000000ff0accef) + \
+                 struct.pack('<Q', 0x00000000ffffffff) + \
+                 struct.pack('<Q', 0x0000000005566778) + \
+                 struct.pack('<Q', 0x000000000000aacc) + \
+                 struct.pack('<Q', 0x0000000000000002) + \
+               pkt[64:]
+
+    def get_prog_name(self):
+        return 'ashifts32.o'
+
+class XDPashifts32_ind(XDPashifts32):
+    def get_prog_name(self):
+        return 'ashifts32_ind.o'
+
 class XDPashiftsind_1(XDPshiftsind_cond_head):
     def get_exp_pkt(self):
         pkt = self.get_src_pkt()
