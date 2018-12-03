@@ -78,6 +78,14 @@ unconditionally anyway).
 Required building
 =================
 
+Make sure you have binaries from the nfp toolchain available, and that it is
+somewhere in your ``$PATH``. They might be installed on your machine already;
+if not, download them now::
+
+    $ wget http://pahome/releases-intern/nfp-sdk/linux-x86_64/latest-nfp-toolchain-6.0.4.0.tgz
+    $ tar xzf latest-nfp-toolchain-6.0.4.0.tgz
+    $ export PATH="$PATH:path/to/nfp-sdk-6.0.4/bin/
+
 Once you have configs you need to build the shim driver and test firmwares out
 of the nfp-drv-kmods directory::
 
