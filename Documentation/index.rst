@@ -10,6 +10,9 @@ Welcome to nfp-drv-kmods's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   process
+   tests
+   kmod_test_patch
 
 
 Indices and tables
