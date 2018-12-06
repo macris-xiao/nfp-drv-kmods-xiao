@@ -324,6 +324,12 @@ class XDPimmRelo(XDPpassAll):
 class XDPimmRelo2(XDPpassAll):
     pass
 
+class XDPdeadCodeB2bCall(XDPpassAll):
+    def execute(self):
+        if self.dut.kernel_ver_lt(4, 20):
+            raise NtiSkip("kernel rejects offload for function calls")
+        super(XDPdeadCodeB2bCall, self).execute()
+
 ###############################################################################
 # TX tests
 ###############################################################################

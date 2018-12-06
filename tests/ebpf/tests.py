@@ -494,6 +494,22 @@ class NFPKmodBPF(NFPKmodAppGrp):
                 'perf event output helper use for 8 byte of data (assembly)'),
                ('xdp_function_call_helpers_adj_head', XDPfunctionCallAdjPass,
                 'BPF-to-BPF function call with calls to adjust_head() helper'),
+               ('xdp_dead_code_jumps', XDPpassAll,
+                'Dead code elimination with jumps removed'),
+               ('xdp_dead_code_jumps_in', XDPpassAll,
+                'Dead code elimination with jumps removed'),
+               ('xdp_dead_code_start', XDPpassAll,
+                'Dead code elimination where first instruction is removed'),
+               ('xdp_dead_code_adjust_head', XDPpassAll,
+                'Dead code elimination with adjust head'),
+               ('xdp_dead_code_bad_helper', XDPpassAll,
+                'Dead code elimination with unsupported helper'),
+               ('xdp_dead_code_b2b_call', XDPdeadCodeB2bCall,
+                'Dead code elimination with unsupported instruction in function'),
+               ('xdp_dead_code_b2b_call_2', XDPdeadCodeB2bCall,
+                'Dead code elimination with removing middle function'),
+               ('xdp_dead_code_b2b_call_3', XDPdeadCodeB2bCall,
+                'Dead code elimination with removing intro'),
         )
 
         for i in (0, 1, 3, 7, 8, 11):
