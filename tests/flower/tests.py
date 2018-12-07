@@ -50,7 +50,8 @@ class NFPKmodFlower(NFPKmodGrp):
              ('flower_match_ipv4', FlowerMatchIPv4, "Checks basic flower ipv4 match capabilities"),
              ('flower_match_ipv6', FlowerMatchIPv6, "Checks basic flower ipv6 match capabilities"),
              ('flower_match_tcp', FlowerMatchTCP, "Checks basic flower tcp match capabilities"),
-             ('flower_match_tcp_flags', FlowerMatchTCPFlag, "Checks flower tcp flags match capabilities"),
+             ('flower_match_ipv4_tcp_flags', FlowerMatchIPv4TCPFlag, "Checks flower ipv4 tcp flags match capabilities"),
+             ('flower_match_ipv6_tcp_flags', FlowerMatchIPv6TCPFlag, "Checks flower ipv6 tcp flags match capabilities"),
              ('flower_match_udp', FlowerMatchUDP, "Checks basic flower udp match capabilities"),
              ('flower_match_mpls', FlowerMatchMPLS, "Checks basic flower mpls match capabilities"),
              ('flower_match_ttl', FlowerMatchTTL, "Checks basic flower ttl match capabilities"),
@@ -493,7 +494,7 @@ class FlowerMatchTCP(FlowerBase):
 
         self.cleanup_filter(iface)
 
-class FlowerMatchTCPFlag(FlowerBase):
+class FlowerMatchIPv4TCPFlag(FlowerBase):
     def test(self, flags, offload):
         iface, ingress = self.configure_flower()
 
@@ -505,6 +506,30 @@ class FlowerMatchTCPFlag(FlowerBase):
             pkt_cnt = 100
             exp_pkt_cnt = 100
             pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP(flags=flags)/Raw('\x00'*64)
+            self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+
+    def netdev_execute(self):
+        offload = [1, 2, 3, 4, 5, 6, 7, 9, 10, 12, 33, 34, 36]
+        non_offload = [8, 16, 17, 22, 32, 64, 128]
+
+        for flags in offload:
+            self.test(flags, True)
+
+        for flags in non_offload:
+            self.test(flags, False)
+
+class FlowerMatchIPv6TCPFlag(FlowerBase):
+    def test(self, flags, offload):
+        iface, ingress = self.configure_flower()
+
+        match = 'ipv6 flower ip_proto tcp tcp_flags ' + hex(flags)
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action, offload)
+
+        if offload:
+            pkt_cnt = 100
+            exp_pkt_cnt = 100
+            pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IPv6(src='10::10', dst='11::11')/TCP(flags=flags)/Raw('\x00'*64)
             self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
 
     def netdev_execute(self):
