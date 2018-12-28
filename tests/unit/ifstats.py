@@ -72,6 +72,7 @@ class IFstats(CommonNetdevTest):
         for ifc in self.vnics:
             port = self.dut_ifn.index(ifc)
 
+            self.dut.link_wait(ifc)
             # Ping to ensure connectivity
             self.dut.ping(addr=self.src_addr[port][:-3], ifc=ifc)
 
@@ -83,8 +84,6 @@ class IFstats(CommonNetdevTest):
                           chan_settings["current"])
 
             for tidx in range(len(queue_cfgs)):
-                self.src.link_wait(self.src_ifn[port])
-
                 # Spray some traffic in both directions
                 self.dut.tcpping(addr=self.src_addr[port][:-3],
                                  ifc=self.dut_ifn[port], count=pkt_cnt,
