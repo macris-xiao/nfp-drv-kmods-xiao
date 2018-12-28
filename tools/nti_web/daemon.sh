@@ -11,6 +11,11 @@
 ###
 
 NPROC=$(grep -c processor /proc/cpuinfo)
+EXIT_POSTED=
+
+###
+
+trap "EXIT_POSTED=1" SIGHUP
 
 ###
 
@@ -147,7 +152,7 @@ update_iproute2() {
 
 last_kernel_update=x
 
-while true; do
+while [ -z "$EXIT_POSTED" ]; do
     # Update all repos only once a day
     if [ $last_kernel_update != $(date '+%x') ]; then
 	wait_for_dut
@@ -171,3 +176,5 @@ while true; do
     sleep 5
     echo Loop done
 done
+
+echo Exiting..
