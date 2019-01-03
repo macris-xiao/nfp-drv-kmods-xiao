@@ -153,7 +153,7 @@ class IFstats(CommonNetdevTest):
                 # took the link down.
                 for d in ('rx', 'tx'):
                     for k in ifstats[d].keys():
-                        room = 3000 if k == 'bytes' else 15
+                        room = 3000 if k == 'bytes' else 18
                         assert_range(ifstats[d][k], ifstats[d][k] + room,
                                      ifstats2[d][k], "ifstat %s %s" % (d, k))
                 for k in etstats.keys():
