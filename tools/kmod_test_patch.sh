@@ -345,9 +345,9 @@ exec 3<>$BUILD_ROOT/build.log
 	# Prepare 32bit build of net-next
 	#
 	bold_yellow "Building 32bit version of net-next"
-	linux32 make $SILENT CC=$DEFAULT_CC O=../net-next-32bit/ ARCH=i386 defconfig
-	linux32 make $SILENT CC=$DEFAULT_CC O=../net-next-32bit/ ARCH=i386 local_defconfig
-	make $SILENT CC=$DEFAULT_CC O=../net-next-32bit/ ARCH=i386 -j$NJ
+	linux32 make $SILENT CC=$NEXT_CC O=../net-next-32bit/ ARCH=i386 defconfig
+	linux32 make $SILENT CC=$NEXT_CC O=../net-next-32bit/ ARCH=i386 local_defconfig
+	make $SILENT CC=$NEXT_CC O=../net-next-32bit/ ARCH=i386 -j$NJ
 
 	#
 	# Prepare net.git
