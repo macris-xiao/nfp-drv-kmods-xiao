@@ -542,13 +542,12 @@ exec 3<>$BUILD_ROOT/build.log
 	    #
 	    for v in $kernels; do
 		bold_yellow "Building for kernel $v"
-		redirect make CC=$DEFAULT_CC -j$NJ -C ../linux-$v M=`pwd`/src
+		V_CC=`cc_choose_retpoline ../linux-$v/`
+		redirect make CC=$V_CC -j$NJ -C ../linux-$v M=`pwd`/src
 	    done
 	    for build_dir in `non_vanilla_kernels`; do
 		bold_yellow "Building for $build_dir"
-		NV_CC=$DEFAULT_CC
-		grep 'RETPOLINE=y' ${build_dir}/.config >> /dev/null \
-		    && NV_CC=$RETP_CC
+		NV_CC=`cc_choose_retpoline ${build_dir}/`
 		redirect make CC=$NV_CC -j$NJ -C $build_dir M=`pwd`/src
 	    done
 
