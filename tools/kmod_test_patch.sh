@@ -50,10 +50,11 @@ REPO_URL=git://source.netronome.com/nfp-drv-kmods.git
 # Compiler to use for building with linux-next.  You can use the lastest,
 # greatest GCC here.  Leave empty to disable the extra run.
 NEXT_CC=$(compgen -c gcc | sed -n '/gcc\(-[0-9]\(\.[0-9]\)*\)*$/p' | sort | tail -1)
+NEXT_CC=${NEXT_CC:-$DEFAULT_CC}
 # Conservative compiler which at the same time supports repolines.  GCC starting
 # from version 5.
 RETP_CC=$(compgen -c gcc | sed -n '/gcc-[5-9]\(\.[0-9]\)*$/p' | sort | head -1)
-[ -z "$RETP_CC" ] && RETP_CC=$NEXT_CC
+RETP_CC=${RETP_CC:-$DEFAULT_CC}
 # ARM toolchain path
 [ -z "$ARM_TOOLCHAIN" ] && ARM_TOOLCHAIN=${HOME}/cross/gcc-4.6.3-nolibc/arm-unknown-linux-gnueabi/bin/arm-unknown-linux-gnueabi-
 # Silence kernel and module builds by default
@@ -486,14 +487,14 @@ exec 3<>$BUILD_ROOT/build.log
 	    #
 	    echo > ../build.log
 	    bold_yellow "Building in net-next"
-	    redirect make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../net-next M=`pwd`/src W=1 $next_cflags
-	    redirect make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../net-next-32bit M=`pwd`/src W=1 $next_cflags
+	    redirect make CC=$NEXT_CC -j$NJ -C ../net-next M=`pwd`/src W=1 $next_cflags
+	    redirect make CC=$NEXT_CC -j$NJ -C ../net-next-32bit M=`pwd`/src W=1 $next_cflags
 
 	    #
 	    # Build in net
 	    #
 	    bold_yellow "Building in net"
-	    redirect make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../net M=`pwd`/src W=1 $next_cflags
+	    redirect make CC=$NEXT_CC -j$NJ -C ../net M=`pwd`/src W=1 $next_cflags
 
 	    #
 	    # Build with different configs
@@ -511,12 +512,12 @@ exec 3<>$BUILD_ROOT/build.log
 		done
 
 		bold_yellow "Building with opts=$b_opts"
-		redirect make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../net-next M=`pwd`/src W=1 $next_cflags $b_opts
+		redirect make CC=$NEXT_CC -j$NJ -C ../net-next M=`pwd`/src W=1 $next_cflags $b_opts
 	    done
 	    bold_yellow "Building with opts=CONFIG_NFP_TEST_HARNESS=m"
-	    redirect make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../net-next M=`pwd`/src W=1 $next_cflags CONFIG_NFP_TEST_HARNESS=m
+	    redirect make CC=$NEXT_CC -j$NJ -C ../net-next M=`pwd`/src W=1 $next_cflags CONFIG_NFP_TEST_HARNESS=m
 	    bold_yellow "Building with opts=CONFIG_NFP_NET_PF=n CONFIG_NFP_NET_VF=n CONFIG_NFP_DEBUG=y"
-	    redirect make CC=${NEXT_CC:-$DEFAULT_CC} -j$NJ -C ../net-next M=`pwd`/src \
+	    redirect make CC=$NEXT_CC -j$NJ -C ../net-next M=`pwd`/src \
 		 W=1 $next_cflags CONFIG_NFP_NET_PF=n CONFIG_NFP_NET_VF=n CONFIG_NFP_DEBUG=y
 
 	    #
