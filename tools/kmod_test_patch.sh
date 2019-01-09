@@ -84,6 +84,7 @@ function non_vanilla_kernels() {
 function local_kernel_config() {
     echo CONFIG_MODULES=y
     echo CONFIG_SMP=y
+    echo CONFIG_PCI=y
     echo CONFIG_PCI_IOV=y
     echo CONFIG_PCI_MSI=y
     echo CONFIG_NET=y
