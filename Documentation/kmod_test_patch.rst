@@ -70,9 +70,25 @@ doubt, try the master branch from sparse Git repository::
 For example, Ubuntu 16.04 is known to propose a sparse version which is too
 old.
 
-Gcc version
+GCC version
 -----------
 
-Gcc 4.9 seems to be the only tool able to compile successfully all kernels.
-Version 4.8 will break on flag ``-fstack-protector-strong`` used for kernel
-4.15 and above, while newer gcc have trouble with the old kernels.
+``kmod_test_patch.sh`` requires multiple versions of GCC to be installed
+on the host.  Having GCC 4.9 and GCC 7.3 installed is recommended.
+
+Older kernels do not support GCC version 5 and above.  You may see::
+
+  code model kernel does not support PIC mode
+
+or an error saying that kernel staight up doesn't know the compiler.
+
+GCC 4.9 seems to be a good fit for older kernels.  Version 4.8 will break on
+flag ``-fstack-protector-strong`` used for kernel 4.15 and above.
+
+Newer kernels require a version of GCC which is able to generate retpolines.
+Retpoline patches were backported to GCC all the way back to version 5, so
+with luck GCC 5.5 is the minimal required version, but newer version like 7.3
+or 8.2 is recommended.
+
+The script should automatically pick the versions appropriate for different
+kernels.
