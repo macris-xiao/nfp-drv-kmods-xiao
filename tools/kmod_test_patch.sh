@@ -161,13 +161,19 @@ function redirect() {
 # Functions
 #
 
+function cc_choose_retpoline() {
+    grep 'RETPOLINE=y' ${1}.config >> /dev/null && \
+	echo $RETP_CC || echo $DEFAULT_CC
+}
+
 # Build kernel in $1 directory
 function build_kernel() {
     (
+	local CC DIR
+
 	cd $1
 
-	DIR=
-	[ -n "$2" ] && DIR="O=$2"
+	[ -n "$2" ] && DIR="O=$2/"
 
 	local_kernel_config $1 > arch/x86/configs/local_defconfig
 
@@ -177,9 +183,12 @@ function build_kernel() {
 	    bold_yellow "Building in $1"
 	fi
 
-	make $SILENT CC=$DEFAULT_CC $DIR defconfig
-	make $SILENT CC=$DEFAULT_CC $DIR local_defconfig
-	make $SILENT CC=$DEFAULT_CC $DIR -j$NJ
+	make $SILENT $DIR defconfig
+	CC=`cc_choose_retpoline ${DIR:2}`
+
+	make $SILENT $DIR CC=$CC defconfig
+	make $SILENT $DIR CC=$CC local_defconfig
+	make $SILENT $DIR CC=$CC -j$NJ
     )
 }
 
