@@ -1969,6 +1969,8 @@ class BnicRedMqRaw(BnicTest):
                              q['qlen'], "Qdisc %s stat: qlen" % qdisc_str(q))
 
     def cleanup(self):
+        if not hasattr(self, 'init'):
+            return
         self.state = self.init
         self.state.force_apply_all()
         self.switchdev_mode_disable()
