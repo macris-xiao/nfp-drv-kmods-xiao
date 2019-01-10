@@ -675,7 +675,7 @@ class CommonTest(Test):
         max_vfs = self.read_scalar_nffw('nfd_vf_cfg_max_vfs')
         if max_vfs > 0:
             if not self.dut.kernel_ver_ge(4, 12):
-                self.dut.cmd('modprobe -r vfio_pci')
+                self.dut.cmd('modprobe -r pci_stub')
             ret, _ = self.dut.cmd('echo %d > /sys/bus/pci/devices/%s/sriov_numvfs' %
                                   (1, self.group.pci_dbdf))
 

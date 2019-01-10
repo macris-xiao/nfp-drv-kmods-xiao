@@ -522,14 +522,14 @@ class SriovTest(CommonDrvTest):
     def execute(self):
         M = self.dut
 
-        # Load vfio_pci first so it binds to the VFs
+        # Load pci_stub first so it binds to the VFs
         if self.dut.kernel_ver_ge(4, 12):
             cmd = 'echo 0 > /sys/bus/pci/devices/%s/sriov_drivers_autoprobe' % \
                 self.group.pci_dbdf
             self.dut.cmd(cmd)
         else:
-            self.dut.cmd('modprobe vfio_pci')
-            cmd = 'echo 19ee 6003 > /sys/bus/pci/drivers/vfio-pci/new_id'
+            self.dut.cmd('modprobe pci_stub')
+            cmd = 'echo 19ee 6003 > /sys/bus/pci/drivers/pci-stub/new_id'
             self.dut.cmd(cmd)
 
         M.insmod()
@@ -566,7 +566,7 @@ class SriovTest(CommonDrvTest):
                 self.group.pci_dbdf
             self.dut.cmd(cmd)
         else:
-            self.dut.cmd('modprobe -r vfio_pci')
+            self.dut.cmd('modprobe -r pci_stub')
         return super(SriovTest, self).cleanup()
 
 class SriovNDOs(CommonNetdevTest):

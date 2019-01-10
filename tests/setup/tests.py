@@ -120,9 +120,11 @@ class Mefw(CommonTest):
 
 class Sriov(CommonTest):
     def execute(self):
-        _, out = self.dut.cmd('ls /sys/kernel/iommu_groups | wc -l')
-        if int(out) < 1:
-            raise NtiGeneralError("No IOMMU groups - is IOMMU enabled?")
+        self.dut.cmd('modinfo pci_stub')
+        self.dut.cmd('modprobe pci_stub')
+        # make sure it's a module, tests may depend on modprobe -r
+        self.dut.cmd('lsmod | grep pci_stub')
+        self.dut.cmd('modprobe -r pci_stub')
 
 class BPFSetupTest(CommonTest):
     def run(self):
