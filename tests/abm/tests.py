@@ -1864,9 +1864,9 @@ class BnicRedMqRaw(BnicTest):
         try:
             for band in range(1, self.dut.fwcaps["num_bands"]):
                 qmstat = '_abi_nfdqm%u_stats_per_band' % (self.group.pf_id)
-                base = band * NfpNfdCtrl.MAX_RXRINGS
+                base = band * NfdBarOff.MAX_RXRINGS
 
-                for qid in range(NfpNfdCtrl.MAX_RXRINGS):
+                for qid in range(NfdBarOff.MAX_RXRINGS):
                     self.dut.cmd_rtsym('%s:%u 0 0 0 0' %
                                        (qmstat, (base + qid) * 32))
         finally:
@@ -2545,7 +2545,7 @@ class BnicGRedRaw(BnicTest):
         # For stats on GRED 0 add something to all counters
         for i in range(self.group.n_ports):
             for b in range(self.dut.fwcaps["num_bands"]):
-                q = self.dut.vnics[i]['base_q'] + b * NfpNfdCtrl.MAX_RXRINGS
+                q = self.dut.vnics[i]['base_q'] + b * NfdBarOff.MAX_RXRINGS
 
                 self.rtsym_add("_abi_nfd_rxq_stats%u_per_band" %
                                (self.group.pf_id), q * 16, b * 10 + 1)
@@ -2622,7 +2622,7 @@ class BnicGRedRaw(BnicTest):
             sto = 0
             non_sto = 0
             for b in range(self.dut.fwcaps["num_bands"]):
-                q = self.dut.vnics[i]['base_q'] + b * NfpNfdCtrl.MAX_RXRINGS
+                q = self.dut.vnics[i]['base_q'] + b * NfdBarOff.MAX_RXRINGS
 
                 non_sto += self.rtsym_get("_abi_nfdqm%u_stats_per_band" %
                                           (self.group.pf_id), q * 32)
@@ -2637,7 +2637,7 @@ class BnicGRedRaw(BnicTest):
 
         for i in range(self.group.n_ports):
             for b in range(self.dut.fwcaps["num_bands"]):
-                q = self.dut.vnics[i]['base_q'] + b * NfpNfdCtrl.MAX_RXRINGS
+                q = self.dut.vnics[i]['base_q'] + b * NfdBarOff.MAX_RXRINGS
 
                 self.rtsym_set("_abi_nfd_out_q_lvls_%u_per_band" %
                                (self.group.pf_id), q * 16, 0)
