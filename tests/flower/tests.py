@@ -1059,6 +1059,11 @@ class FlowerMaxEntries(FlowerBase):
         self.cleanup_filter(iface)
 
 class FlowerMatchBlock(FlowerBase):
+    def prepare(self):
+        if len(self.dut_ifn) < 2 or len(self.src_ifn) < 2:
+            return NrtResult(name=self.name, testtype=self.__class__.__name__,
+                             passed=None, comment='2 ports required for test')
+
     def netdev_execute(self):
         M = self.dut
         A = self.src
@@ -1070,9 +1075,6 @@ class FlowerMatchBlock(FlowerBase):
             if not ret:
                 raise NtiError('TC block was not rejected on a kernel lower than 4.18')
             return
-
-        if len(self.dut_ifn) < 2 or len(self.src_ifn) < 2:
-            raise NtiError('At least 2 ports are required to test blocks')
 
         iface2 = self.dut_ifn[1]
         ingress = self.src_ifn[0]
