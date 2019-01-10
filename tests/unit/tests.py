@@ -1045,18 +1045,19 @@ class FECModesTest(CommonNonUpstreamTest):
             raise NtiError('Expected interface %s to be %s, got %s' %
                            (iface, expected_nsp_fec, nsp_fec))
 
-        # This check is not really accurate. The ethtool FEC output is still
-        # somewhat vague at this point, so only check for more or less sane
-        # state.
         _, ethtool_fec_output = self.dut.ethtool_get_fec(iface)
-        if expected_ethtool_fec == "auto":
-            expected_ethtool_fec = "auto-negotiation: on"
-        if expected_ethtool_fec == "auto off":
-            expected_ethtool_fec = "auto-negotiation: off"
+        s = re.search("active fec encoding:(.*)\n", ethtool_fec_output.lower(),
+                      re.MULTILINE)
+        if s:
+            active_encoding = s.groups()[0]
+        else:
+            active_encoding = ""
 
-        # The 'off' state is not displayed by this patched version of ethtool.
-        if expected_ethtool_fec != "off":
-            if not re.search(expected_ethtool_fec, ethtool_fec_output.lower(), re.MULTILINE):
+        if expected_ethtool_fec == "" and active_encoding != "":
+                raise NtiError('Expected interface %s to not have any encodings, found %s' %
+                               (iface, active_encoding))
+        else:
+            if not re.search(expected_ethtool_fec, active_encoding):
                 raise NtiError('Expected interface %s to have %s available in FEC config' %
                                (iface, expected_ethtool_fec))
 
@@ -1082,13 +1083,8 @@ class FECModesTest(CommonNonUpstreamTest):
         else:
             self.src.cmd("/opt/netronome/bin/nfp-nsp -n1 -C +fec3 eth0 eth1")
 
-        # Workaround for NFPBSP-2945
-        should_fail = True
-        if (port == 1) and (fec == "auto"):
-            should_fail = False
-
         time.sleep(3) # Takes time for NSP to action this command
-        self.ping(port, should_fail=should_fail)
+        self.ping(port, should_fail=True)
 
         self.src.cmd("/opt/netronome/bin/nfp-nsp -n1 -C +%s eth0 eth1" % nsp_fec_mode)
 
@@ -1104,13 +1100,15 @@ class FECModesTest(CommonNonUpstreamTest):
             raise NtiError('Expected to fail setting interface %s FEC config to %s, but passed' %
                            (iface, fec))
 
-    def fec_cleanup(self):
+    def cleanup(self):
         if self.dut.get_part_no() == 'AMDA0099-0001':
             self.dut.cmd_nsp('-C +aneg0 eth0 eth1')
             self.dut.cmd_nsp('-C +fec0 eth0 eth1')
 
             self.src.cmd("/opt/netronome/bin/nfp-nsp -n1 -C +aneg0 eth0 eth1")
             self.src.cmd("/opt/netronome/bin/nfp-nsp -n1 -C +fec0 eth0 eth1")
+
+        return super(CommonNonUpstreamTest, self).cleanup()
 
     def netdev_execute(self):
         self.nsp_min(22)
@@ -1209,13 +1207,11 @@ class FECModesTest(CommonNonUpstreamTest):
                     raise NtiError('Expected interface %s to have RS as advertised FEC mode' %
                                    iface)
 
-                self.check_fec_mode(iface, mac_addr, "Fec0", "auto off")
+                self.check_fec_mode(iface, mac_addr, "Fec0", "")
                 self.set_fec_and_expect_to_fail(entry, "baser")
                 self.set_fec_and_expect_to_fail(entry, "rs")
                 self.set_fec_and_expect_to_fail(entry, "off")
                 self.set_fec_and_expect_to_fail(entry, "auto")
-
-        self.fec_cleanup()
 
 class TLVcapTest(CommonNonUpstreamTest):
     def prepare(self):
