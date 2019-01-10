@@ -1100,8 +1100,11 @@ class FECModesTest(CommonNonUpstreamTest):
             raise NtiError('Expected to fail setting interface %s FEC config to %s, but passed' %
                            (iface, fec))
 
+    def prepare(self):
+        self.is_fec_capable = False
+
     def cleanup(self):
-        if self.dut.get_part_no() == 'AMDA0099-0001':
+        if self.is_fec_capable:
             self.dut.cmd_nsp('-C +aneg0 eth0 eth1')
             self.dut.cmd_nsp('-C +fec0 eth0 eth1')
 
@@ -1131,6 +1134,8 @@ class FECModesTest(CommonNonUpstreamTest):
             port_mac_tuple_list.append((iface, mac_addr, port))
 
         if self.dut.get_part_no() == 'AMDA0099-0001':
+            self.is_fec_capable = True
+
             # Reset the current FEC mode to default, i.e. auto and switch off
             # autoneg
             self.dut.cmd_nsp('-C +aneg4 eth0 eth1')
@@ -1148,7 +1153,7 @@ class FECModesTest(CommonNonUpstreamTest):
             mac_addr = entry[1]
 
             # FEC configuration only available on Carbon
-            if self.dut.get_part_no() == 'AMDA0099-0001':
+            if self.is_fec_capable:
                 _, supported = self.dut.cmd('ethtool %s | grep -iA2 "Supported FEC"' % iface)
                 if not re.search('None', supported, re.MULTILINE):
                     raise NtiError('Expected interface %s to have None as supported FEC mode' %
