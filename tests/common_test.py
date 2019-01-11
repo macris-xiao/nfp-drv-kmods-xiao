@@ -239,7 +239,11 @@ class CommonTest(Test):
             res = NrtResult(name=self.name, testtype=self.__class__.__name__,
                             passed=None, comment=str(err))
         finally:
-            self.cleanup()
+            LOG_sec("Test clean up")
+            try:
+                self.cleanup()
+            finally:
+                LOG_endsec()
 
         return res
 
