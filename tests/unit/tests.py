@@ -1294,14 +1294,14 @@ class TLVcapTest(CommonNonUpstreamTest):
         self.dut.reset_mods()
         self.dut.cmd("dmesg -c")
         self.dut.insmod(netdev=True, userspace=True)
-        self.ifc_all_up()
+        self.dut.ip_link_set_up(self.vnic[0])
 
         _, msgs = self.dut.cmd("dmesg -c")
         if msgs.find(probe_err) != -1:
             raise NtiError("Failed to probe with good TLVs")
 
         irqmod_exp = 64 << 16 | 50 * 160 / 16
-        irqmod = self.dut.nfd_reg_read_le32(self.dut_ifn[0], 0x0b00)
+        irqmod = self.dut.nfd_reg_read_le32(self.vnics[0], 0x0b00)
         if irqmod != irqmod_exp:
             raise NtiError("IRQMOD entry %x, expected %x" %
                            (irqmod, irqmod_exp))
