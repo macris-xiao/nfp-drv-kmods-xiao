@@ -9,7 +9,7 @@ from netro.testinfra.nti_exceptions import NtiError
 from netro.testinfra.system import cmd_log
 from netro.tests.tcpdump import TCPDump
 from netro.tests.tcpreplay import TCPReplay
-from ..common_test import CommonNetdevTest, NtiSkip
+from ..common_test import CommonNetdevTest, NtiSkip, NrtResult
 from ..drv_grp import NFPKmodGrp
 from struct import unpack, pack
 from time import sleep
@@ -63,6 +63,7 @@ class NFPKmodFlower(NFPKmodGrp):
              ('flower_match_geneve_opt', FlowerMatchGeneveOpt, "Checks flower Geneve option match capabilities"),
              ('flower_match_geneve_multi_opt', FlowerMatchGeneveMultiOpt, "Checks flower Genevei with multiple options match capabilities"),
              ('flower_match_block', FlowerMatchBlock, "Checks basic flower block match capabilities"),
+             ('flower_match_tunnel_to_shared_mac', FlowerMatchTunnelToSharedMAC, "Checks tunnel decap when MACs are shared across ports"),
              ('flower_max_entries', FlowerMaxEntries, "Checks that maximum entries can be installed"),
              ('flower_modify_mtu', FlowerModifyMTU, "Checks the setting of a mac repr MTU"),
              ('flower_match_whitelist', FlowerMatchWhitelist, "Checks basic flower match whitelisting"),
@@ -1057,6 +1058,69 @@ class FlowerMaxEntries(FlowerBase):
         M.cmd('tc -b %s' % entry_filename)
 
         self.cleanup_filter(iface)
+class FlowerMatchTunnelToSharedMAC(FlowerBase):
+    def prepare(self):
+        if len(self.dut_ifn) < 2 or len(self.src_ifn) < 2:
+            return NrtResult(name=self.name, testtype=self.__class__.__name__,
+                             passed=None, comment='2 ports required for test')
+
+    def netdev_execute(self):
+        M = self.dut
+        A = self.src
+
+        src_ip = self.src_addr[0].split('/')[0]
+        dut_ip = self.dut_addr[0].split('/')[0]
+
+        _, src_mac = A.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.src_ifn[0])
+        _, dut_mac1 = M.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.dut_ifn[0])
+        _, dut_mac2 = M.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.dut_ifn[1])
+
+        # Set the 2nd interface to the same MAC address as the first
+        M.cmd('ip link set dev %s down' % self.dut_ifn[1])
+        M.cmd('ip link set %s address %s' % (self.dut_ifn[1], dut_mac1))
+        M.cmd('ip link set dev %s up' % self.dut_ifn[1])
+
+        M.cmd('ip link add name vxlan0 type vxlan dstport 0 external')
+        M.cmd('ifconfig vxlan0 up')
+
+        self.add_egress_qdisc('vxlan0')
+
+        # Hit test - match all vxlan fields and decap
+        match = 'ip flower enc_src_ip %s enc_dst_ip %s enc_dst_port 4789 enc_key_id 123' % (src_ip, dut_ip)
+        action = 'mirred egress redirect dev %s' % self.dut_ifn[0]
+        self.install_filter('vxlan0', match, action)
+        pkt_cnt = 100
+        exp_pkt_cnt = 100
+
+        # VXLAN header with VNI 123, ToS 30, and TTL  99
+        vxlan_header = '\x08\x00\x00\x00\x00\x00\x7b\x00'
+        enc_pkt = Ether(src="aa:bb:cc:dd:ee:ff",dst="01:02:03:04:05:06")/IP()/TCP()/Raw('\x00'*64)
+        vxlan_header += str(enc_pkt)
+        pkt = Ether(src=src_mac,dst=dut_mac1)/IP(src=src_ip, dst=dut_ip, tos=30, ttl=99)/UDP(sport=44534, dport=4789)/vxlan_header
+        pkt_diff = len(Ether()) + len(IP()) + len(UDP()) + 8
+
+        # Tunnel packets should match on both ports
+        self.test_filter('vxlan0', self.src_ifn[0], pkt, pkt_cnt, exp_pkt_cnt, -pkt_diff)
+        sleep(2)
+        exp_pkt_cnt = 200
+        self.test_filter('vxlan0', self.src_ifn[1], pkt, pkt_cnt, exp_pkt_cnt, -pkt_diff)
+
+        # Reset the 2nd interface to its original MAC
+        M.cmd('ip link set dev %s down' % self.dut_ifn[1])
+        M.cmd('ip link set %s address %s' % (self.dut_ifn[1], dut_mac2))
+        M.cmd('ip link set dev %s up' % self.dut_ifn[1])
+
+        # Counts should now only increment when ingressing one interface
+        exp_pkt_cnt = 300
+        self.test_filter('vxlan0', self.src_ifn[0], pkt, pkt_cnt, exp_pkt_cnt, -pkt_diff)
+        sleep(2)
+        self.test_filter('vxlan0', self.src_ifn[1], pkt, pkt_cnt, exp_pkt_cnt, -pkt_diff)
+
+        self.cleanup_filter('vxlan0')
+
+    def cleanup(self):
+        self.dut.cmd('ip link del vxlan0', fail=False)
+        return super(FlowerMatchTunnelToSharedMAC, self).cleanup()
 
 class FlowerMatchBlock(FlowerBase):
     def prepare(self):
