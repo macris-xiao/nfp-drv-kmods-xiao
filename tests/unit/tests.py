@@ -1294,7 +1294,7 @@ class TLVcapTest(CommonNonUpstreamTest):
         self.dut.reset_mods()
         self.dut.cmd("dmesg -c")
         self.dut.insmod(netdev=True, userspace=True)
-        self.dut.ip_link_set_up(self.vnic[0])
+        self.dut.ip_link_set_up(self.vnics[0])
 
         _, msgs = self.dut.cmd("dmesg -c")
         if msgs.find(probe_err) != -1:
