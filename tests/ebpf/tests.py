@@ -948,7 +948,7 @@ class eBPFmtu(eBPFtest):
 
 class eBPFmtuDPA9bit(eBPFmtu):
     def execute(self):
-        if self.dut.kernel_ver_lt(4, 21):
+        if self.dut.kernel_ver_lt(5, 0):
             raise NtiSkip("High MTU with Direct Packet Access in range")
 
         self.set_mtu(3000)
