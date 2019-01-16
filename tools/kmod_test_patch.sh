@@ -545,11 +545,13 @@ exec 3<>$BUILD_ROOT/build.log
 		bold_yellow "Building for kernel $v"
 		V_CC=`cc_choose_retpoline ../linux-$v/`
 		redirect make CC=$V_CC -j$NJ -C ../linux-$v M=`pwd`/src
+		redirect make CC=$V_CC -j$NJ -C ../linux-$v M=`pwd`/src clean
 	    done
 	    for build_dir in `non_vanilla_kernels`; do
 		bold_yellow "Building for $build_dir"
 		NV_CC=`cc_choose_retpoline ${build_dir}/`
 		redirect make CC=$NV_CC -j$NJ -C $build_dir M=`pwd`/src
+		redirect make CC=$NV_CC -j$NJ -C $build_dir M=`pwd`/src clean
 	    done
 
 	    #
