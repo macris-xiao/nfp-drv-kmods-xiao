@@ -284,6 +284,21 @@ class XDPcmp(XDPTest):
         self.tcpping(0)
         self.ping6(0)
 
+class XDPcmp32(XDPTest):
+    def execute(self):
+        # NOTE: JMP32 support is only available on LLVM >= 9.0, so compares32.o
+        #       is likely not built yet on Linux distro with old LLVM version
+        #       for which case just skip this test.
+        filename = os.path.join(self.group.samples_xdp, 'compares32.o')
+        if not os.path.isfile(filename):
+            raise NtiSkip("compares32.o hasn't been built")
+
+        self.xdp_start('compares32.o', mode=self.group.xdp_mode())
+
+        self.ping(0)
+        self.tcpping(0)
+        self.ping6(0)
+
 class XDPpassDPArd(XDPpassBase):
     def get_src_pkt(self):
         pkt = ''
