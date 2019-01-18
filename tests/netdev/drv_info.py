@@ -93,7 +93,7 @@ class DrvInfoEthtool(CommonTest):
 
         for ifc in self.dut.nfp_netdevs:
             info = self.dut.ethtool_drvinfo(ifc)
-            if info["bus-info"]:
+            if info["firmware-version"][0] != "*":
                 self.check_info_pf(info)
             else:
                 self.check_info_repr(info)
