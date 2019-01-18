@@ -3,7 +3,18 @@ LLVM := $(shell clang$(LLVM_VERSION) --version)
 CLANG_FLAGS ?= -O2 -W -Wall \
 	-Wno-compare-distinct-pointer-types
 
-SRCS=$(wildcard *.c *.S)
+# Exclude testcases requiring specific eBPF CPU versions initially. They do not
+# always compile on old LLVM toolchain. Include them depending on probe results.
+ALL_SRCS = $(wildcard *.c *.S)
+SRCS = $(filter-out $(SRCS_LLVM_CPU_V3), $(ALL_SRCS))
+LLVM_SUPPORT_CPU_V3 = $(shell echo "int main () { return 0; }" | \
+			clang$(LLVM_VERSION) -target bpf -mcpu=v3 -E - 2>&1 | \
+			grep "main")
+ifneq ($(LLVM_SUPPORT_CPU_V3),)
+SRCS += $(SRCS_LLVM_CPU_V3)
+CFLAGS += -mcpu=v3
+endif
+
 OBJS=$(patsubst %.c,%.o,$(SRCS)) $(patsubst %.S,%.o,$(SRCS))
 
 Q ?= @
