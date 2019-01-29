@@ -112,6 +112,8 @@ class MacStatsEthtool(CommonTest):
         if self.read_sym_nffw('_mac_stats') is None:
             raise NtiSkip("FW doesn't report MAC stats")
 
+        self.skip_not_ifc_phys()
+
         for i in range(0, len(self.dut_ifn)):
             self.test_one_ifc(i)
 

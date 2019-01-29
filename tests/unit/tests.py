@@ -902,12 +902,7 @@ class AutonegEthtool(CommonNonUpstreamTest):
     def netdev_execute(self):
         # Check NSP version
         self.nsp_min(15)
-
-        for ifc in self.dut_ifn:
-            ret, name = self.dut.cmd("cat /sys/class/net/%s/phys_port_name" %
-                                     (ifc), fail=False)
-            if ret or not re.search('p\d+(s\d+)*$', name):
-                raise NtiSkip('Interface %s is not a physical ifc' % ifc)
+        self.skip_not_ifc_phys()
 
         self.state = {}
 
@@ -1121,12 +1116,7 @@ class FECModesTest(CommonNonUpstreamTest):
 
     def netdev_execute(self):
         self.nsp_min(22)
-
-        for ifc in self.dut_ifn:
-            ret, name = self.dut.cmd("cat /sys/class/net/%s/phys_port_name" %
-                                     (ifc), fail=False)
-            if ret or not re.search('p\d+(s\d+)*$', name):
-                raise NtiSkip('Interface %s is not a physical ifc' % ifc)
+        self.skip_not_ifc_phys()
 
         # In order to execute this test, one needs to have an ethtool version
         # readily available in the PATH of your system that supports FEC mode

@@ -216,6 +216,12 @@ class MtuFlbufCheck(CommonTest):
                                (fl_bufsz, bflbufsz))
 
     def execute(self):
+        # For flower vNIC 0 is actually a repr..
+        info = self.dut.ethtool_drvinfo(self.dut.vnics[0])
+        nfd_abi = info["firmware-version"].strip().split(' ')[0]
+        if nfd_abi == "*":
+            raise NtiSkip('Not a vNIC')
+
         self.check(False)
 
         if self.kernel_min(4, 8):
@@ -248,6 +254,7 @@ class DevlinkPortsShow(CommonTest):
             raise NtiSkip('BSP tools upstream')
         if self.kernel_min(4, 6):
             raise NtiSkip("Devlink needs kernel 4.6 or newer")
+        if self.skip_not_ifc_phys()
 
         dev = "pci/%s" % (self.group.pci_dbdf)
 

@@ -281,6 +281,13 @@ class CommonTest(Test):
             raise NtiSkip("NSP version %d, test requires %d" %
                           (nsp_ver, exp_ver))
 
+    def skip_not_ifc_phys(self):
+        for ifc in self.dut_ifn:
+            ret, name = self.dut.cmd("cat /sys/class/net/%s/phys_port_name" %
+                                     (ifc), fail=False)
+            if ret or not re.search('p\d+(s\d+)*$', name):
+                raise NtiSkip('Interface %s is not a physical ifc' % ifc)
+
     def kill_pidfile(self, host, pidfile, sig="-HUP", max_fail=0):
         cmd = ''' # kill_pidfile
         fail=0
