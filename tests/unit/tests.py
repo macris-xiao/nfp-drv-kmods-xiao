@@ -9,6 +9,7 @@ import netro.testinfra
 from reconfig import ChannelReconfig
 from fw_dumps import FwDumpTest
 from rtsym import RTSymTest, RTSymDataTest
+from versions import VersionsTest
 from netro.testinfra.test import *
 from ..drv_grp import NFPKmodGrp
 from ..ebpf.xdp import XDPTest
@@ -66,6 +67,7 @@ class NFPKmodUnit(NFPKmodGrp):
               "Check interface operable after FW load with combinations of ifup/ifdown"),
              ('sriov_ndos', SriovNDOs, 'Test SR-IOV VF config NDO functions'),
              ('fec_modes', FECModesTest, 'Test FEC modes configuration'),
+             ('versions', VersionsTest, 'Test devlink dev info (versions)'),
         )
 
         for t in T:

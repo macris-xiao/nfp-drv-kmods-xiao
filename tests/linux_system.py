@@ -549,3 +549,15 @@ TX:		(\d+)
             LOG_endsec()
 
         return ret
+
+    ###############################
+    # devlink
+    ###############################
+    def devlink_get_info(self, dev=None):
+        ret, out = self.cmd('devlink -jp dev info %s' % (dev if dev else ""))
+        if ret == 0:
+            if dev:
+                out = json.loads(out)["info"][dev]
+            else:
+                out = json.loads(out)["info"]
+        return ret, out
