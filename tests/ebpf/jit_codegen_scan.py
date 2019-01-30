@@ -123,8 +123,6 @@ class JitCodegenCheck(object):
         @test:      A CommonTest instance for which to find the source file
         @extension: The file extension to search for
         """
-        if test.group.xdp_mode() == "drv":
-            return None
         prog_name = test.get_prog_name()
         filename = os.path.join(test.group.samples_xdp,
                                 os.path.splitext(prog_name)[0] + extension)
@@ -141,6 +139,9 @@ class JitCodegenCheck(object):
 
         @test:  A CommonTest instance for which to find the source file
         """
+        if test.group.xdp_mode() == "drv":
+            return None
+
         filename = self.get_ext_source_name(test, ".c")
         if not os.path.isfile(filename):
             filename = self.get_ext_source_name(test, ".S")
