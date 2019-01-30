@@ -368,6 +368,8 @@ class BnicTest(CommonTest):
 
         netifs_old = self.dut._netifs
         self.dut.devlink_eswitch_mode_set(eswitchmode)
+        if eswitchmode == "switchdev":
+            self.dut.cmd("udevadm settle")
         self.group.refresh_nfp_netdevs(netifs_old)
         self.system_refresh_mode()
 
