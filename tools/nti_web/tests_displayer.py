@@ -14,6 +14,7 @@ out_file = "/var/www/html/gen/tests_displayer.html"
 
 # Code
 tests = set()
+procs = []
 
 npath = os.path.normpath(path) + '/'
 all_files = glob.glob(npath + '*')
@@ -36,8 +37,13 @@ for f in all_files:
     conf = test[upos + 1:]
 
     print("Running for", kind, conf)
-    subprocess.run("python3 " + os.path.dirname(sys.argv[0]) + "/single_config.py %s %s %s" %
-                   (npath, conf, kind), shell=True, check=True)
+    p = subprocess.Popen(["python3",
+                          os.path.dirname(sys.argv[0]) + "/single_config.py",
+                          npath, conf, kind])
+    procs.append(p)
+
+for p in procs:
+    p.communicate()
 
 test_row = '''
 <div id="div{id}" onclick="buttonClick({id})" class="options">
