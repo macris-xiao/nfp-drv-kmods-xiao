@@ -10,7 +10,7 @@ class PhysPortName(CommonTest):
         return self.kernel_min(4, 1)
 
     def execute(self):
-        if self.skip_not_ifc_phys()
+        self.skip_not_ifc_phys()
 
         cmd =  '''
         cd /sys/class/net/

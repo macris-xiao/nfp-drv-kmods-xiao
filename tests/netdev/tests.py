@@ -254,7 +254,7 @@ class DevlinkPortsShow(CommonTest):
             raise NtiSkip('BSP tools upstream')
         if self.kernel_min(4, 6):
             raise NtiSkip("Devlink needs kernel 4.6 or newer")
-        if self.skip_not_ifc_phys()
+        self.skip_not_ifc_phys()
 
         dev = "pci/%s" % (self.group.pci_dbdf)
 
