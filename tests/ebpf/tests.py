@@ -728,7 +728,7 @@ class eBPFrefcnt(eBPFtest):
         self.prog_cnt = 0
 
         # The TC offload will be loaded by the eBPFtest base class
-        eBPFtest.cleanup(self)
+        self.tc_reset()
         if self.bpf_objects_nb_differs():
             raise NtiError('eBPF objects number differs after TC offload test')
 
@@ -751,6 +751,7 @@ class eBPFrefcnt(eBPFtest):
 
     def cleanup(self):
         self.xdp_reset()
+        return super(eBPFrefcnt, self).cleanup()
 
 class eBPFpass(eBPFtest):
     def __init__(self, src, dut, group=None, name="", summary=None):
@@ -909,7 +910,7 @@ class eBPFtc_feature(eBPFtest):
 
     def cleanup(self):
         self.xdp_stop(mode="offload")
-        eBPFtest.cleanup(self)
+        return super(eBPFtc_feature, self).cleanup()
 
 class eBPFtwo_prog(eBPFtest):
     def __init__(self, src, dut, group=None, name="", summary=None):
@@ -945,7 +946,7 @@ class eBPFmtu(eBPFtest):
         if ret == 0:
             raise NtiError("Set large MTU when BPF loaded (TC)!")
 
-        eBPFtest.cleanup(self)
+        self.tc_reset()
 
         self.set_mtu(3000)
         ret = self.xdp_start(prog="dpa_var_off_11bit.o", mode="offload",
@@ -962,6 +963,7 @@ class eBPFmtu(eBPFtest):
     def cleanup(self):
         self.xdp_reset()
         self.set_mtu(1500) # in case a subtest fails
+        return super(eBPFmtu, self).cleanup()
 
 class eBPFmtuDPA9bit(eBPFmtu):
     def execute(self):
@@ -972,7 +974,7 @@ class eBPFmtuDPA9bit(eBPFmtu):
         ret = self.tc_bpf_load(obj="dpa_var_off_9bit.o", skip_sw=True, da=True)
         if ret != 0:
             raise NtiError("High MTU with Direct Packet Access in range should be allowed");
-        eBPFtest.cleanup(self)
+        self.tc_reset()
 
         self.set_mtu(3000)
         self.xdp_start(prog="dpa_var_off_9bit.o", mode="offload")
@@ -1023,7 +1025,8 @@ class eBPFdataTest(CommonPktCompareTest):
         return self.tc_bpf_load(obj=self.get_prog_name(), flags=flags)
 
     def cleanup(self):
-        self.dut.cmd('tc qdisc del dev %s ingress' % self.dut_ifn[0])
+        self.dut.cmd('tc qdisc del dev %s ingress' % (self.dut_ifn[0]))
+        self.dut.cmd('ethtool -K %s hw-tc-offload off' % (self.dut_ifn[0]))
 
 class eBPFdpaRD(eBPFdataTest):
     def get_src_pkt(self):
