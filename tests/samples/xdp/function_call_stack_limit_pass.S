@@ -1,12 +1,12 @@
 .include "xdp.S"
 
-;_ Use 64 * 8 = 512 bytes of stack.
-;_ Value 64 accounts for 60 bytes used by subprogram, plus 4 bytes for saving
-;_ the return address (rounded up to 64, without any effect save for main).
-;_ We would need more bytes if we were to save callee-saved registers for each
-;_ callee frame. However, we only do this when subprograms clobber those
-;_ registers, which is not the case for any subprogram here. Therefore this
-;_ program should be accepted for offload.
+// Use 64 * 8 = 512 bytes of stack.
+// Value 64 accounts for 60 bytes used by subprogram, plus 4 bytes for saving
+// the return address (rounded up to 64, without any effect save for main).
+// We would need more bytes if we were to save callee-saved registers for each
+// callee frame. However, we only do this when subprograms clobber those
+// registers, which is not the case for any subprogram here. Therefore this
+// program should be accepted for offload.
 
 xdp_prog1:
 	r1 = 0

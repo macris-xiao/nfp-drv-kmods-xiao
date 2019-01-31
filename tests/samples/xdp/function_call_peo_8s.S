@@ -12,17 +12,17 @@ dump_r2:
 	r2 = perf ll
 	r3 = 0x1ffffffff ll
 	r5 = 8
-	call 25		; bpf_perf_event_output(context, map, flags, data, size);
+	call 25		// bpf_perf_event_output(context, map, flags, data, size);
 	r0 = XDP_PASS
 	/* CHECK-CODEGEN: .*rtn\[gprA_\d\].* */
 	exit
 
-;_ struct bpf_map_def SEC("maps") pa = {
-;_         .type = BPF_MAP_TYPE_PERF_EVENT_ARRAY,
-;_         .key_size = sizeof(int),
-;_         .value_size = sizeof(int),
-;_         .max_entries = 64,
-;_ };
+// struct bpf_map_def SEC("maps") pa = {
+//         .type = BPF_MAP_TYPE_PERF_EVENT_ARRAY,
+//         .key_size = sizeof(int),
+//         .value_size = sizeof(int),
+//         .max_entries = 64,
+// };
 	.section	maps,"aw",@progbits
 	.globl		perf
 	.p2align	2
@@ -34,7 +34,7 @@ perf:
 	.long 0
 	.long 0
 
-;_ char _license[] SEC("license") = "GPL";
+// char _license[] SEC("license") = "GPL";
 	.section	license,"aw",@progbits
 	.globl		_license
 _license:

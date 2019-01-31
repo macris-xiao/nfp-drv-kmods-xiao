@@ -1,23 +1,23 @@
 .include "xdp.S"
 
 xdp_prog1:
-; int xdp_prog1(struct xdp_md *xdp __attribute__((unused))) {
+// int xdp_prog1(struct xdp_md *xdp __attribute__((unused))) {
 	*(u64 *)(r10 - 16) = r1
 	r1 = 0
-; unsigned char foo[16] = "foo";
+// unsigned char foo[16] = "foo";
 	*(u64 *)(r10 - 24) = r1
 	r2 = 7303014
 	*(u64 *)(r10 - 32) = r2
-; unsigned char bar[16] = "bar";
+// unsigned char bar[16] = "bar";
 	*(u64 *)(r10 - 40) = r1
 	r1 = 7496034
 	*(u64 *)(r10 - 48) = r1
 	r1 = r10
-; unsigned char foo[16] = "foo";
+// unsigned char foo[16] = "foo";
 	r1 += -32
 	r2 = r10
 	r2 += -48
-; if (one_starts_like_baz(foo, bar))
+// if (one_starts_like_baz(foo, bar))
 	call one_starts_like_baz
 	r0 <<= 32
 	r0 >>= 32
@@ -25,32 +25,32 @@ xdp_prog1:
 	goto LBB0_1
 
 LBB0_1:
-; return XDP_PASS;
+// return XDP_PASS;
 	r1 = XDP_PASS
 	*(u32 *)(r10 - 4) = r1
 	goto LBB0_3
 
 LBB0_2:
-; return XDP_DROP;
+// return XDP_DROP;
 	r1 = XDP_DROP
 	*(u32 *)(r10 - 4) = r1
 	goto LBB0_3
 
 LBB0_3:
-; }
+// }
 	r0 = *(u32 *)(r10 - 4)
 	exit
 
 /* CHECK-CODEGEN-TIMES-2: .*rtn\[gprA_\d\].* */
 
 one_starts_like_baz:
-; static int one_starts_like_baz(unsigned char *a, unsigned char *b) {
+// static int one_starts_like_baz(unsigned char *a, unsigned char *b) {
 	*(u64 *)(r10 - 8) = r1
 	*(u64 *)(r10 - 16) = r2
-; unsigned char baz[8] = "baz";
+// unsigned char baz[8] = "baz";
 	r1 = 8020322
 	*(u64 *)(r10 - 24) = r1
-; _if (*a == b*)
+// _if (*a == b*)
 	r1 = *(u64 *)(r10 - 8)
 	r1 = *(u8 *)(r1 + 0)
 	r2 = *(u64 *)(r10 - 16)
@@ -59,7 +59,7 @@ one_starts_like_baz:
 	goto LBB1_1
 
 LBB1_1:
-; res = same_first_char(a, baz);
+// res = same_first_char(a, baz);
 	r1 = *(u64 *)(r10 - 8)
 	r2 = r10
 	r2 += -24
@@ -68,7 +68,7 @@ LBB1_1:
 	goto LBB1_7
 
 LBB1_2:
-; res = same_first_char(a, baz) || same_first_char(b, baz);
+// res = same_first_char(a, baz) || same_first_char(b, baz);
 	r1 = *(u64 *)(r10 - 8)
 	r2 = r10
 	r2 += -24
@@ -99,15 +99,15 @@ LBB1_6:
 	goto LBB1_7
 
 LBB1_7:
-; return res;
+// return res;
 	r0 = *(u32 *)(r10 - 28)
 	exit
 
 same_first_char:
-; static int same_first_char(unsigned char *a, unsigned char *baz) {
+// static int same_first_char(unsigned char *a, unsigned char *baz) {
 	*(u64 *)(r10 - 8) = r1
 	*(u64 *)(r10 - 16) = r2
-; return (*a == *baz);
+// return (*a == *baz);
 	r1 = *(u64 *)(r10 - 8)
 	r1 = *(u8 *)(r1 + 0)
 	r2 = *(u64 *)(r10 - 16)

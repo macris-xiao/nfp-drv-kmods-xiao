@@ -1,10 +1,10 @@
 .include "xdp.S"
 
-;_ As of the creation of this test, it fails if stack frames where to be
-;_ aligned on any multiple of 32 bytes instead of 64. As writing into the stack
-;_ uses a base pointer and an offset, and as the last bits are OR-ed, writing
-;_ at 0x20 | 0x24 comes down to overwriting what was written at 0x20 | 0x04.
-;_ The issue does not occur if stack frames are multiple of 64 bytes.
+// As of the creation of this test, it fails if stack frames where to be
+// aligned on any multiple of 32 bytes instead of 64. As writing into the stack
+// uses a base pointer and an offset, and as the last bits are OR-ed, writing
+// at 0x20 | 0x24 comes down to overwriting what was written at 0x20 | 0x04.
+// The issue does not occur if stack frames are multiple of 64 bytes.
 
 xdp_prog1:
 	r1 = 0

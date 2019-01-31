@@ -80,11 +80,11 @@ DROP:
 /* CHECK-CODEGEN: .*rtn\[gprB_\d\], defer\[\d\] */
 
 add_0:
-; int add_0(int a, int b) { return a + b; }
+// int add_0(int a, int b) { return a + b; }
 	r0 = r1
 	r0 += r2
 	exit
-; }
+// }
 
 add_1:
 	r0 = r1

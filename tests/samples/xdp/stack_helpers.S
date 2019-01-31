@@ -1,5 +1,5 @@
-	;; STACK_INIT_SIMPLE - init stack to a known pattern via r10
-	;; @_n_bytes: how many bytes to init
+	// STACK_INIT_SIMPLE - init stack to a known pattern via r10
+	// @_n_bytes: how many bytes to init
 	.macro STACK_INIT_SIMPLE _n_bytes, _tmp_reg
 		.if \_n_bytes % 32 != 0
 			.error "number of bytes must be a multiple of 32"
@@ -41,9 +41,9 @@
 		.endif
 	.endm
 
-	;; STACK_INIT_CONST - init section of the stack to @const
-	;; start at @_start_reg or if @_start_reg == @_ptr_reg continue
-	;; with the address already in @_ptr_reg
+	// STACK_INIT_CONST - init section of the stack to @const
+	// start at @_start_reg or if @_start_reg == @_ptr_reg continue
+	// with the address already in @_ptr_reg
 	.macro STACK_INIT_CONST _n_bytes, _const, _ptr_reg, _tmp1, _start_reg=r10
 		.if \_n_bytes % 8 != 0
 			.error "number of bytes must be a multiple of 8"
@@ -60,7 +60,7 @@
 		.endr
 	.endm
 
-	;; STACK_CHECK_CONTENTS - make sure contents of the stack are @_const
+	// STACK_CHECK_CONTENTS - make sure contents of the stack are @_const
 	.macro STACK_CHECK_CONTENTS _n_bytes, _const, _ptr_reg, _err, _tmp1, _tmp2, _start_reg=r10
 		.if \_n_bytes % 8 != 0
 			.error "number of bytes must be a multiple of 8"
@@ -78,8 +78,8 @@
 		.endr
 	.endm
 
-	;; STACK_MARK_USED - make verifier think we're using @_n_bytes
-	;; of the stack
+	// STACK_MARK_USED - make verifier think we're using @_n_bytes
+	// of the stack
 	.macro STACK_MARK_USED _n_bytes
 		*(u8 *)(r10 - 1) = 0
 		*(u8 *)(r10 - \_n_bytes) = 0

@@ -12,7 +12,7 @@
 
 	.macro CHECK_OFFSET2 _c1, _c2, _size, _off, _err, _wr_ptr
 
-		;; init to trash
+		// init to trash
 		r0 = TRASH ll
 		*(u64 *)(\_wr_ptr -  8) = r0
 		*(u64 *)(\_wr_ptr - 16) = r0
@@ -35,7 +35,7 @@
 	.endm
 
 	.macro CHECK_OFFSET _const, _size, _off, _err, _wr_ptr
-	;; kernel does not currently allow unaligned stack accesses
+	// kernel does not currently allow unaligned stack accesses
 	.if \_off % (\_size / 8) == 0
 	.if \_size == 64
 	CHECK_OFFSET2 \_const, \_const, \_size, \_off, \_err, \_wr_ptr
