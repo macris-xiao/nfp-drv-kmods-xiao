@@ -1021,16 +1021,19 @@ class eBPFdataTest(CommonPktCompareTest):
         return (self.dut, self.dut_ifn[0], self.src)
 
     def install_filter(self):
-        self.dut.cmd('ethtool -K %s hw-tc-offload on' % (self.dut_ifn[0]))
+        mode = self.group.tc_mode()
+        if mode == "skip_sw":
+            self.dut.cmd('ethtool -K %s hw-tc-offload on' % (self.dut_ifn[0]))
         self.dut.cmd('tc qdisc add dev %s ingress' % (self.dut_ifn[0]))
 
-        flags = self.group.tc_mode() + " da"
+        flags = mode + " da"
 
         return self.tc_bpf_load(obj=self.get_prog_name(), flags=flags)
 
     def cleanup(self):
         self.dut.cmd('tc qdisc del dev %s ingress' % (self.dut_ifn[0]))
-        self.dut.cmd('ethtool -K %s hw-tc-offload off' % (self.dut_ifn[0]))
+        if self.group.tc_mode() == "skip_sw":
+            self.dut.cmd('ethtool -K %s hw-tc-offload off' % (self.dut_ifn[0]))
 
 class eBPFdpaRD(eBPFdataTest):
     def get_src_pkt(self):
