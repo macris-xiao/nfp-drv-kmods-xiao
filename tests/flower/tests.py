@@ -90,6 +90,17 @@ class NFPKmodFlower(NFPKmodGrp):
             self._tests[t[0]] = t[1](src, dut, self, t[0], t[2])
 
 class FlowerBase(CommonNetdevTest):
+    def check_src_flower_fw(self, ingress):
+        ethtool_fields = self.src.ethtool_drvinfo(ingress)
+        if 'nfp' not in ethtool_fields['driver'] and \
+           'flower' not in ethtool_fields['firmware-version']:
+            return False
+
+        if not ingress[:-1].endswith('np') and not ingress.startswith('en'):
+            raise NtiSkip('Cannot determine PF interface name')
+
+        return True
+
     def configure_vlan_flower(self, vlan_id):
         M = self.dut
         iface = self.dut_ifn[0]
@@ -125,6 +136,10 @@ class FlowerBase(CommonNetdevTest):
         M.cmd('tc qdisc add dev %s handle ffff: ingress' % iface)
 
         ingress = self.src_ifn[0]
+        if self.check_src_flower_fw(ingress):
+            pf_ifname = ingress[:-3]
+            self.src.cmd('ip link set dev %s up' % (pf_ifname), fail=False)
+
         M.refresh()
         return iface, ingress
 
