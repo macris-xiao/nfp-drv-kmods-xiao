@@ -1394,10 +1394,25 @@ class FlowerMatchFragIPv6(FlowerMatchFrag):
                          IPv6()/IPv6ExtHdrFragment()/TCP()/Raw('\x00'*1024), 128)
 
 class FlowerModifyMTU(FlowerBase):
+    def set_sending_source_mtu(self, ingress, mtu):
+        ret = self.src.ip_link_set_mtu(ingress, mtu, fail=False)
+        if ret[0]:
+            raise NtiSkip('Cannot set max mtu(%s) on %s' % (mtu, ingress))
+
+        # If the source/endpoint system is using flower FW we need to take
+        # extra care with setting MTUs. For flower FW it is advised to set
+        # the MTU for the PF interface to the largest value supported by the
+        # firmware, to avoid fallback packets from being unnecessarily dropped
+        # due to being larger than the MTU of the PF.
+        if self.check_src_flower_fw(ingress):
+            pf_ifname = ingress[:-3]
+            ret = self.src.ip_link_set_mtu(pf_ifname, mtu, fail=False)
+            if ret[0]:
+                raise NtiSkip('Cannot set max mtu(%s) on %s' % (mtu, pf_ifname))
+
     def netdev_execute(self):
         iface, ingress = self.configure_flower()
         M = self.dut
-        A = self.src
 
         # Test for high MTU set - 9420 should be max
         ret = M.ip_link_set_mtu(iface, 9421, fail=False)
@@ -1410,9 +1425,7 @@ class FlowerModifyMTU(FlowerBase):
             raise NtiError('invalid MTU of 67 accepted on %s' %iface)
 
         # ensure the sending interface can handle jumbo frames
-        ret = A.ip_link_set_mtu(ingress, 9216, fail=False)
-        if ret[0]:
-            raise NtiSkip('Cannot set max mtu(9216) on %s' % ingress)
+        self.set_sending_source_mtu(ingress, 9216)
 
         # Hit test
         match = 'ip flower'
@@ -1461,6 +1474,7 @@ class FlowerModifyMTU(FlowerBase):
         self.cleanup_filter(iface)
 
     def cleanup(self):
+        self.set_sending_source_mtu(self.src_ifn[0], 1500)
         self.src.ip_link_set_mtu(self.src_ifn[0], 1500)
         self.dut.ip_link_set_mtu(self.dut_ifn[0], 1500)
         return super(FlowerModifyMTU, self).cleanup()
