@@ -16,7 +16,10 @@ class VersionsTest(CommonNonUpstreamTest):
         assert_eq(info["driver"], "nfp", "Driver name")
 
         # Serial
-        assert_eq(info["serial_number"], self.dut.get_hwinfo("assembly.serial"),
+        assert_eq(info["serial_number"],
+                  self.dut.get_hwinfo("assembly.vendor") +
+                  self.dut.get_hwinfo("assembly.partno") +
+                  self.dut.get_hwinfo("assembly.serial"),
                   "Board serial")
 
         # Fixed versions
