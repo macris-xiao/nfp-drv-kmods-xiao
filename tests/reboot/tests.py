@@ -58,8 +58,8 @@ class FlashArm(CommonNetdevTest):
             if ret == 0:
                 raise NtiError("Expected to fail flashing garbage image on interface %s" % \
                                ifc)
-            if out[1] != "Flashing failed: Invalid argument\n":
-                raise NtiError("Expected EINVAL failure trying to flash garbage file on interface %s. Got %s instead." %
+            if not re.match("Flashing failed", out[1]):
+                raise NtiError("Expected failure trying to flash garbage file on interface %s. Got %s instead." %
                                (ifc, out))
 
             ret, out = self.dut.cmd("ethtool -f %s ../../%s/%s 1" %
@@ -92,6 +92,7 @@ class FlashArm(CommonNetdevTest):
     def netdev_execute(self):
         self.nsp_min(21)
         fw_path = "/opt/netronome/flash/"
+        flash_images = []
         _, contents = self.dut.cmd("find %s -maxdepth 1 -mindepth 1" % fw_path)
 
         # We can't determine the version from the actual binary files. So we use
@@ -100,14 +101,21 @@ class FlashArm(CommonNetdevTest):
         # In that case, we just verify that we can actually flash and it there
         # are no ill effects.
 
-        nsp_version_re = re.search("nfp-nspd-(0\w+).bin", contents)
-        if not nsp_version_re:
-            raise NtiError("Unable to read NSP version from filename")
-        nsp_version = nsp_version_re.groups(1)[0]
+        # Default branch BSP uses flash-boot.bin instead of flash-nic/flash-one
+        # images.
+        nsp_version_re = re.search("flash-boot-(\w+).bin", contents)
+        if nsp_version_re:
+            nsp_version = nsp_version_re.groups(1)[0]
+            flash_images.append(["flash-boot.bin", nsp_version, 2])
+        else:
+            nsp_version_re = re.search("nfp-nspd-(0\w+).bin", contents)
+            if not nsp_version_re:
+                raise NtiError("Unable to read NSP version from filename")
+            nsp_version = nsp_version_re.groups(1)[0]
+            flash_images.append(["flash-nic.bin", nsp_version, 2])
+            flash_images.append(["flash-one.bin", None, None])
 
-        for fw in [["flash-nic.bin", nsp_version, 2],
-                   ["flash-one.bin", None, None]]:
-
+        for fw in flash_images:
             fmatch = re.search(fw[0], contents)
             if not fmatch:
                 raise NtiSkip("Test requires BSP package installed with access to the %s" % \
