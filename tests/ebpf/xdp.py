@@ -578,6 +578,30 @@ class XDPjumpAtLast(XDPtx):
 # packet mod + PASS
 ###############################################################################
 
+class XDPalu_imm_opt(XDPpassBaseWithCodegenScan):
+    def get_src_pkt(self):
+        return self.std_pkt(112)
+
+    def get_exp_pkt(self):
+        pkt = self.get_src_pkt()
+
+        return pkt[0:16] + \
+                 struct.pack('<Q', 0) + \
+                 struct.pack('<Q', 0) + \
+                 struct.pack('<Q', 0x8877665544332211) + \
+                 struct.pack('<Q', 0x44332211) + \
+                 struct.pack('<Q', 0x8877665544332211) + \
+                 struct.pack('<Q', 0x44332211) + \
+                 struct.pack('<Q', 0xffffffffffffffff) + \
+                 struct.pack('<Q', 0xffffffff) + \
+                 struct.pack('<Q', 0x8877665544332211) + \
+                 struct.pack('<Q', 0x44332211) + \
+                 struct.pack('<Q', 0x778899aabbccddee) + \
+                 struct.pack('<Q', 0xbbccddee)
+
+    def get_prog_name(self):
+        return 'alu_imm_opt.o'
+
 class XDPshifts(XDPpassBase):
     def get_src_pkt(self):
         return self.std_pkt()
