@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright (C) 2016-2017 Netronome Systems, Inc. */
+
 #include "nfpcore/kcompat.h"
 
 #include <linux/debugfs.h>
