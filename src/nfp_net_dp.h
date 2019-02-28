@@ -1,0 +1,195 @@
+// SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+/* Copyright (C) 2019 Netronome Systems, Inc. */
+
+#ifndef _NFP_NET_DP_
+#define _NFP_NET_DP_
+
+#include "nfp_net.h"
+
+static inline dma_addr_t nfp_net_dma_map_rx(struct nfp_net_dp *dp, void *frag)
+{
+	return dma_map_single_attrs(dp->dev, frag + NFP_NET_RX_BUF_HEADROOM,
+				    dp->fl_bufsz - NFP_NET_RX_BUF_NON_DATA,
+				    dp->rx_dma_dir, DMA_ATTR_SKIP_CPU_SYNC);
+}
+
+static inline void
+nfp_net_dma_sync_dev_rx(const struct nfp_net_dp *dp, dma_addr_t dma_addr)
+{
+#if COMPAT__USE_DMA_SKIP_SYNC
+	dma_sync_single_for_device(dp->dev, dma_addr,
+				   dp->fl_bufsz - NFP_NET_RX_BUF_NON_DATA,
+				   dp->rx_dma_dir);
+#endif
+}
+
+static inline void nfp_net_dma_unmap_rx(struct nfp_net_dp *dp,
+					dma_addr_t dma_addr)
+{
+	dma_unmap_single_attrs(dp->dev, dma_addr,
+			       dp->fl_bufsz - NFP_NET_RX_BUF_NON_DATA,
+			       dp->rx_dma_dir, DMA_ATTR_SKIP_CPU_SYNC);
+}
+
+static inline void nfp_net_dma_sync_cpu_rx(struct nfp_net_dp *dp,
+					   dma_addr_t dma_addr,
+					   unsigned int len)
+{
+#if COMPAT__USE_DMA_SKIP_SYNC
+	dma_sync_single_for_cpu(dp->dev, dma_addr - NFP_NET_RX_BUF_HEADROOM,
+				len, dp->rx_dma_dir);
+#else
+	dma_sync_single_for_cpu(dp->dev, dma_addr - NFP_NET_RX_BUF_HEADROOM,
+				dp->xdp_prog ? len : 64, dp->rx_dma_dir);
+#endif
+}
+
+/**
+ * nfp_net_tx_full() - check if the TX ring is full
+ * @tx_ring: TX ring to check
+ * @dcnt:    Number of descriptors that need to be enqueued (must be >= 1)
+ *
+ * This function checks, based on the *host copy* of read/write
+ * pointer if a given TX ring is full.  The real TX queue may have
+ * some newly made available slots.
+ *
+ * Return: True if the ring is full.
+ */
+static inline int nfp_net_tx_full(struct nfp_net_tx_ring *tx_ring, int dcnt)
+{
+	return (tx_ring->wr_p - tx_ring->rd_p) >= (tx_ring->cnt - dcnt);
+}
+
+static inline void nfp_net_tx_xmit_more_flush(struct nfp_net_tx_ring *tx_ring)
+{
+	wmb();
+	nfp_qcp_wr_ptr_add(tx_ring->qcp_q, tx_ring->wr_ptr_add);
+	tx_ring->wr_ptr_add = 0;
+}
+
+static inline void nfp_net_free_frag(void *frag, bool xdp)
+{
+	if (!xdp)
+		skb_free_frag(frag);
+	else
+		__free_page(virt_to_page(frag));
+}
+
+/**
+ * nfp_net_irq_unmask() - Unmask automasked interrupt
+ * @nn:       NFP Network structure
+ * @entry_nr: MSI-X table entry
+ *
+ * Clear the ICR for the IRQ entry.
+ */
+static inline void nfp_net_irq_unmask(struct nfp_net *nn, unsigned int entry_nr)
+{
+	nn_writeb(nn, NFP_NET_CFG_ICR(entry_nr), NFP_NET_CFG_ICR_UNMASKED);
+	nn_pci_flush(nn);
+}
+
+struct seq_file;
+
+/* Common */
+void
+nfp_net_rx_ring_hw_cfg_write(struct nfp_net *nn,
+			     struct nfp_net_rx_ring *rx_ring, unsigned int idx);
+void
+nfp_net_tx_ring_hw_cfg_write(struct nfp_net *nn,
+			     struct nfp_net_tx_ring *tx_ring, unsigned int idx);
+void nfp_net_vec_clear_ring_data(struct nfp_net *nn, unsigned int idx);
+
+void *nfp_net_rx_alloc_one(struct nfp_net_dp *dp, dma_addr_t *dma_addr);
+int nfp_net_rx_rings_prepare(struct nfp_net *nn, struct nfp_net_dp *dp);
+int nfp_net_tx_rings_prepare(struct nfp_net *nn, struct nfp_net_dp *dp);
+void nfp_net_rx_rings_free(struct nfp_net_dp *dp);
+void nfp_net_tx_rings_free(struct nfp_net_dp *dp);
+void nfp_net_rx_ring_reset(struct nfp_net_rx_ring *rx_ring);
+
+enum nfp_nfd_version {
+	NFP_NFD_VER_NFD3,
+};
+
+struct nfp_dp_ops {
+	enum nfp_nfd_version version;
+
+	int (*poll)(struct napi_struct *napi, int budget);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
+	void (*ctrl_poll)(struct tasklet_struct *t);
+#else
+	void (*ctrl_poll)(unsigned long arg);
+#endif
+
+	void (*rx_ring_fill_freelist)(struct nfp_net_dp *dp,
+				      struct nfp_net_rx_ring *rx_ring);
+	int (*tx_ring_alloc)(struct nfp_net_dp *dp,
+			     struct nfp_net_tx_ring *tx_ring);
+	void (*tx_ring_reset)(struct nfp_net_dp *dp,
+			      struct nfp_net_tx_ring *tx_ring);
+	void (*tx_ring_free)(struct nfp_net_tx_ring *tx_ring);
+	int (*tx_ring_bufs_alloc)(struct nfp_net_dp *dp,
+				  struct nfp_net_tx_ring *tx_ring);
+	void (*tx_ring_bufs_free)(struct nfp_net_dp *dp,
+				  struct nfp_net_tx_ring *tx_ring);
+
+	void (*print_tx_descs)(struct seq_file *file,
+			       struct nfp_net_r_vector *r_vec,
+			       struct nfp_net_tx_ring *tx_ring,
+			       u32 d_rd_p, u32 d_wr_p);
+};
+
+static inline void
+nfp_net_tx_ring_reset(struct nfp_net_dp *dp, struct nfp_net_tx_ring *tx_ring)
+{
+	return dp->ops->tx_ring_reset(dp, tx_ring);
+}
+
+static inline void
+nfp_net_rx_ring_fill_freelist(struct nfp_net_dp *dp,
+			      struct nfp_net_rx_ring *rx_ring)
+{
+	dp->ops->rx_ring_fill_freelist(dp, rx_ring);
+}
+
+static inline int
+nfp_net_tx_ring_alloc(struct nfp_net_dp *dp, struct nfp_net_tx_ring *tx_ring)
+{
+	return dp->ops->tx_ring_alloc(dp, tx_ring);
+}
+
+static inline void
+nfp_net_tx_ring_free(struct nfp_net_dp *dp, struct nfp_net_tx_ring *tx_ring)
+{
+	dp->ops->tx_ring_free(tx_ring);
+}
+
+static inline int
+nfp_net_tx_ring_bufs_alloc(struct nfp_net_dp *dp,
+			   struct nfp_net_tx_ring *tx_ring)
+{
+	return dp->ops->tx_ring_bufs_alloc(dp, tx_ring);
+}
+
+static inline void
+nfp_net_tx_ring_bufs_free(struct nfp_net_dp *dp,
+			  struct nfp_net_tx_ring *tx_ring)
+{
+	dp->ops->tx_ring_bufs_free(dp, tx_ring);
+}
+
+static inline void
+nfp_net_debugfs_print_tx_descs(struct seq_file *file, struct nfp_net_dp *dp,
+			       struct nfp_net_r_vector *r_vec,
+			       struct nfp_net_tx_ring *tx_ring,
+			       u32 d_rd_p, u32 d_wr_p)
+{
+	dp->ops->print_tx_descs(file, r_vec, tx_ring, d_rd_p, d_wr_p);
+}
+
+extern const struct nfp_dp_ops nfp_nfd3_ops;
+
+netdev_tx_t nfp_nfd3_tx(struct sk_buff *skb, struct net_device *netdev);
+bool nfp_nfd3_ctrl_tx(struct nfp_net *nn, struct sk_buff *skb);
+bool __nfp_nfd3_ctrl_tx(struct nfp_net *nn, struct sk_buff *skb);
+
+#endif /* _NFP_NET_DP_ */
