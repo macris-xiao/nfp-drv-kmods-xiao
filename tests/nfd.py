@@ -33,8 +33,6 @@ class NfdCtrl:
     RINGPRIO		= (0x1 << 19)
     MSIXAUTO		= (0x1 << 20)
     TXRWB		= (0x1 << 21)
-    L2SWITCH		= (0x1 << 22)
-    L2SWITCH_LOCAL	= (0x1 << 23)
     VXLAN		= (0x1 << 24)
     NVGRE		= (0x1 << 25)
     BPF			= (0x1 << 27)
