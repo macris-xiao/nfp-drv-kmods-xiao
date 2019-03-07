@@ -121,6 +121,7 @@ enum nfp_nfd_version {
 struct nfp_dp_ops {
 	enum nfp_nfd_version version;
 	unsigned int tx_min_desc_per_pkt;
+	u32 cap_mask;
 
 	int (*poll)(struct napi_struct *napi, int budget);
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
