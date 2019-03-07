@@ -122,14 +122,23 @@ struct nfp_nfd3_tx_buf;
 /* Convenience macro for wrapping descriptor index on ring size */
 #define D_IDX(ring, idx)	((idx) & ((ring)->cnt - 1))
 
-/* Convenience macro for writing dma address into RX/TX descriptors */
-#define nfp_desc_set_dma_addr(desc, dma_addr)				\
-	do {								\
-		__typeof(desc) __d = (desc);				\
-		dma_addr_t __addr = (dma_addr);				\
+/* Convenience macros for writing dma address into RX/TX descriptors */
+#define nfp_desc_set_dma_addr_40b(desc, dma_addr)			\
+	do {                                                            \
+		dma_addr_t __addr = (dma_addr);                         \
+		__typeof(desc) __d = (desc);                            \
 									\
-		__d->dma_addr_lo = cpu_to_le32(lower_32_bits(__addr));	\
+		__d->dma_addr_lo = cpu_to_le32(lower_32_bits(__addr));  \
 		__d->dma_addr_hi = upper_32_bits(__addr) & 0xff;	\
+	} while (0)
+
+#define nfp_desc_set_dma_addr_48b(desc, dma_addr)			\
+	do {                                                            \
+		dma_addr_t __addr = (dma_addr);                         \
+		__typeof(desc) __d = (desc);                            \
+									\
+		__d->dma_addr_hi = cpu_to_le16(upper_32_bits(__addr));  \
+		__d->dma_addr_lo = cpu_to_le32(lower_32_bits(__addr));  \
 	} while (0)
 
 /**
@@ -214,8 +223,8 @@ struct nfp_net_tx_ring {
 struct nfp_net_rx_desc {
 	union {
 		struct {
-			u8 dma_addr_hi;	/* High bits of the buf address */
-			__le16 reserved; /* Must be zero */
+			__le16 dma_addr_hi; /* High bits of the buf address */
+			u8 reserved;	/* Must be zero */
 			u8 meta_len_dd; /* Must be zero */
 
 			__le32 dma_addr_lo; /* Low bits of the buffer address */
