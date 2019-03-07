@@ -387,6 +387,8 @@ bool __nfp_ctrl_tx(struct nfp_net *nn, struct sk_buff *skb)
 #ifdef CONFIG_NFP_NET_PF
 	case NFP_NFD_VER_NFD3:
 		return __nfp_nfd3_ctrl_tx(nn, skb);
+	case NFP_NFD_VER_NFDK:
+		return __nfp_nfdk_ctrl_tx(nn, skb);
 #endif
 	default:
 		WARN_ON(1);
@@ -400,6 +402,8 @@ bool nfp_ctrl_tx(struct nfp_net *nn, struct sk_buff *skb)
 #ifdef CONFIG_NFP_NET_PF
 	case NFP_NFD_VER_NFD3:
 		return nfp_nfd3_ctrl_tx(nn, skb);
+	case NFP_NFD_VER_NFDK:
+		return nfp_nfdk_ctrl_tx(nn, skb);
 #endif
 	default:
 		WARN_ON(1);
