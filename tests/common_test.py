@@ -505,7 +505,8 @@ class CommonTest(Test):
             pkts.append(Ether(pkt))
         return self.prep_pcap(pkts)
 
-    def tcpdump_cmd(self, capture_system, ifname, cmd_system, cmd):
+    def tcpdump_cmd(self, capture_system, ifname, cmd_system, cmd,
+                    snaplen=8192):
         pcap_res = os.path.join(self.group.tmpdir, 'pcap_res')
 
         # Start TCPdump
@@ -517,7 +518,7 @@ class CommonTest(Test):
                       ' not ether host ff:ff:ff:ff:ff:ff"'
         self.tcpdump = TCPDump(capture_system, ifname, dump, resolve=False,
                                direction='in', stderrfn=stderr,
-                               filter_expr=filter_expr)
+                               filter_expr=filter_expr, snaplen=snaplen)
 
         self.tcpdump.start()
 
@@ -548,12 +549,13 @@ class CommonTest(Test):
 
         return pkt
 
-    def test_with_traffic(self, pcap_src, exp_pkt, tcpdump_params, port=0):
+    def test_with_traffic(self, pcap_src, exp_pkt, tcpdump_params, port=0,
+                          snaplen=8192):
         cmd = "tcpreplay --intf1=%s --pps=100 %s " % \
               (self.src_ifn[port], pcap_src)
 
         tp = tcpdump_params
-        result_pkts = self.tcpdump_cmd(tp[0], tp[1], tp[2], cmd)
+        result_pkts = self.tcpdump_cmd(tp[0], tp[1], tp[2], cmd, snaplen)
 
         exp_num = 100
         if exp_pkt is None:
