@@ -506,7 +506,7 @@ class CommonTest(Test):
         return self.prep_pcap(pkts)
 
     def tcpdump_cmd(self, capture_system, ifname, cmd_system, cmd,
-                    snaplen=8192):
+                    snaplen=8192, filter_overwrite=None):
         pcap_res = os.path.join(self.group.tmpdir, 'pcap_res')
 
         # Start TCPdump
@@ -514,8 +514,13 @@ class CommonTest(Test):
         stderr = os.path.join(capture_system.tmpdir, 'tcpdump_err.txt')
         filter_expr = '"not arp and' \
                       ' not ip6 and' \
+                      ' not udp port 5353 and' \
                       ' not ether host 01:80:c2:00:00:0e and' \
                       ' not ether host ff:ff:ff:ff:ff:ff"'
+
+        if filter_overwrite is not None:
+            filter_expr = filter_overwrite
+
         self.tcpdump = TCPDump(capture_system, ifname, dump, resolve=False,
                                direction='in', stderrfn=stderr,
                                filter_expr=filter_expr, snaplen=snaplen)
@@ -550,12 +555,13 @@ class CommonTest(Test):
         return pkt
 
     def test_with_traffic(self, pcap_src, exp_pkt, tcpdump_params, port=0,
-                          snaplen=8192):
+                          snaplen=8192, filter_overwrite=None):
         cmd = "tcpreplay --intf1=%s --pps=100 %s " % \
               (self.src_ifn[port], pcap_src)
 
         tp = tcpdump_params
-        result_pkts = self.tcpdump_cmd(tp[0], tp[1], tp[2], cmd, snaplen)
+        result_pkts = self.tcpdump_cmd(tp[0], tp[1], tp[2], cmd, snaplen,
+                                       filter_overwrite)
 
         exp_num = 100
         if exp_pkt is None:
