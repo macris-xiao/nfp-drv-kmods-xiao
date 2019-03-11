@@ -9,13 +9,13 @@ from netro.testinfra.nti_exceptions import NtiError
 from netro.testinfra.system import cmd_log
 from netro.tests.tcpdump import TCPDump
 from netro.tests.tcpreplay import TCPReplay
-from ..common_test import CommonNetdevTest, NtiSkip, NrtResult
-from ..drv_grp import NFPKmodGrp
+from ..common_test import CommonTest, NtiSkip, NrtResult
+from ..drv_grp import NFPKmodAppGrp
 from struct import unpack, pack
 from time import sleep
 from copy import copy
+import os, pprint
 import ipaddress
-import os
 import re
 
 #pylint cannot find TCP, UDP, IP, IPv6, Dot1Q in scapy for some reason
@@ -28,16 +28,14 @@ from scapy.contrib.mpls import MPLS
 # Flower Unit Tests
 ###########################################################################
 
-class NFPKmodFlower(NFPKmodGrp):
+class NFPKmodFlower(NFPKmodAppGrp):
     """Flower tests for the NFP Linux drivers"""
 
     summary = "Basic flower tests of NFP Linux driver."
 
-    def __init__(self, name, cfg=None, quick=False, dut_object=None,
-                 dut=None, nfp=None, nfpkmods=None, mefw=None):
-        #pylint: disable=unused-argument
-        NFPKmodGrp.__init__(self, name=name, cfg=cfg, quick=quick,
-                            dut_object=dut_object)
+    def _init(self):
+        self.pp = pprint.PrettyPrinter()
+        NFPKmodAppGrp._init(self)
 
     def populate_tests(self):
         dut = (self.dut, self.addr_x, self.eth_x, self.addr_v6_x)
@@ -64,7 +62,6 @@ class NFPKmodFlower(NFPKmodGrp):
              ('flower_match_geneve_multi_opt', FlowerMatchGeneveMultiOpt, "Checks flower Genevei with multiple options match capabilities"),
              ('flower_match_block', FlowerMatchBlock, "Checks basic flower block match capabilities"),
              ('flower_match_tunnel_to_shared_mac', FlowerMatchTunnelToSharedMAC, "Checks tunnel decap when MACs are shared across ports"),
-             ('flower_max_entries', FlowerMaxEntries, "Checks that maximum entries can be installed"),
              ('flower_modify_mtu', FlowerModifyMTU, "Checks the setting of a mac repr MTU"),
              ('flower_match_whitelist', FlowerMatchWhitelist, "Checks basic flower match whitelisting"),
              ('flower_vxlan_whitelist', FlowerVxlanWhitelist, "Checks that unsupported vxlan rules are not offloaded"),
@@ -84,12 +81,13 @@ class NFPKmodFlower(NFPKmodGrp):
              ('flower_vlan_repr', FlowerVlanRepr, "Checks that unsupported vxlan rules are not offloaded"),
              ('flower_repr_linkstate', FlowerReprLinkstate, "Checks that repr link state is handled correctly"),
              ('flower_bond_egress', FlowerActionBondEgress, "Checks egressing to a linux bond"),
+             ('flower_max_entries', FlowerMaxEntries, "Checks that maximum entries can be installed"),
         )
 
         for t in T:
             self._tests[t[0]] = t[1](src, dut, self, t[0], t[2])
 
-class FlowerBase(CommonNetdevTest):
+class FlowerBase(CommonTest):
     def check_src_flower_fw(self, ingress):
         ethtool_fields = self.src.ethtool_drvinfo(ingress)
         if 'nfp' not in ethtool_fields['driver'] and \
@@ -142,6 +140,11 @@ class FlowerBase(CommonNetdevTest):
 
         M.refresh()
         return iface, ingress
+
+    def cleanup_flower(self, iface):
+        M = self.dut
+        M.cmd('tc qdisc del dev %s handle ffff: ingress' % iface, fail=False)
+        M.refresh()
 
     def add_egress_qdisc(self, iface):
         M = self.dut
@@ -294,7 +297,7 @@ class FlowerBase(CommonNetdevTest):
                     raise NtiError('Bytes match unexpected for %s at offset %s  - %s' % (exp_field, offset, str(p).encode("hex")[offset:offset+len(exp_field)]))
 
 class FlowerMatchMAC(FlowerBase):
-    def netdev_execute(self):
+    def execute(self):
         iface, ingress = self.configure_flower()
 
         # Hit test
@@ -317,8 +320,12 @@ class FlowerMatchMAC(FlowerBase):
 
         self.cleanup_filter(iface)
 
+    def cleanup(self):
+        self.cleanup_flower(self.dut_ifn[0])
+        return super(FlowerMatchMAC, self).cleanup()
+
 class FlowerMatchVLAN(FlowerBase):
-    def netdev_execute(self):
+    def execute(self):
         iface, ingress = self.configure_flower()
 
         # Hit test
@@ -341,8 +348,12 @@ class FlowerMatchVLAN(FlowerBase):
 
         self.cleanup_filter(iface)
 
+    def cleanup(self):
+        self.cleanup_flower(self.dut_ifn[0])
+        return super(FlowerMatchVLAN, self).cleanup()
+
 class FlowerMatchVLANID(FlowerBase):
-    def netdev_execute(self):
+    def execute(self):
         iface, ingress = self.configure_flower()
 
         # Hit test
@@ -365,8 +376,12 @@ class FlowerMatchVLANID(FlowerBase):
 
         self.cleanup_filter(iface)
 
+    def cleanup(self):
+        self.cleanup_flower(self.dut_ifn[0])
+        return super(FlowerMatchVLANID, self).cleanup()
+
 class FlowerMatchVLANPCP(FlowerBase):
-    def netdev_execute(self):
+    def execute(self):
         iface, ingress = self.configure_flower()
 
         # Hit test
@@ -389,8 +404,12 @@ class FlowerMatchVLANPCP(FlowerBase):
 
         self.cleanup_filter(iface)
 
+    def cleanup(self):
+        self.cleanup_flower(self.dut_ifn[0])
+        return super(FlowerMatchVLANPCP, self).cleanup()
+
 class FlowerMatchIPv4(FlowerBase):
-    def netdev_execute(self):
+    def execute(self):
         iface, ingress = self.configure_flower()
 
         # Hit test
@@ -413,8 +432,12 @@ class FlowerMatchIPv4(FlowerBase):
 
         self.cleanup_filter(iface)
 
+    def cleanup(self):
+        self.cleanup_flower(self.dut_ifn[0])
+        return super(FlowerMatchIPv4, self).cleanup()
+
 class FlowerMatchIPv6(FlowerBase):
-    def netdev_execute(self):
+    def execute(self):
         iface, ingress = self.configure_flower()
         new_filter = '"not arp and' \
                      ' not udp port 5353 and' \
@@ -441,8 +464,12 @@ class FlowerMatchIPv6(FlowerBase):
 
         self.cleanup_filter(iface)
 
+    def cleanup(self):
+        self.cleanup_flower(self.dut_ifn[0])
+        return super(FlowerMatchIPv6, self).cleanup()
+
 class FlowerMatchTCP(FlowerBase):
-    def netdev_execute(self):
+    def execute(self):
         iface, ingress = self.configure_flower()
 
         # Hit test
@@ -475,6 +502,10 @@ class FlowerMatchTCP(FlowerBase):
 
         self.cleanup_filter(iface)
 
+    def cleanup(self):
+        self.cleanup_flower(self.dut_ifn[0])
+        return super(FlowerMatchTCP, self).cleanup()
+
 class FlowerMatchIPv4TCPFlag(FlowerBase):
     def test(self, flags, offload):
         iface, ingress = self.configure_flower()
@@ -487,7 +518,9 @@ class FlowerMatchIPv4TCPFlag(FlowerBase):
             pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP(flags=flags)/Raw('\x00'*64)
             self.test_filter(iface, ingress, pkt, pkt, 100)
 
-    def netdev_execute(self):
+        self.cleanup_filter(iface)
+
+    def execute(self):
         offload = [1, 2, 3, 4, 5, 6, 7, 9, 10, 12, 33, 34, 36]
         non_offload = [8, 16, 17, 22, 32, 64, 128]
 
@@ -496,6 +529,10 @@ class FlowerMatchIPv4TCPFlag(FlowerBase):
 
         for flags in non_offload:
             self.test(flags, False)
+
+    def cleanup(self):
+        self.cleanup_flower(self.dut_ifn[0])
+        return super(FlowerMatchIPv4TCPFlag, self).cleanup()
 
 class FlowerMatchIPv6TCPFlag(FlowerBase):
     def test(self, flags, offload):
@@ -513,7 +550,9 @@ class FlowerMatchIPv6TCPFlag(FlowerBase):
             pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IPv6(src='10::10', dst='11::11')/TCP(flags=flags)/Raw('\x00'*64)
             self.test_filter(iface, ingress, pkt, pkt, 100, fltr=new_filter)
 
-    def netdev_execute(self):
+        self.cleanup_filter(iface)
+
+    def execute(self):
         offload = [1, 2, 3, 4, 5, 6, 7, 9, 10, 12, 33, 34, 36]
         non_offload = [8, 16, 17, 22, 32, 64, 128]
 
@@ -523,8 +562,12 @@ class FlowerMatchIPv6TCPFlag(FlowerBase):
         for flags in non_offload:
             self.test(flags, False)
 
+    def cleanup(self):
+        self.cleanup_flower(self.dut_ifn[0])
+        return super(FlowerMatchIPv6TCPFlag, self).cleanup()
+
 class FlowerMatchUDP(FlowerBase):
-    def netdev_execute(self):
+    def execute(self):
         iface, ingress = self.configure_flower()
 
         # Hit test
@@ -557,8 +600,12 @@ class FlowerMatchUDP(FlowerBase):
 
         self.cleanup_filter(iface)
 
+    def cleanup(self):
+        self.cleanup_flower(self.dut_ifn[0])
+        return super(FlowerMatchUDP, self).cleanup()
+
 class FlowerMatchVXLAN(FlowerBase):
-    def netdev_execute(self):
+    def execute(self):
         iface, ingress = self.configure_flower()
         M = self.dut
         A = self.src
@@ -569,6 +616,7 @@ class FlowerMatchVXLAN(FlowerBase):
         _, src_mac = A.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.src_ifn[0])
         _, dut_mac = M.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.dut_ifn[0])
 
+        M.cmd('ip link delete vxlan0', fail=False)
         M.cmd('ip link add vxlan0 type vxlan dstport 4789 dev %s external' % self.dut_ifn[0])
         M.cmd('ifconfig vxlan0 up')
 
@@ -643,11 +691,12 @@ class FlowerMatchVXLAN(FlowerBase):
             self.cleanup_filter('vxlan0')
 
     def cleanup(self):
+        self.cleanup_flower('vxlan0')
         self.dut.cmd('ip link del vxlan0', fail=False)
         return super(FlowerMatchVXLAN, self).cleanup()
 
 class FlowerMatchGeneve(FlowerBase):
-    def netdev_execute(self):
+    def execute(self):
         iface, ingress = self.configure_flower()
         M = self.dut
         A = self.src
@@ -658,6 +707,7 @@ class FlowerMatchGeneve(FlowerBase):
         _, src_mac = A.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.src_ifn[0])
         _, dut_mac = M.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.dut_ifn[0])
 
+        M.cmd('ip link delete gene0', fail=False)
         M.cmd('ip link add gene0 type geneve dstport 6081 external')
         M.cmd('ifconfig gene0 up')
 
@@ -703,6 +753,7 @@ class FlowerMatchGeneve(FlowerBase):
         self.cleanup_filter('gene0')
 
     def cleanup(self):
+        self.cleanup_flower('gene0')
         self.dut.cmd('ip link del gene0', fail=False)
         return super(FlowerMatchGeneve, self).cleanup()
 
@@ -763,7 +814,7 @@ class FlowerMatchGeneveOpt(FlowerBase):
 
         self.cleanup_filter('gene0')
 
-    def netdev_execute(self):
+    def execute(self):
         iface, ingress = self.configure_flower()
         M = self.dut
         A = self.src
@@ -774,6 +825,7 @@ class FlowerMatchGeneveOpt(FlowerBase):
         _, src_mac = A.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.src_ifn[0])
         _, dut_mac = M.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.dut_ifn[0])
 
+        M.cmd('ip link delete gene0', fail=False)
         M.cmd('ip link add gene0 type geneve dstport 6081 external')
         M.cmd('ifconfig gene0 up')
 
@@ -810,6 +862,7 @@ class FlowerMatchGeneveOpt(FlowerBase):
         self.miss_geneve_opt(iface, ingress, dut_ip, src_ip, dut_mac, src_mac, geneve_opt)
 
     def cleanup(self):
+        self.cleanup_flower('gene0')
         self.dut.cmd('ip link del gene0', fail=False)
         return super(FlowerMatchGeneveOpt, self).cleanup()
 
@@ -885,7 +938,7 @@ class FlowerMatchGeneveMultiOpt(FlowerBase):
 
         self.cleanup_filter('gene0')
 
-    def netdev_execute(self):
+    def execute(self):
         iface, ingress = self.configure_flower()
         M = self.dut
         A = self.src
@@ -896,6 +949,7 @@ class FlowerMatchGeneveMultiOpt(FlowerBase):
         _, src_mac = A.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.src_ifn[0])
         _, dut_mac = M.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.dut_ifn[0])
 
+        M.cmd('ip link delete gene0', fail=False)
         M.cmd('ip link add gene0 type geneve dstport 6081 external')
         M.cmd('ifconfig gene0 up')
 
@@ -956,6 +1010,7 @@ class FlowerMatchGeneveMultiOpt(FlowerBase):
         self.miss_geneve_opt(iface, ingress, dut_ip, src_ip, dut_mac, src_mac, geneve_opt1, geneve_opt2)
 
     def cleanup(self):
+        self.cleanup_flower('gene0')
         self.dut.cmd('ip link del gene0', fail=False)
         return super(FlowerMatchGeneveMultiOpt, self).cleanup()
 
@@ -966,12 +1021,12 @@ class FlowerMaxEntries(FlowerBase):
         on the orchestrator and copying it over is also not feasible as
         this file can become very large.
     """
-    def netdev_execute(self):
+    def execute(self):
         setup_local = os.path.join(self.group.tmpdir, 'generate_entries.py')
         setup_dut = os.path.join(self.dut.tmpdir, 'generate_entries.py')
         entry_filename = os.path.join(self.dut.tmpdir, 'rules.flows')
         iface, ingress = self.configure_flower()
-        max_entry_cnt = 500000
+        max_entry_cnt = 480000
 
         with open(setup_local, "w") as entry_file:
             entry_file.write('import ipaddress\n')
@@ -993,13 +1048,18 @@ class FlowerMaxEntries(FlowerBase):
         M.cmd('tc -b %s' % entry_filename)
 
         self.cleanup_filter(iface)
+
+    def cleanup(self):
+        self.cleanup_flower(self.dut_ifn[0])
+        return super(FlowerMaxEntries, self).cleanup()
+
 class FlowerMatchTunnelToSharedMAC(FlowerBase):
     def prepare(self):
         if len(self.dut_ifn) < 2 or len(self.src_ifn) < 2:
             return NrtResult(name=self.name, testtype=self.__class__.__name__,
                              passed=None, comment='2 ports required for test')
 
-    def netdev_execute(self):
+    def execute(self):
         M = self.dut
         A = self.src
 
@@ -1054,6 +1114,7 @@ class FlowerMatchTunnelToSharedMAC(FlowerBase):
         self.cleanup_filter('vxlan0')
 
     def cleanup(self):
+        self.cleanup_flower('vxlan0')
         self.dut.cmd('ip link del vxlan0', fail=False)
         return super(FlowerMatchTunnelToSharedMAC, self).cleanup()
 
@@ -1063,7 +1124,7 @@ class FlowerMatchBlock(FlowerBase):
             return NrtResult(name=self.name, testtype=self.__class__.__name__,
                              passed=None, comment='2 ports required for test')
 
-    def netdev_execute(self):
+    def execute(self):
         M = self.dut
         A = self.src
         iface = self.dut_ifn[0]
@@ -1103,7 +1164,7 @@ class FlowerMatchBlock(FlowerBase):
         return super(FlowerMatchBlock, self).cleanup()
 
 class FlowerMatchMPLS(FlowerBase):
-    def netdev_execute(self):
+    def execute(self):
         self.check_prereq('tc filter add flower help 2>&1 | grep mpls', 'MPLS Flower classification')
         iface, ingress = self.configure_flower()
 
@@ -1147,8 +1208,12 @@ class FlowerMatchMPLS(FlowerBase):
 
         self.cleanup_filter(iface)
 
+    def cleanup(self):
+        self.cleanup_flower(self.dut_ifn[0])
+        return super(FlowerMatchMPLS, self).cleanup()
+
 class FlowerMatchTTL(FlowerBase):
-    def netdev_execute(self):
+    def execute(self):
         iface, ingress = self.configure_flower()
 
         # Hit test - IPv4
@@ -1196,8 +1261,12 @@ class FlowerMatchTTL(FlowerBase):
 
         self.cleanup_filter(iface)
 
+    def cleanup(self):
+        self.cleanup_flower(self.dut_ifn[0])
+        return super(FlowerMatchTTL, self).cleanup()
+
 class FlowerMatchTOS(FlowerBase):
-    def netdev_execute(self):
+    def execute(self):
         iface, ingress = self.configure_flower()
 
         # Hit test - IPv4
@@ -1245,6 +1314,10 @@ class FlowerMatchTOS(FlowerBase):
 
         self.cleanup_filter(iface)
 
+    def cleanup(self):
+        self.cleanup_flower(self.dut_ifn[0])
+        return super(FlowerMatchTOS, self).cleanup()
+
 class FlowerMatchFrag(FlowerBase):
     def install_test(self, flag, iface):
         match = self.ip_ver + ' flower ip_flags ' + flag
@@ -1284,8 +1357,12 @@ class FlowerMatchFrag(FlowerBase):
             self.frag_filter(flags, iface, ingress)
             self.cleanup_filter(iface)
 
-    def netdev_execute(self):
+    def execute(self):
         self.frag_test()
+
+    def cleanup(self):
+        self.cleanup_flower(self.dut_ifn[0])
+        return super(FlowerMatchFrag, self).cleanup()
 
 class FlowerMatchFragIPv4(FlowerMatchFrag):
     ip_ver = 'ip'
@@ -1323,7 +1400,7 @@ class FlowerModifyMTU(FlowerBase):
             if ret[0]:
                 raise NtiSkip('Cannot set max mtu(%s) on %s' % (mtu, pf_ifname))
 
-    def netdev_execute(self):
+    def execute(self):
         iface, ingress = self.configure_flower()
         M = self.dut
 
@@ -1376,13 +1453,14 @@ class FlowerModifyMTU(FlowerBase):
         self.cleanup_filter(iface)
 
     def cleanup(self):
+        self.cleanup_flower(self.dut_ifn[0])
         self.set_sending_source_mtu(self.src_ifn[0], 1500)
         self.src.ip_link_set_mtu(self.src_ifn[0], 1500)
         self.dut.ip_link_set_mtu(self.dut_ifn[0], 1500)
         return super(FlowerModifyMTU, self).cleanup()
 
 class FlowerMatchWhitelist(FlowerBase):
-    def netdev_execute(self):
+    def execute(self):
         iface, _ = self.configure_flower()
         M = self.dut
 
@@ -1457,12 +1535,13 @@ class FlowerMatchWhitelist(FlowerBase):
         self.cleanup_filter('dummy1')
 
     def cleanup(self):
+        self.cleanup_flower(self.dut_ifn[0])
         self.dut.cmd('ip link del dummy1', fail=False)
         self.dut.cmd('rmmod dummy', fail=False)
         return super(FlowerMatchWhitelist, self).cleanup()
 
 class FlowerVxlanWhitelist(FlowerBase):
-    def netdev_execute(self):
+    def execute(self):
         iface, _ = self.configure_flower()
         M = self.dut
 
@@ -1471,6 +1550,7 @@ class FlowerVxlanWhitelist(FlowerBase):
         src_ip6 = self.src_addr_v6[0].split('/')[0]
         dut_ip6 = self.dut_addr_v6[0].split('/')[0]
 
+        M.cmd('ip link delete vxlan0', fail=False)
         M.cmd('ip link add vxlan0 type vxlan dstport 4789 dev %s external' % self.dut_ifn[0])
         M.cmd('ifconfig vxlan0 up')
 
@@ -1513,8 +1593,10 @@ class FlowerVxlanWhitelist(FlowerBase):
         self.cleanup_filter('vxlan0')
 
         # Check that multiple vxlan tunnel output is installed in software only (not_in_hw)
+        M.cmd('ip link delete vxlan1', fail=False)
         M.cmd('ip link add vxlan1 type vxlan id 0 dstport 4790')
         M.cmd('ifconfig vxlan1 up')
+        M.cmd('ip link delete vxlan2', fail=False)
         M.cmd('ip link add vxlan2 type vxlan id 0 dstport 4791')
         M.cmd('ifconfig vxlan2 up')
         match = 'ip flower ip_proto tcp'
@@ -1529,13 +1611,14 @@ class FlowerVxlanWhitelist(FlowerBase):
         self.cleanup_filter(iface)
 
     def cleanup(self):
+        self.cleanup_flower('vxlan0')
         self.dut.cmd('ip link delete vxlan0', fail=False)
         self.dut.cmd('ip link delete vxlan1', fail=False)
         self.dut.cmd('ip link delete vxlan2', fail=False)
         return super(FlowerVxlanWhitelist, self).cleanup()
 
 class FlowerCsumWhitelist(FlowerBase):
-    def netdev_execute(self):
+    def execute(self):
         iface, _ = self.configure_flower()
 
         # Check that set ipv4 without csum update is installed in software only (not_in_hw)
@@ -1581,8 +1664,12 @@ class FlowerCsumWhitelist(FlowerBase):
         self.install_filter(iface, match, action, False)
         self.cleanup_filter(iface)
 
+    def cleanup(self):
+        self.cleanup_flower(self.dut_ifn[0])
+        return super(FlowerCsumWhitelist, self).cleanup()
+
 class FlowerActionVXLAN(FlowerBase):
-    def netdev_execute(self):
+    def execute(self):
         iface, ingress = self.configure_flower()
         M = self.dut
         A = self.src
@@ -1678,13 +1765,14 @@ class FlowerActionVXLAN(FlowerBase):
         self.cleanup_filter(iface)
 
     def cleanup(self):
+        self.cleanup_flower(self.dut_ifn[0])
         src_ip = self.src_addr[0].split('/')[0]
         self.dut.cmd('arp -i %s -d %s' % (self.dut_ifn[0], src_ip), fail=False)
         self.dut.cmd('ip link delete vxlan0', fail=False)
         return super(FlowerActionVXLAN, self).cleanup()
 
 class FlowerActionGENEVE(FlowerBase):
-    def netdev_execute(self):
+    def execute(self):
         iface, ingress = self.configure_flower()
         M = self.dut
         A = self.src
@@ -1745,6 +1833,7 @@ class FlowerActionGENEVE(FlowerBase):
         self.cleanup_filter(iface)
 
     def cleanup(self):
+        self.cleanup_flower(self.dut_ifn[0])
         src_ip = self.src_addr[0].split('/')[0]
         self.dut.cmd('arp -i %s -d %s' % (self.dut_ifn[0], src_ip), fail=False)
         self.dut.cmd('ip link delete gene0', fail=False)
@@ -1800,7 +1889,7 @@ class FlowerActionGENEVEOpt(FlowerBase):
 
         self.cleanup_filter(iface)
 
-    def netdev_execute(self):
+    def execute(self):
         self.check_prereq('tc action add tunnel_key help 2>&1 | grep geneve_opts', 'Geneve Option action')
         iface, ingress = self.configure_flower()
         M = self.dut
@@ -1856,6 +1945,7 @@ class FlowerActionGENEVEOpt(FlowerBase):
         self.install_geneve_opt(iface, ingress, dut_ip, src_ip, dut_mac, src_mac, geneve_opt)
 
     def cleanup(self):
+        self.cleanup_flower(self.dut_ifn[0])
         src_ip = self.src_addr[0].split('/')[0]
         self.dut.cmd('arp -i %s -d %s' % (self.dut_ifn[0], src_ip), fail=False)
         self.dut.cmd('ip link delete gene0', fail=False)
@@ -1915,7 +2005,7 @@ class FlowerActionGENEVEMultiOpt(FlowerBase):
 
         self.cleanup_filter(iface)
 
-    def netdev_execute(self):
+    def execute(self):
         self.check_prereq('tc action add tunnel_key help 2>&1 | grep geneve_opts', 'Geneve Option action')
         iface, ingress = self.configure_flower()
         M = self.dut
@@ -1972,13 +2062,14 @@ class FlowerActionGENEVEMultiOpt(FlowerBase):
         self.install_geneve_opt(iface, ingress, dut_ip, src_ip, dut_mac, src_mac, geneve_opt1, geneve_opt2)
 
     def cleanup(self):
+        self.cleanup_flower(self.dut_ifn[0])
         src_ip = self.src_addr[0].split('/')[0]
         self.dut.cmd('arp -i %s -d %s' % (self.dut_ifn[0], src_ip), fail=False)
         self.dut.cmd('ip link delete gene0', fail=False)
         return super(FlowerActionGENEVEMultiOpt, self).cleanup()
 
 class FlowerActionSetEth(FlowerBase):
-    def netdev_execute(self):
+    def execute(self):
         iface, ingress = self.configure_flower()
 
         # Test Output Action
@@ -2025,8 +2116,12 @@ class FlowerActionSetEth(FlowerBase):
 
         self.cleanup_filter(iface)
 
+    def cleanup(self):
+        self.cleanup_flower(self.dut_ifn[0])
+        return super(FlowerActionSetEth, self).cleanup()
+
 class FlowerActionSetIPv4TTLTOS(FlowerBase):
-    def netdev_execute(self):
+    def execute(self):
         iface, ingress = self.configure_flower()
 
         # Test Output Action
@@ -2073,8 +2168,12 @@ class FlowerActionSetIPv4TTLTOS(FlowerBase):
 
         self.cleanup_filter(iface)
 
+    def cleanup(self):
+        self.cleanup_flower(self.dut_ifn[0])
+        return super(FlowerActionSetIPv4TTLTOS, self).cleanup()
+
 class FlowerActionSetIPv4(FlowerBase):
-    def netdev_execute(self):
+    def execute(self):
         iface, ingress = self.configure_flower()
 
         # Test Output Action
@@ -2147,8 +2246,12 @@ class FlowerActionSetIPv4(FlowerBase):
 
         self.cleanup_filter(iface)
 
+    def cleanup(self):
+        self.cleanup_flower(self.dut_ifn[0])
+        return super(FlowerActionSetIPv4, self).cleanup()
+
 class FlowerActionSetIPv6HopLimitFlowLabel(FlowerBase):
-    def netdev_execute(self):
+    def execute(self):
         iface, ingress = self.configure_flower()
         new_filter = '"not arp and' \
                      ' not udp port 5353 and' \
@@ -2202,8 +2305,12 @@ class FlowerActionSetIPv6HopLimitFlowLabel(FlowerBase):
 
         self.cleanup_filter(iface)
 
+    def cleanup(self):
+        self.cleanup_flower(self.dut_ifn[0])
+        return super(FlowerActionSetIPv6HopLimitFlowLabel, self).cleanup()
+
 class FlowerActionSetIPv6(FlowerBase):
-    def netdev_execute(self):
+    def execute(self):
         iface, ingress = self.configure_flower()
         new_filter = '"not arp and' \
                      ' not udp port 5353 and' \
@@ -2257,8 +2364,12 @@ class FlowerActionSetIPv6(FlowerBase):
 
         self.cleanup_filter(iface)
 
+    def cleanup(self):
+        self.cleanup_flower(self.dut_ifn[0])
+        return super(FlowerActionSetIPv6, self).cleanup()
+
 class FlowerActionSetUDP(FlowerBase):
-    def netdev_execute(self):
+    def execute(self):
         iface, ingress = self.configure_flower()
 
         # Test Output Action
@@ -2331,8 +2442,12 @@ class FlowerActionSetUDP(FlowerBase):
 
         self.cleanup_filter(iface)
 
+    def cleanup(self):
+        self.cleanup_flower(self.dut_ifn[0])
+        return super(FlowerActionSetUDP, self).cleanup()
+
 class FlowerActionSetTCP(FlowerBase):
-    def netdev_execute(self):
+    def execute(self):
         iface, ingress = self.configure_flower()
 
         # Test Output Action
@@ -2405,8 +2520,12 @@ class FlowerActionSetTCP(FlowerBase):
 
         self.cleanup_filter(iface)
 
+    def cleanup(self):
+        self.cleanup_flower(self.dut_ifn[0])
+        return super(FlowerActionSetTCP, self).cleanup()
+
 class FlowerActionSetMulti(FlowerBase):
-    def netdev_execute(self):
+    def execute(self):
         iface, ingress = self.configure_flower()
         new_filter = '"not arp and' \
                      ' not udp port 5353 and' \
@@ -2480,8 +2599,12 @@ class FlowerActionSetMulti(FlowerBase):
 
         self.cleanup_filter(iface)
 
+    def cleanup(self):
+        self.cleanup_flower(self.dut_ifn[0])
+        return super(FlowerActionSetMulti, self).cleanup()
+
 class FlowerVlanRepr(FlowerBase):
-    def netdev_execute(self):
+    def execute(self):
         iface, _ = self.configure_vlan_flower(50)
 
         # Check that redirects to upper netdevs is installed in software only (not_in_hw)
@@ -2498,7 +2621,14 @@ class FlowerVlanRepr(FlowerBase):
         self.install_filter(iface, match, action, False)
         self.cleanup_filter(iface)
 
-class FlowerReprLinkstate(CommonNetdevTest):
+    def cleanup(self):
+        vlan_iface = '%s.%s' % (self.dut_ifn[0], 50)
+        self.cleanup_flower(vlan_iface)
+        vlan_iface = '%s.%s' % (self.dut_ifn[0], 100)
+        self.cleanup_flower(vlan_iface)
+        return super(FlowerVlanRepr, self).cleanup()
+
+class FlowerReprLinkstate(CommonTest):
     def dmesg_check(self):
         _, out = self.dut.cmd('dmesg -c | grep %s' % (self.group.pci_dbdf))
         failures = re.search('ctrl msg for unknown port', out)
@@ -2514,7 +2644,7 @@ class FlowerReprLinkstate(CommonNetdevTest):
 
         return driver.groups()[0] == "nfp"
 
-    def netdev_execute(self):
+    def execute(self):
         self.dut.cmd('dmesg -c')
         new_ifcs = self.spawn_vf_netdev()
         if (len(new_ifcs) != 2):
@@ -2550,10 +2680,11 @@ class FlowerReprLinkstate(CommonNetdevTest):
         self.dut.link_wait(vf, state=True)
 
         self.dut.reset_mods()
+        self.netdev_prep()
         self.dmesg_check()
 
 class FlowerActionBondEgress(FlowerBase):
-    def netdev_execute(self):
+    def execute(self):
         self.check_prereq('teamnl --help 2>&1 | grep setoption', 'OPT_NAME OPT_VALUE')
         iface, ingress = self.configure_flower()
         M = self.dut
@@ -2699,6 +2830,7 @@ class FlowerActionBondEgress(FlowerBase):
         self.cleanup_filter(iface)
 
     def cleanup(self):
+        self.cleanup_flower(self.dut_ifn[0])
         self.dut.cmd('ip link set %s nomaster' % self.dut_ifn[0], fail=False)
         if len(self.dut_ifn) > 1:
             self.dut.cmd('ip link set %s nomaster' % self.dut_ifn[1], fail=False)
