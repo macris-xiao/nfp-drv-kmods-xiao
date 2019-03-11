@@ -498,6 +498,12 @@ class CommonTest(Test):
 
         return pcap_src
 
+    def prep_pcap_simple_to_list(self, pkt):
+        pkts = []
+        for i in range(100):
+            pkts.append(pkt)
+        return self.prep_pcap(pkts)
+
     def prep_pcap_simple_seq(self, pkt):
         pkts = []
         for i in range(100):

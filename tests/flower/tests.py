@@ -171,34 +171,25 @@ class FlowerBase(CommonNetdevTest):
         M = self.dut
         M.cmd('tc filter del dev %s parent ffff:' % iface)
 
-    def test_filter(self, interface, ingress, pkt, send_cnt, exp_cnt, pkt_len_diff=0):
-        M = self.dut
-        A = self.src
+    def test_filter(self, interface, ingress, pkt, exp_pkt, exp_cnt,
+                    pkt_len_diff=0, fltr='', new_port=0):
+        pcap_src = self.prep_pcap_simple_to_list(pkt)
 
-        self.send_packs(interface, ingress, pkt, send_cnt)
+        if exp_pkt != None:
+            exp_pkt = str(exp_pkt)
+
+        self.test_with_traffic(pcap_src, exp_pkt,
+                               (self.src, ingress, self.src),
+                               port=new_port, filter_overwrite=fltr)
 
         exp_bytes = (len(pkt) + len(Ether()) + pkt_len_diff) * exp_cnt
         lo_exp_cnt = exp_cnt - 10
         lo_exp_exp_bytes = (len(pkt) + len(Ether()) + pkt_len_diff) * (exp_cnt - 10)
-        stats = M.netifs[interface].stats(get_tc_ing=True)
+        stats = self.dut.netifs[interface].stats(get_tc_ing=True)
         if int(stats.tc_ing['tc_49152_pkts']) < lo_exp_cnt or int(stats.tc_ing['tc_49152_pkts']) > exp_cnt:
             raise NtiError('Counter missmatch. Expected: %s, Got: %s' % (exp_cnt, stats.tc_ing['tc_49152_pkts']))
         if int(stats.tc_ing['tc_49152_bytes']) < lo_exp_exp_bytes or int(stats.tc_ing['tc_49152_bytes']) > exp_bytes:
             raise NtiError('Counter missmatch. Expected: %s, Got: %s' % (exp_bytes, stats.tc_ing['tc_49152_bytes']))
-
-    def test_packet(self, iface, ingress, send_pkt, exp_pkt, dump_filter=''):
-        M = self.dut
-        A = self.src
-        dump_local = os.path.join('/tmp/', 'pcap-dump-%s' % (self.name))
-        self.capture_packs(iface, ingress, send_pkt, dump_local, dump_filter)
-        test_pkt = rdpcap(dump_local)
-        cmd_log("rm %s" % dump_local)
-        if str(exp_pkt) != str(test_pkt[0]):
-            print "Expected:"
-            exp_pkt.show()
-            print "Got:"
-            test_pkt[0].show()
-            raise NtiError('Packet missmatch')
 
     def send_packs(self, iface, ingress, pkt, loop=100):
         M = self.dut
@@ -311,10 +302,8 @@ class FlowerMatchMAC(FlowerBase):
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        pkt_cnt = 100
-        exp_pkt_cnt = 100
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP()/TCP()/Raw('\x00'*64)
-        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+        self.test_filter(iface, ingress, pkt, pkt, 100)
 
         self.cleanup_filter(iface)
 
@@ -323,10 +312,8 @@ class FlowerMatchMAC(FlowerBase):
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        pkt_cnt = 100
-        exp_pkt_cnt = 0
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP()/TCP()/Raw('\x00'*64)
-        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+        self.test_filter(iface, ingress, pkt, None, 0)
 
         self.cleanup_filter(iface)
 
@@ -339,10 +326,8 @@ class FlowerMatchVLAN(FlowerBase):
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        pkt_cnt = 100
-        exp_pkt_cnt = 100
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/Dot1Q(vlan=100, prio=6)/IP()/TCP()/Raw('\x00'*64)
-        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+        self.test_filter(iface, ingress, pkt, pkt, 100)
 
         self.cleanup_filter(iface)
 
@@ -351,10 +336,8 @@ class FlowerMatchVLAN(FlowerBase):
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        pkt_cnt = 100
-        exp_pkt_cnt = 0
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/Dot1Q(vlan=100, prio=0)/IP()/TCP()/Raw('\x00'*64)
-        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+        self.test_filter(iface, ingress, pkt, None, 0)
 
         self.cleanup_filter(iface)
 
@@ -367,10 +350,8 @@ class FlowerMatchVLANID(FlowerBase):
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        pkt_cnt = 100
-        exp_pkt_cnt = 100
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/Dot1Q(vlan=600)/IP()/TCP()/Raw('\x00'*64)
-        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+        self.test_filter(iface, ingress, pkt, pkt, 100)
 
         self.cleanup_filter(iface)
 
@@ -379,10 +360,8 @@ class FlowerMatchVLANID(FlowerBase):
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        pkt_cnt = 100
-        exp_pkt_cnt = 0
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/Dot1Q(vlan=600)/IP()/TCP()/Raw('\x00'*64)
-        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+        self.test_filter(iface, ingress, pkt, None, 0)
 
         self.cleanup_filter(iface)
 
@@ -395,10 +374,8 @@ class FlowerMatchVLANPCP(FlowerBase):
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        pkt_cnt = 100
-        exp_pkt_cnt = 100
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/Dot1Q(vlan=200, prio=3)/IP()/TCP()/Raw('\x00'*64)
-        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+        self.test_filter(iface, ingress, pkt, pkt, 100)
 
         self.cleanup_filter(iface)
 
@@ -407,10 +384,8 @@ class FlowerMatchVLANPCP(FlowerBase):
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        pkt_cnt = 100
-        exp_pkt_cnt = 0
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/Dot1Q(vlan=200, prio=3)/IP()/TCP()/Raw('\x00'*64)
-        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+        self.test_filter(iface, ingress, pkt, None, 0)
 
         self.cleanup_filter(iface)
 
@@ -423,10 +398,8 @@ class FlowerMatchIPv4(FlowerBase):
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        pkt_cnt = 100
-        exp_pkt_cnt = 100
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
-        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+        self.test_filter(iface, ingress, pkt, pkt, 100)
 
         self.cleanup_filter(iface)
 
@@ -435,26 +408,26 @@ class FlowerMatchIPv4(FlowerBase):
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        pkt_cnt = 100
-        exp_pkt_cnt = 0
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
-        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+        self.test_filter(iface, ingress, pkt, None, 0)
 
         self.cleanup_filter(iface)
 
 class FlowerMatchIPv6(FlowerBase):
     def netdev_execute(self):
         iface, ingress = self.configure_flower()
+        new_filter = '"not arp and' \
+                     ' not udp port 5353 and' \
+                     ' not ether host 01:80:c2:00:00:0e and' \
+                     ' not ether host ff:ff:ff:ff:ff:ff"'
 
         # Hit test
         match = 'ipv6 flower dst_ip 11::11'
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        pkt_cnt = 100
-        exp_pkt_cnt = 100
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IPv6(src='10::10', dst='11::11')/TCP()/Raw('\x00'*64)
-        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+        self.test_filter(iface, ingress, pkt, pkt, 100, fltr=new_filter)
 
         self.cleanup_filter(iface)
 
@@ -463,10 +436,8 @@ class FlowerMatchIPv6(FlowerBase):
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        pkt_cnt = 100
-        exp_pkt_cnt = 0
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IPv6(src='10::10', dst='11::11')/TCP()/Raw('\x00'*64)
-        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+        self.test_filter(iface, ingress, pkt, None, 0, fltr=new_filter)
 
         self.cleanup_filter(iface)
 
@@ -479,10 +450,8 @@ class FlowerMatchTCP(FlowerBase):
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        pkt_cnt = 100
-        exp_pkt_cnt = 100
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP(dport=2000)/Raw('\x00'*64)
-        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+        self.test_filter(iface, ingress, pkt, pkt, 100)
 
         self.cleanup_filter(iface)
 
@@ -491,10 +460,8 @@ class FlowerMatchTCP(FlowerBase):
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        pkt_cnt = 100
-        exp_pkt_cnt = 0
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP(dport=2000)/Raw('\x00'*64)
-        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+        self.test_filter(iface, ingress, pkt, None, 0)
 
         self.cleanup_filter(iface)
 
@@ -503,10 +470,8 @@ class FlowerMatchTCP(FlowerBase):
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        pkt_cnt = 100
-        exp_pkt_cnt = 0
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/UDP(dport=2000)/Raw('\x00'*64)
-        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+        self.test_filter(iface, ingress, pkt, None, 0)
 
         self.cleanup_filter(iface)
 
@@ -519,10 +484,8 @@ class FlowerMatchIPv4TCPFlag(FlowerBase):
         self.install_filter(iface, match, action, offload)
 
         if offload:
-            pkt_cnt = 100
-            exp_pkt_cnt = 100
             pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP(flags=flags)/Raw('\x00'*64)
-            self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+            self.test_filter(iface, ingress, pkt, pkt, 100)
 
     def netdev_execute(self):
         offload = [1, 2, 3, 4, 5, 6, 7, 9, 10, 12, 33, 34, 36]
@@ -537,16 +500,18 @@ class FlowerMatchIPv4TCPFlag(FlowerBase):
 class FlowerMatchIPv6TCPFlag(FlowerBase):
     def test(self, flags, offload):
         iface, ingress = self.configure_flower()
+        new_filter = '"not arp and' \
+                     ' not udp port 5353 and' \
+                     ' not ether host 01:80:c2:00:00:0e and' \
+                     ' not ether host ff:ff:ff:ff:ff:ff"'
 
         match = 'ipv6 flower ip_proto tcp tcp_flags ' + hex(flags)
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action, offload)
 
         if offload:
-            pkt_cnt = 100
-            exp_pkt_cnt = 100
             pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IPv6(src='10::10', dst='11::11')/TCP(flags=flags)/Raw('\x00'*64)
-            self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+            self.test_filter(iface, ingress, pkt, pkt, 100, fltr=new_filter)
 
     def netdev_execute(self):
         offload = [1, 2, 3, 4, 5, 6, 7, 9, 10, 12, 33, 34, 36]
@@ -567,10 +532,8 @@ class FlowerMatchUDP(FlowerBase):
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        pkt_cnt = 100
-        exp_pkt_cnt = 100
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/UDP(dport=4000)/Raw('\x00'*64)
-        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+        self.test_filter(iface, ingress, pkt, pkt, 100)
 
         self.cleanup_filter(iface)
 
@@ -579,10 +542,8 @@ class FlowerMatchUDP(FlowerBase):
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        pkt_cnt = 100
-        exp_pkt_cnt = 0
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/UDP(dport=4000)/Raw('\x00'*64)
-        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+        self.test_filter(iface, ingress, pkt, None, 0)
 
         self.cleanup_filter(iface)
 
@@ -591,10 +552,8 @@ class FlowerMatchUDP(FlowerBase):
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        pkt_cnt = 100
-        exp_pkt_cnt = 0
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP(dport=4000)/Raw('\x00'*64)
-        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+        self.test_filter(iface, ingress, pkt, None, 0)
 
         self.cleanup_filter(iface)
 
@@ -619,8 +578,6 @@ class FlowerMatchVXLAN(FlowerBase):
         match = 'ip flower enc_src_ip %s enc_dst_ip %s enc_dst_port 4789 enc_key_id 123' % (src_ip, dut_ip)
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter('vxlan0', match, action)
-        pkt_cnt = 100
-        exp_pkt_cnt = 100
 
         # VXLAN header with VNI 123, ToS 30, and TTL  99
         vxlan_header = '\x08\x00\x00\x00\x00\x00\x7b\x00'
@@ -628,7 +585,7 @@ class FlowerMatchVXLAN(FlowerBase):
         vxlan_header += str(enc_pkt)
         pkt = Ether(src=src_mac,dst=dut_mac)/IP(src=src_ip, dst=dut_ip, tos=30, ttl=99)/UDP(sport=44534, dport=4789)/vxlan_header
         pkt_diff = len(Ether()) + len(IP()) + len(UDP()) + 8
-        self.test_filter('vxlan0', ingress, pkt, pkt_cnt, exp_pkt_cnt, -pkt_diff)
+        self.test_filter('vxlan0', ingress, pkt, enc_pkt, 100, -pkt_diff)
 
         self.cleanup_filter('vxlan0')
 
@@ -637,10 +594,7 @@ class FlowerMatchVXLAN(FlowerBase):
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter('vxlan0', match, action)
 
-        pkt_cnt = 100
-        exp_pkt_cnt = 0
-
-        self.test_filter('vxlan0', ingress, pkt, pkt_cnt, exp_pkt_cnt)
+        self.test_filter('vxlan0', ingress, pkt, None, 0)
 
         self.cleanup_filter('vxlan0')
 
@@ -649,10 +603,7 @@ class FlowerMatchVXLAN(FlowerBase):
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter('vxlan0', match, action)
 
-        pkt_cnt = 100
-        exp_pkt_cnt = 0
-
-        self.test_filter('vxlan0', ingress, pkt, pkt_cnt, exp_pkt_cnt)
+        self.test_filter('vxlan0', ingress, pkt, None, 0)
 
         self.cleanup_filter('vxlan0')
 
@@ -661,10 +612,7 @@ class FlowerMatchVXLAN(FlowerBase):
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter('vxlan0', match, action)
 
-        pkt_cnt = 100
-        exp_pkt_cnt = 0
-
-        self.test_filter('vxlan0', ingress, pkt, pkt_cnt, exp_pkt_cnt)
+        self.test_filter('vxlan0', ingress, pkt, None, 0)
 
         self.cleanup_filter('vxlan0')
 
@@ -675,9 +623,7 @@ class FlowerMatchVXLAN(FlowerBase):
             action = 'mirred egress redirect dev %s' % iface
             self.install_filter('vxlan0', match, action)
 
-            pkt_cnt = 100
-            exp_pkt_cnt = 100
-            self.test_filter('vxlan0', ingress, pkt, pkt_cnt, exp_pkt_cnt, -pkt_diff)
+            self.test_filter('vxlan0', ingress, pkt, enc_pkt, 100, -pkt_diff)
             self.cleanup_filter('vxlan0')
 
             # Miss test - incorrect ToS
@@ -685,9 +631,7 @@ class FlowerMatchVXLAN(FlowerBase):
             action = 'mirred egress redirect dev %s' % iface
             self.install_filter('vxlan0', match, action)
 
-            pkt_cnt = 100
-            exp_pkt_cnt = 0
-            self.test_filter('vxlan0', ingress, pkt, pkt_cnt, exp_pkt_cnt)
+            self.test_filter('vxlan0', ingress, pkt, None, 0)
             self.cleanup_filter('vxlan0')
 
             # Miss test - incorrect TTL
@@ -695,9 +639,7 @@ class FlowerMatchVXLAN(FlowerBase):
             action = 'mirred egress redirect dev %s' % iface
             self.install_filter('vxlan0', match, action)
 
-            pkt_cnt = 100
-            exp_pkt_cnt = 0
-            self.test_filter('vxlan0', ingress, pkt, pkt_cnt, exp_pkt_cnt)
+            self.test_filter('vxlan0', ingress, pkt, None, 0)
             self.cleanup_filter('vxlan0')
 
     def cleanup(self):
@@ -725,8 +667,6 @@ class FlowerMatchGeneve(FlowerBase):
         match = 'ip flower enc_src_ip %s enc_dst_ip %s enc_dst_port 6081 enc_key_id 123' % (src_ip, dut_ip)
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter('gene0', match, action)
-        pkt_cnt = 100
-        exp_pkt_cnt = 100
 
         # Geneve header with VNI 123
         geneve_header = '\x00\x00\x65\x58\x00\x00\x7b\x00'
@@ -734,7 +674,7 @@ class FlowerMatchGeneve(FlowerBase):
         geneve_header += str(enc_pkt)
         pkt = Ether(src=src_mac,dst=dut_mac)/IP(src=src_ip, dst=dut_ip)/UDP(sport=44534, dport=6081)/geneve_header
         pkt_diff = len(Ether()) + len(IP()) + len(UDP()) + 8
-        self.test_filter('gene0', ingress, pkt, pkt_cnt, exp_pkt_cnt, -pkt_diff)
+        self.test_filter('gene0', ingress, pkt, enc_pkt, 100, -pkt_diff)
 
         self.cleanup_filter('gene0')
 
@@ -742,11 +682,7 @@ class FlowerMatchGeneve(FlowerBase):
         match = 'ip flower enc_src_ip 1.1.1.1 enc_dst_ip %s enc_dst_port 6081 enc_key_id 123' % (dut_ip)
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter('gene0', match, action)
-
-        pkt_cnt = 100
-        exp_pkt_cnt = 0
-
-        self.test_filter('gene0', ingress, pkt, pkt_cnt, exp_pkt_cnt)
+        self.test_filter('gene0', ingress, pkt, None, 0)
 
         self.cleanup_filter('gene0')
 
@@ -754,11 +690,7 @@ class FlowerMatchGeneve(FlowerBase):
         match = 'ip flower enc_src_ip %s enc_dst_ip 1.1.1.1 enc_dst_port 6081 enc_key_id 123' % (src_ip)
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter('gene0', match, action)
-
-        pkt_cnt = 100
-        exp_pkt_cnt = 0
-
-        self.test_filter('gene0', ingress, pkt, pkt_cnt, exp_pkt_cnt)
+        self.test_filter('gene0', ingress, pkt, None, 0)
 
         self.cleanup_filter('gene0')
 
@@ -766,11 +698,7 @@ class FlowerMatchGeneve(FlowerBase):
         match = 'ip flower enc_src_ip %s enc_dst_ip %s enc_dst_port 6081 enc_key_id 124' % (src_ip, dut_ip)
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter('gene0', match, action)
-
-        pkt_cnt = 100
-        exp_pkt_cnt = 0
-
-        self.test_filter('gene0', ingress, pkt, pkt_cnt, exp_pkt_cnt)
+        self.test_filter('gene0', ingress, pkt, None, 0)
 
         self.cleanup_filter('gene0')
 
@@ -797,8 +725,6 @@ class FlowerMatchGeneveOpt(FlowerBase):
                 hex(opt_type)[2:], opt_data)
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter('gene0', match, action)
-        pkt_cnt = 100
-        exp_pkt_cnt = 100
 
         geneve_opt_hd = geneve_opt['opt_class'] + geneve_opt['opt_type'] + \
                         geneve_opt['opt_len'] + geneve_opt['opt_data']
@@ -808,7 +734,7 @@ class FlowerMatchGeneveOpt(FlowerBase):
         geneve_header += str(enc_pkt)
         pkt = Ether(src=src_mac,dst=dut_mac)/IP(src=src_ip, dst=dut_ip)/UDP(sport=44534, dport=6081)/geneve_header
         pkt_diff = len(Ether()) + len(IP()) + len(UDP()) + 8 + ver_opt_len * 4
-        self.test_filter('gene0', ingress, pkt, pkt_cnt, exp_pkt_cnt, -pkt_diff)
+        self.test_filter('gene0', ingress, pkt, enc_pkt, 100, -pkt_diff)
 
         self.cleanup_filter('gene0')
 
@@ -825,8 +751,6 @@ class FlowerMatchGeneveOpt(FlowerBase):
                 hex(opt_type)[2:], opt_data)
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter('gene0', match, action)
-        pkt_cnt = 100
-        exp_pkt_cnt = 0
 
         geneve_opt_hd = geneve_opt['opt_class'] + geneve_opt['opt_type'] + \
                         geneve_opt['opt_len'] + geneve_opt['opt_data']
@@ -835,7 +759,7 @@ class FlowerMatchGeneveOpt(FlowerBase):
         enc_pkt = Ether(src="aa:bb:cc:dd:ee:ff",dst="01:02:03:04:05:06")/IP()/TCP()/Raw('\x00'*64)
         geneve_header += str(enc_pkt)
         pkt = Ether(src=src_mac,dst=dut_mac)/IP(src=src_ip, dst=dut_ip)/UDP(sport=44534, dport=6081)/geneve_header
-        self.test_filter('gene0', ingress, pkt, pkt_cnt, exp_pkt_cnt)
+        self.test_filter('gene0', ingress, pkt, None, 0)
 
         self.cleanup_filter('gene0')
 
@@ -915,8 +839,6 @@ class FlowerMatchGeneveMultiOpt(FlowerBase):
                 (src_ip, dut_ip, tun_id, geneve1, geneve2)
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter('gene0', match, action)
-        pkt_cnt = 100
-        exp_pkt_cnt = 100
 
         opt_size = ver_opt_len1 + ver_opt_len2
         geneve_opt_hd = geneve_opt1['opt_class'] + geneve_opt1['opt_type'] + \
@@ -929,7 +851,7 @@ class FlowerMatchGeneveMultiOpt(FlowerBase):
         geneve_header += str(enc_pkt)
         pkt = Ether(src=src_mac,dst=dut_mac)/IP(src=src_ip, dst=dut_ip)/UDP(sport=44534, dport=6081)/geneve_header
         pkt_diff = len(Ether()) + len(IP()) + len(UDP()) + 8 + opt_size * 4
-        self.test_filter('gene0', ingress, pkt, pkt_cnt, exp_pkt_cnt, -pkt_diff)
+        self.test_filter('gene0', ingress, pkt, enc_pkt, 100, -pkt_diff)
 
         self.cleanup_filter('gene0')
 
@@ -948,8 +870,6 @@ class FlowerMatchGeneveMultiOpt(FlowerBase):
                 (src_ip, dut_ip, tun_id, geneve1, geneve2)
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter('gene0', match, action)
-        pkt_cnt = 100
-        exp_pkt_cnt = 0
 
         opt_size = ver_opt_len1 + ver_opt_len2
         geneve_opt_hd = geneve_opt1['opt_class'] + geneve_opt1['opt_type'] + \
@@ -961,7 +881,7 @@ class FlowerMatchGeneveMultiOpt(FlowerBase):
         enc_pkt = Ether(src="aa:bb:cc:dd:ee:ff",dst="01:02:03:04:05:06")/IP()/TCP()/Raw('\x00'*64)
         geneve_header += str(enc_pkt)
         pkt = Ether(src=src_mac,dst=dut_mac)/IP(src=src_ip, dst=dut_ip)/UDP(sport=44534, dport=6081)/geneve_header
-        self.test_filter('gene0', ingress, pkt, pkt_cnt, exp_pkt_cnt)
+        self.test_filter('gene0', ingress, pkt, None, 0)
 
         self.cleanup_filter('gene0')
 
@@ -1104,8 +1024,6 @@ class FlowerMatchTunnelToSharedMAC(FlowerBase):
         match = 'ip flower enc_src_ip %s enc_dst_ip %s enc_dst_port 4789 enc_key_id 123' % (src_ip, dut_ip)
         action = 'mirred egress redirect dev %s' % self.dut_ifn[0]
         self.install_filter('vxlan0', match, action)
-        pkt_cnt = 100
-        exp_pkt_cnt = 100
 
         # VXLAN header with VNI 123, ToS 30, and TTL  99
         vxlan_header = '\x08\x00\x00\x00\x00\x00\x7b\x00'
@@ -1115,10 +1033,11 @@ class FlowerMatchTunnelToSharedMAC(FlowerBase):
         pkt_diff = len(Ether()) + len(IP()) + len(UDP()) + 8
 
         # Tunnel packets should match on both ports
-        self.test_filter('vxlan0', self.src_ifn[0], pkt, pkt_cnt, exp_pkt_cnt, -pkt_diff)
+        self.test_filter('vxlan0', self.src_ifn[0], pkt, enc_pkt, 100,
+                         -pkt_diff)
         sleep(2)
-        exp_pkt_cnt = 200
-        self.test_filter('vxlan0', self.src_ifn[1], pkt, pkt_cnt, exp_pkt_cnt, -pkt_diff)
+        self.test_filter('vxlan0', self.src_ifn[0], pkt, enc_pkt, 200,
+                         -pkt_diff, new_port=1)
 
         # Reset the 2nd interface to its original MAC
         M.cmd('ip link set dev %s down' % self.dut_ifn[1])
@@ -1126,10 +1045,11 @@ class FlowerMatchTunnelToSharedMAC(FlowerBase):
         M.cmd('ip link set dev %s up' % self.dut_ifn[1])
 
         # Counts should now only increment when ingressing one interface
-        exp_pkt_cnt = 300
-        self.test_filter('vxlan0', self.src_ifn[0], pkt, pkt_cnt, exp_pkt_cnt, -pkt_diff)
+        self.test_filter('vxlan0', self.src_ifn[0], pkt, enc_pkt, 300,
+                         -pkt_diff)
         sleep(2)
-        self.test_filter('vxlan0', self.src_ifn[1], pkt, pkt_cnt, exp_pkt_cnt, -pkt_diff)
+        self.test_filter('vxlan0', self.src_ifn[0], pkt, None, 300, -pkt_diff,
+                         new_port=1)
 
         self.cleanup_filter('vxlan0')
 
@@ -1166,17 +1086,14 @@ class FlowerMatchBlock(FlowerBase):
         M.cmd('tc qdisc add dev %s ingress_block 22 ingress' % iface2)
 
         # Add filter to block
-        M.cmd('tc filter add block 22 protocol ip parent ffff: flower skip_sw ip_proto tcp action drop')
+        M.cmd('tc filter add block 22 protocol ip parent ffff: flower skip_sw \
+               ip_proto tcp action mirred egress redirect dev %s' % iface)
 
-        pkt_cnt = 100
-        exp_pkt_cnt = 100
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP()/TCP()/Raw('\x00'*64)
-        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+        self.test_filter(iface, ingress, pkt, pkt, 100)
 
-        pkt_cnt = 100
-        exp_pkt_cnt = 200
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP()/TCP()/Raw('\x00'*64)
-        self.test_filter(iface2, ingress2, pkt, pkt_cnt, exp_pkt_cnt)
+        self.test_filter(iface2, ingress, pkt, pkt, 200, new_port=1)
 
     def cleanup(self):
         self.dut.cmd('tc filter del block 22 protocol ip parent ffff: prio 49152', fail=False)
@@ -1195,10 +1112,8 @@ class FlowerMatchMPLS(FlowerBase):
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        pkt_cnt = 100
-        exp_pkt_cnt = 100
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/MPLS(label=3333)/Raw('\x00'*64)
-        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+        self.test_filter(iface, ingress, pkt, pkt, 100)
 
         self.cleanup_filter(iface)
 
@@ -1207,10 +1122,8 @@ class FlowerMatchMPLS(FlowerBase):
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        pkt_cnt = 100
-        exp_pkt_cnt = 0
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP()/TCP()/Raw('\x00'*64)
-        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+        self.test_filter(iface, ingress, pkt, None, 0)
 
         self.cleanup_filter(iface)
 
@@ -1219,10 +1132,8 @@ class FlowerMatchMPLS(FlowerBase):
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        pkt_cnt = 100
-        exp_pkt_cnt = 100
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/MPLS(label=1111)/Raw('\x00'*64)
-        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+        self.test_filter(iface, ingress, pkt, pkt, 100)
 
         self.cleanup_filter(iface)
 
@@ -1231,10 +1142,8 @@ class FlowerMatchMPLS(FlowerBase):
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        pkt_cnt = 100
-        exp_pkt_cnt = 0
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/MPLS(label=1111)/Raw('\x00'*64)
-        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+        self.test_filter(iface, ingress, pkt, None, 0)
 
         self.cleanup_filter(iface)
 
@@ -1247,10 +1156,8 @@ class FlowerMatchTTL(FlowerBase):
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        pkt_cnt = 100
-        exp_pkt_cnt = 100
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11', ttl=30)/TCP()/Raw('\x00'*64)
-        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+        self.test_filter(iface, ingress, pkt, pkt, 100)
 
         self.cleanup_filter(iface)
 
@@ -1259,22 +1166,23 @@ class FlowerMatchTTL(FlowerBase):
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        pkt_cnt = 100
-        exp_pkt_cnt = 0
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11', ttl=30)/TCP()/Raw('\x00'*64)
-        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+        self.test_filter(iface, ingress, pkt, None, 0)
 
         self.cleanup_filter(iface)
 
         # Hit test - IPv6
+        new_filter = '"not arp and' \
+                     ' not udp port 5353 and' \
+                     ' not ether host 01:80:c2:00:00:0e and' \
+                     ' not ether host ff:ff:ff:ff:ff:ff"'
+
         match = 'ipv6 flower ip_ttl 15'
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        pkt_cnt = 100
-        exp_pkt_cnt = 100
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IPv6(src='10::10', dst='11::11', hlim=15)/TCP()/Raw('\x00'*64)
-        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+        self.test_filter(iface, ingress, pkt, pkt, 100, fltr=new_filter)
 
         self.cleanup_filter(iface)
 
@@ -1283,10 +1191,8 @@ class FlowerMatchTTL(FlowerBase):
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        pkt_cnt = 100
-        exp_pkt_cnt = 0
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IPv6(src='10::10', dst='11::11',hlim=20)/TCP()/Raw('\x00'*64)
-        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+        self.test_filter(iface, ingress, pkt, None, 0, fltr=new_filter)
 
         self.cleanup_filter(iface)
 
@@ -1299,10 +1205,8 @@ class FlowerMatchTOS(FlowerBase):
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        pkt_cnt = 100
-        exp_pkt_cnt = 100
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11', tos=10)/TCP()/Raw('\x00'*64)
-        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+        self.test_filter(iface, ingress, pkt, pkt, 100)
 
         self.cleanup_filter(iface)
 
@@ -1311,22 +1215,23 @@ class FlowerMatchTOS(FlowerBase):
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        pkt_cnt = 100
-        exp_pkt_cnt = 0
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11', tos=30)/TCP()/Raw('\x00'*64)
-        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+        self.test_filter(iface, ingress, pkt, None, 0)
 
         self.cleanup_filter(iface)
 
         # Hit test - IPv6
+        new_filter = '"not arp and' \
+                     ' not udp port 5353 and' \
+                     ' not ether host 01:80:c2:00:00:0e and' \
+                     ' not ether host ff:ff:ff:ff:ff:ff"'
+
         match = 'ipv6 flower ip_tos 30'
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        pkt_cnt = 100
-        exp_pkt_cnt = 100
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IPv6(src='10::10', dst='11::11', tc=30)/TCP()/Raw('\x00'*64)
-        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+        self.test_filter(iface, ingress, pkt, pkt, 100, fltr=new_filter)
 
         self.cleanup_filter(iface)
 
@@ -1335,10 +1240,8 @@ class FlowerMatchTOS(FlowerBase):
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        pkt_cnt = 100
-        exp_pkt_cnt = 0
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IPv6(src='10::10', dst='11::11', tc=10)/TCP()/Raw('\x00'*64)
-        self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+        self.test_filter(iface, ingress, pkt, None, 0, fltr=new_filter)
 
         self.cleanup_filter(iface)
 
@@ -1351,21 +1254,26 @@ class FlowerMatchFrag(FlowerBase):
     def frag_filter(self, flags, iface, ingress):
         pkt = self.pkt
         frag_pkt = self.frag_pkt
-        pkt_cnt = 100
-        exp_pkt_cnt = 100
+        new_filter = self.new_filter
 
         if flags == 'nofrag':
-            self.test_filter(iface, ingress, frag_pkt[0], pkt_cnt, 0)
-            self.test_filter(iface, ingress, pkt, pkt_cnt, exp_pkt_cnt)
+            self.test_filter(iface, ingress, frag_pkt[0], None, 0,
+                             fltr=new_filter)
+            self.test_filter(iface, ingress, pkt, pkt, 100, fltr=new_filter)
         if flags == 'frag':
-            self.test_filter(iface, ingress, pkt, pkt_cnt, 0)
-            self.test_filter(iface, ingress, frag_pkt[0], pkt_cnt, exp_pkt_cnt)
+            self.test_filter(iface, ingress, pkt, None, 0, fltr=new_filter)
+            self.test_filter(iface, ingress, frag_pkt[0], frag_pkt[0], 100,
+                             fltr=new_filter)
         if flags == 'nofirstfrag':
-            self.test_filter(iface, ingress, frag_pkt[0], pkt_cnt, 0)
-            self.test_filter(iface, ingress, frag_pkt[1], pkt_cnt, exp_pkt_cnt)
+            self.test_filter(iface, ingress, frag_pkt[0], None, 0,
+                             fltr=new_filter)
+            self.test_filter(iface, ingress, frag_pkt[1], frag_pkt[1], 100,
+                             fltr=new_filter)
         if flags == 'firstfrag':
-            self.test_filter(iface, ingress, frag_pkt[1], pkt_cnt, 0)
-            self.test_filter(iface, ingress, frag_pkt[0], pkt_cnt, exp_pkt_cnt)
+            self.test_filter(iface, ingress, frag_pkt[1], None, 0,
+                             fltr=new_filter)
+            self.test_filter(iface, ingress, frag_pkt[0], frag_pkt[0], 100,
+                             fltr=new_filter)
 
     def frag_test(self):
         iface, ingress = self.configure_flower()
@@ -1385,6 +1293,7 @@ class FlowerMatchFragIPv4(FlowerMatchFrag):
           IP()/TCP()/Raw('\x00'*1024)
     frag_pkt = fragment(Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/
                         IP()/TCP()/Raw('\x00'*1024), 128)
+    new_filter = ''
 
 class FlowerMatchFragIPv6(FlowerMatchFrag):
     ip_ver = 'ipv6'
@@ -1392,6 +1301,10 @@ class FlowerMatchFragIPv6(FlowerMatchFrag):
           IPv6()/TCP()/Raw('\x00'*1024)
     frag_pkt = fragment6(Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/
                          IPv6()/IPv6ExtHdrFragment()/TCP()/Raw('\x00'*1024), 128)
+    new_filter = '"not arp and' \
+                 ' not udp port 5353 and' \
+                 ' not ether host 01:80:c2:00:00:0e and' \
+                 ' not ether host ff:ff:ff:ff:ff:ff"'
 
 class FlowerModifyMTU(FlowerBase):
     def set_sending_source_mtu(self, ingress, mtu):
@@ -1432,16 +1345,13 @@ class FlowerModifyMTU(FlowerBase):
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        pkt_cnt = 100
-        exp_pkt_cnt = 0
         # Length 14 + 20 + 20 + 9162 = 9216
-        pkt = Ether()/IP()/TCP()/Raw('\x00'*9162)
-
-        dump_file = os.path.join('/tmp/', 'dump.pcap')
-        self.capture_packs(iface, ingress, pkt, dump_file, snaplen=None)
-        pack_cap = rdpcap(dump_file)
-        cmd_log("rm %s" % dump_file)
-        self.pcap_check_bytes(exp_pkt_cnt, pack_cap, pkt, 0)
+        pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/\
+              IP()/TCP()/Raw('\x00'*9162)
+        pcap_src = self.prep_pcap_simple_to_list(pkt)
+        self.test_with_traffic(pcap_src, None,
+                               (self.src, self.src_ifn[0], self.src),
+                               snaplen=9420)
 
         self.cleanup_filter(iface)
 
@@ -1449,13 +1359,9 @@ class FlowerModifyMTU(FlowerBase):
         ret = M.ip_link_set_mtu(iface, 9420)
 
         self.install_filter(iface, match, action)
-        pkt_cnt = 100
-        exp_pkt_cnt = 100
-        dump_file = os.path.join('/tmp/', 'dump.pcap')
-        self.capture_packs(iface, ingress, pkt, dump_file, snaplen=None)
-        pack_cap = rdpcap(dump_file)
-        cmd_log("rm %s" % dump_file)
-        self.pcap_check_bytes(exp_pkt_cnt, pack_cap, pkt, 0)
+        self.test_with_traffic(pcap_src, str(pkt),
+                               (self.src, self.src_ifn[0], self.src),
+                               snaplen=9420)
 
         self.cleanup_filter(iface)
 
@@ -1463,13 +1369,9 @@ class FlowerModifyMTU(FlowerBase):
         ret = M.ip_link_set_mtu(iface, 9000)
 
         self.install_filter(iface, match, action)
-        pkt_cnt = 100
-        exp_pkt_cnt = 0
-        dump_file = os.path.join('/tmp/', 'dump.pcap')
-        self.capture_packs(iface, ingress, pkt, dump_file, snaplen=None)
-        pack_cap = rdpcap(dump_file)
-        cmd_log("rm %s" % dump_file)
-        self.pcap_check_bytes(exp_pkt_cnt, pack_cap, pkt, 0)
+        self.test_with_traffic(pcap_src, None,
+                               (self.src, self.src_ifn[0], self.src),
+                               snaplen=9420)
 
         self.cleanup_filter(iface)
 
@@ -1706,9 +1608,7 @@ class FlowerActionVXLAN(FlowerBase):
             action = 'tunnel_key set id 123 src_ip %s dst_ip %s dst_port 4789 action mirred egress redirect dev vxlan0' % (dut_ip, src_ip)
             self.install_filter(iface, match, action)
 
-        pkt_cnt = 100
         exp_pkt_cnt = 100
-
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP()/TCP()/Raw('\x00'*64)
 
         sleep(2)
@@ -1806,9 +1706,7 @@ class FlowerActionGENEVE(FlowerBase):
         action = 'tunnel_key set id 123 src_ip %s dst_ip %s dst_port 6081 action mirred egress redirect dev gene0' % (dut_ip, src_ip)
         self.install_filter(iface, match, action)
 
-        pkt_cnt = 100
         exp_pkt_cnt = 100
-
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP()/TCP()/Raw('\x00'*64)
 
         sleep(2)
@@ -1861,7 +1759,6 @@ class FlowerActionGENEVEOpt(FlowerBase):
                  geneve_opt['opt_class'], geneve_opt['opt_type'], geneve_opt['opt_data'])
         self.install_filter(iface, match, action)
 
-        pkt_cnt = 100
         exp_pkt_cnt = 100
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
 
@@ -1974,7 +1871,6 @@ class FlowerActionGENEVEMultiOpt(FlowerBase):
                  geneve_opt2['opt_class'], geneve_opt2['opt_type'], geneve_opt2['opt_data'])
         self.install_filter(iface, match, action)
 
-        pkt_cnt = 100
         exp_pkt_cnt = 100
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
 
@@ -2090,10 +1986,9 @@ class FlowerActionSetEth(FlowerBase):
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        dump_fil='ether src 02:01:01:02:02:01'
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
-        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+        self.test_filter(iface, ingress, pkt, exp_pkt, 100)
 
         self.cleanup_filter(iface)
 
@@ -2102,10 +1997,9 @@ class FlowerActionSetEth(FlowerBase):
         action = 'pedit ex munge eth src set 14:24:34:44:45:46 munge eth dst set 11:22:33:44:55:66 pipe mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        dump_fil='ether src 14:24:34:44:45:46'
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
         exp_pkt = Ether(src="14:24:34:44:45:46",dst="11:22:33:44:55:66")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
-        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+        self.test_filter(iface, ingress, pkt, exp_pkt, 100)
 
         self.cleanup_filter(iface)
 
@@ -2114,10 +2008,9 @@ class FlowerActionSetEth(FlowerBase):
         action = 'pedit ex munge eth dst set 14:24:34:44:45:46 pipe mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        dump_fil='ether src 02:01:01:02:02:01'
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="14:24:34:44:45:46")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
-        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+        self.test_filter(iface, ingress, pkt, exp_pkt, 100)
 
         self.cleanup_filter(iface)
 
@@ -2126,10 +2019,9 @@ class FlowerActionSetEth(FlowerBase):
         action = 'pedit ex munge eth src set 11:22:33:44:55:66 pipe mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        dump_fil='ether dst 02:12:23:34:45:56'
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
         exp_pkt = Ether(src="11:22:33:44:55:66",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
-        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+        self.test_filter(iface, ingress, pkt, exp_pkt, 100)
 
         self.cleanup_filter(iface)
 
@@ -2142,10 +2034,9 @@ class FlowerActionSetIPv4TTLTOS(FlowerBase):
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        dump_fil='ether src 02:01:01:02:02:01'
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
-        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+        self.test_filter(iface, ingress, pkt, exp_pkt, 100)
 
         self.cleanup_filter(iface)
 
@@ -2154,10 +2045,9 @@ class FlowerActionSetIPv4TTLTOS(FlowerBase):
         action = 'pedit ex munge ip ttl set 40 munge ip tos set 20 pipe csum ip and tcp pipe mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        dump_fil='ether src 02:01:01:02:02:01 and ip'
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11', ttl=64, tos=50)/TCP()/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11', ttl=40, tos=20)/TCP()/Raw('\x00'*64)
-        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+        self.test_filter(iface, ingress, pkt, exp_pkt, 100)
 
         self.cleanup_filter(iface)
 
@@ -2166,10 +2056,9 @@ class FlowerActionSetIPv4TTLTOS(FlowerBase):
         action = 'pedit ex munge ip ttl set 30 pipe csum ip and tcp pipe mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        dump_fil='ether src 02:01:01:02:02:01 and ip'
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11', ttl=64, tos=50)/TCP()/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11', ttl=30, tos=50)/TCP()/Raw('\x00'*64)
-        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+        self.test_filter(iface, ingress, pkt, exp_pkt, 100)
 
         self.cleanup_filter(iface)
 
@@ -2178,10 +2067,9 @@ class FlowerActionSetIPv4TTLTOS(FlowerBase):
         action = 'pedit ex munge ip tos set 10 pipe csum ip and tcp pipe mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        dump_fil='ether src 02:01:01:02:02:01 and ip'
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11', ttl=64, tos=50)/TCP()/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11', ttl=64, tos=10)/TCP()/Raw('\x00'*64)
-        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+        self.test_filter(iface, ingress, pkt, exp_pkt, 100)
 
         self.cleanup_filter(iface)
 
@@ -2194,10 +2082,9 @@ class FlowerActionSetIPv4(FlowerBase):
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        dump_fil='ether src 02:01:01:02:02:01'
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
-        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+        self.test_filter(iface, ingress, pkt, exp_pkt, 100)
 
         self.cleanup_filter(iface)
 
@@ -2206,10 +2093,9 @@ class FlowerActionSetIPv4(FlowerBase):
         action = 'pedit ex munge ip src set 20.30.40.50 munge ip dst set 120.130.140.150 pipe csum ip and tcp pipe mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        dump_fil='ether src 02:01:01:02:02:01 and ip'
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='20.30.40.50', dst='120.130.140.150')/TCP()/Raw('\x00'*64)
-        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+        self.test_filter(iface, ingress, pkt, exp_pkt, 100)
 
         self.cleanup_filter(iface)
 
@@ -2218,10 +2104,9 @@ class FlowerActionSetIPv4(FlowerBase):
         action = 'pedit ex munge ip dst set 22.33.44.55 pipe csum ip and tcp pipe mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        dump_fil='ether src 02:01:01:02:02:01 and ip'
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='22.33.44.55')/TCP()/Raw('\x00'*64)
-        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+        self.test_filter(iface, ingress, pkt, exp_pkt, 100)
 
         self.cleanup_filter(iface)
 
@@ -2230,10 +2115,9 @@ class FlowerActionSetIPv4(FlowerBase):
         action = 'pedit ex munge ip src set 22.33.44.55 pipe csum ip and tcp pipe mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        dump_fil='ether src 02:01:01:02:02:01 and ip'
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='22.33.44.55', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
-        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+        self.test_filter(iface, ingress, pkt, exp_pkt, 100)
 
         self.cleanup_filter(iface)
 
@@ -2244,10 +2128,9 @@ class FlowerActionSetIPv4(FlowerBase):
                  'csum ip and tcp pipe mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        dump_fil='ether src 02:01:01:02:02:01 and ip'
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.77.88.11')/TCP()/Raw('\x00'*64)
-        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+        self.test_filter(iface, ingress, pkt, exp_pkt, 100)
 
         self.cleanup_filter(iface)
 
@@ -2258,26 +2141,28 @@ class FlowerActionSetIPv4(FlowerBase):
                  'csum ip and tcp pipe mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        dump_fil='ether src 02:01:01:02:02:01 and ip'
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='66.77.44.55', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
-        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+        self.test_filter(iface, ingress, pkt, exp_pkt, 100)
 
         self.cleanup_filter(iface)
 
 class FlowerActionSetIPv6HopLimitFlowLabel(FlowerBase):
     def netdev_execute(self):
         iface, ingress = self.configure_flower()
+        new_filter = '"not arp and' \
+                     ' not udp port 5353 and' \
+                     ' not ether host 01:80:c2:00:00:0e and' \
+                     ' not ether host ff:ff:ff:ff:ff:ff"'
 
         # Test Output Action
         match = 'ip flower'
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        dump_fil='ether src 02:01:01:02:02:01'
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
-        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+        self.test_filter(iface, ingress, pkt, exp_pkt, 100, fltr=new_filter)
 
         self.cleanup_filter(iface)
 
@@ -2287,10 +2172,9 @@ class FlowerActionSetIPv6HopLimitFlowLabel(FlowerBase):
                  'csum tcp pipe mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        dump_fil='ether src 02:01:01:02:02:01 and ip6'
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IPv6(hlim=34, fl=1111)/TCP()/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IPv6(hlim=50, fl=333)/TCP()/Raw('\x00'*64)
-        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+        self.test_filter(iface, ingress, pkt, exp_pkt, 100, fltr=new_filter)
 
         self.cleanup_filter(iface)
 
@@ -2300,10 +2184,9 @@ class FlowerActionSetIPv6HopLimitFlowLabel(FlowerBase):
                  'csum tcp pipe mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        dump_fil='ether src 02:01:01:02:02:01 and ip6'
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IPv6(hlim=34, fl=1111)/TCP()/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IPv6(hlim=20, fl=1111)/TCP()/Raw('\x00'*64)
-        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+        self.test_filter(iface, ingress, pkt, exp_pkt, 100, fltr=new_filter)
 
         self.cleanup_filter(iface)
 
@@ -2313,26 +2196,28 @@ class FlowerActionSetIPv6HopLimitFlowLabel(FlowerBase):
                  'csum tcp pipe mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        dump_fil='ether src 02:01:01:02:02:01 and ip6'
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IPv6(hlim=34, fl=1111)/TCP()/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IPv6(hlim=34, fl=242)/TCP()/Raw('\x00'*64)
-        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+        self.test_filter(iface, ingress, pkt, exp_pkt, 100, fltr=new_filter)
 
         self.cleanup_filter(iface)
 
 class FlowerActionSetIPv6(FlowerBase):
     def netdev_execute(self):
         iface, ingress = self.configure_flower()
+        new_filter = '"not arp and' \
+                     ' not udp port 5353 and' \
+                     ' not ether host 01:80:c2:00:00:0e and' \
+                     ' not ether host ff:ff:ff:ff:ff:ff"'
 
         # Test Output Action
         match = 'ip flower'
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        dump_fil='ether src 02:01:01:02:02:01'
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
-        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+        self.test_filter(iface, ingress, pkt, exp_pkt, 100, fltr=new_filter)
 
         self.cleanup_filter(iface)
 
@@ -2342,11 +2227,10 @@ class FlowerActionSetIPv6(FlowerBase):
                  'ip6 dst set 1000:2000:3000:4000:5000:6000:7000:8000 pipe csum tcp pipe mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        dump_fil='ether src 02:01:01:02:02:01 and ip6'
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IPv6(src='11::11', dst='10::10')/TCP()/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IPv6(src='1234:2345:3456:4567:5678:6789:7890:8901',
                         dst='1000:2000:3000:4000:5000:6000:7000:8000')/TCP()/Raw('\x00'*64)
-        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+        self.test_filter(iface, ingress, pkt, exp_pkt, 100, fltr=new_filter)
 
         self.cleanup_filter(iface)
 
@@ -2355,11 +2239,9 @@ class FlowerActionSetIPv6(FlowerBase):
         action = 'pedit ex munge ip6 dst set 1234:2345:3456:4567:5678:6789:7890:8901 pipe csum tcp pipe mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        dump_fil='ether src 02:01:01:02:02:01 and ip6'
-        pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IPv6(src='11::11', dst='10::10')/TCP()/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IPv6(src='11::11',
                         dst='1234:2345:3456:4567:5678:6789:7890:8901')/TCP()/Raw('\x00'*64)
-        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+        self.test_filter(iface, ingress, pkt, exp_pkt, 100, fltr=new_filter)
 
         self.cleanup_filter(iface)
 
@@ -2368,11 +2250,10 @@ class FlowerActionSetIPv6(FlowerBase):
         action = 'pedit ex munge ip6 src set 1234:2345:3456:4567:5678:6789:7890:8901 pipe csum tcp pipe mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        dump_fil='ether src 02:01:01:02:02:01 and ip6'
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IPv6(src='11::11', dst='10::10')/TCP()/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IPv6(src='1234:2345:3456:4567:5678:6789:7890:8901',
                         dst='10::10')/TCP()/Raw('\x00'*64)
-        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+        self.test_filter(iface, ingress, pkt, exp_pkt, 100, fltr=new_filter)
 
         self.cleanup_filter(iface)
 
@@ -2385,10 +2266,9 @@ class FlowerActionSetUDP(FlowerBase):
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        dump_fil='ether src 02:01:01:02:02:01'
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
-        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+        self.test_filter(iface, ingress, pkt, exp_pkt, 100)
 
         self.cleanup_filter(iface)
 
@@ -2397,10 +2277,9 @@ class FlowerActionSetUDP(FlowerBase):
         action = 'pedit ex munge udp sport set 4282 munge udp dport set 8242 pipe csum udp pipe mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        dump_fil='ether src 02:01:01:02:02:01 and udp'
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/UDP(sport=1000,dport=2000)/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/UDP(sport=4282,dport=8242)/Raw('\x00'*64)
-        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+        self.test_filter(iface, ingress, pkt, exp_pkt, 100)
 
         self.cleanup_filter(iface)
 
@@ -2409,10 +2288,9 @@ class FlowerActionSetUDP(FlowerBase):
         action = 'pedit ex munge udp dport set 2000 pipe csum udp pipe mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        dump_fil='ether src 02:01:01:02:02:01 and udp'
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/UDP(sport=2222,dport=4444)/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/UDP(sport=2222,dport=2000)/Raw('\x00'*64)
-        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+        self.test_filter(iface, ingress, pkt, exp_pkt, 100)
 
         self.cleanup_filter(iface)
 
@@ -2421,10 +2299,9 @@ class FlowerActionSetUDP(FlowerBase):
         action = 'pedit ex munge udp sport set 4000 pipe csum udp pipe mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        dump_fil='ether src 02:01:01:02:02:01 and udp'
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/UDP(sport=2222,dport=4444)/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/UDP(sport=4000,dport=4444)/Raw('\x00'*64)
-        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+        self.test_filter(iface, ingress, pkt, exp_pkt, 100)
 
         self.cleanup_filter(iface)
 
@@ -2435,10 +2312,9 @@ class FlowerActionSetUDP(FlowerBase):
                  'csum udp pipe mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        dump_fil='ether src 02:01:01:02:02:01 and udp'
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/UDP(sport=2222,dport=4444)/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/UDP(sport=2222,dport=7868)/Raw('\x00'*64)
-        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+        self.test_filter(iface, ingress, pkt, exp_pkt, 100)
 
         self.cleanup_filter(iface)
 
@@ -2449,10 +2325,9 @@ class FlowerActionSetUDP(FlowerBase):
                  'csum udp pipe mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        dump_fil='ether src 02:01:01:02:02:01 and udp'
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/UDP(sport=2222,dport=4444)/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/UDP(sport=3415,dport=4444)/Raw('\x00'*64)
-        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+        self.test_filter(iface, ingress, pkt, exp_pkt, 100)
 
         self.cleanup_filter(iface)
 
@@ -2465,10 +2340,9 @@ class FlowerActionSetTCP(FlowerBase):
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        dump_fil='ether src 02:01:01:02:02:01'
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
-        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+        self.test_filter(iface, ingress, pkt, exp_pkt, 100)
 
         self.cleanup_filter(iface)
 
@@ -2477,10 +2351,9 @@ class FlowerActionSetTCP(FlowerBase):
         action = 'pedit ex munge tcp sport set 4282 munge tcp dport set 8242 pipe csum tcp pipe mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        dump_fil='ether src 02:01:01:02:02:01 and tcp'
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP(sport=1000,dport=2000)/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP(sport=4282,dport=8242)/Raw('\x00'*64)
-        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+        self.test_filter(iface, ingress, pkt, exp_pkt, 100)
 
         self.cleanup_filter(iface)
 
@@ -2489,10 +2362,9 @@ class FlowerActionSetTCP(FlowerBase):
         action = 'pedit ex munge tcp dport set 2000 pipe csum tcp pipe mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        dump_fil='ether src 02:01:01:02:02:01 and tcp'
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP(sport=2222,dport=4444)/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP(sport=2222,dport=2000)/Raw('\x00'*64)
-        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+        self.test_filter(iface, ingress, pkt, exp_pkt, 100)
 
         self.cleanup_filter(iface)
 
@@ -2501,10 +2373,9 @@ class FlowerActionSetTCP(FlowerBase):
         action = 'pedit ex munge tcp sport set 4000 pipe csum tcp pipe mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        dump_fil='ether src 02:01:01:02:02:01 and tcp'
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP(sport=2222,dport=4444)/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP(sport=4000,dport=4444)/Raw('\x00'*64)
-        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+        self.test_filter(iface, ingress, pkt, exp_pkt, 100)
 
         self.cleanup_filter(iface)
 
@@ -2515,10 +2386,9 @@ class FlowerActionSetTCP(FlowerBase):
                  'csum tcp pipe mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        dump_fil='ether src 02:01:01:02:02:01 and tcp'
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP(sport=2222,dport=4444)/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP(sport=2222,dport=8538)/Raw('\x00'*64)
-        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+        self.test_filter(iface, ingress, pkt, exp_pkt, 100)
 
         self.cleanup_filter(iface)
 
@@ -2529,26 +2399,28 @@ class FlowerActionSetTCP(FlowerBase):
                  'csum tcp pipe mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        dump_fil='ether src 02:01:01:02:02:01 and tcp'
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP(sport=2222,dport=4444)/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP(sport=1038,dport=4444)/Raw('\x00'*64)
-        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+        self.test_filter(iface, ingress, pkt, exp_pkt, 100)
 
         self.cleanup_filter(iface)
 
 class FlowerActionSetMulti(FlowerBase):
     def netdev_execute(self):
         iface, ingress = self.configure_flower()
+        new_filter = '"not arp and' \
+                     ' not udp port 5353 and' \
+                     ' not ether host 01:80:c2:00:00:0e and' \
+                     ' not ether host ff:ff:ff:ff:ff:ff"'
 
         # Test Output Action
         match = 'ip flower'
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        dump_fil='ether src 02:01:01:02:02:01'
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
-        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+        self.test_filter(iface, ingress, pkt, exp_pkt, 100)
 
         self.cleanup_filter(iface)
 
@@ -2560,10 +2432,9 @@ class FlowerActionSetMulti(FlowerBase):
                  'csum ip and tcp pipe mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        dump_fil='ether dst 02:12:23:34:45:56 and ip'
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP(sport=1000,dport=2000)/Raw('\x00'*64)
         exp_pkt = Ether(src="14:24:34:44:45:46",dst="02:12:23:34:45:56")/IP(src='66.77.88.99', dst='11.0.0.11')/TCP(sport=4282,dport=2000)/Raw('\x00'*64)
-        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+        self.test_filter(iface, ingress, pkt, exp_pkt, 100)
 
         self.cleanup_filter(iface)
 
@@ -2575,10 +2446,9 @@ class FlowerActionSetMulti(FlowerBase):
                  'csum ip and tcp pipe mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        dump_fil='ether src 02:01:01:02:02:01 and ip'
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP(sport=1000,dport=2000)/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="15:25:35:45:55:56")/IP(src='10.0.0.10', dst='99.88.77.66')/TCP(sport=1000,dport=8242)/Raw('\x00'*64)
-        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+        self.test_filter(iface, ingress, pkt, exp_pkt, 100)
 
         self.cleanup_filter(iface)
 
@@ -2590,10 +2460,9 @@ class FlowerActionSetMulti(FlowerBase):
                  'csum tcp pipe mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        dump_fil='ether dst 02:12:23:34:45:56 and ip6'
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IPv6(src='11::11', dst='10::10')/TCP(sport=1000,dport=2000)/Raw('\x00'*64)
         exp_pkt = Ether(src="14:24:34:44:45:46",dst="02:12:23:34:45:56")/IPv6(src='1000:2000:3000:4000:5000:6000:7000:8000',dst='10::10')/TCP(sport=4282,dport=2000)/Raw('\x00'*64)
-        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+        self.test_filter(iface, ingress, pkt, exp_pkt, 100, fltr=new_filter)
 
         self.cleanup_filter(iface)
 
@@ -2605,10 +2474,9 @@ class FlowerActionSetMulti(FlowerBase):
                  'csum tcp pipe mirred egress redirect dev %s' % iface
         self.install_filter(iface, match, action)
 
-        dump_fil='ether src 02:01:01:02:02:01 and ip6'
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IPv6(src='11::11', dst='10::10')/TCP(sport=1000,dport=2000)/Raw('\x00'*64)
         exp_pkt = Ether(src="02:01:01:02:02:01",dst="14:24:34:44:45:46")/IPv6(src='11::11',dst='1000:2000:3000:4000:5000:6000:7000:8000')/TCP(sport=1000,dport=4282)/Raw('\x00'*64)
-        self.test_packet(iface, ingress, pkt, exp_pkt, dump_fil)
+        self.test_filter(iface, ingress, pkt, exp_pkt, 100, fltr=new_filter)
 
         self.cleanup_filter(iface)
 
@@ -2691,6 +2559,12 @@ class FlowerActionBondEgress(FlowerBase):
         M = self.dut
         A = self.src
 
+        new_filter = '"not arp and' \
+                     ' not ip6 and' \
+                     ' not udp port 5353 and' \
+                     ' not ether host 01:80:c2:00:00:0e and' \
+                     ' not ether host ff:ff:ff:ff:ff:ff"'
+
         # Reload bonding module if required
         M.cmd('modprobe -r bonding || :', fail=False)
         M.cmd('modprobe bonding mode=balance-xor miimon=100 xmit_hash_policy=layer3+4', fail=False)
@@ -2712,9 +2586,8 @@ class FlowerActionBondEgress(FlowerBase):
         action = 'mirred egress redirect dev bond0'
         self.install_filter(iface, match, action)
 
-        dump_fil='ether src 02:01:01:02:02:01 and ip'
         pkt = Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
-        self.test_packet(iface, ingress, pkt, pkt, dump_fil)
+        self.test_filter(iface, ingress, pkt, pkt, 100)
 
         if len(self.dut_ifn) < 2 or len(self.src_ifn) < 2:
             print 'Not enough interfaces in config file -  skipping some bond tests\n'
@@ -2744,7 +2617,9 @@ class FlowerActionBondEgress(FlowerBase):
                 src_ip = "10.0.0.%s" % i
                 pkts.append(Ether(src="02:01:01:02:02:01",dst="02:12:23:34:45:56")/IP(src=src_ip, dst='11.0.0.11')/TCP()/Raw('\x00'*64))
 
-        self.capture_packs_multiple_ifaces(iface, ingress, [ingress, ingress2], pkts, [dump_file, dump_file2], loop=1)
+        self.capture_packs_multiple_ifaces(iface, ingress, [ingress, ingress2],
+                                           pkts, [dump_file, dump_file2],
+                                           dump_filter=new_filter, loop=1)
 
         pack_cap = rdpcap(dump_file)
         pack_cap2 = rdpcap(dump_file2)
@@ -2768,7 +2643,9 @@ class FlowerActionBondEgress(FlowerBase):
         M.cmd('ip link set dev %s up' % iface2)
         self.dut.link_wait(iface2, state=True)
 
-        self.capture_packs_multiple_ifaces(iface, ingress, [ingress, ingress2], pkts, [dump_file, dump_file2], loop=1)
+        self.capture_packs_multiple_ifaces(iface, ingress, [ingress, ingress2],
+                                           pkts, [dump_file, dump_file2],
+                                           dump_filter=new_filter, loop=1)
 
         pack_cap = rdpcap(dump_file)
         pack_cap2 = rdpcap(dump_file2)
@@ -2807,7 +2684,9 @@ class FlowerActionBondEgress(FlowerBase):
         action = 'mirred egress redirect dev team0'
         self.install_filter(iface, match, action)
 
-        self.capture_packs_multiple_ifaces(iface, ingress, [ingress, ingress2], pkts, [dump_file, dump_file2], loop=1)
+        self.capture_packs_multiple_ifaces(iface, ingress, [ingress, ingress2],
+                                           pkts, [dump_file, dump_file2],
+                                           dump_filter=new_filter, loop=1)
 
         pack_cap = rdpcap(dump_file)
         pack_cap2 = rdpcap(dump_file2)
