@@ -90,11 +90,11 @@ class NFPKmodFlower(NFPKmodAppGrp):
 class FlowerBase(CommonTest):
     def check_src_flower_fw(self, ingress):
         ethtool_fields = self.src.ethtool_drvinfo(ingress)
-        if 'nfp' not in ethtool_fields['driver'] and \
+        if 'nfp' not in ethtool_fields['driver'] or \
            'flower' not in ethtool_fields['firmware-version']:
             return False
 
-        if not ingress[:-1].endswith('np') and not ingress.startswith('en'):
+        if not ingress[:-1].endswith('np') or not ingress.startswith('en'):
             raise NtiSkip('Cannot determine PF interface name')
 
         return True
