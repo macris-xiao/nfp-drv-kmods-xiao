@@ -1,4 +1,8 @@
 samples/c/map_stress
+samples/c/ktls_conn_stress
+samples/c/ktls_sink
+samples/c/ktls_source
+samples/c/tcp_acceptor
 samples/c/udp_netcons_sink
 *.nffw
 *.llvm
