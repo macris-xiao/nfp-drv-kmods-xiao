@@ -94,6 +94,7 @@ function local_kernel_config() {
     echo CONFIG_INET=y
     echo CONFIG_VXLAN=y
     echo CONFIG_ZLIB_INFLATE=y
+    echo CONFIG_NFP=m
 
     # We can't select ZLIB_INFLATE directly so we need something small which
     # depends on it
