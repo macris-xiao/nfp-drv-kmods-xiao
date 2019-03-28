@@ -67,6 +67,7 @@ class NFPKmodFlower(NFPKmodAppGrp):
              ('flower_match_whitelist', FlowerMatchWhitelist, "Checks basic flower match whitelisting"),
              ('flower_vxlan_whitelist', FlowerVxlanWhitelist, "Checks that unsupported vxlan rules are not offloaded"),
              ('flower_csum_whitelist', FlowerCsumWhitelist, "Checks that unsupported checksum rules are not offloaded"),
+             ('flower_action_push_vlan', FlowerActionPushVLAN, "Checks basic flower push vlan action capabilities"),
              ('flower_action_encap_vxlan', FlowerActionVXLAN, "Checks basic flower vxlan encapsulation action capabilities"),
              ('flower_action_encap_geneve', FlowerActionGENEVE, "Checks basic flower geneve encapsulation action capabilities"),
              ('flower_action_encap_geneve_opt', FlowerActionGENEVEOpt, "Checks flower geneve encap opt action capabilities"),
@@ -1812,6 +1813,95 @@ class FlowerCsumWhitelist(FlowerBase):
     def cleanup(self):
         self.cleanup_flower(self.dut_ifn[0])
         return super(FlowerCsumWhitelist, self).cleanup()
+
+class FlowerActionPushVLAN(FlowerBase):
+    def execute(self):
+        iface, ingress = self.configure_flower()
+
+        # Test Output Action
+        match = 'ip flower'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        pkt = Ether(src=self.group.hwaddr_x[0],dst=self.ipv4_mc_mac[0])/\
+              IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
+        exp_pkt = Ether(src=self.group.hwaddr_x[0],dst=self.ipv4_mc_mac[0])/\
+                  IP(src='10.0.0.10', dst='11.0.0.11')/TCP()/Raw('\x00'*64)
+        self.test_filter(iface, ingress, pkt, exp_pkt, 100)
+
+        self.cleanup_filter(iface)
+
+        # Test Push VLAN id and priority
+        match = 'ip flower'
+        action = 'vlan push id 1464 priority 3 '\
+                 'pipe mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        pkt = Ether(src=self.group.hwaddr_x[0],dst=self.ipv4_mc_mac[0])/\
+              IP(src='10.0.0.10', dst='11.0.0.11')/\
+              TCP()/Raw('\x00'*64)
+        exp_pkt = Ether(src=self.group.hwaddr_x[0],dst=self.ipv4_mc_mac[0])/\
+                  Dot1Q(vlan=1464, prio=3)/\
+                  IP(src='10.0.0.10', dst='11.0.0.11')/\
+                  TCP()/Raw('\x00'*64)
+        self.test_filter(iface, ingress, pkt, exp_pkt, 100)
+
+        self.cleanup_filter(iface)
+
+        # Test Push VLAN id
+        match = 'ip flower'
+        action = 'vlan push id 2928 ' \
+                 'pipe mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        pkt = Ether(src=self.group.hwaddr_x[0],dst=self.ipv4_mc_mac[0])/\
+              IP(src='10.0.0.10', dst='11.0.0.11')/\
+              TCP()/Raw('\x00'*64)
+        exp_pkt = Ether(src=self.group.hwaddr_x[0],dst=self.ipv4_mc_mac[0])/\
+                  Dot1Q(vlan=2928)/\
+                  IP(src='10.0.0.10', dst='11.0.0.11')/\
+                  TCP()/Raw('\x00'*64)
+        self.test_filter(iface, ingress, pkt, exp_pkt, 100)
+
+        self.cleanup_filter(iface)
+
+        # Test Push VLAN priority
+        match = 'ip flower'
+        action = 'vlan push id 0 priority 1 ' \
+                 'pipe mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        pkt = Ether(src=self.group.hwaddr_x[0],dst=self.ipv4_mc_mac[0])/\
+              IP(src='10.0.0.10', dst='11.0.0.11')/\
+              TCP()/Raw('\x00'*64)
+        exp_pkt = Ether(src=self.group.hwaddr_x[0],dst=self.ipv4_mc_mac[0])/\
+                  Dot1Q(vlan=0, prio=1)/\
+                  IP(src='10.0.0.10', dst='11.0.0.11')/\
+                  TCP()/Raw('\x00'*64)
+        self.test_filter(iface, ingress, pkt, exp_pkt, 100)
+
+        self.cleanup_filter(iface)
+
+        # Test Push VLAN 0 id and priority
+        match = 'ip flower'
+        action = 'vlan push id 0 priority 0 ' \
+                 'pipe mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        pkt = Ether(src=self.group.hwaddr_x[0],dst=self.ipv4_mc_mac[0])/\
+              IP(src='10.0.0.10', dst='11.0.0.11')/\
+              TCP()/Raw('\x00'*64)
+        exp_pkt = Ether(src=self.group.hwaddr_x[0],dst=self.ipv4_mc_mac[0])/\
+                  Dot1Q(vlan=0, prio=0)/\
+                  IP(src='10.0.0.10', dst='11.0.0.11')/\
+                  TCP()/Raw('\x00'*64)
+        self.test_filter(iface, ingress, pkt, exp_pkt, 100)
+
+        self.cleanup_filter(iface)
+
+    def cleanup(self):
+        self.cleanup_flower(self.dut_ifn[0])
+        return super(FlowerActionPushVLAN, self).cleanup()
 
 class FlowerActionVXLAN(FlowerBase):
     def execute(self):
