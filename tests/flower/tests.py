@@ -45,6 +45,7 @@ class NFPKmodFlower(NFPKmodAppGrp):
              ('flower_match_vlan_id', FlowerMatchVLANID, "Checks basic flower vlan id match capabilities"),
              ('flower_match_vlan_pcp', FlowerMatchVLANPCP, "Checks basic flower vlan pcp match capabilities"),
              ('flower_match_vlan', FlowerMatchVLAN, "Checks basic flower vlan match capabilities"),
+             ('flower_match_vlan_cfi', FlowerMatchVLANCFI, "Checks basic flower vlan with CFI set match capabilities"),
              ('flower_match_ipv4', FlowerMatchIPv4, "Checks basic flower ipv4 match capabilities"),
              ('flower_match_ipv6', FlowerMatchIPv6, "Checks basic flower ipv6 match capabilities"),
              ('flower_match_tcp', FlowerMatchTCP, "Checks basic flower tcp match capabilities"),
@@ -363,9 +364,84 @@ class FlowerMatchVLAN(FlowerBase):
 
         self.cleanup_filter(iface)
 
+        # Hit test
+        match = '802.1Q flower vlan_id 0'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        pkt = Ether(src=self.group.hwaddr_x[0],dst=self.ipv4_mc_mac[0])/\
+              Dot1Q(vlan=0)/IP()/TCP()/Raw('\x00'*64)
+        self.test_filter(iface, ingress, pkt, pkt, 100)
+
+        self.cleanup_filter(iface)
+
+        # Miss test
+        match = '802.1Q flower vlan_id 0'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        pkt = Ether(src=self.group.hwaddr_x[0],dst=self.ipv4_mc_mac[0])/\
+              Dot1Q(vlan=100)/IP()/TCP()/Raw('\x00'*64)
+        self.test_filter(iface, ingress, pkt, None, 0)
+
+        self.cleanup_filter(iface)
+
     def cleanup(self):
         self.cleanup_flower(self.dut_ifn[0])
         return super(FlowerMatchVLAN, self).cleanup()
+
+class FlowerMatchVLANCFI(FlowerBase):
+    def execute(self):
+        iface, ingress = self.configure_flower()
+
+        # Hit test
+        match = '802.1Q flower vlan_id 100 vlan_prio 6'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        #In Scapy id is the 12th -bit (i.e. the DEI/CFI bit)
+        pkt = Ether(src=self.group.hwaddr_x[0],dst=self.ipv4_mc_mac[0])/\
+              Dot1Q(vlan=100, prio=6, id=1)/IP()/TCP()/Raw('\x00'*64)
+        self.test_filter(iface, ingress, pkt, pkt, 100)
+
+        self.cleanup_filter(iface)
+
+        # Miss test
+        match = '802.1Q flower vlan_id 400 vlan_prio 0'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        pkt = Ether(src=self.group.hwaddr_x[0],dst=self.ipv4_mc_mac[0])/\
+              Dot1Q(vlan=100, prio=0, id=1)/IP()/TCP()/Raw('\x00'*64)
+        self.test_filter(iface, ingress, pkt, None, 0)
+
+        self.cleanup_filter(iface)
+
+        # Hit test
+        match = '802.1Q flower vlan_id 0'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        pkt = Ether(src=self.group.hwaddr_x[0],dst=self.ipv4_mc_mac[0])/\
+              Dot1Q(vlan=0, id=1)/IP()/TCP()/Raw('\x00'*64)
+        self.test_filter(iface, ingress, pkt, pkt, 100)
+
+        self.cleanup_filter(iface)
+
+        # Miss test
+        match = '802.1Q flower vlan_id 0'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        pkt = Ether(src=self.group.hwaddr_x[0],dst=self.ipv4_mc_mac[0])/\
+              Dot1Q(vlan=100, id=1)/IP()/TCP()/Raw('\x00'*64)
+        self.test_filter(iface, ingress, pkt, None, 0)
+
+        self.cleanup_filter(iface)
+
+    def cleanup(self):
+        self.cleanup_flower(self.dut_ifn[0])
+        return super(FlowerMatchVLANCFI, self).cleanup()
 
 class FlowerMatchVLANID(FlowerBase):
     def execute(self):
