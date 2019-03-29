@@ -10,6 +10,7 @@ import os
 import time
 import netro.testinfra
 from netro.testinfra.system import *
+from netro.testinfra.system import _parse_ethtool
 from netro.testinfra.nti_exceptions import NtiError, NtiGeneralError
 from common_test import NtiSkip
 from linux_system import LinuxSystem
@@ -187,6 +188,10 @@ class DrvSystem(LinuxSystem):
         self.mv_from(out, self.grp.tmpdir)
         file_name = os.path.join(self.grp.tmpdir, os.path.basename(out))
         return 0, file_name
+
+    def ethtool_get_module_eeprom(self, ifc):
+        _, out = self.cmd('ethtool -m %s' % (ifc))
+        return _parse_ethtool(out)
 
     def ip_link_show(self, port=None, ifc=None, details=False):
         cmd = "ip -j"

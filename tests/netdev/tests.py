@@ -45,6 +45,8 @@ class NFPKmodNetdev(NFPKmodAppGrp):
             ('ethtool_get_speed', LinkSpeedEthtool, "Ethtool get settings"),
             ('ethtool_stats', StatsEthtool, "Ethtool stats"),
             ('ethtool_mac_stats', MacStatsEthtool, "Ethtool MAC stats"),
+            ('ethtool_get_mod_eeprom', ModuleEepromEthtool,
+             "Ethtool get module EEPROM"),
             ('devlink_port_show', DevlinkPortsShow,
              "Check basic devlink port output"),
             ('netconsole', NetconsoleTest, 'Test netconsole over the NFP'),
@@ -171,6 +173,55 @@ class LinkSpeedEthtool(CommonTest):
             if phymod != ethtool:
                 raise NtiError("On port %d phymod reports:%d ethtool:%d" %
                                (i, phymod, ethtool))
+
+class ModuleEepromEthtool(CommonTest):
+    def execute(self):
+        self.nsp_min(29)
+
+        if self.group.upstream_drv:
+            for iface in self.dut_ifn:
+                ethtool = self.dut.ethtool_get_module_eeprom(iface)
+            return
+
+        _, phy = self.dut.cmd_phymod('-P | grep "^phy"')
+        phy = phy.strip().split('\n')
+
+        _, eth = self.dut.cmd_phymod('-E | grep "^eth"')
+        eth = eth.strip().split('\n')
+
+        if len(phy) != len(eth):
+            raise NtiSkip("Test doesn't support breakout mode")
+
+        for iface in self.dut_ifn:
+            _, mac_addr = self.dut.cmd('cat /sys/class/net/%s/address | tr -d "\n"' %
+                                       iface)
+            ethtool = self.dut.ethtool_get_module_eeprom(iface)
+
+            _, phy = self.dut.cmd_phymod('-P | grep -B2 "%s"' % mac_addr)
+            phy = phy.strip().split('\n')[1].split()
+
+            vendor_oui = 'oui:0x%s' % ethtool['Vendor OUI'].replace(':', '')
+
+            # Only check the standard Vendor info per phy
+            if ethtool['Vendor name'] != phy[0].strip('\"'):
+                raise NtiError("%s, Vendor Name, phymod reports:%s ethtool:%s" %
+                               (iface, phy[0], ethtool['Vendor name']))
+            if vendor_oui != phy[3].strip('\"'):
+                raise NtiError("%s, Vendor OUI, phymod reports:%s ethtool:%s" %
+                               (iface, phy[3], vendor_oui))
+            if str(ethtool['Vendor PN']) != phy[1].strip('\"'):
+                raise NtiError("%s, Vendor PN, phymod reports:%s ethtool:%s" %
+                               (iface, phy[1].strip('\"'), ethtool['Vendor PN']))
+            if str(ethtool['Vendor SN']) != phy[2].strip('\"'):
+                raise NtiError("%s, Vendor SN, phymod reports:%s ethtool:%s" %
+                               (iface, phy[2], ethtool['Vendor SN']))
+
+            for offset,length in (("01", 1), ("f9", 7)):
+                _, out = self.dut.cmd("ethtool -m %s hex on offset 0x%s length %d | grep 0x00%s" %
+                                      (iface, offset, length, offset))
+                if length != len(out.split(' ')) - 1:
+                    raise NtiError("%s, expected %d values, found '%s'" %
+                                   (iface, length, out))
 
 class MtuFlbufCheck(CommonTest):
     def get_vnic_reg(self, offset):
