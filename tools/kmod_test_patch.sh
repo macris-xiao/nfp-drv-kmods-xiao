@@ -121,7 +121,6 @@ function local_notify() {
 #################################################################################
 
 call_dir=`pwd`
-IGNORE_CP=0
 IGNORE_XT=0
 NET_HEAD="origin/master"
 NET_NEXT_HEAD="origin/master"
@@ -213,10 +212,10 @@ function check_warn_cnt() {
 function usage() {
     echo -e "Usage: $0 [-h] [-I] [-b <workdir>] [-c <n>] [-s <n>] <patch> [<patch>...]"
     echo -e "\t-b <n>  build directory to use instead of default one"
-    echo -e "\t-S <n>  skip testing of first <n> patchs; this is useful if you already"
+    echo -e "\t-S <n>  skip testing of first <n> patches; this is useful if you already"
     echo -e "\t        checked those patches in previous run"
-    echo -e "\t-I      keep going even if checkpatch reports problems (setting this"
-    echo -e "\t        flag will also make checkpatch output go to checkpatch.log)."
+    echo -e "\t-I <n>  warn only on checkpatch for first <n> patches; checkpatch will"
+    echo -e "\t        not error out for first <n> patches; output sent to checkpatch.log"
     echo -e "\t-X      keep going even if xmastree reports problems (setting this"
     echo -e "\t        flag will also make xmastree output go to xmastree.log)."
     echo -e "\t-c <n>  set number of incumbent cocci warnings to <n> for this run"
@@ -254,6 +253,7 @@ trap fail_and_clean EXIT
 #
 
 skip_check_cnt=0
+warn_cp_cnt=0
 
 # Parse options
 prev_p_cnt=$#
@@ -264,7 +264,7 @@ while [ $prev_p_cnt != $# ]; do
     [ "$1" == "-h" ] && usage
     [ "$1" == "-v" ] && SILENT="" && shift
     [ "$1" == "-b" ] && shift && BUILD_ROOT=$1 && shift
-    [ "$1" == "-I" ] && shift && IGNORE_CP=1
+    [ "$1" == "-I" ] && shift && warn_cp_cnt=$1 && shift
     [ "$1" == "-X" ] && shift && IGNORE_XT=1
     [ "$1" == "-S" ] && shift && skip_check_cnt=$1 && shift
     [ "$1" == "-c" ] && shift && INCUMBENT_COCCI_WARNINGS=$1   _I=1 && shift
@@ -290,6 +290,8 @@ exec 3<>$BUILD_ROOT/build.log
 ! [ -f $BUILD_ROOT/version ] && bold_red "Version file not found, assuming OK" && echo -n $BUILD_ENV_VERSION > $BUILD_ROOT/version
 
 [ $(cat $BUILD_ROOT/version) != $BUILD_ENV_VERSION ] && bold_red "Your build directory was created with an old version of the script, you have to recreate it or fix it manually" && exit
+
+! `echo $warn_cp_cnt | grep -Eq '^[0-9]+$'` && bold "Non-numeric warn on checkpatch argument" && usage
 
 (
     cd $BUILD_ROOT
@@ -446,7 +448,7 @@ exec 3<>$BUILD_ROOT/build.log
 	    #
 	    # Run checkpatch
 	    #
-	    if [ $IGNORE_CP -eq 1 ]; then
+	    if [ "$warn_cp_cnt" != "0" ]; then
 		../net-next.git/scripts/checkpatch.pl --strict $real_path 2>&1 | tee -a ../checkpatch.log
 	    else
 		../net-next.git/scripts/checkpatch.pl --strict $real_path
@@ -574,6 +576,7 @@ exec 3<>$BUILD_ROOT/build.log
 	)
 
 	((skip_check_cnt)) && ((skip_check_cnt--))
+	((warn_cp_cnt)) && ((warn_cp_cnt--))
 
 	bold "All test passed for $1"
 	echo
