@@ -37,7 +37,8 @@ nfp_nfdk_tx_ring_reset(struct nfp_net_dp *dp, struct nfp_net_tx_ring *tx_ring)
 		/* Unmap head */
 		size = skb_headlen(skb);
 		dma_unmap_single(dev, txbuf->dma_addr, size, DMA_TO_DEVICE);
-		n_descs += DIV_ROUND_UP(size, NFDK_TX_MAX_DATA_PER_DESC);
+		n_descs += nfp_nfdk_headlen_to_segs(size);
+		txbuf++;
 
 		frag = skb_shinfo(skb)->frags;
 		fend = frag + nr_frags;
@@ -49,6 +50,9 @@ nfp_nfdk_tx_ring_reset(struct nfp_net_dp *dp, struct nfp_net_tx_ring *tx_ring)
 						NFDK_TX_MAX_DATA_PER_DESC);
 			txbuf++;
 		}
+
+		if (skb_is_gso(skb))
+			n_descs++;
 
 		dev_kfree_skb_any(skb);
 next:

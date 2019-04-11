@@ -110,15 +110,6 @@ nfp_nfdk_tx_csum(struct nfp_net_dp *dp, struct nfp_net_r_vector *r_vec,
 	return flags;
 }
 
-static int nfp_nfdk_headlen_to_segs(unsigned int headlen)
-{
-	/* First descriptor fits less data, so adjust for that */
-	return DIV_ROUND_UP(headlen +
-			    NFDK_TX_MAX_DATA_PER_DESC -
-			    NFDK_TX_MAX_DATA_PER_HEAD,
-			    NFDK_TX_MAX_DATA_PER_DESC);
-}
-
 static int
 nfp_nfdk_tx_maybe_close_block(struct nfp_net_tx_ring *tx_ring,
 			      unsigned int nr_frags, struct sk_buff *skb)

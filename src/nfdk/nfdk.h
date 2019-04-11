@@ -91,6 +91,15 @@ struct nfp_nfdk_tx_buf {
 	};
 };
 
+static inline int nfp_nfdk_headlen_to_segs(unsigned int headlen)
+{
+	/* First descriptor fits less data, so adjust for that */
+	return DIV_ROUND_UP(headlen +
+			    NFDK_TX_MAX_DATA_PER_DESC -
+			    NFDK_TX_MAX_DATA_PER_HEAD,
+			    NFDK_TX_MAX_DATA_PER_DESC);
+}
+
 int nfp_nfdk_poll(struct napi_struct *napi, int budget);
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
 void nfp_nfdk_ctrl_poll(struct tasklet_struct *t);
