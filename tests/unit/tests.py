@@ -636,6 +636,9 @@ class SriovNDOs(CommonNetdevTest):
             self.test_sriov_ndo(ifc, num_vfs, vf_idx, 'state',
                                 random.choice(['auto', 'enable', 'disable']),
                                 'link-state (\w+)', report, ~caps & 8 or is_vf)
+            self.test_sriov_ndo(ifc, num_vfs, vf_idx, 'trust',
+                                random.choice(['off', 'on']),
+                                'trust (\w+)', report, ~caps & 0x10 or is_vf)
 
             bad_cmds = (
                 ("mac ff:00:00:00:00:01", "Broadcast MAC accepted"),
@@ -661,6 +664,7 @@ class SriovNDOs(CommonNetdevTest):
         sriov_caps = (
             { "name" : "flow", "caps" : 0x0b, "reprs" : True },
             { "name" : "cNIC", "caps" : 0x0f, "reprs" : False },
+            { "name" : "sriov", "caps" : 0x1f, "reprs" : False },
         )
 
         info = self.dut.ethtool_drvinfo(self.nfp_netdevs[0])
