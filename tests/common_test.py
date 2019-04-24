@@ -270,6 +270,13 @@ class CommonTest(Test):
             return NrtResult(name=self.name, testtype=self.__class__.__name__,
                              passed=None, comment=comment)
 
+    def tool_required(self, bin, description):
+        ret, _ = self.dut.cmd("which %s" % bin, fail=False)
+        if ret != 0:
+            comment = "Requires %s" % description
+            return NrtResult(name=self.name, testtype=self.__class__.__name__,
+                             passed=None, comment=comment)
+
     def nsp_flash_min(self, exp_ver):
         nsp_flash_ver = self.dut.get_nsp_flash_ver()
         if nsp_flash_ver < exp_ver:
