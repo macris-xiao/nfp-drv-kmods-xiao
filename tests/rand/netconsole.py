@@ -37,25 +37,10 @@ class NetconsoleRandTest(NetconsoleTest):
         self.kill_pidfile(self.dut, self.netcons_noise_pid)
 
     def spawn_netperfs(self, port=0):
-        name = 'netperf_' + self._netconsname + '.pid'
-
-        cmd = ''' # spawn_netperfs
-        echo > {pidfile};
-        for i in `seq {n}`; do
-            netperf -H {host} -l 0 -t TCP_STREAM -- -m 400 -M 400 \
-                >/dev/null 2>/dev/null & command;
-            echo $! >> {pidfile}
-            sleep 0.1 # otherwise some fail to connect and kill barfs
-        done
-        '''
-
-        self.dut_netperf = os.path.join(self.dut.tmpdir, name)
-        self.dut.cmd(cmd.format(n=16, host=self.group.addr_a[port][:-3],
-                                pidfile=self.dut_netperf))
-
-        self.src_netperf = os.path.join(self.src.tmpdir, name)
-        self.src.cmd(cmd.format(n=16, host=self.group.addr_x[port][:-3],
-                                pidfile=self.src_netperf))
+        self.dut_netperf = self.dut.spawn_netperfs(self.group.addr_a[port][:-3],
+                                                   self._netconsname)
+        self.src_netperf = self.src.spawn_netperfs(self.group.addr_x[port][:-3],
+                                                   self._netconsname)
 
     def stop_netperfs(self):
         if self.dut_netperf:

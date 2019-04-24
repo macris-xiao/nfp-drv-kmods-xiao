@@ -188,6 +188,23 @@ class LinuxSystem(System):
             raise NtiGeneralError("Could TCP ping endpoint")
         return ret
 
+    def spawn_netperfs(self, host, tag="nti"):
+        name = 'netperf_' + tag + '.pid'
+
+        cmd = ''' # spawn_netperfs
+        echo > {pidfile};
+        for i in `seq {n}`; do
+            netperf -H {host} -l 0 -t TCP_STREAM -- -m 400 -M 400 \
+                >/dev/null 2>/dev/null & command;
+            echo $! >> {pidfile}
+            sleep 0.1 # otherwise some fail to connect and kill barfs
+        done
+        '''
+
+        pidfile = os.path.join(self.tmpdir, name)
+        self.cmd(cmd.format(n=16, host=host, pidfile=pidfile))
+        return pidfile
+
     ###############################
     # ip
     ###############################
