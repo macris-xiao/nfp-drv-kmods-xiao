@@ -31,6 +31,7 @@ class NFPKmodReboot(NFPKmodGrp):
         src = (self.host_a, self.addr_a, self.eth_a, self.addr_v6_a)
 
         T = (('flash_arm', FlashArm, "Flash arm via ethtool and reboot host"),
+             ('kexec_traffic', KexecWithTraffic, "Run kexec with traffic flowing"),
         )
 
         for t in T:
@@ -122,3 +123,44 @@ class FlashArm(CommonNetdevTest):
                               fw[0])
 
             self.flash_test(fw_path, fw[0], fw[1], fw[2])
+
+class KexecWithTraffic(CommonNetdevTest):
+    def prepare(self):
+        return self.tool_required("kexec", "kexec-tools")
+
+    def netdev_execute(self):
+        self.dut.cmd('''kexec -l /boot/vmlinuz-$(uname -r) \
+            --initrd=/boot/initrd.img-$(uname -r) --reuse-cmdline''')
+
+        if not self.group.upstream_drv:
+            uptime = self.dut.get_nsp_uptime()
+
+        # Ensure connectivity
+        self.ping(0)
+
+        # Flood with traffic while executing kexec
+        pidfile = self.src.spawn_netperfs(self.group.addr_x[0][:-3])
+        time.sleep(5)
+        self.dut.cmd("kexec -xe >/dev/null 2>/dev/null & command", fail=False)
+
+        time.sleep(5)
+        self.ping(0, should_fail=True)
+
+        # Many of the netperf's may have died already
+        self.kill_pidfile(self.src, pidfile, max_fail=16)
+
+        self.dut.wait_online()
+        self.reinit_test()
+
+        # If we have CPP access, we can check the state of the NFP to determine
+        # if this was a full reboot or only a kexec
+        if not self.group.upstream_drv:
+            self.dut.insmod(netdev=False, userspace=True)
+            if self.dut.get_nsp_uptime() < uptime:
+                raise NtiError("NFP state has been reset, failed kexec")
+            self.dut.rmmod()
+
+        self.netdev_prep()
+
+        # Check we can still pass traffic after kexec
+        self.ping(0)
