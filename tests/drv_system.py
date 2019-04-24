@@ -703,6 +703,10 @@ class DrvSystem(LinuxSystem):
 
         return int(speed.groups()[0]) * 1000
 
+    def get_nsp_uptime(self):
+        _, out = self.cmd_nsptask("")
+        return int(out.split()[1])
+
     def bsp_cmd(self, cmd, params, fail):
         full_cmd  = os.path.join(self.grp.bsppath, 'bin', 'nfp-') + cmd
         full_cmd += ' -Z %s ' % (self.grp.pci_dbdf)
@@ -739,6 +743,9 @@ class DrvSystem(LinuxSystem):
 
     def cmd_nsp(self, cmd, fail=True):
         return self.bsp_cmd('nsp', cmd, fail=fail)
+
+    def cmd_nsptask(self, cmd, fail=True):
+        return self.bsp_cmd('nsptask', cmd, fail=fail)
 
     def cmd_media(self, cmd='', fail=True):
         return self.bsp_cmd('media', cmd, fail=fail)
