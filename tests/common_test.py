@@ -259,6 +259,10 @@ class CommonTest(Test):
     def log_stat_diff(self, diff):
         self.log("Interface stats difference", diff)
 
+    def reinit_test(self):
+        self.dut.__init__(self.dut.host, self.dut.grp)
+        self.group._init()
+
     def kernel_min(self, major, minor):
         if not self.dut.kernel_ver_ge(major, minor):
             comment = "Kernel version %s < %d.%d" % \
@@ -777,16 +781,8 @@ class CommonNetdevTest(CommonTest):
         # Give it time to go down
         time.sleep(10)
 
-        ret = -1
-        stop_time = time.time() + 400
-        while ret != 0:
-            ret, _ = self.dut.cmd('ip link', fail=False)
-            if time.time() >= stop_time:
-                raise NtiError('Waiting for reboot timed out')
-            time.sleep(1)
-
-        self.dut.__init__(self.dut.host, self.dut.grp)
-        self.group._init()
+        self.dut.wait_online()
+        self.reinit_test()
         self.netdev_prep(fwname=fwname)
 
     def reload_driver(self, fwname=None):

@@ -65,6 +65,15 @@ class LinuxSystem(System):
             self.cmd(cmds, fail=False)
         self._bck_pids = []
 
+    def wait_online(self):
+        ret = -1
+        stop_time = time.time() + 400
+        while ret != 0:
+            ret, _ = self.cmd('ip link', fail=False)
+            if time.time() >= stop_time:
+                raise NtiError('Waiting for reboot timed out')
+            time.sleep(1)
+
     ###############################
     # Version checks
     ###############################
