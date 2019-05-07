@@ -85,6 +85,7 @@ class NFPKmodFlower(NFPKmodAppGrp):
              ('flower_vlan_repr', FlowerVlanRepr, "Checks that unsupported vxlan rules are not offloaded"),
              ('flower_repr_linkstate', FlowerReprLinkstate, "Checks that repr link state is handled correctly"),
              ('flower_bond_egress', FlowerActionBondEgress, "Checks egressing to a linux bond"),
+             ('flower_ingress_rate_limit', FlowerActionIngressRateLimit, "Checks ingress rate limiting capabilities"),
              ('flower_max_entries', FlowerMaxEntries, "Checks that maximum entries can be installed"),
         )
 
@@ -167,11 +168,17 @@ class FlowerBase(CommonTest):
         M.cmd('tc qdisc add dev %s handle ffff: ingress' % iface)
         M.refresh()
 
-    def check_prereq(self, check, description):
-        M = self.dut
-        res, _ = M.cmd(check, fail=False)
+    def check_prereq(self, check, description, on_src=False):
+        if on_src:
+            res, _ = self.src.cmd(check, fail=False)
+        else:
+            res, _ = self.dut.cmd(check, fail=False)
+
         if res == 1:
-            raise NtiSkip('DUT does not support feature: %s' % description)
+            if on_src:
+                raise NtiSkip('SRC does not support feature: %s' % description)
+            else:
+                raise NtiSkip('DUT does not support feature: %s' % description)
 
     def install_filter(self, iface, match, action, in_hw=True):
         M = self.dut
@@ -3399,3 +3406,134 @@ class FlowerActionBondEgress(FlowerBase):
         self.dut.cmd('modprobe -r team_mode_loadbalance || :', fail=False)
         self.dut.cmd('modprobe -r team || :', fail=False)
         return super(FlowerActionBondEgress, self).cleanup()
+
+class FlowerActionIngressRateLimit(FlowerBase):
+    def execute(self):
+        self.check_prereq("netserver -h 2>&1 | grep Usage:",
+                          'netserver missing', on_src=True)
+        self.check_prereq("netperf -h 2>&1 | grep Usage:", 'netperf missing')
+
+        netperf_ip_1 = '20.0.0.10'
+        netperf_ip_2 = '20.0.0.20'
+        vf1, self.vf_repr1 = self.spawn_vf_netdev()
+        vf2, self.vf_repr2 = self.spawn_vf_netdev()
+
+        iface = self.dut_ifn[0]
+        if not iface[:-1].endswith('np') or not iface.startswith('en'):
+            raise NtiSkip('Cannot determine PF interface name')
+
+        pf_ifname = iface[:-3]
+        self.dut.cmd('ip link set dev %s up' % (pf_ifname), fail=False)
+
+        self.dut.cmd('ip link set dev %s up' % self.vf_repr1)
+        self.dut.cmd('tc qdisc del dev %s handle ffff: ingress' % self.vf_repr1, fail=False)
+        self.dut.cmd('tc qdisc add dev %s handle ffff: ingress' % self.vf_repr1)
+
+        self.dut.cmd('ip link set dev %s up' % self.vf_repr2)
+        self.dut.cmd('tc qdisc del dev %s handle ffff: ingress' % self.vf_repr2, fail=False)
+        self.dut.cmd('tc qdisc add dev %s handle ffff: ingress' % self.vf_repr2)
+
+        # Configure rate limiter 1 - 1 mbps
+        match = 'all prio 1 matchall'
+        action = 'police rate 1000000 burst 275000 conform-exceed drop/continue'
+        self.install_filter(self.vf_repr1, match, action)
+
+        # Configure rate limiter 2 - 10 mbps
+        match = 'all prio 1 matchall'
+        action = 'police rate 10000000 burst 2200000 conform-exceed drop/continue'
+        self.install_filter(self.vf_repr2, match, action)
+
+        # Configure Output Action
+        match = 'ip prio 2 flower'
+        action = 'mirred egress redirect dev %s' % self.vf_repr2
+        self.install_filter(self.vf_repr1, match, action)
+
+        match = 'ip prio 2 flower'
+        action = 'mirred egress redirect dev %s' % self.vf_repr1
+        self.install_filter(self.vf_repr2, match, action)
+
+        match = 'all prio 3 flower'
+        action = 'mirred egress redirect dev %s' % self.vf_repr2
+        self.install_filter(self.vf_repr1, match, action, False)
+
+        match = 'all prio 3 flower'
+        action = 'mirred egress redirect dev %s' % self.vf_repr1
+        self.install_filter(self.vf_repr2, match, action, False)
+
+        # Create namespaces
+        self.dut.cmd('ip netns add ns1')
+        self.dut.cmd('ip link set %s netns ns1' % vf1)
+        self.dut.cmd('ip netns add ns2')
+        self.dut.cmd('ip link set %s netns ns2' % vf2)
+
+        # Prepare namespace for netperf
+        self.dut.cmd('ip netns exec ns1 ip addr add %s/24 dev %s' % (netperf_ip_1, vf1))
+        self.dut.cmd('ip netns exec ns1 ip link set dev %s up' % vf1)
+        self.dut.cmd('ip netns exec ns2 ip addr add %s/24 dev %s' % (netperf_ip_2, vf2))
+        self.dut.cmd('ip netns exec ns2 ip link set dev %s up' % vf2)
+
+        # Start netperf - 1 mbps
+        self.dut.cmd('ip netns exec ns2 netserver')
+        ret, out = self.dut.cmd('ip netns exec ns1 netperf -H %s -l 60' % netperf_ip_2)
+        rate_line = out.split('\n')[-2].strip()
+        rate = float(rate_line.split()[-1])
+        if rate > 1.15:
+            raise NtiError("Rate equals more than 15%% the expected rate: %.2f" % rate)
+        elif rate < 0.85:
+            raise NtiError("Rate equals less than 15%% the expected rate: %.2f" % rate)
+
+        # Check stats - vf1 - 1 mbps
+        stats = self.dut.netifs[self.vf_repr1].stats(get_tc_ing=True)
+        ret, out = self.dut.cmd('ip netns exec ns1 cat /proc/net/dev | grep %s' % vf1)
+        # Packet stats
+        matchall_pkt_stats = stats.tc_ing['tc_1_pkts']
+        actual_sent_pkt = float(out.split()[10])
+        point_1_stats = actual_sent_pkt * 0.01
+        abs_diff_stats = abs(matchall_pkt_stats - actual_sent_pkt)
+        if abs_diff_stats > point_1_stats:
+            raise NtiError("Packet stats differ by more than 1%%: %.2f" % abs_diff_stats)
+        # Bytes stats
+        matchall_bytes_stats = stats.tc_ing['tc_1_bytes']
+        actual_sent_bytes = float(out.split()[9]) + (len(Ether()) * actual_sent_pkt)
+        point_1_stats = actual_sent_bytes * 0.01
+        abs_diff_stats = abs(matchall_bytes_stats - actual_sent_bytes)
+        if abs_diff_stats > point_1_stats:
+            raise NtiError("Byte stats differ by more than 1%%: %.2f" % abs_diff_stats)
+
+        # Start netperf - 10 mbps
+        self.dut.cmd('ip netns exec ns1 netserver')
+        ret, out = self.dut.cmd('ip netns exec ns2 netperf -H %s -l 60' % netperf_ip_1)
+        rate_line = out.split('\n')[-2].strip()
+        rate = float(rate_line.split()[-1])
+        if rate > 11.5:
+            raise NtiError("Rate equals more than 15%% the expected rate: %.2f" % rate)
+        elif rate < 8.5:
+            raise NtiError("Rate equals less than 15%% the expected rate: %.2f" % rate)
+
+        # Check stats - vf2 - 10 mbps
+        stats = self.dut.netifs[self.vf_repr2].stats(get_tc_ing=True)
+        ret, out = self.dut.cmd('ip netns exec ns2 cat /proc/net/dev | grep %s' % vf2)
+        # Packet stats
+        matchall_pkt_stats = stats.tc_ing['tc_1_pkts']
+        actual_sent_pkt = float(out.split()[10])
+        point_1_stats = actual_sent_pkt * 0.01
+        abs_diff_stats = abs(-matchall_pkt_stats + actual_sent_pkt)
+        if abs_diff_stats > point_1_stats:
+            raise NtiError("Stats differ by more than 1%%: %.2f" % abs_diff_stats)
+        # Bytes stats
+        matchall_bytes_stats = stats.tc_ing['tc_1_bytes']
+        actual_sent_bytes = float(out.split()[9]) + (len(Ether()) * actual_sent_pkt)
+        point_1_stats = actual_sent_bytes * 0.01
+        abs_diff_stats = abs(matchall_bytes_stats - actual_sent_bytes)
+        if abs_diff_stats > point_1_stats:
+            raise NtiError("Byte stats differ by more than 1%%: %.2f" % abs_diff_stats)
+
+        self.cleanup_filter(self.vf_repr1)
+        self.cleanup_filter(self.vf_repr2)
+
+    def cleanup(self):
+        self.dut.cmd('ip netns del ns1', fail=False)
+        self.dut.cmd('ip netns del ns2', fail=False)
+        self.dut.cmd('echo 0 > /sys/bus/pci/devices/%s/sriov_numvfs' %
+                     self.group.pci_dbdf)
+        return super(FlowerActionIngressRateLimit, self).cleanup()

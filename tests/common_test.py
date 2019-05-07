@@ -709,11 +709,17 @@ class CommonTest(Test):
     def spawn_vf_netdev(self):
         # Enable VFs if supported
         max_vfs = self.read_scalar_nffw('nfd_vf_cfg_max_vfs')
+        ret, num = self.dut.cmd('cat /sys/bus/pci/devices/%s/sriov_numvfs' %
+                                self.group.pci_dbdf)
+        num_vfs = int(num) + 1
         if max_vfs > 0:
+            if num_vfs != 1:
+                self.dut.cmd('echo 0 > /sys/bus/pci/devices/%s/sriov_numvfs' %
+                             self.group.pci_dbdf)
             if not self.dut.kernel_ver_ge(4, 12):
                 self.dut.cmd('modprobe -r pci_stub')
             ret, _ = self.dut.cmd('echo %d > /sys/bus/pci/devices/%s/sriov_numvfs' %
-                                  (1, self.group.pci_dbdf))
+                                  (num_vfs, self.group.pci_dbdf))
 
         netifs_old = self.dut._netifs
         self.dut.cmd("udevadm settle")
