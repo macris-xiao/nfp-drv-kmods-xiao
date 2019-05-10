@@ -47,6 +47,7 @@ class LinuxSystem(System):
 
         self.group = group
         self._bck_pids = []
+        self.tmpdir = self.make_temp_dir()
 
     ###############################
     # Standard OS helpers
@@ -104,6 +105,19 @@ class LinuxSystem(System):
 
     def kernel_ver_lt(self, major, minor):
         return not self.kernel_ver_ge(major, minor)
+
+    ###############################
+    # Samples
+    ###############################
+    def copy_c_samples(self):
+        if hasattr(self, 'c_samples_dir'):
+            return
+
+        self.c_samples_dir = os.path.join(self.tmpdir, 'c')
+        self.cmd('mkdir %s' % self.c_samples_dir)
+        self.cp_to(os.path.join(self.group.samples_c, '*'), self.c_samples_dir)
+
+        return
 
     ###############################
     # Stats handling

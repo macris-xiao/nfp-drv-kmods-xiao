@@ -29,7 +29,6 @@ class DrvSystem(LinuxSystem):
         self.fw_name_serial = None
         self.netdevfw_dir = None
         self.grp = grp
-        self.tmpdir = self.make_temp_dir()
 
         # Find DebugFS
         self.dfs_dir = None
@@ -75,10 +74,7 @@ class DrvSystem(LinuxSystem):
         self.cp_to(os.path.join(self.grp.samples_xdp, '*.o'),
                    self.xdp_samples_dir)
 
-        self.c_samples_dir = os.path.join(self.tmpdir, 'c')
-        self.cmd('mkdir %s' % self.c_samples_dir)
-        self.cp_to(os.path.join(self.grp.samples_c, '*'),
-                   self.c_samples_dir)
+        self.copy_c_samples()
 
         return
 
