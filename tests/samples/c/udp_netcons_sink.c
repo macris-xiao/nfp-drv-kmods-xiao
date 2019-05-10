@@ -7,18 +7,16 @@
 #include <sys/stat.h>
 #include <netinet/in.h>
 #include <fcntl.h>
-#include <errno.h>
-#include <sched.h>
+
+#include "lib/samples.h"
 
 int main(int argc, const char **argv)
 {
-	struct sched_param sched_param = { .sched_priority = 50, };
 	struct sockaddr_in addr = {};
 	socklen_t addrlen = sizeof(addr);
 	int sock, ofile;
+	int opt, n, err;
 	char buf[1024];
-	int opt;
-	int n;
 
 	if (argc != 3) {
 		fprintf(stderr, "Usage: %s <port> <outfile>\n", argv[0]);
@@ -28,16 +26,19 @@ int main(int argc, const char **argv)
 	close(1);
 	close(0);
 
-	assert(!sched_setscheduler(0, SCHED_FIFO, &sched_param));
+	err = ls_sched_set_rt();
+	if (err)
+		return err;
 
 	sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	assert(sock >= 0);
 	ofile = open(argv[2], O_CREAT | O_TRUNC | O_WRONLY, 0666);
 	assert(ofile >= 0);
 
-	opt = 1;
-	assert(!setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)));
-	assert(!setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt)));
+	err = ls_socket_set_reuse_opts(sock);
+	if (err)
+		return err;
+
 	opt = 16777216;
 	assert(!setsockopt(sock, SOL_SOCKET, SO_RCVBUF, &opt, sizeof(opt)));
 
