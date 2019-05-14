@@ -8,6 +8,7 @@ from unit import NFPKmodUnit
 from ebpf import NFPKmodBPF, NFPKmodXDPdrv
 from ebpf_perf import NFPKmodBPFPerf, NFPKmodBPFPerfdrv
 from abm import NFPKmodBnic
+from ktls import NFPKmodKTLS
 from netdev import NFPKmodNetdev
 from rand import NFPKmodRand, NFPKmodRandErr
 from reload import NFPKmodReload
@@ -29,6 +30,7 @@ class Project(netro.testinfra.Project):
                 "ebpf_perf" :  NFPKmodBPFPerf,
                 "ebpf_perf_drv" :  NFPKmodBPFPerfdrv,
                 "abm" :     NFPKmodBnic,
+                "ktls" :  NFPKmodKTLS,
                 "rand" :  NFPKmodRand,
                 "rand_err" : NFPKmodRandErr,
                 "reload" :   NFPKmodReload,

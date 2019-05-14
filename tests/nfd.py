@@ -12,6 +12,7 @@ class NfdBarOff:
     RX_OFFSET		= 0x50
     TLV_BASE		= 0x58
     BPF_STACK_SZ	= 0x88
+    NFD_BAR_OFF_MAX	= 4096
 
 class NfdCtrl:
     ENABLE		= (0x1 <<  0)
@@ -48,3 +49,8 @@ class NfdTlvCap:
     UNKNOWN	= 0
     END		= 2
     REPR_CAP	= 7
+    CRYPTO	= 11
+
+class NfdCryptoCap:
+    TLS12_TX	= 0
+    TLS12_RX	= 1

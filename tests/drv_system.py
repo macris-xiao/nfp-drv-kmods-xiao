@@ -495,7 +495,7 @@ class DrvSystem(LinuxSystem):
             return res
 
     def nfd_get_vnic_cap(self, ifc, cap):
-        regs = self.nfd_reg_read_le32(ifc, 0, 4096)
+        regs = self.nfd_reg_read_le32(ifc, 0, NfdBarOff.NFD_BAR_OFF_MAX)
 
         LOG('regs %d %r' % (len(regs), regs))
 

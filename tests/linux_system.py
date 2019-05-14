@@ -115,7 +115,8 @@ class LinuxSystem(System):
 
         self.c_samples_dir = os.path.join(self.tmpdir, 'c')
         self.cmd('mkdir %s' % self.c_samples_dir)
-        self.cp_to(os.path.join(self.group.samples_c, '*'), self.c_samples_dir)
+        self.cp_dir_to(os.path.join(self.group.samples_c, '*'),
+                       self.c_samples_dir)
 
         return
 
