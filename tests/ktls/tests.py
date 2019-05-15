@@ -11,6 +11,7 @@ from netro.testinfra import LOG_sec, LOG, LOG_endsec
 from ..drv_grp import NFPKmodAppGrp
 from ..nfd import NfdTlvCap
 
+from .conn_stress import KTLSConnStress
 from .ethtool_enable import KTLSEthtoolCaps, KTLSEthtoolEnable
 
 class NFPKmodKTLS(NFPKmodAppGrp):
@@ -62,6 +63,8 @@ class NFPKmodKTLS(NFPKmodAppGrp):
         tests = (
             ('ktls_ethtool_caps', KTLSEthtoolCaps, 'basic kTLS ethtool caps'),
             ('ktls_ethtool_ena', KTLSEthtoolEnable, 'kTLS ethtool enable'),
+            ('ktls_conn_stress', KTLSConnStress,
+             'kTLS connection stress - opening and closing lots of connections'),
         )
 
         for t in tests:
