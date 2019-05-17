@@ -97,10 +97,13 @@ class KTLSTestBase(CommonTest):
 
         return pidfile, port
 
-    def spawn_ktls_sink(self, host, port=None, readsz=4000, tag="nti"):
+    def spawn_ktls_sink(self, host, port=None, readsz=4000, v6=False,
+                        tag="nti"):
         if port is None:
             port = random.randint(1024, 65535)
         opts = "-p {port} -r {readsz}".format(port=port, readsz=readsz)
+        if v6:
+            opts += " -6"
 
         pidfile = self._spawn_sample_simple(host, "ktls_sink", tag, opts)
 
@@ -133,3 +136,23 @@ class KTLSTestBase(CommonTest):
             opts += " -6"
 
         return self._spawn_sample_simple(host, "ktls_source", tag, opts)
+
+    def run_ktls_source(self, host, server, port, length, writesz=4000, n=1,
+                        v6=False):
+        prog = "ktls_source"
+        opts = "-s {server} -p {port} -l {length} -w {writesz}"
+        opts = opts.format(server=server, port=port, length=length,
+                           writesz=writesz)
+        if v6:
+            opts += " -6"
+
+        cmd = ''' # run_{prog}
+        for i in `seq {n}`; do
+                {samples_dir}/{prog} {opts} & command;
+                sleep 0.1 # otherwise some fail to connect and kill barfs
+        done
+        wait # waitall
+        '''
+
+        return host.cmd(cmd.format(samples_dir=host.c_samples_dir, n=n,
+                                   prog=prog, opts=opts), include_stderr=True)

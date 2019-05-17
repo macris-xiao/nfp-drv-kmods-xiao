@@ -12,7 +12,10 @@ from ..drv_grp import NFPKmodAppGrp
 from ..nfd import NfdTlvCap
 
 from .conn_stress import KTLSConnStress
+from .drops import KTLSDropsThroughput
 from .ethtool_enable import KTLSEthtoolCaps, KTLSEthtoolEnable
+from .high_throughput import KTLSHighThroughput
+from .mixed_throughput import KTLSMixedThroughput
 
 class NFPKmodKTLS(NFPKmodAppGrp):
     """kTLS NIC tests for the NFP Linux drivers"""
@@ -65,6 +68,12 @@ class NFPKmodKTLS(NFPKmodAppGrp):
             ('ktls_ethtool_ena', KTLSEthtoolEnable, 'kTLS ethtool enable'),
             ('ktls_conn_stress', KTLSConnStress,
              'kTLS connection stress - opening and closing lots of connections'),
+            ('ktls_traffic_bw', KTLSHighThroughput,
+             'kTLS connection bandwidth'),
+            ('ktls_traffic_drops', KTLSDropsThroughput,
+             'kTLS connection bandwidth with drops'),
+            ('ktls_traffic_mixed', KTLSMixedThroughput,
+             'kTLS connection bandwidth with other TCP traffic'),
         )
 
         for t in tests:
