@@ -1,7 +1,7 @@
 # test nfp_bpf_opt_ld_shift pass
 
-#include <linux/pkt_cls.h>
-#define DROP	TC_ACT_SHOT
+#define TC_ACT_SHOT	2
+#define DROP		TC_ACT_SHOT
 
 	.text
 	.section	classifier,"ax",@progbits
