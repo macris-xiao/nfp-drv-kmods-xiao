@@ -14,6 +14,8 @@ from ..nfd import NfdTlvCap
 from .conn_stress import KTLSConnStress
 from .drops import KTLSDropsThroughput
 from .ethtool_enable import KTLSEthtoolCaps, KTLSEthtoolEnable
+from .feature_interact import KTLSFeatRxCsum, KTLSFeatTxCsum, KTLSFeatTso, \
+    KTLSFeatGro, KTLSFeatGso
 from .high_throughput import KTLSHighThroughput
 from .mixed_throughput import KTLSMixedThroughput
 
@@ -68,6 +70,11 @@ class NFPKmodKTLS(NFPKmodAppGrp):
             ('ktls_ethtool_ena', KTLSEthtoolEnable, 'kTLS ethtool enable'),
             ('ktls_conn_stress', KTLSConnStress,
              'kTLS connection stress - opening and closing lots of connections'),
+            ('ktls_rxcsum', KTLSFeatRxCsum, 'interaction with RX csum offload'),
+            ('ktls_txcsum', KTLSFeatTxCsum, 'interaction with TX csum offload'),
+            ('ktls_gro', KTLSFeatGro, 'interaction with GRO'),
+            ('ktls_gso', KTLSFeatGso, 'interaction with GSO'),
+            ('ktls_tso', KTLSFeatTso, 'interaction with TSO'),
             ('ktls_traffic_bw', KTLSHighThroughput,
              'kTLS connection bandwidth'),
             ('ktls_traffic_drops', KTLSDropsThroughput,

@@ -138,7 +138,7 @@ class KTLSTestBase(CommonTest):
         return self._spawn_sample_simple(host, "ktls_source", tag, opts)
 
     def run_ktls_source(self, host, server, port, length, writesz=4000, n=1,
-                        v6=False):
+                        v6=False, timeout=None):
         prog = "ktls_source"
         opts = "-s {server} -p {port} -l {length} -w {writesz}"
         opts = opts.format(server=server, port=port, length=length,
@@ -146,13 +146,22 @@ class KTLSTestBase(CommonTest):
         if v6:
             opts += " -6"
 
-        cmd = ''' # run_{prog}
-        for i in `seq {n}`; do
-                {samples_dir}/{prog} {opts} & command;
-                sleep 0.1 # otherwise some fail to connect and kill barfs
-        done
-        wait # waitall
-        '''
+        pfx = ""
+        if timeout is not None:
+            pfx = "timeout %d" % timeout
 
-        return host.cmd(cmd.format(samples_dir=host.c_samples_dir, n=n,
+        if n == 1:
+            cmd = ''' # run_{prog} {n}
+            {pfx} {samples_dir}/{prog} {opts}
+            '''
+        else:
+            cmd = ''' # run_{prog} {n}
+            for i in `seq {n}`; do
+                {pfx} {samples_dir}/{prog} {opts} & command;
+                sleep 0.1 # otherwise some fail to connect and kill barfs
+            done
+            wait # waitall
+            '''
+
+        return host.cmd(cmd.format(samples_dir=host.c_samples_dir, n=n, pfx=pfx,
                                    prog=prog, opts=opts), include_stderr=True)
