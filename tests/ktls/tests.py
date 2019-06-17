@@ -17,6 +17,7 @@ from .ethtool_enable import KTLSEthtoolCaps, KTLSEthtoolEnable
 from .feature_interact import KTLSFeatRxCsum, KTLSFeatTxCsum, KTLSFeatTso, \
     KTLSFeatGro, KTLSFeatGso
 from .high_throughput import KTLSHighThroughput
+from .mangler import KTLSMangler
 from .mixed_throughput import KTLSMixedThroughput
 
 class NFPKmodKTLS(NFPKmodAppGrp):
@@ -81,6 +82,8 @@ class NFPKmodKTLS(NFPKmodAppGrp):
              'kTLS connection bandwidth with drops'),
             ('ktls_traffic_mixed', KTLSMixedThroughput,
              'kTLS connection bandwidth with other TCP traffic'),
+            ('ktls_mangle_pkts', KTLSMangler,
+             'kTLS connection with packet corruption'),
         )
 
         for t in tests:
