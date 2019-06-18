@@ -119,6 +119,28 @@ class LinuxSystem(System):
 
         return
 
+    def copy_bpf_samples(self):
+        if hasattr(self, 'bpf_samples_dir'):
+            return
+
+        self.bpf_samples_dir = os.path.join(self.tmpdir, 'bpf')
+        self.cmd('mkdir %s' % self.bpf_samples_dir)
+        self.cp_to(os.path.join(self.group.samples_bpf, '*.o'),
+                   self.bpf_samples_dir)
+
+        return
+
+    def copy_xdp_samples(self):
+        if hasattr(self, 'xdp_samples_dir'):
+            return
+
+        self.xdp_samples_dir = os.path.join(self.tmpdir, 'xdp')
+        self.cmd('mkdir %s' % self.xdp_samples_dir)
+        self.cp_to(os.path.join(self.group.samples_xdp, '*.o'),
+                   self.xdp_samples_dir)
+
+        return
+
     ###############################
     # Stats handling
     ###############################

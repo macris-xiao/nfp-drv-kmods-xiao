@@ -656,7 +656,9 @@ class NFPKmodBPF(NFPKmodAppGrp):
     def _init(self):
         NFPKmodAppGrp._init(self)
 
+        self.dut.copy_c_samples()
         self.dut.copy_bpf_samples()
+        self.dut.copy_xdp_samples()
         self.parse_bpf_caps()
         return
 

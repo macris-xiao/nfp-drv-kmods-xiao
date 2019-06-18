@@ -60,24 +60,6 @@ class DrvSystem(LinuxSystem):
         self._mods = set()
         self._dirs = set()
 
-    def copy_bpf_samples(self):
-        if hasattr(self, 'bpf_samples_dir'):
-            return
-
-        self.bpf_samples_dir = os.path.join(self.tmpdir, 'bpf')
-        self.cmd('mkdir %s' % self.bpf_samples_dir)
-        self.cp_to(os.path.join(self.grp.samples_bpf, '*.o'),
-                   self.bpf_samples_dir)
-
-        self.xdp_samples_dir = os.path.join(self.tmpdir, 'xdp')
-        self.cmd('mkdir %s' % self.xdp_samples_dir)
-        self.cp_to(os.path.join(self.grp.samples_xdp, '*.o'),
-                   self.xdp_samples_dir)
-
-        self.copy_c_samples()
-
-        return
-
     def copy_bpf_perf_samples(self):
         if hasattr(self, 'xdp_perf_dir'):
             return

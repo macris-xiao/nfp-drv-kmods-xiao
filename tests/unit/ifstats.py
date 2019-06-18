@@ -63,7 +63,7 @@ class IFstats(CommonNetdevTest):
                          fail=False)
         has_xdp = not ret
         if has_xdp:
-            self.dut.copy_bpf_samples()
+            self.dut.copy_xdp_samples()
 
         drvinfo = self.dut.ethtool_drvinfo(self.vnics[0])
         is_core_nic_2_0 = bool(drvinfo["firmware-version"].count("nic-2.0.") or

@@ -283,7 +283,7 @@ class MtuFlbufCheck(CommonTest):
         if ret != 0:
             raise NtiSkip('XDP samples not found')
 
-        self.dut.copy_bpf_samples()
+        self.dut.copy_xdp_samples()
 
         self.dut.cmd('ethtool -L %s rx 0 tx 0 combined 1' % (self.dut.vnics[0]))
         self.xdp_start('pass.o')

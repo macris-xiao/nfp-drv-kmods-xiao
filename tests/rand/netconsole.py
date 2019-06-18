@@ -107,7 +107,8 @@ class NetconsoleRandTest(NetconsoleTest):
         self.netcons_prep()
 
         self.has_bpf_offload = self.read_scalar_nffw('_pf0_net_app_id') == 2
-        self.dut.copy_bpf_samples()
+        self.dut.copy_c_samples()
+        self.dut.copy_xdp_samples()
 
         self.src.cmd('netserver', fail=False)
         self.dut.cmd('netserver', fail=False)
