@@ -70,6 +70,7 @@ class NFPKmodFlower(NFPKmodAppGrp):
              ('flower_csum_whitelist', FlowerCsumWhitelist, "Checks that unsupported checksum rules are not offloaded"),
              ('flower_action_push_vlan', FlowerActionPushVLAN, "Checks basic flower push vlan action capabilities"),
              ('flower_action_pop_vlan', FlowerActionPopVLAN, "Checks basic flower pop vlan action capabilities"),
+             ('flower_action_encap_gre', FlowerActionGRE, "Checks basic flower gre encapsulation action capabilities"),
              ('flower_action_encap_vxlan', FlowerActionVXLAN, "Checks basic flower vxlan encapsulation action capabilities"),
              ('flower_action_encap_vxlan_merge', FlowerActionMergeVXLAN, "Checks basic flower vxlan encapsulation action when IP is on internal port (via merge)"),
              ('flower_action_encap_geneve', FlowerActionGENEVE, "Checks basic flower geneve encapsulation action capabilities"),
@@ -2074,6 +2075,51 @@ class FlowerActionPopVLAN(FlowerBase):
     def cleanup(self):
         self.cleanup_flower(self.dut_ifn[0])
         return super(FlowerActionPopVLAN, self).cleanup()
+
+class FlowerActionGRE(FlowerBase):
+    def execute(self):
+        iface, ingress = self.configure_flower()
+        M = self.dut
+        A = self.src
+
+        src_ip = self.src_addr[0].split('/')[0]
+        dut_ip = self.dut_addr[0].split('/')[0]
+
+        _, src_mac = A.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.src_ifn[0])
+        _, dut_mac = M.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.dut_ifn[0])
+
+        M.cmd('ip link add gre1 type gretap remote %s local %s dev %s external' % (src_ip, dut_ip, self.dut_ifn[0]))
+        M.cmd('ifconfig gre1 up')
+
+        M.cmd('arp -i %s -s %s %s' % (self.dut_ifn[0], src_ip, src_mac))
+
+        # Hit test - Encap GRE set tunnel ID
+        match = 'ip flower skip_sw ip_proto tcp'
+        if self.dut.kernel_ver_ge(4, 19):
+            action = 'tunnel_key set id 456 src_ip %s dst_ip %s tos 30 ttl 99 action mirred egress redirect dev gre1' % (dut_ip, src_ip)
+            self.install_filter(iface, match, action)
+        else:
+            action = 'tunnel_key set id 456 src_ip %s dst_ip %s action mirred egress redirect dev gre1' % (dut_ip, src_ip)
+            self.install_filter(iface, match, action)
+
+        pkt = Ether(src=self.group.hwaddr_x[0],dst=self.ipv4_mc_mac[0])/\
+              IP()/TCP()/Raw('\x00'*64)
+        exp_pkt = Ether(src=dut_mac,dst=src_mac)/\
+                  IP(src=dut_ip, dst=src_ip, ttl=99, tos=30,  proto=47, chksum=0x40eb, id=0)/\
+                  GRE(proto=0x6558, key_present=1, key=456)/str(pkt)
+        pkt_diff = len(Ether()) + len(IP()) + 8
+
+        sleep(2)
+        self.send_packs(iface, ingress, pkt, 1)
+        self.test_filter(iface, ingress, pkt, exp_pkt, 100)
+        self.cleanup_filter(iface)
+
+    def cleanup(self):
+        self.cleanup_flower(self.dut_ifn[0])
+        src_ip = self.src_addr[0].split('/')[0]
+        self.dut.cmd('arp -i %s -d %s' % (self.dut_ifn[0], src_ip), fail=False)
+        self.dut.cmd('ip link delete gre1', fail=False)
+        return super(FlowerActionGRE, self).cleanup()
 
 class FlowerActionVXLAN(FlowerBase):
     def execute(self):
