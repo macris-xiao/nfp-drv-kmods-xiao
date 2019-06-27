@@ -67,6 +67,7 @@ class NFPKmodFlower(NFPKmodAppGrp):
              ('flower_modify_mtu', FlowerModifyMTU, "Checks the setting of a mac repr MTU"),
              ('flower_match_whitelist', FlowerMatchWhitelist, "Checks basic flower match whitelisting"),
              ('flower_vxlan_whitelist', FlowerVxlanWhitelist, "Checks that unsupported vxlan rules are not offloaded"),
+             ('flower_gre_whitelist', FlowerGREWhitelist, "Checks that unsupported gre rules are not offloaded"),
              ('flower_csum_whitelist', FlowerCsumWhitelist, "Checks that unsupported checksum rules are not offloaded"),
              ('flower_action_push_vlan', FlowerActionPushVLAN, "Checks basic flower push vlan action capabilities"),
              ('flower_action_pop_vlan', FlowerActionPopVLAN, "Checks basic flower pop vlan action capabilities"),
@@ -1865,6 +1866,42 @@ class FlowerVxlanWhitelist(FlowerBase):
         self.dut.cmd('ip link delete vxlan1', fail=False)
         self.dut.cmd('ip link delete vxlan2', fail=False)
         return super(FlowerVxlanWhitelist, self).cleanup()
+
+class FlowerGREWhitelist(FlowerBase):
+    def execute(self):
+        iface, _ = self.configure_flower()
+        M = self.dut
+
+        src_ip = self.src_addr[0].split('/')[0]
+        dut_ip = self.dut_addr[0].split('/')[0]
+        src_ip6 = self.src_addr_v6[0].split('/')[0]
+        dut_ip6 = self.dut_addr_v6[0].split('/')[0]
+
+        M.cmd('ip link del dev gre1', fail=False)
+        M.cmd('ip link add gre1 type gretap remote %s local %s dev %s external' % (src_ip, dut_ip, self.dut_ifn[0]))
+        M.cmd('ifconfig gre1 up')
+
+        self.add_egress_qdisc('gre1')
+
+        # Check that gre with destination port = 4789 is installed in software only (not_in_hw)
+        match = 'ip flower enc_src_ip 10.0.0.2 enc_dst_ip 10.0.0.1 enc_dst_port 4789'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter('gre1', match, action, False)
+        self.cleanup_filter('gre1')
+
+        # Check that gre  encap  without an mirred in action list is installed in software only (not_in_hw)
+        match = 'ip flower ip_proto tcp'
+        if self.dut.kernel_ver_ge(4, 19):
+            action = 'tunnel_key set id 123 src_ip %s dst_ip %s tos 30 ttl 99' % (dut_ip, src_ip)
+            self.install_filter(iface, match, action, False)
+        else:
+            action = 'tunnel_key set id 123 src_ip %s dst_ip %s' % (dut_ip, src_ip)
+            self.install_filter(iface, match, action, False)
+
+    def cleanup(self):
+        self.cleanup_flower('gre1')
+        self.dut.cmd('ip link delete gre1', fail=False)
+        return super(FlowerGREWhitelist, self).cleanup()
 
 class FlowerCsumWhitelist(FlowerBase):
     def execute(self):
