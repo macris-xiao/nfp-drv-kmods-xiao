@@ -20,7 +20,7 @@ import re
 
 #pylint cannot find TCP, UDP, IP, IPv6, Dot1Q in scapy for some reason
 #pylint: disable=no-name-in-module
-from scapy.all import Raw, Ether, rdpcap, wrpcap, TCP, UDP, IP, IPv6, Dot1Q, fragment, fragment6, IPv6ExtHdrFragment
+from scapy.all import Raw, Ether, rdpcap, wrpcap, TCP, UDP, IP, IPv6, Dot1Q, fragment, fragment6, IPv6ExtHdrFragment, GRE
 #You need latest scapy to import from contrib
 from scapy.contrib.mpls import MPLS
 
@@ -57,6 +57,7 @@ class NFPKmodFlower(NFPKmodAppGrp):
              ('flower_match_tos', FlowerMatchTOS, "Checks basic flower tos match capabilities"),
              ('flower_match_frag_ipv4', FlowerMatchFragIPv4, "Checks basic flower fragmentation for IPv4 match capabilities"),
              ('flower_match_frag_ipv6', FlowerMatchFragIPv6, "Checks basic flower fragmentation for IPv6 match capabilities"),
+             ('flower_match_gre', FlowerMatchGRE, "Checks basic flower gre match capabilities"),
              ('flower_match_vxlan', FlowerMatchVXLAN, "Checks basic flower vxlan match capabilities"),
              ('flower_match_geneve', FlowerMatchGeneve, "Checks basic flower Geneve match capabilities"),
              ('flower_match_geneve_opt', FlowerMatchGeneveOpt, "Checks flower Geneve option match capabilities"),
@@ -728,6 +729,98 @@ class FlowerMatchUDP(FlowerBase):
     def cleanup(self):
         self.cleanup_flower(self.dut_ifn[0])
         return super(FlowerMatchUDP, self).cleanup()
+
+class FlowerMatchGRE(FlowerBase):
+    def execute(self):
+        iface, ingress = self.configure_flower()
+        M = self.dut
+        A = self.src
+
+        src_ip = self.src_addr[0].split('/')[0]
+        dut_ip = self.dut_addr[0].split('/')[0]
+
+        _, src_mac = A.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.src_ifn[0])
+        _, dut_mac = M.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.dut_ifn[0])
+
+        M.cmd('ip link del dev gre1', fail=False)
+        M.cmd('ip link add gre1 type gretap remote %s local %s dev %s external' % (src_ip, dut_ip, self.dut_ifn[0]))
+        M.cmd('ifconfig gre1 up')
+
+        self.add_egress_qdisc('gre1')
+
+        # Hit test - match all vxlan fields and decap
+        match = 'ip flower enc_src_ip %s enc_dst_ip %s enc_key_id 321' % (src_ip, dut_ip)
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter('gre1', match, action)
+
+        ## Packet based on genve fields
+        enc_pkt = Ether(src=self.group.hwaddr_x[0],dst=self.ipv4_mc_mac[0])/\
+                  IP()/TCP()/Raw('\x00'*64)
+        pkt = Ether(src=src_mac,dst=dut_mac)/\
+              IP(src=src_ip, dst=dut_ip, tos=30, ttl=99, proto=47)/\
+              GRE(proto=0x6558, key_present=1, key=321)/enc_pkt
+        pkt_diff = len(Ether()) + len(IP()) + 8
+        self.test_filter('gre1', ingress, pkt, enc_pkt, 100, -pkt_diff)
+
+        self.cleanup_filter('gre1')
+
+        # Miss test - incorrect enc ip src
+        match = 'ip flower enc_src_ip 1.1.1.1 enc_dst_ip %s enc_key_id 321' % (dut_ip)
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter('gre1', match, action)
+
+        self.test_filter('gre1', ingress, pkt, None, 0)
+
+        self.cleanup_filter('gre1')
+
+        # Miss test - incorrect enc ip dst
+        match = 'ip flower enc_src_ip %s enc_dst_ip 1.1.1.1 enc_key_id 321' % (src_ip)
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter('gre1', match, action)
+
+        self.test_filter('gre1', ingress, pkt, None, 0)
+
+        self.cleanup_filter('gre1')
+
+        # Miss test - incorrect tunnel key
+        match = 'ip flower enc_src_ip %s enc_dst_ip %s enc_key_id 322' % (src_ip, dut_ip)
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter('gre1', match, action)
+
+        self.test_filter('gre1', ingress, pkt, None, 0)
+
+        self.cleanup_filter('gre1')
+
+        # Tunnel ToS and TTL matching are added in kernel 4.19
+        if self.dut.kernel_ver_ge(4, 19):
+            # Match on correct tunnel ToS and TTL
+            match = 'ip flower enc_src_ip %s enc_dst_ip %s enc_tos 30 enc_ttl 99' % (src_ip, dut_ip)
+            action = 'mirred egress redirect dev %s' % iface
+            self.install_filter('gre1', match, action)
+
+            self.test_filter('gre1', ingress, pkt, enc_pkt, 100, -pkt_diff)
+            self.cleanup_filter('gre1')
+
+            # Miss test - incorrect ToS
+            match = 'ip flower enc_src_ip %s enc_dst_ip %s enc_tos 50 enc_ttl 99' % (src_ip, dut_ip)
+            action = 'mirred egress redirect dev %s' % iface
+            self.install_filter('gre1', match, action)
+
+            self.test_filter('gre1', ingress, pkt, None, 0)
+            self.cleanup_filter('gre1')
+
+            # Miss test - incorrect TTL
+            match = 'ip flower enc_src_ip %s enc_dst_ip %s enc_tos 30 enc_ttl 100' % (src_ip, dut_ip)
+            action = 'mirred egress redirect dev %s' % iface
+            self.install_filter('gre1', match, action)
+
+            self.test_filter('gre1', ingress, pkt, None, 0)
+            self.cleanup_filter('gre1')
+
+    def cleanup(self):
+        self.cleanup_flower('gre1')
+        self.dut.cmd('ip link del gre1', fail=False)
+        return super(FlowerMatchGRE, self).cleanup()
 
 class FlowerMatchVXLAN(FlowerBase):
     def execute(self):
