@@ -14,6 +14,7 @@ Welcome to nfp-drv-kmods's documentation!
    tests
    kmod_test_patch
    patchwork
+   nfp
 
 
 Indices and tables
