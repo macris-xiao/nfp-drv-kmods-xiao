@@ -158,11 +158,13 @@ command to convert them.
 Save the patch from patchwork
 -----------------------------
 
-If the patch was sent to nfp-drv-dev mailing list it will appear on
-`patchwork`_. Click the ``download patch`` link to get it.
+If the patch was sent to nfp-drv-dev mailing list it will be
+`listed on patchwork`_ (the update may take a couple of minutes). Click the
+``download patch`` link to get it, or use a command-line tool to apply it
+directly to your repository. See :ref:`patchwork` for more details.
 
-.. _patchwork:
-   http://patchwork.netronome.com/project/nfp-drv-dev/list/?archive=both&state=*
+.. _listed on patchwork:
+   http://patchwork.netronome.com/project/nfp-drv-dev/list/
 
 Applying patches
 ----------------
@@ -222,6 +224,8 @@ Reviewing code
 
 We have Patchwork set up for nfp-drv-dev mailing list:
 http://patchwork.netronome.com/project/nfp-drv-dev
+
+See also :ref:`patchwork`.
 
 Incorporating feedback
 ----------------------

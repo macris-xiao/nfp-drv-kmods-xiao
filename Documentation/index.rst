@@ -13,6 +13,7 @@ Welcome to nfp-drv-kmods's documentation!
    process
    tests
    kmod_test_patch
+   patchwork
 
 
 Indices and tables
