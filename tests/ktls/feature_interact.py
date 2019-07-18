@@ -53,10 +53,10 @@ class KTLSFeatureInteract(KTLSTestBase):
 
         # Make sure we actually used offload
         stats_diff = self.dut.ethtool_stats_diff(ifc, stats)
-        assert_geq(50, stats_diff['rx_tls_decrypted'],
-                   "Ethtool 'rx_tls_decrypted'")
-        assert_geq(50, stats_diff['tx_tls_encrypted'],
-                   "Ethtool 'tx_tls_encrypted'")
+        assert_geq(50, stats_diff['rx_tls_decrypted_packets'],
+                   "Ethtool 'rx_tls_decrypted_packets'")
+        assert_geq(50, stats_diff['tx_tls_encrypted_packets'],
+                   "Ethtool 'tx_tls_encrypted_packets'")
 
         self.kill_procs()
 

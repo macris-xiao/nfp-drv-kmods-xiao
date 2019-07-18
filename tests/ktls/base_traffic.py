@@ -47,8 +47,8 @@ class KTLSTrafficTestBase(KTLSTestBase):
             self.test_comment += "%.2fMbps |" % (Mbps, )
 
             stats_diff = self.dut.ethtool_stats_diff(ifc, stats)
-            assert_geq(min_tx, stats_diff['tx_tls_encrypted'],
-                       "Ethtool 'tx_tls_encrypted'")
+            assert_geq(min_tx, stats_diff['tx_tls_encrypted_packets'],
+                       "Ethtool 'tx_tls_encrypted_packets'")
         finally:
             LOG_endsec()
 
@@ -78,8 +78,8 @@ class KTLSTrafficTestBase(KTLSTestBase):
             self.test_comment += "%.2fMbps|" % (Mbps, )
 
             stats_diff = self.dut.ethtool_stats_diff(ifc, stats)
-            assert_geq(min_rx, stats_diff['rx_tls_decrypted'],
-                       "Ethtool 'rx_tls_decrypted'")
+            assert_geq(min_rx, stats_diff['rx_tls_decrypted_packets'],
+                       "Ethtool 'rx_tls_decrypted_packets'")
         finally:
             LOG_endsec()
 
