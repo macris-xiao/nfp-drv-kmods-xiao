@@ -702,7 +702,7 @@ class BnicTest(CommonTest):
             assert_lt(2, p["pool"], "Wrong pool ID")
             assert_equal(0, p["size"] % p["sb"],
                          "Pool size not multiple of buffer size")
-            assert_in(sbs, p["sb"], "Pool from unknown SB")
+            assert_in(p["sb"], sbs, "Pool from unknown SB")
 
     def validate_fw_state(self):
         fw_state = self.read_fw_state()

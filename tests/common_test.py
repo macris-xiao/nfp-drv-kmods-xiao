@@ -60,10 +60,10 @@ def assert_range(threshold_min, threshold_max, actual, error_message):
 def assert_approx(expected, diff, actual, error_message):
     assert_range(expected - diff, expected + diff, actual, error_message)
 
-def assert_in(allowed, actual, error_message):
-    if actual not in allowed:
+def assert_in(expected, actual, error_message):
+    if expected not in actual:
         raise NtiGeneralError("%s: %r, not in %r" % (error_message, actual,
-                                                     allowed))
+                                                     expected))
 
 def assert_nin(disallowed, actual, error_message):
     if disallowed in actual:
