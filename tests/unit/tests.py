@@ -14,6 +14,7 @@ from netro.testinfra.test import *
 from ..drv_grp import NFPKmodGrp
 from ..ebpf.xdp import XDPTest
 from ifstats import IFstats
+from tlv_stats import TLVstatsTest
 
 ###########################################################################
 # Unit Tests
@@ -51,6 +52,7 @@ class NFPKmodUnit(NFPKmodGrp):
              ('fw_dump', FwDumpTest, 'Test firmware debug dump'),
              ('fw_names', FwSearchTest, "Test FW requested by the driver"),
              ('vnic_tlv_caps', TLVcapTest, "Test basic parsing of TLV vNIC caps"),
+             ('vnic_tlv_stats', TLVstatsTest, "Test vNIC TLV statistics"),
              ('sriov', SriovTest, 'Test SR-IOV sysfs interface'),
              ('netdev', NetdevTest, "Test netdev loading"),
              # Tests which assume netdev FW to be loaded

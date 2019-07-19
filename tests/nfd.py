@@ -47,9 +47,11 @@ class NfdCap(NfdCtrl):
 
 class NfdTlvCap:
     UNKNOWN	= 0
+    RESERVED	= 1
     END		= 2
     REPR_CAP	= 7
     CRYPTO	= 11
+    VNIC_STATS	= 12
 
 class NfdCryptoCap:
     TLS12_TX	= 0

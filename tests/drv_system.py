@@ -510,7 +510,7 @@ class DrvSystem(LinuxSystem):
         else:
             return res
 
-    def nfd_get_vnic_cap(self, ifc, cap):
+    def nfd_get_vnic_cap(self, ifc, cap, return_pos=False):
         regs = self.nfd_reg_read_le32(ifc, 0, NfdBarOff.NFD_BAR_OFF_MAX)
 
         LOG('regs %d %r' % (len(regs), regs))
@@ -526,7 +526,10 @@ class DrvSystem(LinuxSystem):
             pos += 1
 
             if t == cap:
-                return regs[pos:pos + l / 4]
+                if return_pos:
+                    return pos * 4 - 4
+                else:
+                    return regs[pos:pos + l / 4]
             if t == NfdTlvCap.UNKNOWN:
                 raise NtiError('Parsing vNIC caps failed off:%d - UNKNOWN cap' %
                                (pos))
