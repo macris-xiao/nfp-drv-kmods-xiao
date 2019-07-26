@@ -85,6 +85,7 @@ class NFPKmodFlower(NFPKmodAppGrp):
              ('flower_action_set_udp', FlowerActionSetUDP, "Checks basic flower set UDP action capabilities"),
              ('flower_action_set_tcp', FlowerActionSetTCP, "Checks basic flower set TCP action capabilities"),
              ('flower_action_set_multi', FlowerActionSetMulti, "Checks multiple flower set action capabilities"),
+             ('flower_action_push_mpls', FlowerActionPushMPLS, "Checks basic flower push mpls action capabilities"),
              ('flower_vlan_repr', FlowerVlanRepr, "Checks that unsupported vxlan rules are not offloaded"),
              ('flower_repr_linkstate', FlowerReprLinkstate, "Checks that repr link state is handled correctly"),
              ('flower_bond_egress', FlowerActionBondEgress, "Checks egressing to a linux bond"),
@@ -3341,6 +3342,46 @@ class FlowerActionSetMulti(FlowerBase):
     def cleanup(self):
         self.cleanup_flower(self.dut_ifn[0])
         return super(FlowerActionSetMulti, self).cleanup()
+
+class FlowerActionPushMPLS(FlowerBase):
+    def execute(self):
+        iface, ingress = self.configure_flower()
+
+        # Test Push MPLS header onto IPv4
+        match = 'ip flower'
+        action = 'mpls push label 123 tc 2 ttl 67 bos 1 '\
+                 'pipe mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        pkt = Ether(src=self.group.hwaddr_x[0],dst=self.ipv4_mc_mac[0])/\
+              IP(src='10.0.0.10', dst='11.0.0.11')/\
+              TCP()/Raw('\x00'*64)
+        mpls_1_lab = Ether(src=self.group.hwaddr_x[0],dst=self.ipv4_mc_mac[0])/\
+                     MPLS(label=123, cos=2, s=1, ttl=67)/\
+                     IP(src='10.0.0.10', dst='11.0.0.11')/\
+                     TCP()/Raw('\x00'*64)
+        self.test_filter(iface, ingress, pkt, mpls_1_lab, 100)
+
+        self.cleanup_filter(iface)
+
+        # Test Push MPLS header onto another MPLS
+        match = 'mpls_uc flower'
+        action = 'mpls push label 567890 tc 3 ttl 167 bos 0 '\
+                 'pipe mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        mpls_2_lab = Ether(src=self.group.hwaddr_x[0],dst=self.ipv4_mc_mac[0])/\
+                     MPLS(label=567890, cos=3, s=0, ttl=167)/\
+                     MPLS(label=123, cos=2, s=1, ttl=67)/\
+                     IP(src='10.0.0.10', dst='11.0.0.11')/\
+                     TCP()/Raw('\x00'*64)
+        self.test_filter(iface, ingress, mpls_1_lab, mpls_2_lab, 100)
+
+        self.cleanup_filter(iface)
+
+    def cleanup(self):
+        self.cleanup_flower(self.dut_ifn[0])
+        return super(FlowerActionPushMPLS, self).cleanup()
 
 class FlowerVlanRepr(FlowerBase):
     def execute(self):
