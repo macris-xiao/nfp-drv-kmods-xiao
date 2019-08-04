@@ -59,6 +59,7 @@ class NFPKmodFlower(NFPKmodAppGrp):
              ('flower_match_frag_ipv6', FlowerMatchFragIPv6, "Checks basic flower fragmentation for IPv6 match capabilities"),
              ('flower_match_gre', FlowerMatchGRE, "Checks basic flower gre match capabilities"),
              ('flower_match_vxlan', FlowerMatchVXLAN, "Checks basic flower vxlan match capabilities"),
+             ('flower_match_vxlan_in_vlan', FlowerMatchVXLANInVLAN, "Checks basic flower vxlan in vlan match capabilities"),
              ('flower_match_geneve', FlowerMatchGeneve, "Checks basic flower Geneve match capabilities"),
              ('flower_match_geneve_opt', FlowerMatchGeneveOpt, "Checks flower Geneve option match capabilities"),
              ('flower_match_geneve_multi_opt', FlowerMatchGeneveMultiOpt, "Checks flower Genevei with multiple options match capabilities"),
@@ -921,6 +922,131 @@ class FlowerMatchVXLAN(FlowerBase):
         self.cleanup_flower('vxlan0')
         self.dut.cmd('ip link del vxlan0', fail=False)
         return super(FlowerMatchVXLAN, self).cleanup()
+
+class FlowerMatchVXLANInVLAN(FlowerBase):
+    def prepare(self):
+        if self.dut.kernel_ver_lt(5, 4):
+            return NrtResult(name=self.name, testtype=self.__class__.__name__,
+                             passed=None, comment='kernel 5.4 or above is required')
+
+    def execute(self):
+        iface, ingress = self.configure_flower()
+        M = self.dut
+        A = self.src
+
+        src_ip = self.src_addr[0].split('/')[0]
+        dut_ip = self.dut_addr[0].split('/')[0]
+
+        _, src_mac = A.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.src_ifn[0])
+        _, dut_mac = M.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.dut_ifn[0])
+
+        # Install an internal port - if we cannot then skip test
+        M.cmd('modprobe -r openvswitch', fail=False)
+        ret, _ = M.cmd('modprobe openvswitch', fail=False)
+        if ret:
+            raise NtiSkip('Open vSwitch kernel modules required to run test')
+        ret, _ = M.cmd('ovs-dpctl add-dp int-port', fail=False)
+        if ret:
+            raise NtiSkip('ovs-dpctl app is required to run test')
+
+        # Remove the IP from the dut port and add it to the internal port
+        M.cmd('ip addr del %s dev %s' % (self.dut_addr[0], self.dut_ifn[0]))
+        M.cmd('ip addr add %s dev int-port' % self.dut_addr[0])
+        M.cmd('ip link set dev int-port up')
+
+        # Tunnel EP is now on the internal port so packets should use its mac
+        _, int_mac = M.cmd('cat /sys/class/net/int-port/address | tr -d "\n"')
+
+        M.cmd('ip link delete vxlan0', fail=False)
+        M.cmd('ip link add vxlan0 type vxlan dstport 4789 external')
+        M.cmd('ifconfig vxlan0 up')
+
+        self.add_egress_qdisc('vxlan0')
+
+        # Install rule on VXLAN port to match tunnel info
+        match = 'ip flower enc_src_ip %s enc_dst_ip %s enc_dst_port 4789 enc_key_id 123' % (src_ip, dut_ip)
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter('vxlan0', match, action)
+
+        # Install pre-tunnel rule to direct packet to internal port
+        match = 'ip flower dst_mac %s' % int_mac
+        action = 'skbedit ptype host pipe mirred egress redirect dev int-port'
+        self.install_filter(iface, match, action)
+
+        # VXLAN header with VNI 123, ToS 30, and TTL  99
+        vxlan_header = '\x08\x00\x00\x00\x00\x00\x7b\x00'
+        enc_pkt = Ether(src=self.group.hwaddr_x[0],dst=self.ipv4_mc_mac[0])/\
+                  IP()/TCP()/Raw('\x00'*64)
+        vxlan_header += str(enc_pkt)
+        pkt = Ether(src=src_mac,dst=int_mac)/\
+              IP(src=src_ip, dst=dut_ip, tos=30, ttl=99)/\
+              UDP(sport=44534, dport=4789)/vxlan_header
+        pkt_diff = len(Ether()) + len(IP()) + len(UDP()) + 8
+        self.test_filter('vxlan0', ingress, pkt, enc_pkt, 100, -pkt_diff)
+
+        # Verify packets also hit the pre-tunnel rule
+        stats = self.dut.netifs[iface].stats(get_tc_ing=True)
+        if int(stats.tc_ing['tc_49152_pkts']) < 90:
+            raise NtiError('Counter mismatch. Expected: 100, Got: %s' % (stats.tc_ing['tc_49152_pkts']))
+
+        self.cleanup_filter('vxlan0')
+        self.cleanup_filter(iface)
+
+        # Re-install tunnel match rule
+        match = 'ip flower enc_src_ip %s enc_dst_ip %s enc_dst_port 4789 enc_key_id 123' % (src_ip, dut_ip)
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter('vxlan0', match, action)
+
+        # Install pre-tunnel rule to include VLAN
+        match = '802.1Q flower vlan_id 20 dst_mac %s' % int_mac
+        action = 'vlan pop pipe skbedit ptype host pipe mirred egress redirect dev int-port'
+        self.install_filter(iface, match, action)
+
+        pkt = Ether(src=src_mac,dst=int_mac)/\
+              Dot1Q(vlan=20, prio=0) /\
+              IP(src=src_ip, dst=dut_ip, tos=30, ttl=99)/\
+              UDP(sport=44534, dport=4789)/vxlan_header
+        pkt_diff = len(Ether()) + len(Dot1Q()) + len(IP()) + len(UDP()) + 8
+        self.test_filter('vxlan0', ingress, pkt, enc_pkt, 100, -pkt_diff)
+
+        # Verify packets also hit the pre-tunnel rule
+        stats = self.dut.netifs[iface].stats(get_tc_ing=True)
+        if int(stats.tc_ing['tc_49152_pkts']) < 90:
+            raise NtiError('Counter mismatch. Expected: 100, Got: %s' % (stats.tc_ing['tc_49152_pkts']))
+
+        self.cleanup_filter('vxlan0')
+        self.cleanup_filter(iface)
+
+        # Miss test - Re-install tunnel match rule
+        # This should miss if pre-tunnel rule is incorrect
+        match = 'ip flower enc_src_ip %s enc_dst_ip %s enc_dst_port 4789 enc_key_id 123' % (src_ip, dut_ip)
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter('vxlan0', match, action)
+
+        # Install pre-tunnel rule to include (incorrect) VLAN
+        match = '802.1Q flower vlan_id 21 dst_mac %s' % int_mac
+        action = 'vlan pop pipe skbedit ptype host pipe mirred egress redirect dev int-port'
+        self.install_filter(iface, match, action)
+        self.test_filter('vxlan0', ingress, pkt, None, 0)
+
+        # Verify packets also hit the pre-tunnel rule
+        stats = self.dut.netifs[iface].stats(get_tc_ing=True)
+        if int(stats.tc_ing['tc_49152_pkts']) != 0:
+            raise NtiError('Counter mismatch. Expected: 0, Got: %s' % (stats.tc_ing['tc_49152_pkts']))
+
+        self.cleanup_filter('vxlan0')
+        self.cleanup_filter(iface)
+
+    def cleanup(self):
+        self.cleanup_flower('vxlan0')
+        src_ip = self.src_addr[0].split('/')[0]
+        self.dut.cmd('arp -i %s -d %s' % (self.dut_ifn[0], src_ip), fail=False)
+        self.cleanup_flower(self.dut_ifn[0])
+        self.dut.cmd('ip link del vxlan0', fail=False)
+        self.dut.cmd('ovs-dpctl del-dp int-port', fail=False)
+        self.dut.cmd('modprobe -r openvswitch', fail=False)
+        self.dut.cmd('ip addr add %s dev %s' % (self.dut_addr[0], self.dut_ifn[0]), fail=False)
+        return super(FlowerMatchVXLANInVLAN, self).cleanup()
 
 class FlowerMatchGeneve(FlowerBase):
     def execute(self):
