@@ -500,14 +500,14 @@ exec 3<>$BUILD_ROOT/build.log
 	    #
 	    echo > ../build.log
 	    bold_yellow "Building in net-next"
-	    redirect make CC=$NEXT_CC -j$NJ -C ../net-next M=`pwd`/src W=1 $next_cflags
-	    redirect make CC=$NEXT_CC -j$NJ -C ../net-next-32bit M=`pwd`/src W=1 $next_cflags
+	    redirect make CC=$NEXT_CC -j$NJ -C ../net-next M=`pwd`/src W=1
+	    redirect make CC=$NEXT_CC -j$NJ -C ../net-next-32bit M=`pwd`/src W=1
 
 	    #
 	    # Build in net
 	    #
 	    bold_yellow "Building in net"
-	    redirect make CC=$NEXT_CC -j$NJ -C ../net M=`pwd`/src W=1 $next_cflags
+	    redirect make CC=$NEXT_CC -j$NJ -C ../net M=`pwd`/src W=1
 
 	    #
 	    # Build with different configs
@@ -525,13 +525,13 @@ exec 3<>$BUILD_ROOT/build.log
 		done
 
 		bold_yellow "Building with opts=$b_opts"
-		redirect make CC=$NEXT_CC -j$NJ -C ../net-next M=`pwd`/src W=1 $next_cflags $b_opts
+		redirect make CC=$NEXT_CC -j$NJ -C ../net-next M=`pwd`/src W=1 $b_opts
 	    done
 	    bold_yellow "Building with opts=CONFIG_NFP_TEST_HARNESS=m"
-	    redirect make CC=$NEXT_CC -j$NJ -C ../net-next M=`pwd`/src W=1 $next_cflags CONFIG_NFP_TEST_HARNESS=m
+	    redirect make CC=$NEXT_CC -j$NJ -C ../net-next M=`pwd`/src W=1 CONFIG_NFP_TEST_HARNESS=m
 	    bold_yellow "Building with opts=CONFIG_NFP_NET_PF=n CONFIG_NFP_NET_VF=n CONFIG_NFP_DEBUG=y"
 	    redirect make CC=$NEXT_CC -j$NJ -C ../net-next M=`pwd`/src \
-		 W=1 $next_cflags CONFIG_NFP_NET_PF=n CONFIG_NFP_NET_VF=n CONFIG_NFP_DEBUG=y
+		 W=1 CONFIG_NFP_NET_PF=n CONFIG_NFP_NET_VF=n CONFIG_NFP_DEBUG=y
 
 	    #
 	    # Check sparse warnings
