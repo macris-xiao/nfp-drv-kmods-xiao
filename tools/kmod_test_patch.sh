@@ -124,6 +124,7 @@ call_dir=`pwd`
 IGNORE_XT=0
 NET_HEAD="origin/master"
 NET_NEXT_HEAD="origin/master"
+KERNEL_NEXT_PATCHES=0
 
 #
 # Utility functions
@@ -226,6 +227,8 @@ function usage() {
     echo -e "\t              automatic refresh of all values for each patch"
     echo -e "\t-n	net commit to build against (default origin/master)"
     echo -e "\t-N	net-next commit to build against (default origin/master)"
+    echo -e "\t-K      apply patches without 'kmods' in their 'Subject:' to net-next,"
+    echo -e "\t        then skip checks for those patches"
     echo
     echo -e "\t-v      verbose output for kernel and module builds"
     echo -e "\t-h      print help"
@@ -237,6 +240,13 @@ function usage() {
 }
 
 function cleanup {
+    if [ $KERNEL_NEXT_PATCHES -eq 1 ]; then
+	(
+	    cd $BUILD_ROOT/net-next.git/
+	    git reset --hard $NET_NEXT_HEAD
+	)
+    fi
+
     unset kernels
     # Close log file FD
     exec 3>&-
@@ -273,6 +283,7 @@ while [ $prev_p_cnt != $# ]; do
     [ "$1" == "-l" ] && shift && INCUMBENT_NEWLINE_WARNINGS=$1 _I=1 && shift
     [ "$1" == "-n" ] && shift && NET_HEAD=$1		&& shift
     [ "$1" == "-N" ] && shift && NET_NEXT_HEAD=$1	&& shift
+    [ "$1" == "-K" ] && shift && KERNEL_NEXT_PATCHES=1
 done
 
 # By default we suppress stdout output in the console, but print both stdout
@@ -431,6 +442,19 @@ exec 3<>$BUILD_ROOT/build.log
 
 	    # Always build test harness
 	    export CONFIG_NFP_TEST_HARNESS=m
+
+	    if [ $KERNEL_NEXT_PATCHES -eq 1 ]; then
+		if ! grep -q '^Subject: .*kmods.*' $real_path; then
+		    (
+			cd ../net-next.git/
+			git am --abort 2>/dev/null || true
+			git am $real_path
+			build_kernel . ../net-next
+		    )
+		    bold_green "Skipping checks on $real_path"
+		    continue
+		fi
+	    fi
 
 	    git am --abort 2>/dev/null || true
 	    git am $real_path

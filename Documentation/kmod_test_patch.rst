@@ -39,8 +39,8 @@ The ``-h`` prints a description of the other available commands::
             -b <n>  build directory to use instead of default one
             -S <n>  skip testing of first <n> patchs; this is useful if you already
                     checked those patches in previous run
-            -I      keep going even if checkpatch reports problems (setting this
-                    flag will also make checkpatch output go to checkpatch.log).
+            -I <n>  warn only on checkpatch for first <n> patches; checkpatch will
+                    not error out for first <n> patches; output sent to checkpatch.log
             -X      keep going even if xmastree reports problems (setting this
                     flag will also make xmastree output go to xmastree.log).
             -c <n>  set number of incumbent cocci warnings to <n> for this run
@@ -51,6 +51,8 @@ The ``-h`` prints a description of the other available commands::
                           automatic refresh of all values for each patch
             -n      net commit to build against (default origin/master)
             -N      net-next commit to build against (default origin/master)
+            -K      apply patches without 'kmods' in their 'Subject:' to net-next,
+                    then skip checks for those patches
 
             -v      verbose output for kernel and module builds
             -h      print help
@@ -92,3 +94,48 @@ or 8.2 is recommended.
 
 The script should automatically pick the versions appropriate for different
 kernels.
+
+Tips
+====
+
+Running with kernel modifications
+---------------------------------
+
+Kernel developers may want to apply patches both to the driver and to the
+kernel repo (net-next, typically). Note that the script offers a ``-K`` option
+to do just that. When this option is passed, and before applying each patch,
+the script looks at the patch ``Subject:`` line and searches for the ``kmods``
+string in it.
+
+- If ``kmods`` is in the subject, then the patch is applied to the driver code,
+  and checks are performed as usual.
+- If ``kmods`` is _not_ found, then the patch is applied to net-next instead.
+  Then we skip all checks for that patch.
+
+For example, imagine a patch series supposed to be sent upstream and touching
+both kernel and driver, as follows:
+
+- 1-kernel.patch, 2-kernel.patch are kernel code
+- 3-nfp.patch is driver code
+- 4-kernel.patch is kernel code
+- 5-kernel-nfp.patch is a mix of kernel and driver code
+
+Let's say that 3-nfp_bp.patch and 5-nfp_bp.patch are the backported patches
+with just the driver code. We can test all the patches at once with this
+command::
+
+    $ ./tools/kmod_test_patch.sh -K \
+            1-kernel.patch \
+            2-kernel.patch \
+            3-nfp.patch 3-nfp_bp.patch \
+            4-kernel.patch \
+            5-kernel-nfp.patch 5-nfp_bp.patch
+
+The driver code being compiled is always the code in nfp-drv-kmods, so applying
+driver patches to the net-next repo does not have any effect (other than
+ensuring dependencies are met for later patches). In our example, this means
+that patch 3-nfp.patch may be omitted, if 5-kernel-nfp.patch can compile
+without it.
+
+Kernel patches applied this way are not counted in the ``<n>`` first patches to
+skip for the ``-S`` or ``-I`` options.
