@@ -322,7 +322,11 @@ class DrvSystem(LinuxSystem):
         if ret != 0 and not self.grp.nfp is None:
             return
 
-        self.grp.nfp = int(re.search('nfp-dev-cpp\.(\d*)', out).group(1))
+        out = re.search('nfp-dev-cpp\.(\d*)', out)
+        if out is None:
+            raise NtiGeneralError("Failed to find CPP handle")
+
+        self.grp.nfp = int(out.group(1))
 
     def rm_dir_on_clean(self, path):
         self._dirs.add(path)
