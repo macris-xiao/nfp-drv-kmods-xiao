@@ -19,6 +19,7 @@ class BPF_TLV:
     QSEL		= 5
     ADJUST_TAIL		= 6
     ABI			= 7
+    CMSG_MULTI_ENT	= 8
 
 class BPF_HELPER:
     MAP_LOOKUP_ELEM	= 1

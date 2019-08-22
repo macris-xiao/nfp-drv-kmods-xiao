@@ -58,6 +58,7 @@ class NFPKmodBPF(NFPKmodAppGrp):
             "random"		: False,
             "qsel"		: False,
             "adjust_tail"	: False,
+            "cmsg_multi_ent"	: False,
             "abi"		: None,
         }
 
@@ -110,6 +111,9 @@ class NFPKmodBPF(NFPKmodAppGrp):
 
             elif tlv_type == BPF_TLV.ABI:
                 self.dut.bpf_caps["abi"] = struct.unpack("<I", value[0:4])[0]
+
+            elif tlv_type == BPF_TLV.CMSG_MULTI_ENT:
+                self.dut.bpf_caps["cmsg_multi_ent"] = True
 
             else:
                 LOG_sec("Unknown TLV")
@@ -374,6 +378,18 @@ class NFPKmodBPF(NFPKmodAppGrp):
                 'Update with different flags followed by delete on datapath (hash)'),
                ('map_htab_memcpy_opt', XDPhtabMemcpyOpt,
                 'Memcpy from map to packet data'),
+               ('map_drv_cache_arr1', BPFdrvMapCacheArr1,
+                'Driver entry cache array, 1 element'),
+               ('map_drv_cache_arr15', BPFdrvMapCacheArr15,
+                'Driver entry cache array, 15 element'),
+               ('map_drv_cache_arr16', BPFdrvMapCacheArr16,
+                'Driver entry cache array, 16 element'),
+               ('map_drv_cache_hash1', BPFdrvMapCacheHash1,
+                'Driver entry cache hash, 1 element'),
+               ('map_drv_cache_hash15', BPFdrvMapCacheHash15,
+                'Driver entry cache hash, 15 element'),
+               ('map_drv_cache_hash16', BPFdrvMapCacheHash16,
+                'Driver entry cache hash, 16 element'),
                ('xdp_imm_relo', XDPimmRelo,
                 'Immediate relocation (return address)'),
                ('xdp_imm_relo2', XDPimmRelo2,

@@ -3,6 +3,7 @@
 #
 
 import os
+import json
 import tempfile
 import netro.testinfra
 from netro.testinfra.nti_exceptions import NtiError
@@ -43,7 +44,7 @@ class MapTest(CommonTest):
     def bpftool_map_del(self, m, key, fail=True):
         return self.dut.bpftool_map_del_int(m=m, key=key, fail=fail)
 
-    def bpftool_batch(self, cmds, log_cmds=True):
+    def bpftool_batch(self, cmds, log_cmds=True, j=False):
         fd, bf = tempfile.mkstemp(dir=self.group.tmpdir, text=True)
         f = os.fdopen(fd, 'w')
         f.write(cmds)
@@ -54,10 +55,14 @@ class MapTest(CommonTest):
             if log_cmds:
                 LOG(cmds)
             self.dut.mv_to(bf, self.dut.tmpdir)
-            batch_cmd = 'batch file %s' %  os.path.join(self.dut.tmpdir, fn)
+            batch_cmd = 'batch file %s' % os.path.join(self.dut.tmpdir, fn)
+            if j:
+                batch_cmd += ' -j'
             ret, out, elaps_time = self.dut.bpftool_timed(batch_cmd)
         finally:
             LOG_endsec()
+        if j:
+            return json.loads(out)
         return elaps_time
 
     def map_fill_simple(self, m, mul=3):
@@ -331,6 +336,138 @@ class XDPupdateFlagsAndDelete(MapTest):
             val = str2int(e["value"])
             assert_equal(str2int(e["key"]), str2int(e["value"]),
                          "Key and value are equal")
+
+
+class BPFdrvMapCache(MapTest):
+    def get_map_type(self):
+        """
+        Return the map type to use for the test.
+        """
+        pass
+
+    def get_map_ents(self):
+        """
+        Return the number of map elements.
+        """
+
+    def lookup_update(self, m, k):
+        batch  = "map lookup id %d key %s\n" % (m["id"], int2str("I", k))
+        batch += "map update id %d key %s value %s\n" % \
+            (m["id"], int2str("I", k), int2str("Q", k * 4))
+        batch += "map lookup id %d key %s\n" % (m["id"], int2str("I", k))
+        batch += "map update id %d key %s value %s\n" % \
+            (m["id"], int2str("I", k), int2str("Q", k * 3))
+        batch += "map lookup id %d key %s\n" % (m["id"], int2str("I", k))
+        out = self.bpftool_batch(batch, j=True)
+
+        assert_eq(k * 3, str2int(out[0]["output"]["value"]),
+                  "lookup after update - initial")
+        assert_eq(k * 4, str2int(out[2]["output"]["value"]),
+                  "lookup after update - updated")
+        assert_eq(out[0]["output"]["value"],
+                  out[4]["output"]["value"], "lookup after update - keep")
+
+    def get_next_delete(self, m, prev, k):
+        if prev:
+            prev = "key " + " ".join(prev)
+        batch  = "map getnext id %d %s\n" % (m["id"], prev)
+        batch += "map delete id %d key %s\n" % (m["id"], int2str("I", k))
+        batch += "map getnext id %d %s\n" % (m["id"], prev)
+        batch += "map update id %d key %s value %s\n" % \
+            (m["id"], int2str("I", k), int2str("Q", k * 3))
+        # No point checking first, it may be in the same bucket, so ordering
+        # is not guaranteed to be preserved
+        out = self.bpftool_batch(batch, j=True)
+
+        assert_neq(out[0]["output"]["next_key"],
+                   out[2]["output"]["next_key"], "get first after delete")
+
+    def execute(self):
+        self.map_path = '/sys/fs/bpf/' + \
+            os.path.basename(self.group.tmpdir) + '_m'
+
+        if self.group.xdp_mode() == "offload":
+            ifc = self.dut_ifn[0]
+        else:
+            ifc = None
+
+        ents = self.get_map_ents()
+
+        # Pre-create the map
+        self.dut.bpftool_map_create(self.map_path, map_type=self.get_map_type(),
+                                    key_size=4, value_size=8, entries=ents,
+                                    name='abc', ifc=ifc)
+        _, m = self.dut.bpftool_map_show(pin=self.map_path)
+        self.map_fill_simple(m)
+
+        # Check get first twice
+        batch  = "map getnext id %d\n" % (m["id"])
+        batch += "map getnext id %d\n" % (m["id"])
+        out = self.bpftool_batch(batch, j=True)
+
+        assert_eq(out[0]["output"]["next_key"],
+                  out[1]["output"]["next_key"], "second get first result")
+
+        # Simple dump check the counts
+        _, elems = self.dut.bpftool("map dump id %d" % (m["id"]))
+        assert_eq(ents, len(elems), "Total elem cnt")
+        assert_eq(ents, len(set(str2int(e['key']) for e in elems)),
+                  "Unique elem cnt")
+
+        for e in elems:
+            idx = str2int(e["key"])
+            val = str2int(e["value"])
+            if idx * 3 != val:
+                raise NtiError("Bad value key: %d value: %d" % (idx, val))
+
+        # get first, update first, lookup first, update first
+        self.lookup_update(m, str2int(elems[0]["key"]))
+
+        # get first, delete first, get first, update first, get first
+        if ents > 1 and self.get_map_type() == 'hash':
+            self.get_next_delete(m, "", str2int(elems[0]["key"]))
+
+        if ents > 2:
+            # get third, update third, lookup third, update third
+            self.lookup_update(m, str2int(elems[2]["key"]))
+
+            # get third, delete third, get third, update third
+            if self.get_map_type() == 'hash':
+                self.get_next_delete(m, elems[1]["key"],
+                                     str2int(elems[2]["key"]))
+
+            # Out-of-order: get first, get third, lookup second, lookup first
+            if self.get_map_type() == 'hash':
+                _, elems = self.dut.bpftool("map dump id %d" % (m["id"]))
+
+            batch  = "map getnext id %d\n" % (m["id"])
+            batch += "map getnext id %d key %s\n" % \
+                (m["id"], " ".join(elems[1]["key"]))
+            batch += "map lookup id %d key %s\n" % \
+                (m["id"], " ".join(elems[1]["key"]))
+            batch += "map lookup id %d key %s\n" % \
+                (m["id"], " ".join(elems[0]["key"]))
+            out = self.bpftool_batch(batch, j=True)
+
+            assert_eq(out[0]["output"]["next_key"], elems[0]["key"],
+                      "OOO: first key")
+            assert_eq(out[1]["output"]["next_key"], elems[2]["key"],
+                      "OOO: third key")
+            assert_eq(out[2]["output"]["value"], elems[1]["value"],
+                      "OOO: second value")
+            assert_eq(out[3]["output"]["value"], elems[0]["value"],
+                      "OOO: first value")
+
+        # Final dump and check of the counts
+        _, elems = self.dut.bpftool("map dump id %d" % (m["id"]))
+        assert_eq(ents, len(elems), "Total elem cnt")
+        assert_eq(ents, len(set(str2int(e['key']) for e in elems)),
+                  "Unique elem cnt")
+
+    def cleanup(self):
+        self.dut.cmd('rm -f ' + self.map_path)
+        return super(BPFdrvMapCache, self).cleanup()
+
 
 ################################################################################
 # Actual test classes - control path
@@ -699,6 +836,48 @@ class XDParrayInitialise(MapTest):
         self.map_validate_empty(maps[2])
         self.map_validate_empty(maps[3])
         self.map_validate_empty(maps[4])
+
+class BPFdrvMapCacheArr1(BPFdrvMapCache):
+    def get_map_type(self):
+        return 'array'
+
+    def get_map_ents(self):
+        return 1
+
+class BPFdrvMapCacheArr15(BPFdrvMapCache):
+    def get_map_type(self):
+        return 'array'
+
+    def get_map_ents(self):
+        return 15
+
+class BPFdrvMapCacheArr16(BPFdrvMapCache):
+    def get_map_type(self):
+        return 'array'
+
+    def get_map_ents(self):
+        return 16
+
+class BPFdrvMapCacheHash1(BPFdrvMapCache):
+    def get_map_type(self):
+        return 'hash'
+
+    def get_map_ents(self):
+        return 1
+
+class BPFdrvMapCacheHash15(BPFdrvMapCache):
+    def get_map_type(self):
+        return 'hash'
+
+    def get_map_ents(self):
+        return 15
+
+class BPFdrvMapCacheHash16(BPFdrvMapCache):
+    def get_map_type(self):
+        return 'hash'
+
+    def get_map_ents(self):
+        return 16
 
 ################################################################################
 # Actual test classes - data path
