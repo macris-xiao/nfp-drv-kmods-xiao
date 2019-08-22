@@ -75,6 +75,9 @@ class MapTest(CommonTest):
         if len(elems) != len(sw_map):
             raise NtiError("Bad elem cnt %d != %d" % (len(sw_map), len(elems)))
 
+        assert_eq(len(sw_map), len(set(str2int(e['key']) for e in elems)),
+                  "Unique elem cnt")
+
         for e in elems:
             idx = str2int(e["key"])
             val = str2int(e["value"])
@@ -515,6 +518,9 @@ class XDPhtabCtrl(MapTest):
         if len(elems) != 256:
             raise NtiError("Bad elem cnt %d != %d" % (len(elems), 256))
 
+        assert_eq(256, len(set(str2int(e['key']) for e in elems)),
+                  "Unique elem cnt")
+
         for e in elems:
             idx = str2int(e["key"])
             val = str2int(e["value"])
@@ -540,6 +546,9 @@ class XDPhtabCtrl(MapTest):
         _, elems = self.dut.bpftool("map dump id %d" % (m["id"]))
         if len(elems) != 255:
             raise NtiError("Bad elem cnt %d != %d" % (len(elems), 255))
+
+        assert_eq(255, len(set(str2int(e['key']) for e in elems)),
+                  "Unique elem cnt")
 
         for e in elems:
             idx = str2int(e["key"])
@@ -576,6 +585,9 @@ class XDPhtabCtrl(MapTest):
         _, elems = self.dut.bpftool("map dump id %d" % (m["id"]))
         if len(elems) != 256:
             raise NtiError("Bad elem cnt %d != %d" % (len(elems), 256))
+
+        assert_eq(256, len(set(str2int(e['key']) for e in elems)),
+                  "Unique elem cnt")
 
         for e in elems:
             idx = str2int(e["key"])
