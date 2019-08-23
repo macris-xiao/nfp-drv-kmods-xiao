@@ -2490,8 +2490,6 @@ class FlowerActionMergeVXLAN(FlowerBase):
 
     def cleanup(self):
         self.cleanup_flower(self.dut_ifn[0])
-        src_ip = self.src_addr[0].split('/')[0]
-        self.dut.cmd('arp -i %s -d %s' % (self.dut_ifn[0], src_ip), fail=False)
         self.dut.cmd('ip link delete vxlan0', fail=False)
         self.dut.cmd('ovs-dpctl del-dp int-port', fail=False)
         self.dut.cmd('modprobe -r openvswitch', fail=False)
@@ -2607,8 +2605,6 @@ class FlowerActionMergeVXLANInVLAN(FlowerBase):
 
     def cleanup(self):
         self.cleanup_flower(self.dut_ifn[0])
-        src_ip = self.src_addr[0].split('/')[0]
-        self.dut.cmd('arp -i %s -d %s' % (self.dut_ifn[0], src_ip), fail=False)
         self.dut.cmd('ip link delete vxlan0', fail=False)
         self.dut.cmd('ovs-dpctl del-dp int-port', fail=False)
         self.dut.cmd('modprobe -r openvswitch', fail=False)
