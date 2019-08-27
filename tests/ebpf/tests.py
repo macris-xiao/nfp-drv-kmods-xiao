@@ -279,6 +279,8 @@ class NFPKmodBPF(NFPKmodAppGrp):
                 'stack access changed location was:0 is:-2'),
                ('xdp_stack_read_unaligned', XDPLoadFailTest,
                 'test unaligned reads (kernel should reject)'),
+               ('xdp_stack_read_lindex_switch', XDPStackReadLindexSwitch,
+                'test narrow reads of the stack with lindex switched'),
 
                ('xdp_stack_write_low8', XDPpassAll,
                 'test 8B write of the first 32B of the stack'),

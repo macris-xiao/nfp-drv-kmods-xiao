@@ -26,6 +26,11 @@ def xdp_test_name_to_prog(test):
     test.dut.cmd('ls ' + os.path.join(test.dut.xdp_samples_dir, name))
     return name
 
+def xdp_test_name_to_prog_nocheck(test):
+    last_dot = test.name.rfind('.')
+    name = test.name[last_dot + 5:] + '.o'
+    return name
+
 def xdp_skip_if_adj_head(test, prog_name):
     if test.group.xdp_mode() != "offload" or \
        prog_name.find("adjust") == -1 or \
@@ -1302,3 +1307,16 @@ class XDPadjHeadEncIpIp(XDPtunBase):
                      (self.tun_ip_sub, self.src_ifn[0]), fail=False)
 
         self.dut.cmd('ip link del dev %s' % (self.tun_name), fail=False)
+
+class XDPStackReadLindexSwitch(XDPpassAll):
+        def prepare(self):
+            prog_name = xdp_test_name_to_prog_nocheck(self)
+            filename = os.path.join(self.group.samples_xdp, prog_name)
+            if not os.path.isfile(filename):
+                self.log("SKIP",
+                         "Skip because " + prog_name + " hasn't been built")
+                return NrtResult(name=self.name,
+                                 testtype=self.__class__.__name__,
+                                 passed=None,
+                                 comment=(prog_name + " hasn't been built"))
+            super(XDPStackReadLindexSwitch, self).prepare()
