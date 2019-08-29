@@ -1,4 +1,4 @@
-	r0 = 0
+	call 7 // bpf_get_prandom_u32
 	r1 = 0
 	r9 = r10
 
