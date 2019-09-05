@@ -10,6 +10,8 @@ NFLD := nfld
 LDFLAGS := -res.i24.emem.base 0x00008000 -chip $(CHIP)
 TARGET_MES := mei0.me0
 
+NUM_DUMMY_PORTS ?= 2
+
 # Build firmwares for RT-SYM testing, number denotes the count of symbols
 # to include in the firmware
 RTSYM_FILES := rts_0.list rts_1.list rts_2.list rts_3.list rts_17.list \
@@ -19,7 +21,7 @@ RTSYM_FILES := rts_0.list rts_1.list rts_2.list rts_3.list rts_17.list \
 # a specific version of it
 FWS = $(patsubst %.list,rm_%.nffw,${RTSYM_FILES}) \
 	rts_100.nffw rm1_rts_100.nffw rm2_rts_100.nffw \
-	rts_dump.nffw rts_vals.nffw
+	rts_dump.nffw rts_vals.nffw dummy_nfd.nffw
 
 all: $(FWS) clean
 
@@ -37,6 +39,9 @@ rts_dump.nffw: rts_17.list abs_rtsym.list
 rts_vals.nffw: rts_vals.list abs_rtsym.list
 	$(NFLD) -L abs_rtsym.list -rtsyms -name $(FWNAME) -mip $(LDFLAGS) \
 	-o $@ -u $(TARGET_MES) $<
+dummy_nfd.nffw: dummy_nfd.list
+	$(NFLD) -rtsyms -name $(FWNAME) -mip $(LDFLAGS) \
+	-o $@ -u $(TARGET_MES) $<
 
 # This rule will generate different count of RT-SYMS by setting a define
 # and using the single C source as a basis
@@ -49,6 +54,9 @@ rts_vals.list: rts_vals.c
 
 abs_rtsym.list: abs_rtsym.uc
 	nfas -o $@ -codeless $<
+
+dummy_nfd.list: dummy_nfd.uc
+	nfas $(CFLAGS) -D NUM_DUMMY_PORTS=$(NUM_DUMMY_PORTS) -o $@ $<
 
 clean:
 	rm -f *.list *.obj *.db *.trace *.uci *.ucp
