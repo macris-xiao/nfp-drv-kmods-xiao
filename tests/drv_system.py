@@ -122,6 +122,18 @@ class DrvSystem(LinuxSystem):
             out = json.loads(out)["sb"]["pci/" + self.grp.pci_dbdf]
         return ret, out
 
+    def devlink_param_get(self, param, fail=True):
+        ret, out = self.cmd('devlink -jp dev param show pci/%s name %s' %
+                            (self.grp.pci_dbdf, param), fail=fail)
+        if ret == 0:
+            out = json.loads(out)["param"]["pci/" + self.grp.pci_dbdf][0]["values"]
+            out = out[0]["value"]
+        return ret, out
+
+    def devlink_param_set(self, param, cmode, value, fail=True):
+        return self.cmd('devlink dev param set pci/%s name %s cmode %s value %s' %
+                        (self.grp.pci_dbdf, param, cmode, value), fail=fail)
+
     def ethtool_get_autoneg(self, ifc):
         _, out = self.cmd('ethtool %s | grep Auto-negotiation' % (ifc))
 
