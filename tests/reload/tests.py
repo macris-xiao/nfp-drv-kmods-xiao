@@ -9,6 +9,7 @@ import random
 import netro.testinfra
 from netro.testinfra.test import *
 from ..drv_grp import NFPKmodGrp
+from fw_load import KernelLoadTest
 
 ###########################################################################
 # Unit Tests
@@ -32,6 +33,7 @@ class NFPKmodReload(NFPKmodGrp):
         T = (('set_speed', SpeedSet, "Flip speed and reload driver"),
              ('port_split', DevlinkSplit,
               "Split/unspliet port and reload driver in between"),
+             ('kernel_fw_load', KernelLoadTest, "Test kernel firmware loader"),
         )
 
         for t in T:
