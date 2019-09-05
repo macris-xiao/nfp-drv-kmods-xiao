@@ -67,6 +67,7 @@ class NFPKmodUnit(NFPKmodGrp):
              ('sriov_ndos', SriovNDOs, 'Test SR-IOV VF config NDO functions'),
              ('fec_modes', FECModesTest, 'Test FEC modes configuration'),
              ('versions', VersionsTest, 'Test devlink dev info (versions)'),
+             ('devlink_param', DevlinkParam, 'Test devlink parameters'),
         )
 
         for t in T:
@@ -1245,3 +1246,112 @@ class TLVcapTest(CommonNonUpstreamTest):
         self.dut.reset_mods()
 
         CommonNonUpstreamTest.cleanup(self)
+
+class DevlinkParam(CommonNetdevTest):
+    def netdev_execute(self):
+        # Note that the order of the devlink values is non-intuitive below.
+        # This is done to explicitly set the first value to a non-default
+        # to ensure there is an appropriate hwinfo key set.
+        all_params = [
+            {
+              "dl_name"  : "fw_load_policy",
+              "dl_values": [ "flash", "driver", "disk" ],
+              "dl_default": "driver",
+              "hi_name"  : "app_fw_from_flash",
+              "hi_values": [ "1", "2", "0" ]
+            },
+            {
+              "dl_name"  : "reset_dev_on_drv_probe",
+              "dl_values": [ "always", "disk", "never" ],
+              "dl_default": "disk",
+              "hi_name"  : "abi_drv_reset",
+              "hi_values": [ "1", "0", "2" ]
+            },
+        ]
+
+        self.supported_params = []
+        for param in all_params:
+            ret, _ = self.dut.devlink_param_get(param["dl_name"], fail=False)
+            if ret == 0:
+                self.supported_params.append(param)
+            else:
+                LOG("Devlink parameter '%s' not supported" % param["dl_name"])
+        if len(self.supported_params) == 0:
+            raise NtiSkip("No devlink parameters supported")
+
+        # Without CPP access, just check that we can get/set values without
+        # verifying the back end effect
+        if self.group.upstream_drv:
+            for param in self.supported_params:
+                for i in range(len(param["dl_values"])):
+                    # Assumes all our devlink parameters support 'permanent'
+                    # cmode only
+                    self.dut.devlink_param_set(param["dl_name"], "permanent",
+                                               param["dl_values"][i])
+                    _, dl_val = self.dut.devlink_param_get(param["dl_name"])
+
+                    if dl_val != param["dl_values"][i]:
+                        raise NtiError("Expected '%s' to be '%s' but found '%s'" %
+                                       (param["dl_name"], dl_val,
+                                        param["dl_values"][i], dl_val))
+            return
+
+        self.to_revert = []
+        for param in self.supported_params:
+            # Store initial values to cleanup again
+            self.to_revert.append("%s=%s" %
+                                  (param["hi_name"],
+                                   self.dut.get_hwinfo(param["hi_name"])))
+
+            for i in range(len(param["dl_values"])):
+                # Assumes all our devlink parameters support 'permanent'
+                # cmode only
+                self.dut.devlink_param_set(param["dl_name"], "permanent",
+                                           param["dl_values"][i])
+                hi_val = self.dut.get_hwinfo(param["hi_name"])
+
+                if hi_val != param["hi_values"][i]:
+                    raise NtiError("Expected '%s' to be '%s' but found '%s'" %
+                                   (param["hi_name"], param["hi_values"][i],
+                                    hi_val))
+
+            for i in range(len(param["hi_values"])):
+                self.dut.cmd_hwinfo('-u %s=%s' %
+                                    (param["hi_name"], param["hi_values"][i]))
+                _, dl_val = self.dut.devlink_param_get(param["dl_name"])
+
+                if dl_val != param["dl_values"][i]:
+                    raise NtiError("Expected '%s' to be '%s' but found '%s'" %
+                                   (param["dl_name"], param["dl_values"][i],
+                                    dl_val))
+
+            # Try a couple of invalid ones
+            ret, _ = self.dut.devlink_param_set(param["dl_name"], "permanent",
+                                                "unknown", fail=False)
+            if ret == 0:
+                raise NtiError("Expected '%s' to fail when set to unknown" %
+                               param["dl_name"])
+
+            hi_max = max([int(i) for i in param["hi_values"]])
+            for hi_val in (hi_max + 1, 999):
+                self.dut.cmd_hwinfo('-u %s=%s' % (param["hi_name"], hi_val))
+                ret, dl_val = self.dut.devlink_param_get(param["dl_name"],
+                                                    fail=False)
+                if ret == 0 and dl_val != "unknown":
+                    raise NtiError("Expected '%s' to fail with %s=%s" %
+                                   (param["dl_name"], param["hi_name"], hi_val))
+
+    def cleanup(self):
+
+        # Reset to the default value regardless of whether there were HWinfo
+        # overrides that will replace this in any case. This is needed for the
+        # upstream driver test.
+        for param in self.supported_params:
+            self.dut.devlink_param_set(param["dl_name"], "permanent",
+                                       param["dl_default"])
+
+        if hasattr(self, 'to_revert'):
+            for str in self.to_revert:
+                self.dut.cmd_hwinfo('-u %s' % str)
+
+        CommonNetdevTest.cleanup(self)
