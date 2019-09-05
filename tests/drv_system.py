@@ -743,3 +743,6 @@ class DrvSystem(LinuxSystem):
 
     def cmd_media(self, cmd='', fail=True):
         return self.bsp_cmd('media', cmd, fail=fail)
+
+    def cmd_fis(self, cmd='', fail=True):
+        return self.bsp_cmd('fis', cmd, fail=fail)
