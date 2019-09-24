@@ -733,7 +733,13 @@ class eBPFrefcnt(eBPFtest):
         return len(prog) + len(maps)
 
     def bpf_objects_nb_differs(self):
-        return self.bpf_obj_cnt() != self.n_start + self.prog_cnt
+        # wait for a bit or until the cnt match
+        for i in range(3):
+            if self.bpf_obj_cnt() == self.n_start + self.prog_cnt:
+                return False
+            time.sleep(0.5)
+
+        return True
 
     def check_xdp(self, obj, mode):
         self.xdp_start(obj, mode=mode)
