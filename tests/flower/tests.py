@@ -326,6 +326,195 @@ class FlowerBase(CommonTest):
                 if fail:
                     raise NtiError('Bytes match unexpected for %s at offset %s  - %s' % (exp_field, offset, str(p).encode("hex")[offset:offset+len(exp_field)]))
 
+class FlowerTunnel(FlowerBase):
+    def add_vxlan_dev(self, dev_name):
+        self.dut.cmd('ip link add name %s type vxlan dstport 0 external' \
+                     % dev_name)
+        self.dut.cmd('ifconfig %s up' % dev_name)
+
+    def add_geneve_dev(self, dev_name):
+        self.dut.cmd('ip link add name %s type geneve dstport 0 external' \
+                     % dev_name)
+        self.dut.cmd('ifconfig %s up' % dev_name)
+
+    def add_gre_dev(self, dev_name):
+        self.dut.cmd('ip link add %s type gretap external' % dev_name)
+        self.dut.cmd('ifconfig %s up' % dev_name)
+
+    def del_tun_dev(self, dev_name):
+        self.dut.cmd('ip link delete %s' % dev_name, fail=False)
+
+    def add_ovs_internal_port(self, dev_name):
+        # install an internal port - if we cannot then skip test
+        self.dut.cmd('modprobe -r openvswitch', fail=False)
+        ret, _ = self.dut.cmd('modprobe openvswitch', fail=False)
+        if ret:
+            raise NtiSkip('Open vSwitch kernel modules required to run test')
+        ret, _ = self.dut.cmd('ovs-dpctl add-dp %s' % dev_name, fail=False)
+        if ret:
+            raise NtiSkip('ovs-dpctl app is required to run test')
+
+    def del_ovs_internal_port(self, dev_name):
+        self.dut.cmd('ovs-dpctl del-dp %s' % dev_name, fail=False)
+        self.dut.cmd('modprobe -r openvswitch', fail=False)
+
+    def add_pre_tunnel_rule(self, dev_name, int_mac, int_dev):
+        match = 'ip flower dst_mac %s' % int_mac
+        action = 'skbedit ptype host pipe mirred egress redirect dev %s' \
+                 % int_dev
+        self.install_filter(dev_name, match, action)
+
+    def add_pre_tunnel_rule_vlan(self, dev_name, int_mac, int_dev, vlan_id):
+        match = '802.1Q flower vlan_id %s dst_mac %s' % (vlan_id, int_mac)
+        action = 'vlan pop pipe skbedit ptype host pipe ' \
+                 'mirred egress redirect dev %s' % int_dev
+        self.install_filter(dev_name, match, action)
+
+    def check_pre_tun_stats(self, iface, exp_packets):
+        stats = self.dut.netifs[iface].stats(get_tc_ing=True)
+        if int(stats.tc_ing['tc_49152_pkts']) != exp_packets:
+            raise NtiError('Counter mismatch. Expected: %s, Got: %s'  \
+                           % (exp_packets, stats.tc_ing['tc_49152_pkts']))
+
+    def get_ip_addresses(self):
+        src_ip = self.src_addr[0].split('/')[0]
+        dut_ip = self.dut_addr[0].split('/')[0]
+        return (src_ip, dut_ip)
+
+    def get_dut_mac(self, dev):
+        _, mac = self.dut.cmd('cat /sys/class/net/%s/address | tr -d "\n"' \
+                              % dev)
+        return mac
+
+    def get_src_mac(self, dev):
+        _, mac = self.src.cmd('cat /sys/class/net/%s/address | tr -d "\n"' \
+                              % dev)
+        return mac
+
+    def move_ip_address(self, addr, src_dev, dst_dev):
+        self.dut.cmd('ip addr del %s dev %s' % (addr, src_dev), fail=False)
+        self.dut.cmd('ip addr add %s dev %s' % (addr, dst_dev), fail=False)
+        self.dut.cmd('ip link set dev %s up' % dst_dev)
+
+    def execute_tun_match(self, iface, ingress, dut_mac, tun_port, tun_dev,
+                          vlan_id=0, fail=False):
+        src_ip, dut_ip = self.get_ip_addresses()
+        src_mac = self.get_src_mac(ingress)
+        self.add_egress_qdisc(tun_dev)
+
+        # Hit test - match all tunnel fields and decap
+        port_match = ''
+        if tun_port:
+            port_match = 'enc_dst_port %s' % tun_port
+        match = 'ip flower enc_src_ip %s enc_dst_ip %s %s enc_key_id 123' \
+                % (src_ip, dut_ip, port_match)
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(tun_dev, match, action)
+
+        enc_pkt = Ether(src=self.group.hwaddr_x[0],dst=self.ipv4_mc_mac[0])/\
+                  IP()/TCP()/Raw('\x00'*64)
+        pkt_diff = len(Ether())
+
+        pkt = Ether(src=src_mac,dst=dut_mac)
+        pkt_diff = len(Ether())
+
+        if vlan_id:
+            pkt = pkt/Dot1Q(vlan=vlan_id, prio=0)
+            pkt_diff += len(Dot1Q())
+
+        pkt = pkt/IP(src=src_ip, dst=dut_ip, ttl=99, tos=30)
+        pkt_diff += len(IP())
+
+        if tun_port == 4789:
+            pkt = pkt/UDP(sport=4567, dport=tun_port)
+            vxlan_header = '\x08\x00\x00\x00\x00\x00\x7b\x00'
+            vxlan_header += str(enc_pkt)
+            pkt = pkt/vxlan_header
+            pkt_diff += len(UDP()) + 8
+        elif tun_port == 6081:
+            pkt = pkt/UDP(sport=4567, dport=tun_port)
+            gene_header = '\x00\x00\x65\x58\x00\x00\x7b\x00'
+            gene_header += str(enc_pkt)
+            pkt = pkt/gene_header
+            pkt_diff += len(UDP()) + 8
+        elif tun_port == 0:
+            pkt = pkt/GRE(proto=0x6558, key_present=1, key=123)/enc_pkt
+            pkt_diff += 8
+        else:
+            raise NtiError('Unsupported UDP tunnel port number')
+
+        if fail:
+            self.test_filter(tun_dev, ingress, pkt, None, 0)
+        else:
+            self.test_filter(tun_dev, ingress, pkt, enc_pkt, 100, -pkt_diff)
+
+        self.cleanup_filter(tun_dev)
+
+        # Miss test - incorrect enc ip src
+        match = 'ip flower enc_src_ip 1.1.1.1 enc_dst_ip %s %s enc_key_id 321' \
+                % (dut_ip, port_match)
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(tun_dev, match, action)
+
+        self.test_filter(tun_dev, ingress, pkt, None, 0)
+
+        self.cleanup_filter(tun_dev)
+
+        # Miss test - incorrect enc ip dst
+        match = 'ip flower enc_src_ip %s enc_dst_ip 1.1.1.1 %s enc_key_id 321' \
+                % (src_ip, port_match)
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(tun_dev, match, action)
+
+        self.test_filter(tun_dev, ingress, pkt, None, 0)
+
+        self.cleanup_filter(tun_dev)
+
+        # Miss test - incorrect tunnel key
+        match = 'ip flower enc_src_ip %s enc_dst_ip %s %s enc_key_id 322' \
+                % (src_ip, dut_ip, port_match)
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(tun_dev, match, action)
+
+        self.test_filter(tun_dev, ingress, pkt, None, 0)
+
+        self.cleanup_filter(tun_dev)
+
+        # Tunnel ToS and TTL matching are added in kernel 4.19
+        if self.dut.kernel_ver_ge(4, 19):
+            # Match on correct tunnel ToS and TTL
+            match = 'ip flower enc_src_ip %s enc_dst_ip %s %s enc_tos 30 ' \
+                    'enc_ttl 99' % (src_ip, dut_ip, port_match)
+            action = 'mirred egress redirect dev %s' % iface
+            self.install_filter(tun_dev, match, action)
+
+            if fail:
+                self.test_filter(tun_dev, ingress, pkt, None, 0)
+            else:
+                self.test_filter(tun_dev, ingress, pkt, enc_pkt, 100, -pkt_diff)
+            self.cleanup_filter(tun_dev)
+
+            # Miss test - incorrect ToS
+            match = 'ip flower enc_src_ip %s enc_dst_ip %s %s enc_tos 50 ' \
+                    'enc_ttl 99' % (src_ip, dut_ip, port_match)
+            action = 'mirred egress redirect dev %s' % iface
+            self.install_filter(tun_dev, match, action)
+
+            self.test_filter(tun_dev, ingress, pkt, None, 0)
+            self.cleanup_filter(tun_dev)
+
+            # Miss test - incorrect TTL
+            match = 'ip flower enc_src_ip %s enc_dst_ip %s %s enc_tos 30 ' \
+                    'enc_ttl 100' % (src_ip, dut_ip, port_match)
+            action = 'mirred egress redirect dev %s' % iface
+            self.install_filter(tun_dev, match, action)
+
+            self.test_filter(tun_dev, ingress, pkt, None, 0)
+            self.cleanup_filter(tun_dev)
+
+    def cleanup(self):
+        return super(FlowerTunnel, self).cleanup()
+
 class FlowerMatchMAC(FlowerBase):
     def execute(self):
         iface, ingress = self.configure_flower()
@@ -737,378 +926,86 @@ class FlowerMatchUDP(FlowerBase):
         self.cleanup_flower(self.dut_ifn[0])
         return super(FlowerMatchUDP, self).cleanup()
 
-class FlowerMatchGRE(FlowerBase):
+class FlowerMatchGRE(FlowerTunnel):
     def execute(self):
         iface, ingress = self.configure_flower()
-        M = self.dut
-        A = self.src
-
-        src_ip = self.src_addr[0].split('/')[0]
-        dut_ip = self.dut_addr[0].split('/')[0]
-
-        _, src_mac = A.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.src_ifn[0])
-        _, dut_mac = M.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.dut_ifn[0])
-
-        M.cmd('ip link del dev gre1', fail=False)
-        M.cmd('ip link add gre1 type gretap remote %s local %s dev %s external' % (src_ip, dut_ip, self.dut_ifn[0]))
-        M.cmd('ifconfig gre1 up')
-
-        self.add_egress_qdisc('gre1')
-
-        # Hit test - match all vxlan fields and decap
-        match = 'ip flower enc_src_ip %s enc_dst_ip %s enc_key_id 321' % (src_ip, dut_ip)
-        action = 'mirred egress redirect dev %s' % iface
-        self.install_filter('gre1', match, action)
-
-        ## Packet based on genve fields
-        enc_pkt = Ether(src=self.group.hwaddr_x[0],dst=self.ipv4_mc_mac[0])/\
-                  IP()/TCP()/Raw('\x00'*64)
-        pkt = Ether(src=src_mac,dst=dut_mac)/\
-              IP(src=src_ip, dst=dut_ip, tos=30, ttl=99, proto=47)/\
-              GRE(proto=0x6558, key_present=1, key=321)/enc_pkt
-        pkt_diff = len(Ether()) + len(IP()) + 8
-        self.test_filter('gre1', ingress, pkt, enc_pkt, 100, -pkt_diff)
-
-        self.cleanup_filter('gre1')
-
-        # Miss test - incorrect enc ip src
-        match = 'ip flower enc_src_ip 1.1.1.1 enc_dst_ip %s enc_key_id 321' % (dut_ip)
-        action = 'mirred egress redirect dev %s' % iface
-        self.install_filter('gre1', match, action)
-
-        self.test_filter('gre1', ingress, pkt, None, 0)
-
-        self.cleanup_filter('gre1')
-
-        # Miss test - incorrect enc ip dst
-        match = 'ip flower enc_src_ip %s enc_dst_ip 1.1.1.1 enc_key_id 321' % (src_ip)
-        action = 'mirred egress redirect dev %s' % iface
-        self.install_filter('gre1', match, action)
-
-        self.test_filter('gre1', ingress, pkt, None, 0)
-
-        self.cleanup_filter('gre1')
-
-        # Miss test - incorrect tunnel key
-        match = 'ip flower enc_src_ip %s enc_dst_ip %s enc_key_id 322' % (src_ip, dut_ip)
-        action = 'mirred egress redirect dev %s' % iface
-        self.install_filter('gre1', match, action)
-
-        self.test_filter('gre1', ingress, pkt, None, 0)
-
-        self.cleanup_filter('gre1')
-
-        # Tunnel ToS and TTL matching are added in kernel 4.19
-        if self.dut.kernel_ver_ge(4, 19):
-            # Match on correct tunnel ToS and TTL
-            match = 'ip flower enc_src_ip %s enc_dst_ip %s enc_tos 30 enc_ttl 99' % (src_ip, dut_ip)
-            action = 'mirred egress redirect dev %s' % iface
-            self.install_filter('gre1', match, action)
-
-            self.test_filter('gre1', ingress, pkt, enc_pkt, 100, -pkt_diff)
-            self.cleanup_filter('gre1')
-
-            # Miss test - incorrect ToS
-            match = 'ip flower enc_src_ip %s enc_dst_ip %s enc_tos 50 enc_ttl 99' % (src_ip, dut_ip)
-            action = 'mirred egress redirect dev %s' % iface
-            self.install_filter('gre1', match, action)
-
-            self.test_filter('gre1', ingress, pkt, None, 0)
-            self.cleanup_filter('gre1')
-
-            # Miss test - incorrect TTL
-            match = 'ip flower enc_src_ip %s enc_dst_ip %s enc_tos 30 enc_ttl 100' % (src_ip, dut_ip)
-            action = 'mirred egress redirect dev %s' % iface
-            self.install_filter('gre1', match, action)
-
-            self.test_filter('gre1', ingress, pkt, None, 0)
-            self.cleanup_filter('gre1')
+        self.add_gre_dev('gre1')
+        dut_mac = self.get_dut_mac(iface)
+        self.execute_tun_match(iface, ingress, dut_mac, 0, 'gre1')
 
     def cleanup(self):
         self.cleanup_flower('gre1')
-        self.dut.cmd('ip link del gre1', fail=False)
-        return super(FlowerMatchGRE, self).cleanup()
+        self.del_tun_dev('gre1')
+        return super(FlowerTunnel, self).cleanup()
 
-class FlowerMatchVXLAN(FlowerBase):
+class FlowerMatchVXLAN(FlowerTunnel):
     def execute(self):
         iface, ingress = self.configure_flower()
-        M = self.dut
-        A = self.src
-
-        src_ip = self.src_addr[0].split('/')[0]
-        dut_ip = self.dut_addr[0].split('/')[0]
-
-        _, src_mac = A.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.src_ifn[0])
-        _, dut_mac = M.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.dut_ifn[0])
-
-        M.cmd('ip link delete vxlan0', fail=False)
-        M.cmd('ip link add vxlan0 type vxlan dstport 4789 dev %s external' % self.dut_ifn[0])
-        M.cmd('ifconfig vxlan0 up')
-
-        self.add_egress_qdisc('vxlan0')
-
-        # Hit test - match all vxlan fields and decap
-        match = 'ip flower enc_src_ip %s enc_dst_ip %s enc_dst_port 4789 enc_key_id 123' % (src_ip, dut_ip)
-        action = 'mirred egress redirect dev %s' % iface
-        self.install_filter('vxlan0', match, action)
-
-        # VXLAN header with VNI 123, ToS 30, and TTL  99
-        vxlan_header = '\x08\x00\x00\x00\x00\x00\x7b\x00'
-        enc_pkt = Ether(src=self.group.hwaddr_x[0],dst=self.ipv4_mc_mac[0])/\
-                  IP()/TCP()/Raw('\x00'*64)
-        vxlan_header += str(enc_pkt)
-        pkt = Ether(src=src_mac,dst=dut_mac)/\
-              IP(src=src_ip, dst=dut_ip, tos=30, ttl=99)/\
-              UDP(sport=44534, dport=4789)/vxlan_header
-        pkt_diff = len(Ether()) + len(IP()) + len(UDP()) + 8
-        self.test_filter('vxlan0', ingress, pkt, enc_pkt, 100, -pkt_diff)
-
-        self.cleanup_filter('vxlan0')
-
-        # Miss test - incorrect enc ip src
-        match = 'ip flower enc_src_ip 1.1.1.1 enc_dst_ip %s enc_dst_port 4789 enc_key_id 123' % (dut_ip)
-        action = 'mirred egress redirect dev %s' % iface
-        self.install_filter('vxlan0', match, action)
-
-        self.test_filter('vxlan0', ingress, pkt, None, 0)
-
-        self.cleanup_filter('vxlan0')
-
-        # Miss test - incorrect enc ip dst
-        match = 'ip flower enc_src_ip %s enc_dst_ip 1.1.1.1 enc_dst_port 4789 enc_key_id 123' % (src_ip)
-        action = 'mirred egress redirect dev %s' % iface
-        self.install_filter('vxlan0', match, action)
-
-        self.test_filter('vxlan0', ingress, pkt, None, 0)
-
-        self.cleanup_filter('vxlan0')
-
-        # Miss test - incorrect VNI
-        match = 'ip flower enc_src_ip %s enc_dst_ip %s enc_dst_port 4789 enc_key_id 124' % (src_ip, dut_ip)
-        action = 'mirred egress redirect dev %s' % iface
-        self.install_filter('vxlan0', match, action)
-
-        self.test_filter('vxlan0', ingress, pkt, None, 0)
-
-        self.cleanup_filter('vxlan0')
-
-        # Tunnel ToS and TTL matching are added in kernel 4.19
-        if self.dut.kernel_ver_ge(4, 19):
-            # Match on correct tunnel ToS and TTL
-            match = 'ip flower enc_src_ip %s enc_dst_ip %s enc_dst_port 4789 enc_tos 30 enc_ttl 99' % (src_ip, dut_ip)
-            action = 'mirred egress redirect dev %s' % iface
-            self.install_filter('vxlan0', match, action)
-
-            self.test_filter('vxlan0', ingress, pkt, enc_pkt, 100, -pkt_diff)
-            self.cleanup_filter('vxlan0')
-
-            # Miss test - incorrect ToS
-            match = 'ip flower enc_src_ip %s enc_dst_ip %s enc_dst_port 4789 enc_tos 50 enc_ttl 99' % (src_ip, dut_ip)
-            action = 'mirred egress redirect dev %s' % iface
-            self.install_filter('vxlan0', match, action)
-
-            self.test_filter('vxlan0', ingress, pkt, None, 0)
-            self.cleanup_filter('vxlan0')
-
-            # Miss test - incorrect TTL
-            match = 'ip flower enc_src_ip %s enc_dst_ip %s enc_dst_port 4789 enc_tos 30 enc_ttl 100' % (src_ip, dut_ip)
-            action = 'mirred egress redirect dev %s' % iface
-            self.install_filter('vxlan0', match, action)
-
-            self.test_filter('vxlan0', ingress, pkt, None, 0)
-            self.cleanup_filter('vxlan0')
+        self.add_vxlan_dev('vxlan0')
+        dut_mac = self.get_dut_mac(iface)
+        self.execute_tun_match(iface, ingress, dut_mac, 4789, 'vxlan0')
 
     def cleanup(self):
         self.cleanup_flower('vxlan0')
-        self.dut.cmd('ip link del vxlan0', fail=False)
+        self.del_tun_dev('vxlan0')
         return super(FlowerMatchVXLAN, self).cleanup()
 
-class FlowerMatchVXLANInVLAN(FlowerBase):
+class FlowerMatchVXLANInVLAN(FlowerTunnel):
     def prepare(self):
         if self.dut.kernel_ver_lt(5, 4):
             return NrtResult(name=self.name, testtype=self.__class__.__name__,
-                             passed=None, comment='kernel 5.4 or above is required')
+                             passed=None,
+                             comment='kernel 5.4 or above is required')
 
     def execute(self):
         iface, ingress = self.configure_flower()
-        M = self.dut
-        A = self.src
+        self.add_vxlan_dev('vxlan0')
+        self.add_ovs_internal_port('int-port')
+        self.move_ip_address(self.dut_addr[0], iface, 'int-port')
+        dut_mac = self.get_dut_mac('int-port')
+        self.add_pre_tunnel_rule(iface, dut_mac, 'int-port')
+        self.execute_tun_match(iface, ingress, dut_mac, 4789, 'vxlan0')
+        # verify all packets sent are matching on the pre-tunnel rule
+        if self.dut.kernel_ver_ge(4, 19):
+           self.check_pre_tun_stats(iface, 700)
+        else:
+           self.check_pre_tun_stats(iface, 400)
 
-        src_ip = self.src_addr[0].split('/')[0]
-        dut_ip = self.dut_addr[0].split('/')[0]
-
-        _, src_mac = A.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.src_ifn[0])
-        _, dut_mac = M.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.dut_ifn[0])
-
-        # Install an internal port - if we cannot then skip test
-        M.cmd('modprobe -r openvswitch', fail=False)
-        ret, _ = M.cmd('modprobe openvswitch', fail=False)
-        if ret:
-            raise NtiSkip('Open vSwitch kernel modules required to run test')
-        ret, _ = M.cmd('ovs-dpctl add-dp int-port', fail=False)
-        if ret:
-            raise NtiSkip('ovs-dpctl app is required to run test')
-
-        # Remove the IP from the dut port and add it to the internal port
-        M.cmd('ip addr del %s dev %s' % (self.dut_addr[0], self.dut_ifn[0]))
-        M.cmd('ip addr add %s dev int-port' % self.dut_addr[0])
-        M.cmd('ip link set dev int-port up')
-
-        # Tunnel EP is now on the internal port so packets should use its mac
-        _, int_mac = M.cmd('cat /sys/class/net/int-port/address | tr -d "\n"')
-
-        M.cmd('ip link delete vxlan0', fail=False)
-        M.cmd('ip link add vxlan0 type vxlan dstport 4789 external')
-        M.cmd('ifconfig vxlan0 up')
-
-        self.add_egress_qdisc('vxlan0')
-
-        # Install rule on VXLAN port to match tunnel info
-        match = 'ip flower enc_src_ip %s enc_dst_ip %s enc_dst_port 4789 enc_key_id 123' % (src_ip, dut_ip)
-        action = 'mirred egress redirect dev %s' % iface
-        self.install_filter('vxlan0', match, action)
-
-        # Install pre-tunnel rule to direct packet to internal port
-        match = 'ip flower dst_mac %s' % int_mac
-        action = 'skbedit ptype host pipe mirred egress redirect dev int-port'
-        self.install_filter(iface, match, action)
-
-        # VXLAN header with VNI 123, ToS 30, and TTL  99
-        vxlan_header = '\x08\x00\x00\x00\x00\x00\x7b\x00'
-        enc_pkt = Ether(src=self.group.hwaddr_x[0],dst=self.ipv4_mc_mac[0])/\
-                  IP()/TCP()/Raw('\x00'*64)
-        vxlan_header += str(enc_pkt)
-        pkt = Ether(src=src_mac,dst=int_mac)/\
-              IP(src=src_ip, dst=dut_ip, tos=30, ttl=99)/\
-              UDP(sport=44534, dport=4789)/vxlan_header
-        pkt_diff = len(Ether()) + len(IP()) + len(UDP()) + 8
-        self.test_filter('vxlan0', ingress, pkt, enc_pkt, 100, -pkt_diff)
-
-        # Verify packets also hit the pre-tunnel rule
-        stats = self.dut.netifs[iface].stats(get_tc_ing=True)
-        if int(stats.tc_ing['tc_49152_pkts']) < 90:
-            raise NtiError('Counter mismatch. Expected: 100, Got: %s' % (stats.tc_ing['tc_49152_pkts']))
-
-        self.cleanup_filter('vxlan0')
+        # add vlan to the tunnel
         self.cleanup_filter(iface)
+        self.add_pre_tunnel_rule_vlan(iface, dut_mac, 'int-port', 20)
+        self.execute_tun_match(iface, ingress, dut_mac, 4789, 'vxlan0',
+                               vlan_id=20)
+        if self.dut.kernel_ver_ge(4, 19):
+           self.check_pre_tun_stats(iface, 700)
+        else:
+           self.check_pre_tun_stats(iface, 400)
 
-        # Re-install tunnel match rule
-        match = 'ip flower enc_src_ip %s enc_dst_ip %s enc_dst_port 4789 enc_key_id 123' % (src_ip, dut_ip)
-        action = 'mirred egress redirect dev %s' % iface
-        self.install_filter('vxlan0', match, action)
-
-        # Install pre-tunnel rule to include VLAN
-        match = '802.1Q flower vlan_id 20 dst_mac %s' % int_mac
-        action = 'vlan pop pipe skbedit ptype host pipe mirred egress redirect dev int-port'
-        self.install_filter(iface, match, action)
-
-        pkt = Ether(src=src_mac,dst=int_mac)/\
-              Dot1Q(vlan=20, prio=0) /\
-              IP(src=src_ip, dst=dut_ip, tos=30, ttl=99)/\
-              UDP(sport=44534, dport=4789)/vxlan_header
-        pkt_diff = len(Ether()) + len(Dot1Q()) + len(IP()) + len(UDP()) + 8
-        self.test_filter('vxlan0', ingress, pkt, enc_pkt, 100, -pkt_diff)
-
-        # Verify packets also hit the pre-tunnel rule
-        stats = self.dut.netifs[iface].stats(get_tc_ing=True)
-        if int(stats.tc_ing['tc_49152_pkts']) < 90:
-            raise NtiError('Counter mismatch. Expected: 100, Got: %s' % (stats.tc_ing['tc_49152_pkts']))
-
-        self.cleanup_filter('vxlan0')
+        # test for failure with the wrong vlan_id
         self.cleanup_filter(iface)
-
-        # Miss test - Re-install tunnel match rule
-        # This should miss if pre-tunnel rule is incorrect
-        match = 'ip flower enc_src_ip %s enc_dst_ip %s enc_dst_port 4789 enc_key_id 123' % (src_ip, dut_ip)
-        action = 'mirred egress redirect dev %s' % iface
-        self.install_filter('vxlan0', match, action)
-
-        # Install pre-tunnel rule to include (incorrect) VLAN
-        match = '802.1Q flower vlan_id 21 dst_mac %s' % int_mac
-        action = 'vlan pop pipe skbedit ptype host pipe mirred egress redirect dev int-port'
-        self.install_filter(iface, match, action)
-        self.test_filter('vxlan0', ingress, pkt, None, 0)
-
-        # Verify packets also hit the pre-tunnel rule
-        stats = self.dut.netifs[iface].stats(get_tc_ing=True)
-        if int(stats.tc_ing['tc_49152_pkts']) != 0:
-            raise NtiError('Counter mismatch. Expected: 0, Got: %s' % (stats.tc_ing['tc_49152_pkts']))
-
-        self.cleanup_filter('vxlan0')
-        self.cleanup_filter(iface)
+        self.add_pre_tunnel_rule_vlan(iface, dut_mac, 'int-port', 20)
+        self.execute_tun_match(iface, ingress, dut_mac, 4789, 'vxlan0',
+                               vlan_id=21, fail=True)
+        self.check_pre_tun_stats(iface, 0)
 
     def cleanup(self):
-        self.cleanup_flower('vxlan0')
-        src_ip = self.src_addr[0].split('/')[0]
-        self.dut.cmd('arp -i %s -d %s' % (self.dut_ifn[0], src_ip), fail=False)
         self.cleanup_flower(self.dut_ifn[0])
-        self.dut.cmd('ip link del vxlan0', fail=False)
-        self.dut.cmd('ovs-dpctl del-dp int-port', fail=False)
-        self.dut.cmd('modprobe -r openvswitch', fail=False)
-        self.dut.cmd('ip addr add %s dev %s' % (self.dut_addr[0], self.dut_ifn[0]), fail=False)
+        self.cleanup_flower('vxlan0')
+        self.del_tun_dev('vxlan0')
+        self.move_ip_address(self.dut_addr[0], 'int-port', self.dut_ifn[0])
+        self.del_ovs_internal_port('int-port')
         return super(FlowerMatchVXLANInVLAN, self).cleanup()
 
-class FlowerMatchGeneve(FlowerBase):
+class FlowerMatchGeneve(FlowerTunnel):
     def execute(self):
         iface, ingress = self.configure_flower()
-        M = self.dut
-        A = self.src
-
-        src_ip = self.src_addr[0].split('/')[0]
-        dut_ip = self.dut_addr[0].split('/')[0]
-
-        _, src_mac = A.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.src_ifn[0])
-        _, dut_mac = M.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.dut_ifn[0])
-
-        M.cmd('ip link delete gene0', fail=False)
-        M.cmd('ip link add gene0 type geneve dstport 6081 external')
-        M.cmd('ifconfig gene0 up')
-
-        self.add_egress_qdisc('gene0')
-
-        # Hit test - match all geneve fields and decap
-        match = 'ip flower enc_src_ip %s enc_dst_ip %s enc_dst_port 6081 enc_key_id 123' % (src_ip, dut_ip)
-        action = 'mirred egress redirect dev %s' % iface
-        self.install_filter('gene0', match, action)
-
-        # Geneve header with VNI 123
-        geneve_header = '\x00\x00\x65\x58\x00\x00\x7b\x00'
-        enc_pkt = Ether(src=self.group.hwaddr_x[0],dst=self.ipv4_mc_mac[0])/\
-                  IP()/TCP()/Raw('\x00'*64)
-        geneve_header += str(enc_pkt)
-        pkt = Ether(src=src_mac,dst=dut_mac)/IP(src=src_ip, dst=dut_ip)/UDP(sport=44534, dport=6081)/geneve_header
-        pkt_diff = len(Ether()) + len(IP()) + len(UDP()) + 8
-        self.test_filter('gene0', ingress, pkt, enc_pkt, 100, -pkt_diff)
-
-        self.cleanup_filter('gene0')
-
-        # Miss test - incorrect enc ip src
-        match = 'ip flower enc_src_ip 1.1.1.1 enc_dst_ip %s enc_dst_port 6081 enc_key_id 123' % (dut_ip)
-        action = 'mirred egress redirect dev %s' % iface
-        self.install_filter('gene0', match, action)
-        self.test_filter('gene0', ingress, pkt, None, 0)
-
-        self.cleanup_filter('gene0')
-
-        # Miss test - incorrect enc ip dst
-        match = 'ip flower enc_src_ip %s enc_dst_ip 1.1.1.1 enc_dst_port 6081 enc_key_id 123' % (src_ip)
-        action = 'mirred egress redirect dev %s' % iface
-        self.install_filter('gene0', match, action)
-        self.test_filter('gene0', ingress, pkt, None, 0)
-
-        self.cleanup_filter('gene0')
-
-        # Miss test - incorrect VNI
-        match = 'ip flower enc_src_ip %s enc_dst_ip %s enc_dst_port 6081 enc_key_id 124' % (src_ip, dut_ip)
-        action = 'mirred egress redirect dev %s' % iface
-        self.install_filter('gene0', match, action)
-        self.test_filter('gene0', ingress, pkt, None, 0)
-
-        self.cleanup_filter('gene0')
+        self.add_geneve_dev('gene0')
+        dut_mac = self.get_dut_mac(iface)
+        self.execute_tun_match(iface, ingress, dut_mac, 6081, 'gene0')
 
     def cleanup(self):
         self.cleanup_flower('gene0')
-        self.dut.cmd('ip link del gene0', fail=False)
+        self.del_tun_dev('gene0')
         return super(FlowerMatchGeneve, self).cleanup()
 
 class FlowerMatchGeneveOpt(FlowerBase):
