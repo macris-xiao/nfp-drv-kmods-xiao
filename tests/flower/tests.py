@@ -58,9 +58,11 @@ class NFPKmodFlower(NFPKmodAppGrp):
              ('flower_match_frag_ipv4', FlowerMatchFragIPv4, "Checks basic flower fragmentation for IPv4 match capabilities"),
              ('flower_match_frag_ipv6', FlowerMatchFragIPv6, "Checks basic flower fragmentation for IPv6 match capabilities"),
              ('flower_match_gre', FlowerMatchGRE, "Checks basic flower gre match capabilities"),
+             ('flower_match_gre_in_vlan', FlowerMatchGREInVLAN, "Checks basic flower gre in vlan match capabilities"),
              ('flower_match_vxlan', FlowerMatchVXLAN, "Checks basic flower vxlan match capabilities"),
              ('flower_match_vxlan_in_vlan', FlowerMatchVXLANInVLAN, "Checks basic flower vxlan in vlan match capabilities"),
              ('flower_match_geneve', FlowerMatchGeneve, "Checks basic flower Geneve match capabilities"),
+             ('flower_match_geneve_in_vlan', FlowerMatchGeneveInVLAN, "Checks basic flower geneve in vlan match capabilities"),
              ('flower_match_geneve_opt', FlowerMatchGeneveOpt, "Checks flower Geneve option match capabilities"),
              ('flower_match_geneve_multi_opt', FlowerMatchGeneveMultiOpt, "Checks flower Genevei with multiple options match capabilities"),
              ('flower_match_block', FlowerMatchBlock, "Checks basic flower block match capabilities"),
@@ -533,6 +535,33 @@ class FlowerTunnel(FlowerBase):
 
             self.test_filter(tun_dev, ingress, pkt, None, 0)
             self.cleanup_filter(tun_dev)
+
+    def execute_tun_vlan_match(self, iface, ingress, dut_mac, tun_port, tun_dev,
+                               int_dev):
+        self.add_pre_tunnel_rule(iface, dut_mac, int_dev)
+        self.execute_tun_match(iface, ingress, dut_mac, tun_port, tun_dev)
+        # verify all packets sent are matching on the pre-tunnel rule
+        if self.dut.kernel_ver_ge(4, 19):
+           self.check_pre_tun_stats(iface, 700)
+        else:
+           self.check_pre_tun_stats(iface, 400)
+
+        # add vlan to the tunnel
+        self.cleanup_filter(iface)
+        self.add_pre_tunnel_rule_vlan(iface, dut_mac, int_dev, 20)
+        self.execute_tun_match(iface, ingress, dut_mac, tun_port, tun_dev,
+                               vlan_id=20)
+        if self.dut.kernel_ver_ge(4, 19):
+           self.check_pre_tun_stats(iface, 700)
+        else:
+           self.check_pre_tun_stats(iface, 400)
+
+        # test for failure with the wrong vlan_id
+        self.cleanup_filter(iface)
+        self.add_pre_tunnel_rule_vlan(iface, dut_mac, int_dev, 20)
+        self.execute_tun_match(iface, ingress, dut_mac, tun_port, tun_dev,
+                               vlan_id=21, fail=True)
+        self.check_pre_tun_stats(iface, 0)
 
     def execute_tun_action(self, iface, ingress, dut_mac, tun_port, tun_dev,
                            vlan_id=0):
@@ -1114,6 +1143,30 @@ class FlowerMatchGRE(FlowerTunnel):
         self.del_tun_dev('gre1')
         return super(FlowerTunnel, self).cleanup()
 
+class FlowerMatchGREInVLAN(FlowerTunnel):
+    def prepare(self):
+        if self.dut.kernel_ver_lt(5, 4):
+            return NrtResult(name=self.name, testtype=self.__class__.__name__,
+                             passed=None,
+                             comment='kernel 5.4 or above is required')
+
+    def execute(self):
+        iface, ingress = self.configure_flower()
+        self.add_gre_dev('gre1')
+        self.add_ovs_internal_port('int-port')
+        self.move_ip_address(self.dut_addr[0], iface, 'int-port')
+        dut_mac = self.get_dut_mac('int-port')
+        self.execute_tun_vlan_match(iface, ingress, dut_mac, 0, 'gre1',
+                                    'int-port')
+
+    def cleanup(self):
+        self.cleanup_flower(self.dut_ifn[0])
+        self.cleanup_flower('gre1')
+        self.del_tun_dev('gre1')
+        self.move_ip_address(self.dut_addr[0], 'int-port', self.dut_ifn[0])
+        self.del_ovs_internal_port('int-port')
+        return super(FlowerMatchGREInVLAN, self).cleanup()
+
 class FlowerMatchVXLAN(FlowerTunnel):
     def execute(self):
         iface, ingress = self.configure_flower()
@@ -1139,30 +1192,8 @@ class FlowerMatchVXLANInVLAN(FlowerTunnel):
         self.add_ovs_internal_port('int-port')
         self.move_ip_address(self.dut_addr[0], iface, 'int-port')
         dut_mac = self.get_dut_mac('int-port')
-        self.add_pre_tunnel_rule(iface, dut_mac, 'int-port')
-        self.execute_tun_match(iface, ingress, dut_mac, 4789, 'vxlan0')
-        # verify all packets sent are matching on the pre-tunnel rule
-        if self.dut.kernel_ver_ge(4, 19):
-           self.check_pre_tun_stats(iface, 700)
-        else:
-           self.check_pre_tun_stats(iface, 400)
-
-        # add vlan to the tunnel
-        self.cleanup_filter(iface)
-        self.add_pre_tunnel_rule_vlan(iface, dut_mac, 'int-port', 20)
-        self.execute_tun_match(iface, ingress, dut_mac, 4789, 'vxlan0',
-                               vlan_id=20)
-        if self.dut.kernel_ver_ge(4, 19):
-           self.check_pre_tun_stats(iface, 700)
-        else:
-           self.check_pre_tun_stats(iface, 400)
-
-        # test for failure with the wrong vlan_id
-        self.cleanup_filter(iface)
-        self.add_pre_tunnel_rule_vlan(iface, dut_mac, 'int-port', 20)
-        self.execute_tun_match(iface, ingress, dut_mac, 4789, 'vxlan0',
-                               vlan_id=21, fail=True)
-        self.check_pre_tun_stats(iface, 0)
+        self.execute_tun_vlan_match(iface, ingress, dut_mac, 4789, 'vxlan0',
+                                    'int-port')
 
     def cleanup(self):
         self.cleanup_flower(self.dut_ifn[0])
@@ -1183,6 +1214,30 @@ class FlowerMatchGeneve(FlowerTunnel):
         self.cleanup_flower('gene0')
         self.del_tun_dev('gene0')
         return super(FlowerMatchGeneve, self).cleanup()
+
+class FlowerMatchGeneveInVLAN(FlowerTunnel):
+    def prepare(self):
+        if self.dut.kernel_ver_lt(5, 4):
+            return NrtResult(name=self.name, testtype=self.__class__.__name__,
+                             passed=None,
+                             comment='kernel 5.4 or above is required')
+
+    def execute(self):
+        iface, ingress = self.configure_flower()
+        self.add_geneve_dev('gene0')
+        self.add_ovs_internal_port('int-port')
+        self.move_ip_address(self.dut_addr[0], iface, 'int-port')
+        dut_mac = self.get_dut_mac('int-port')
+        self.execute_tun_vlan_match(iface, ingress, dut_mac, 6081, 'gene0',
+                                    'int-port')
+
+    def cleanup(self):
+        self.cleanup_flower(self.dut_ifn[0])
+        self.cleanup_flower('gene0')
+        self.del_tun_dev('gene0')
+        self.move_ip_address(self.dut_addr[0], 'int-port', self.dut_ifn[0])
+        self.del_ovs_internal_port('int-port')
+        return super(FlowerMatchGeneveInVLAN, self).cleanup()
 
 class FlowerMatchGeneveOpt(FlowerBase):
     def hit_geneve_opt(self, iface, ingress, dut_ip, src_ip, dut_mac, src_mac, geneve_opt):
