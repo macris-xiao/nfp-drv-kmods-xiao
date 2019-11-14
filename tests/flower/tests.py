@@ -75,10 +75,13 @@ class NFPKmodFlower(NFPKmodAppGrp):
              ('flower_action_push_vlan', FlowerActionPushVLAN, "Checks basic flower push vlan action capabilities"),
              ('flower_action_pop_vlan', FlowerActionPopVLAN, "Checks basic flower pop vlan action capabilities"),
              ('flower_action_encap_gre', FlowerActionGRE, "Checks basic flower gre encapsulation action capabilities"),
+             ('flower_action_encap_gre_merge', FlowerActionMergeGRE, "Checks basic flower gre encapsulation action when IP is on internal port (via merge)"),
              ('flower_action_encap_vxlan', FlowerActionVXLAN, "Checks basic flower vxlan encapsulation action capabilities"),
              ('flower_action_encap_vxlan_merge', FlowerActionMergeVXLAN, "Checks basic flower vxlan encapsulation action when IP is on internal port (via merge)"),
              ('flower_action_encap_vxlan_merge_in_vlan', FlowerActionMergeVXLANInVLAN, "Checks basic flower vxlan in VLAN encapsulation action when IP is on internal port (via merge)"),
              ('flower_action_encap_geneve', FlowerActionGENEVE, "Checks basic flower geneve encapsulation action capabilities"),
+             ('flower_action_encap_geneve_merge', FlowerActionMergeGENEVE, "Checks basic flower geneve encapsulation action when IP is on internal port (via merge)"),
+             ('flower_action_encap_geneve_merge_in_vlan', FlowerActionMergeGENEVEInVLAN, "Checks basic flower geneve in VLAN encapsulation action when IP is on internal port (via merge)"),
              ('flower_action_encap_geneve_opt', FlowerActionGENEVEOpt, "Checks flower geneve encap opt action capabilities"),
              ('flower_action_encap_geneve_multi_opt', FlowerActionGENEVEMultiOpt, "Checks flower geneve encap opt action capabilities"),
              ('flower_action_set_ether', FlowerActionSetEth, "Checks basic flower set ethernet action capabilities"),
@@ -2387,6 +2390,27 @@ class FlowerActionGRE(FlowerTunnel):
         self.del_tun_dev('gre1')
         return super(FlowerActionGRE, self).cleanup()
 
+class FlowerActionMergeGRE(FlowerTunnel):
+    def execute(self):
+        iface, ingress = self.configure_flower()
+        self.add_gre_dev('gre1')
+        self.add_ovs_internal_port('int-port')
+
+        # move the IP address of the dut iface to the internal port
+        self.move_ip_address(self.dut_addr[0], iface, 'int-port')
+        src_ip, _ = self.get_ip_addresses()
+        self.setup_dut_neighbour(src_ip, 'int-port')
+        self.add_tun_redirect_rule('int-port', iface)
+        dut_mac = self.get_dut_mac('int-port')
+        self.execute_tun_action(iface, ingress, dut_mac, 0, 'gre1')
+
+    def cleanup(self):
+        self.cleanup_flower(self.dut_ifn[0])
+        self.del_tun_dev('gre1')
+        self.move_ip_address(self.dut_addr[0], 'int-port', self.dut_ifn[0])
+        self.del_ovs_internal_port('int-port')
+        return super(FlowerActionMergeGRE, self).cleanup()
+
 class FlowerActionVXLAN(FlowerTunnel):
     def execute(self):
         iface, ingress = self.configure_flower()
@@ -2467,6 +2491,55 @@ class FlowerActionGENEVE(FlowerTunnel):
         self.delete_dut_neighbour(src_ip, self.dut_ifn[0])
         self.del_tun_dev('gene0')
         return super(FlowerActionGENEVE, self).cleanup()
+
+class FlowerActionMergeGENEVE(FlowerTunnel):
+    def execute(self):
+        iface, ingress = self.configure_flower()
+        self.add_geneve_dev('gene0')
+        self.add_ovs_internal_port('int-port')
+
+        # move the IP address of the dut iface to the internal port
+        self.move_ip_address(self.dut_addr[0], iface, 'int-port')
+        src_ip, _ = self.get_ip_addresses()
+        self.setup_dut_neighbour(src_ip, 'int-port')
+        self.add_tun_redirect_rule('int-port', iface)
+        dut_mac = self.get_dut_mac('int-port')
+        self.execute_tun_action(iface, ingress, dut_mac, 6081, 'gene0')
+
+    def cleanup(self):
+        self.cleanup_flower(self.dut_ifn[0])
+        self.del_tun_dev('gene0')
+        self.move_ip_address(self.dut_addr[0], 'int-port', self.dut_ifn[0])
+        self.del_ovs_internal_port('int-port')
+        return super(FlowerActionMergeGENEVE, self).cleanup()
+
+class FlowerActionMergeGENEVEInVLAN(FlowerTunnel):
+    def prepare(self):
+        if self.dut.kernel_ver_lt(5, 4):
+            return NrtResult(name=self.name, testtype=self.__class__.__name__,
+                             passed=None,
+                             comment='kernel 5.4 or above is required')
+
+    def execute(self):
+        iface, ingress = self.configure_flower()
+        self.add_geneve_dev('gene0')
+        self.add_ovs_internal_port('int-port')
+
+        # move the IP address of the dut iface to the internal port
+        self.move_ip_address(self.dut_addr[0], iface, 'int-port')
+        src_ip, _ = self.get_ip_addresses()
+        self.setup_dut_neighbour(src_ip, 'int-port')
+        self.add_tun_redirect_rule_vlan('int-port', iface, 20)
+        dut_mac = self.get_dut_mac('int-port')
+        self.execute_tun_action(iface, ingress, dut_mac, 6081, 'gene0',
+                                vlan_id=20)
+
+    def cleanup(self):
+        self.cleanup_flower(self.dut_ifn[0])
+        self.del_tun_dev('gene0')
+        self.move_ip_address(self.dut_addr[0], 'int-port', self.dut_ifn[0])
+        self.del_ovs_internal_port('int-port')
+        return super(FlowerActionMergeGENEVEInVLAN, self).cleanup()
 
 class FlowerActionGENEVEOpt(FlowerBase):
     def install_geneve_opt(self, iface, ingress, dut_ip, src_ip, dut_mac, src_mac, geneve_opt):
