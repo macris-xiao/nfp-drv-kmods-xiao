@@ -376,6 +376,19 @@ class FlowerTunnel(FlowerBase):
             raise NtiError('Counter mismatch. Expected: %s, Got: %s'  \
                            % (exp_packets, stats.tc_ing['tc_49152_pkts']))
 
+    def add_tun_redirect_rule(self, dev_name, egress_dev):
+        self.dut.cmd('tc qdisc add dev %s handle ffff: clsact' % dev_name)
+        self.dut.cmd('tc filter add dev %s protocol ip parent ffff:fff3 ' \
+                     'flower action mirred egress redirect dev %s' \
+                     % (dev_name, egress_dev))
+
+    def add_tun_redirect_rule_vlan(self, dev_name, egress_dev, vlan_id):
+        self.dut.cmd('tc qdisc add dev %s handle ffff: clsact' % dev_name)
+        self.dut.cmd('tc filter add dev %s protocol ip parent ffff:fff3 ' \
+                     'flower action vlan push id %s ' \
+                     'pipe mirred egress redirect dev %s'
+                     % (dev_name, vlan_id, egress_dev))
+
     def get_ip_addresses(self):
         src_ip = self.src_addr[0].split('/')[0]
         dut_ip = self.dut_addr[0].split('/')[0]
@@ -395,6 +408,15 @@ class FlowerTunnel(FlowerBase):
         self.dut.cmd('ip addr del %s dev %s' % (addr, src_dev), fail=False)
         self.dut.cmd('ip addr add %s dev %s' % (addr, dst_dev), fail=False)
         self.dut.cmd('ip link set dev %s up' % dst_dev)
+
+    def setup_dut_neighbour(self, addr, dev):
+        _, src_mac = self.src.cmd('cat /sys/class/net/%s/address | tr -d "\n"' \
+                                  % self.src_ifn[0])
+        self.dut.cmd('ip neigh add %s lladdr %s dev %s' % (addr, src_mac, dev))
+
+    def delete_dut_neighbour(self, addr, dev):
+        self.dut.cmd('ip neigh del %s dev %s' % (addr, dev), fail=False)
+        self.dut.cmd('ip neigh flush dev %s' % dev, fail=False)
 
     def execute_tun_match(self, iface, ingress, dut_mac, tun_port, tun_dev,
                           vlan_id=0, fail=False):
@@ -511,6 +533,160 @@ class FlowerTunnel(FlowerBase):
 
             self.test_filter(tun_dev, ingress, pkt, None, 0)
             self.cleanup_filter(tun_dev)
+
+    def execute_tun_action(self, iface, ingress, dut_mac, tun_port, tun_dev,
+                           vlan_id=0):
+        M = self.dut
+        A = self.src
+
+        src_ip, dut_ip = self.get_ip_addresses()
+        src_mac = self.get_src_mac(ingress)
+
+        # Hit test - match all tcp packets and encap in vxlan
+        match = 'ip flower skip_sw ip_proto tcp'
+        if self.dut.kernel_ver_ge(4, 19):
+            action = 'tunnel_key set id 123 src_ip %s dst_ip %s dst_port %s ' \
+                     'tos 30 ttl 99 action mirred egress redirect dev %s' \
+                     % (dut_ip, src_ip, tun_port, tun_dev)
+            self.install_filter(iface, match, action)
+        else:
+            action = 'tunnel_key set id 123 src_ip %s dst_ip %s dst_port %s ' \
+                     'action mirred egress redirect dev %s' \
+                     % (dut_ip, src_ip, tun_port, tun_dev)
+            self.install_filter(iface, match, action)
+
+        exp_pkt_cnt = 100
+        pkt = Ether(src=self.group.hwaddr_x[0],dst=self.ipv4_mc_mac[0])/\
+              IP()/TCP()/Raw('\x00'*64)
+
+        sleep(2)
+        self.send_packs(iface, ingress, pkt)
+        sleep(2)
+
+        dump_file = os.path.join('/tmp/', 'dump.pcap')
+        if tun_port:
+            self.capture_packs(iface, ingress, pkt, dump_file,
+                               'udp dst port %s' % tun_port)
+        else:
+            self.capture_packs(iface, ingress, pkt, dump_file, 'proto 47')
+        pack_cap = rdpcap(dump_file)
+        cmd_log("rm %s" % dump_file)
+        pkt_diff = len(Ether())
+        if vlan_id:
+            pkt_diff+=len(Dot1Q())
+        pkt_diff+=len(IP())
+        if tun_port:
+            pkt_diff+=len(UDP())
+        # tun header
+        pkt_diff+=8
+
+        self.pcap_check_bytes(exp_pkt_cnt, pack_cap, pkt, pkt_diff)
+
+        # build the expected packet to extract match fields
+        exp_pkt = Ether(src=dut_mac,dst=src_mac)
+        if vlan_id:
+            exp_pkt = exp_pkt/Dot1Q(vlan=vlan_id, prio=0)
+        exp_pkt = exp_pkt/IP(src=dut_ip, dst=src_ip, ttl=99, tos=30)
+        if tun_port:
+            exp_pkt = exp_pkt/UDP(sport=0, dport=tun_port)
+        else:
+            exp_pkt = exp_pkt/GRE(proto=0x6558, key_present=1, key=123)
+
+        # create matchable strings from the expected packet
+        mac_header = str(exp_pkt).encode("hex")[0:len(Ether())*2]
+        vlan_header = ''
+        ip_addresses = ''
+        ip_proto = ''
+        ttl = ''
+        no_ttl = '00'
+        tos = ''
+        dest_port = ''
+        udp_csum = ''
+        tun_header = ''
+
+        l4_offset = 0
+        l3_offset = len(Ether())
+        enc_pkt_offset = 0
+
+        if vlan_id:
+            l3_offset = len(Ether()) + len(Dot1Q())
+            vlan_header = str(exp_pkt).encode("hex")[len(Ether())*2 : l3_offset*2]
+
+        ip_addresses = str(exp_pkt).encode("hex")[(l3_offset + 12)*2:
+                                                  (l3_offset + len(IP()))*2]
+        ip_proto = str(exp_pkt).encode("hex")[(l3_offset + 9)*2:
+                                              (l3_offset + 10)*2]
+        ttl = str(exp_pkt).encode("hex")[(l3_offset + 8)*2: (l3_offset + 9)*2]
+        tos = str(exp_pkt).encode("hex")[(l3_offset + 1)*2: (l3_offset + 2)*2]
+        l4_offset = l3_offset + len(IP())
+
+        if tun_port:
+            dest_port = str(exp_pkt).encode("hex")[(l4_offset + 2)*2:
+                                                   (l4_offset + 4)*2]
+            # copy a captured packet and get scapy to calculate its checksum
+            first = pack_cap[0].copy()
+            del(first[UDP].chksum)
+            udp_csum = str(first).encode("hex")[(l4_offset + 6)*2:
+                                                (l4_offset + 8)*2]
+
+            if tun_port == 4789:
+                # assign a VXLAN header
+                tun_header = '0800000000007b00'
+            elif tun_port == 6081:
+                # assign a geneve header
+                tun_header = '0000655800007b00'
+            else:
+                raise NtiError('Unsupported UDP tunnel port number')
+            enc_pkt_offset = l4_offset + len(UDP()) + 8
+        else:
+            # port zero implies GRE
+            tun_header = str(exp_pkt).encode("hex")[l3_offset*2 : len(GRE())*2]
+            enc_pkt_offset = l4_offset + 8
+
+        # check tunnel header
+        self.pcap_cmp_pkt_bytes(pack_cap, tun_header, l4_offset + len(UDP()))
+        # check tunnel ethernet header
+        self.pcap_cmp_pkt_bytes(pack_cap, mac_header, 0)
+        # check VLAN header
+        self.pcap_cmp_pkt_bytes(pack_cap, vlan_header, len(Ether()))
+        # check tunnel IP addresses
+        self.pcap_cmp_pkt_bytes(pack_cap, ip_addresses, l3_offset + 12)
+        # check tunnel TTL is non zero
+        self.pcap_cmp_pkt_bytes(pack_cap, no_ttl, l3_offset + 8, fail=True)
+        # check tunnel IP proto
+        self.pcap_cmp_pkt_bytes(pack_cap, ip_proto, l3_offset + 9)
+        # check tunnel destination UDP port - empty string for GRE
+        self.pcap_cmp_pkt_bytes(pack_cap, dest_port, l4_offset + 2)
+        # check udp checksum
+        self.pcap_cmp_pkt_bytes(pack_cap, udp_csum, l4_offset + 6)
+        # check encapsulated packet
+        self.pcap_cmp_pkt_bytes(pack_cap, str(pkt).encode("hex"),
+                                enc_pkt_offset)
+
+        # Setting of tunnel ToS and TTL are added in kernel 4.19
+        if self.dut.kernel_ver_ge(4, 19):
+            # check tunnel TTL
+            self.pcap_cmp_pkt_bytes(pack_cap, ttl, l3_offset + 8)
+            # check tunnel ToS
+            self.pcap_cmp_pkt_bytes(pack_cap, tos, l3_offset + 1)
+
+        self.cleanup_filter(iface)
+
+        # modify action to uncheck the udp checksum flag
+        action = 'tunnel_key set id 123 src_ip %s dst_ip %s dst_port %s ' \
+                 'nocsum action mirred egress redirect dev %s' \
+                 % (dut_ip, src_ip, tun_port, tun_dev)
+        self.install_filter(iface, match, action)
+        if tun_port:
+            self.capture_packs(iface, ingress, pkt, dump_file,
+                               'udp dst port %s' % tun_port)
+            pack_cap = rdpcap(dump_file)
+
+            no_csum = '0000'
+            # verify checksum is 0
+            self.pcap_cmp_pkt_bytes(pack_cap, no_csum, l4_offset + 6)
+
+            self.cleanup_filter(iface)
 
     def cleanup(self):
         return super(FlowerTunnel, self).cleanup()
@@ -2140,442 +2316,101 @@ class FlowerActionPopVLAN(FlowerBase):
         self.cleanup_flower(self.dut_ifn[0])
         return super(FlowerActionPopVLAN, self).cleanup()
 
-class FlowerActionGRE(FlowerBase):
+class FlowerActionGRE(FlowerTunnel):
     def execute(self):
         iface, ingress = self.configure_flower()
-        M = self.dut
-        A = self.src
-
-        src_ip = self.src_addr[0].split('/')[0]
-        dut_ip = self.dut_addr[0].split('/')[0]
-
-        _, src_mac = A.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.src_ifn[0])
-        _, dut_mac = M.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.dut_ifn[0])
-
-        M.cmd('ip link add gre1 type gretap remote %s local %s dev %s external' % (src_ip, dut_ip, self.dut_ifn[0]))
-        M.cmd('ifconfig gre1 up')
-
-        M.cmd('arp -i %s -s %s %s' % (self.dut_ifn[0], src_ip, src_mac))
-
-        # Hit test - Encap GRE set tunnel ID
-        match = 'ip flower skip_sw ip_proto tcp'
-        if self.dut.kernel_ver_ge(4, 19):
-            action = 'tunnel_key set id 456 src_ip %s dst_ip %s tos 30 ttl 99 action mirred egress redirect dev gre1' % (dut_ip, src_ip)
-            self.install_filter(iface, match, action)
-        else:
-            action = 'tunnel_key set id 456 src_ip %s dst_ip %s action mirred egress redirect dev gre1' % (dut_ip, src_ip)
-            self.install_filter(iface, match, action)
-
-        pkt = Ether(src=self.group.hwaddr_x[0],dst=self.ipv4_mc_mac[0])/\
-              IP()/TCP()/Raw('\x00'*64)
-        exp_pkt = Ether(src=dut_mac,dst=src_mac)/\
-                  IP(src=dut_ip, dst=src_ip, ttl=99, tos=30,  proto=47, chksum=0x40eb, id=0)/\
-                  GRE(proto=0x6558, key_present=1, key=456)/str(pkt)
-        pkt_diff = len(Ether()) + len(IP()) + 8
-
-        sleep(2)
-        self.send_packs(iface, ingress, pkt, 1)
-        self.test_filter(iface, ingress, pkt, exp_pkt, 100)
-        self.cleanup_filter(iface)
+        self.add_gre_dev('gre1')
+        src_ip, _ = self.get_ip_addresses()
+        self.setup_dut_neighbour(src_ip, iface)
+        dut_mac = self.get_dut_mac(iface)
+        self.execute_tun_action(iface, ingress, dut_mac, 0, 'gre1')
 
     def cleanup(self):
         self.cleanup_flower(self.dut_ifn[0])
-        src_ip = self.src_addr[0].split('/')[0]
-        self.dut.cmd('arp -i %s -d %s' % (self.dut_ifn[0], src_ip), fail=False)
-        self.dut.cmd('ip link delete gre1', fail=False)
+        src_ip, _ = self.get_ip_addresses()
+        self.delete_dut_neighbour(src_ip, self.dut_ifn[0])
+        self.del_tun_dev('gre1')
         return super(FlowerActionGRE, self).cleanup()
 
-class FlowerActionVXLAN(FlowerBase):
+class FlowerActionVXLAN(FlowerTunnel):
     def execute(self):
         iface, ingress = self.configure_flower()
-        M = self.dut
-        A = self.src
-
-        src_ip = self.src_addr[0].split('/')[0]
-        dut_ip = self.dut_addr[0].split('/')[0]
-
-        _, src_mac = A.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.src_ifn[0])
-        _, dut_mac = M.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.dut_ifn[0])
-
-        # the destination port is defined by the tc rule - confirmed in both skip_sw and skip_hw
-        M.cmd('ip link add name vxlan0 type vxlan dstport 0 external')
-        M.cmd('ifconfig vxlan0 up')
-
-        M.cmd('arp -i %s -s %s %s' % (self.dut_ifn[0], src_ip, src_mac))
-
-        # Hit test - match all tcp packets and encap in vxlan
-        match = 'ip flower skip_sw ip_proto tcp'
-        if self.dut.kernel_ver_ge(4, 19):
-            action = 'tunnel_key set id 123 src_ip %s dst_ip %s dst_port 4789 tos 30 ttl 99 action mirred egress redirect dev vxlan0' % (dut_ip, src_ip)
-            self.install_filter(iface, match, action)
-        else:
-            action = 'tunnel_key set id 123 src_ip %s dst_ip %s dst_port 4789 action mirred egress redirect dev vxlan0' % (dut_ip, src_ip)
-            self.install_filter(iface, match, action)
-
-        exp_pkt_cnt = 100
-        pkt = Ether(src=self.group.hwaddr_x[0],dst=self.ipv4_mc_mac[0])/\
-              IP()/TCP()/Raw('\x00'*64)
-
-        sleep(2)
-        self.send_packs(iface, ingress, pkt)
-        sleep(2)
-
-        dump_file = os.path.join('/tmp/', 'dump.pcap')
-        self.capture_packs(iface, ingress, pkt, dump_file, 'udp dst port 4789')
-        pack_cap = rdpcap(dump_file)
-        cmd_log("rm %s" % dump_file)
-        pkt_diff = len(Ether()) + len(IP()) + len(UDP()) + 8
-        self.pcap_check_bytes(exp_pkt_cnt, pack_cap, pkt, pkt_diff)
-
-        exp_pkt = Ether(src=dut_mac,dst=src_mac)/\
-                  IP(src=dut_ip, dst=src_ip, ttl=99, tos=30)/\
-                  UDP(sport=0, dport=4789)
-
-        # create matchable strings from the expected packet (non tested fields may differ)
-        vxlan_header = '0800000000007b00'
-        mac_header = str(exp_pkt).encode("hex")[0:len(Ether())*2]
-        ip_addresses = str(exp_pkt).encode("hex")[(len(Ether()) + 12)*2: (len(Ether()) + len(IP()))*2]
-        ip_proto = str(exp_pkt).encode("hex")[(len(Ether()) + 9)*2: (len(Ether()) + 10)*2]
-        dest_port = str(exp_pkt).encode("hex")[(len(Ether()) + len(IP()) + 2)*2: (len(Ether()) + len(IP()) + 4)*2]
-        no_ttl = '00'
-        ttl = str(exp_pkt).encode("hex")[(len(Ether()) + 8)*2: (len(Ether()) + 9)*2]
-        tos = str(exp_pkt).encode("hex")[(len(Ether()) + 1)*2: (len(Ether()) + 2)*2]
-
-        # copy a captured packet and get scapy to calculate its checksum
-        first = pack_cap[0].copy()
-        del(first[UDP].chksum)
-        udp_csum = str(first).encode("hex")[(len(Ether()) + len(IP()) + 6)*2: (len(Ether()) + len(IP()) + 8)*2]
-
-        # check VXLAN header
-        self.pcap_cmp_pkt_bytes(pack_cap, vxlan_header, len(Ether()) + len(IP()) + len(UDP()))
-        # check tunnel ethernet header
-        self.pcap_cmp_pkt_bytes(pack_cap, mac_header, 0)
-        # check tunnel IP addresses
-        self.pcap_cmp_pkt_bytes(pack_cap, ip_addresses, len(Ether()) + 12)
-        # check tunnel TTL is non zero
-        self.pcap_cmp_pkt_bytes(pack_cap, no_ttl, len(Ether()) + 8, fail=True)
-        # check tunnel IP proto
-        self.pcap_cmp_pkt_bytes(pack_cap, ip_proto, len(Ether()) + 9)
-        # check tunnel destination UDP port
-        self.pcap_cmp_pkt_bytes(pack_cap, dest_port, len(Ether()) + len(IP()) + 2)
-        # check udp checksum
-        self.pcap_cmp_pkt_bytes(pack_cap, udp_csum, len(Ether()) + len(IP()) + 6)
-        # check encapsulated packet
-        self.pcap_cmp_pkt_bytes(pack_cap, str(pkt).encode("hex"), len(Ether()) + len(IP()) + len(UDP()) + 8)
-
-        # Setting of tunnel ToS and TTL are added in kernel 4.19
-        if self.dut.kernel_ver_ge(4, 19):
-            # check tunnel TTL
-            self.pcap_cmp_pkt_bytes(pack_cap, ttl, len(Ether()) + 8)
-            # check tunnel ToS
-            self.pcap_cmp_pkt_bytes(pack_cap, tos, len(Ether()) + 1)
-
-        self.cleanup_filter(iface)
-
-        # modify action to uncheck the udp checksum flag
-        action = 'tunnel_key set id 123 src_ip %s dst_ip %s dst_port 4789 nocsum action mirred egress redirect dev vxlan0' % (dut_ip, src_ip)
-        self.install_filter(iface, match, action)
-        self.capture_packs(iface, ingress, pkt, dump_file, 'udp dst port 4789')
-        pack_cap = rdpcap(dump_file)
-
-        no_csum = '0000'
-        # verify checksum is 0
-        self.pcap_cmp_pkt_bytes(pack_cap, no_csum, len(Ether()) + len(IP()) + 6)
-
-        self.cleanup_filter(iface)
+        self.add_vxlan_dev('vxlan0')
+        src_ip, _ = self.get_ip_addresses()
+        self.setup_dut_neighbour(src_ip, iface)
+        dut_mac = self.get_dut_mac(iface)
+        self.execute_tun_action(iface, ingress, dut_mac, 4789, 'vxlan0')
 
     def cleanup(self):
         self.cleanup_flower(self.dut_ifn[0])
-        src_ip = self.src_addr[0].split('/')[0]
-        self.dut.cmd('arp -i %s -d %s' % (self.dut_ifn[0], src_ip), fail=False)
-        self.dut.cmd('ip link delete vxlan0', fail=False)
+        src_ip, _ = self.get_ip_addresses()
+        self.delete_dut_neighbour(src_ip, self.dut_ifn[0])
+        self.del_tun_dev('vxlan0')
         return super(FlowerActionVXLAN, self).cleanup()
 
-class FlowerActionMergeVXLAN(FlowerBase):
+class FlowerActionMergeVXLAN(FlowerTunnel):
     def execute(self):
         iface, ingress = self.configure_flower()
-        M = self.dut
-        A = self.src
+        self.add_vxlan_dev('vxlan0')
+        self.add_ovs_internal_port('int-port')
 
-        src_ip = self.src_addr[0].split('/')[0]
-        dut_ip = self.dut_addr[0].split('/')[0]
-
-        _, src_mac = A.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.src_ifn[0])
-
-        # install an internal port - if we cannot then skip test
-        M.cmd('modprobe -r openvswitch', fail=False)
-        ret, _ = M.cmd('modprobe openvswitch', fail=False)
-        if ret:
-            raise NtiSkip('Open vSwitch kernel modules required to run test')
-        ret, _ = M.cmd('ovs-dpctl add-dp int-port', fail=False)
-        if ret:
-            raise NtiSkip('ovs-dpctl app is required to run test')
-
-        # remove the IP from the dut port and add it to the internal port
-        M.cmd('ip addr del %s dev %s' % (self.dut_addr[0], self.dut_ifn[0]))
-        M.cmd('ip addr add %s dev int-port' % self.dut_addr[0])
-        M.cmd('ip link set dev int-port up')
-
-        M.cmd('ip link add name vxlan0 type vxlan dstport 0 external')
-        M.cmd('ifconfig vxlan0 up')
-
-        M.cmd('arp -i int-port -s %s %s' % (src_ip, src_mac))
-
-        # install filter to match all tcp packets and encap in vxlan
-        match = 'ip flower skip_sw ip_proto tcp'
-        action = 'tunnel_key set id 123 src_ip %s dst_ip %s dst_port 4789 action mirred egress redirect dev vxlan0' % (dut_ip, src_ip)
-        self.install_filter(iface, match, action)
-
-        # install filter to match on internal port and egress
-        # uses an egress hook so need new qdisc and egress parent id in filter
-        M.cmd('tc qdisc add dev int-port handle ffff: clsact')
-        M.cmd('tc filter add dev int-port protocol ip parent ffff:fff3 flower ip_proto udp action mirred egress redirect dev %s' % iface)
-
-        # tunnel EP is now on the internal port so packets should use its mac
-        _, int_mac = M.cmd('cat /sys/class/net/int-port/address | tr -d "\n"')
-
-        exp_pkt_cnt = 100
-        pkt = Ether(src=self.group.hwaddr_x[0],dst=self.ipv4_mc_mac[0])/\
-              IP()/TCP()/Raw('\x00'*64)
-
-        sleep(2)
-        self.send_packs(iface, ingress, pkt)
-        sleep(2)
-
-        dump_file = os.path.join('/tmp/', 'dump.pcap')
-        self.capture_packs(iface, ingress, pkt, dump_file, 'udp dst port 4789')
-        pack_cap = rdpcap(dump_file)
-        cmd_log("rm %s" % dump_file)
-        pkt_diff = len(Ether()) + len(IP()) + len(UDP()) + 8
-        self.pcap_check_bytes(exp_pkt_cnt, pack_cap, pkt, pkt_diff)
-
-        exp_pkt = Ether(src=int_mac,dst=src_mac)/\
-                  IP(src=dut_ip, dst=src_ip)/\
-                  UDP(sport=0, dport=4789)
-
-        # create matchable strings from the expected packet (non tested fields may differ)
-        vxlan_header = '0800000000007b00'
-        mac_header = str(exp_pkt).encode("hex")[0:len(Ether())*2]
-        ip_addresses = str(exp_pkt).encode("hex")[(len(Ether()) + 12)*2: (len(Ether()) + len(IP()))*2]
-        ip_proto = str(exp_pkt).encode("hex")[(len(Ether()) + 9)*2: (len(Ether()) + 10)*2]
-        dest_port = str(exp_pkt).encode("hex")[(len(Ether()) + len(IP()) + 2)*2: (len(Ether()) + len(IP()) + 4)*2]
-        no_ttl = '00'
-        ttl = str(exp_pkt).encode("hex")[(len(Ether()) + 8)*2: (len(Ether()) + 9)*2]
-        tos = str(exp_pkt).encode("hex")[(len(Ether()) + 1)*2: (len(Ether()) + 2)*2]
-
-        # copy a captured packet and get scapy to calculate its checksum
-        first = pack_cap[0].copy()
-        del(first[UDP].chksum)
-        udp_csum = str(first).encode("hex")[(len(Ether()) + len(IP()) + 6)*2: (len(Ether()) + len(IP()) + 8)*2]
-
-        # check VXLAN header
-        self.pcap_cmp_pkt_bytes(pack_cap, vxlan_header, len(Ether()) + len(IP()) + len(UDP()))
-        # check tunnel ethernet header
-        self.pcap_cmp_pkt_bytes(pack_cap, mac_header, 0)
-        # check tunnel IP addresses
-        self.pcap_cmp_pkt_bytes(pack_cap, ip_addresses, len(Ether()) + 12)
-        # check tunnel TTL is non zero
-        self.pcap_cmp_pkt_bytes(pack_cap, no_ttl, len(Ether()) + 8, fail=True)
-        # check tunnel IP proto
-        self.pcap_cmp_pkt_bytes(pack_cap, ip_proto, len(Ether()) + 9)
-        # check tunnel destination UDP port
-        self.pcap_cmp_pkt_bytes(pack_cap, dest_port, len(Ether()) + len(IP()) + 2)
-        # check udp checksum
-        self.pcap_cmp_pkt_bytes(pack_cap, udp_csum, len(Ether()) + len(IP()) + 6)
-        # check encapsulated packet
-        self.pcap_cmp_pkt_bytes(pack_cap, str(pkt).encode("hex"), len(Ether()) + len(IP()) + len(UDP()) + 8)
+        # move the IP address of the dut iface to the internal port
+        self.move_ip_address(self.dut_addr[0], iface, 'int-port')
+        src_ip, _ = self.get_ip_addresses()
+        self.setup_dut_neighbour(src_ip, 'int-port')
+        self.add_tun_redirect_rule('int-port', iface)
+        dut_mac = self.get_dut_mac('int-port')
+        self.execute_tun_action(iface, ingress, dut_mac, 4789, 'vxlan0')
 
     def cleanup(self):
         self.cleanup_flower(self.dut_ifn[0])
-        self.dut.cmd('ip link delete vxlan0', fail=False)
-        self.dut.cmd('ovs-dpctl del-dp int-port', fail=False)
-        self.dut.cmd('modprobe -r openvswitch', fail=False)
-        self.dut.cmd('ip addr add %s dev %s' % (self.dut_addr[0], self.dut_ifn[0]), fail=False)
+        self.del_tun_dev('vxlan0')
+        self.move_ip_address(self.dut_addr[0], 'int-port', self.dut_ifn[0])
+        self.del_ovs_internal_port('int-port')
         return super(FlowerActionMergeVXLAN, self).cleanup()
 
-class FlowerActionMergeVXLANInVLAN(FlowerBase):
+class FlowerActionMergeVXLANInVLAN(FlowerTunnel):
     def prepare(self):
         if self.dut.kernel_ver_lt(5, 4):
             return NrtResult(name=self.name, testtype=self.__class__.__name__,
-                             passed=None, comment='kernel 5.4 or above is required')
+                             passed=None,
+                             comment='kernel 5.4 or above is required')
 
     def execute(self):
         iface, ingress = self.configure_flower()
-        M = self.dut
-        A = self.src
+        self.add_vxlan_dev('vxlan0')
+        self.add_ovs_internal_port('int-port')
 
-        src_ip = self.src_addr[0].split('/')[0]
-        dut_ip = self.dut_addr[0].split('/')[0]
-
-        _, src_mac = A.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.src_ifn[0])
-
-        # install an internal port - if we cannot then skip test
-        M.cmd('modprobe -r openvswitch', fail=False)
-        ret, _ = M.cmd('modprobe openvswitch', fail=False)
-        if ret:
-            raise NtiSkip('Open vSwitch kernel modules required to run test')
-        ret, _ = M.cmd('ovs-dpctl add-dp int-port', fail=False)
-        if ret:
-            raise NtiSkip('ovs-dpctl app is required to run test')
-
-        # remove the IP from the dut port and add it to the internal port
-        M.cmd('ip addr del %s dev %s' % (self.dut_addr[0], self.dut_ifn[0]))
-        M.cmd('ip addr add %s dev int-port' % self.dut_addr[0])
-        M.cmd('ip link set dev int-port up')
-
-        M.cmd('ip link add name vxlan0 type vxlan dstport 0 external')
-        M.cmd('ifconfig vxlan0 up')
-
-        M.cmd('arp -i int-port -s %s %s' % (src_ip, src_mac))
-
-        # install filter to match all tcp packets and encap in vxlan
-        match = 'ip flower skip_sw ip_proto tcp'
-        action = 'tunnel_key set id 123 src_ip %s dst_ip %s dst_port 4789 ' \
-                 'action mirred egress redirect dev vxlan0' % (dut_ip, src_ip)
-        self.install_filter(iface, match, action)
-
-        # install filter to match on internal port, push VLAN and egress
-        # uses an egress hook so need new qdisc and egress parent id in filter
-        M.cmd('tc qdisc add dev int-port handle ffff: clsact')
-        M.cmd('tc filter add dev int-port protocol ip parent ffff:fff3 ' \
-              'flower ip_proto udp action vlan push id 20 ' \
-              'pipe mirred egress redirect dev %s' % iface)
-
-        # tunnel EP is now on the internal port so packets should use its mac
-        _, int_mac = M.cmd('cat /sys/class/net/int-port/address | tr -d "\n"')
-
-        exp_pkt_cnt = 100
-        pkt = Ether(src=self.group.hwaddr_x[0],dst=self.ipv4_mc_mac[0])/\
-              IP()/TCP()/Raw('\x00'*64)
-
-        sleep(2)
-        self.send_packs(iface, ingress, pkt)
-        sleep(2)
-
-        dump_file = os.path.join('/tmp/', 'dump.pcap')
-        self.capture_packs(iface, ingress, pkt, dump_file, 'udp dst port 4789')
-        pack_cap = rdpcap(dump_file)
-        cmd_log("rm %s" % dump_file)
-        pkt_diff = len(Ether()) + len(Dot1Q()) + len(IP()) + len(UDP()) + 8
-        self.pcap_check_bytes(exp_pkt_cnt, pack_cap, pkt, pkt_diff)
-
-        exp_pkt = Ether(src=int_mac,dst=src_mac)/\
-                  Dot1Q(vlan=20, prio=0)/\
-                  IP(src=dut_ip, dst=src_ip)/\
-                  UDP(sport=0, dport=4789)
-
-        # create matchable strings from the expected packet (non tested fields may differ)
-        mac_vlan_len = len(Ether()) + len(Dot1Q())
-        vxlan_header = '0800000000007b00'
-        mac_header = str(exp_pkt).encode("hex")[0:len(Ether())*2]
-        vlan_header = str(exp_pkt).encode("hex")[len(Ether())*2 : mac_vlan_len*2]
-        ip_addresses = str(exp_pkt).encode("hex")[(mac_vlan_len + 12)*2: (mac_vlan_len + len(IP()))*2]
-        ip_proto = str(exp_pkt).encode("hex")[(mac_vlan_len + 9)*2: (mac_vlan_len + 10)*2]
-        dest_port = str(exp_pkt).encode("hex")[(mac_vlan_len + len(IP()) + 2)*2: (mac_vlan_len + len(IP()) + 4)*2]
-        no_ttl = '00'
-        ttl = str(exp_pkt).encode("hex")[(mac_vlan_len + 8)*2: (mac_vlan_len + 9)*2]
-        tos = str(exp_pkt).encode("hex")[(mac_vlan_len + 1)*2: (mac_vlan_len + 2)*2]
-
-        # copy a captured packet and get scapy to calculate its checksum
-        first = pack_cap[0].copy()
-        del(first[UDP].chksum)
-        udp_csum = str(first).encode("hex")[(mac_vlan_len + len(IP()) + 6)*2: (len(Ether()) + len(IP()) + 8)*2]
-
-        # check VLAN header
-        self.pcap_cmp_pkt_bytes(pack_cap, vlan_header, len(Ether()))
-        # check VXLAN header
-        self.pcap_cmp_pkt_bytes(pack_cap, vxlan_header, mac_vlan_len + len(IP()) + len(UDP()))
-        # check tunnel ethernet header
-        self.pcap_cmp_pkt_bytes(pack_cap, mac_header, 0)
-        # check tunnel IP addresses
-        self.pcap_cmp_pkt_bytes(pack_cap, ip_addresses, mac_vlan_len + 12)
-        # check tunnel TTL is non zero
-        self.pcap_cmp_pkt_bytes(pack_cap, no_ttl, mac_vlan_len + 8, fail=True)
-        # check tunnel IP proto
-        self.pcap_cmp_pkt_bytes(pack_cap, ip_proto, mac_vlan_len + 9)
-        # check tunnel destination UDP port
-        self.pcap_cmp_pkt_bytes(pack_cap, dest_port, mac_vlan_len + len(IP()) + 2)
-        # check udp checksum
-        self.pcap_cmp_pkt_bytes(pack_cap, udp_csum, mac_vlan_len + len(IP()) + 6)
-        # check encapsulated packet
-        self.pcap_cmp_pkt_bytes(pack_cap, str(pkt).encode("hex"), mac_vlan_len + len(IP()) + len(UDP()) + 8)
+        # move the IP address of the dut iface to the internal port
+        self.move_ip_address(self.dut_addr[0], iface, 'int-port')
+        src_ip, _ = self.get_ip_addresses()
+        self.setup_dut_neighbour(src_ip, 'int-port')
+        self.add_tun_redirect_rule_vlan('int-port', iface, 20)
+        dut_mac = self.get_dut_mac('int-port')
+        self.execute_tun_action(iface, ingress, dut_mac, 4789, 'vxlan0',
+                                vlan_id=20)
 
     def cleanup(self):
         self.cleanup_flower(self.dut_ifn[0])
-        self.dut.cmd('ip link delete vxlan0', fail=False)
-        self.dut.cmd('ovs-dpctl del-dp int-port', fail=False)
-        self.dut.cmd('modprobe -r openvswitch', fail=False)
-        self.dut.cmd('ip addr add %s dev %s' % (self.dut_addr[0], self.dut_ifn[0]), fail=False)
+        self.del_tun_dev('vxlan0')
+        self.move_ip_address(self.dut_addr[0], 'int-port', self.dut_ifn[0])
+        self.del_ovs_internal_port('int-port')
         return super(FlowerActionMergeVXLANInVLAN, self).cleanup()
 
-class FlowerActionGENEVE(FlowerBase):
+class FlowerActionGENEVE(FlowerTunnel):
     def execute(self):
         iface, ingress = self.configure_flower()
-        M = self.dut
-        A = self.src
-
-        src_ip = self.src_addr[0].split('/')[0]
-        dut_ip = self.dut_addr[0].split('/')[0]
-
-        _, src_mac = A.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.src_ifn[0])
-        _, dut_mac = M.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.dut_ifn[0])
-
-        # the destination port is defined by the tc rule - confirmed in both skip_sw and skip_hw
-        M.cmd('ip link add name gene0 type geneve dstport 0 external')
-        M.cmd('ifconfig gene0 up')
-
-        M.cmd('arp -i %s -s %s %s' % (self.dut_ifn[0], src_ip, src_mac))
-
-        # Hit test - match all tcp packets and encap in geneve
-        match = 'ip flower skip_sw ip_proto tcp'
-        action = 'tunnel_key set id 123 src_ip %s dst_ip %s dst_port 6081 action mirred egress redirect dev gene0' % (dut_ip, src_ip)
-        self.install_filter(iface, match, action)
-
-        exp_pkt_cnt = 100
-        pkt = Ether(src=self.group.hwaddr_x[0],dst=self.ipv4_mc_mac[0])/\
-              IP()/TCP()/Raw('\x00'*64)
-
-        sleep(2)
-        self.send_packs(iface, ingress, pkt)
-        sleep(2)
-
-        dump_file = os.path.join('/tmp/', 'dump.pcap')
-        self.capture_packs(iface, ingress, pkt, dump_file, 'udp dst port 6081')
-        pack_cap = rdpcap(dump_file)
-        cmd_log("rm %s" % dump_file)
-        pkt_diff = len(Ether()) + len(IP()) + len(UDP()) + 8
-        self.pcap_check_bytes(exp_pkt_cnt, pack_cap, pkt, pkt_diff)
-
-        exp_pkt = Ether(src=dut_mac,dst=src_mac)/IP(src=dut_ip, dst=src_ip)/\
-                  UDP(sport=0, dport=6081)
-
-        # create matchable strings from the expected packet (non tested fields may differ)
-        geneve_header = '0000655800007b00'
-        mac_header = str(exp_pkt).encode("hex")[0:len(Ether())*2]
-        ip_addresses = str(exp_pkt).encode("hex")[(len(Ether()) + 12)*2: (len(Ether()) + len(IP()))*2]
-        ip_proto = str(exp_pkt).encode("hex")[(len(Ether()) + 9)*2: (len(Ether()) + 10)*2]
-        dest_port = str(exp_pkt).encode("hex")[(len(Ether()) + len(IP()) + 2)*2: (len(Ether()) + len(IP()) + 4)*2]
-
-        # check GENEVE header
-        self.pcap_cmp_pkt_bytes(pack_cap, geneve_header, len(Ether()) + len(IP()) + len(UDP()))
-        # check tunnel ethernet header
-        self.pcap_cmp_pkt_bytes(pack_cap, mac_header, 0)
-        # check tunnel IP addresses
-        self.pcap_cmp_pkt_bytes(pack_cap, ip_addresses, len(Ether()) + 12)
-        # check tunnel IP proto
-        self.pcap_cmp_pkt_bytes(pack_cap, ip_proto, len(Ether()) + 9)
-        # check tunnel destination UDP port
-        self.pcap_cmp_pkt_bytes(pack_cap, dest_port, len(Ether()) + len(IP()) + 2)
-        # check encapsulated packet
-        self.pcap_cmp_pkt_bytes(pack_cap, str(pkt).encode("hex"), len(Ether()) + len(IP()) + len(UDP()) + 8)
-
-        self.cleanup_filter(iface)
+        self.add_geneve_dev('gene0')
+        src_ip, _ = self.get_ip_addresses()
+        self.setup_dut_neighbour(src_ip, iface)
+        dut_mac = self.get_dut_mac(iface)
+        self.execute_tun_action(iface, ingress, dut_mac, 6081, 'gene0')
 
     def cleanup(self):
         self.cleanup_flower(self.dut_ifn[0])
-        src_ip = self.src_addr[0].split('/')[0]
-        self.dut.cmd('arp -i %s -d %s' % (self.dut_ifn[0], src_ip), fail=False)
-        self.dut.cmd('ip link delete gene0', fail=False)
+        src_ip, _ = self.get_ip_addresses()
+        self.delete_dut_neighbour(src_ip, self.dut_ifn[0])
+        self.del_tun_dev('gene0')
         return super(FlowerActionGENEVE, self).cleanup()
 
 class FlowerActionGENEVEOpt(FlowerBase):
