@@ -1150,7 +1150,7 @@ static int __init nth_init(void)
 	if (!nth.dir)
 		return -EBUSY;
 
-	fail |= !debugfs_create_u8("id", 0600, nth.dir, &nth.id);
+	debugfs_create_u8("id", 0600, nth.dir, &nth.id);
 
 	fail |= !debugfs_create_file("reset", 0400, nth.dir,
 				     NULL, &nth_reset_ops);
