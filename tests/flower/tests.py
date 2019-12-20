@@ -1140,6 +1140,7 @@ class FlowerMatchGRE(FlowerTunnel):
         self.add_gre_dev('gre1')
         dut_mac = self.get_dut_mac(iface)
         self.execute_tun_match(iface, ingress, dut_mac, 0, 'gre1')
+        self.execute_tun_match(iface, ingress, dut_mac, 0, 'gre1', ipv6=True)
 
     def cleanup(self):
         self.cleanup_flower('gre1')
@@ -1161,12 +1162,17 @@ class FlowerMatchGREInVLAN(FlowerTunnel):
         dut_mac = self.get_dut_mac('int-port')
         self.execute_tun_vlan_match(iface, ingress, dut_mac, 0, 'gre1',
                                     'int-port')
+        self.move_ip_address(self.dut_addr_v6[0], iface, 'int-port', ipv6=True)
+        self.execute_tun_vlan_match(iface, ingress, dut_mac, 0, 'gre1',
+                                    'int-port', ipv6=True)
 
     def cleanup(self):
         self.cleanup_flower(self.dut_ifn[0])
         self.cleanup_flower('gre1')
         self.del_tun_dev('gre1')
         self.move_ip_address(self.dut_addr[0], 'int-port', self.dut_ifn[0])
+        self.move_ip_address(self.dut_addr_v6[0], 'int-port', self.dut_ifn[0],
+                             ipv6=True)
         self.del_ovs_internal_port('int-port')
         return super(FlowerMatchGREInVLAN, self).cleanup()
 
@@ -1176,6 +1182,8 @@ class FlowerMatchVXLAN(FlowerTunnel):
         self.add_vxlan_dev('vxlan0')
         dut_mac = self.get_dut_mac(iface)
         self.execute_tun_match(iface, ingress, dut_mac, 4789, 'vxlan0')
+        self.execute_tun_match(iface, ingress, dut_mac, 4789, 'vxlan0',
+                               ipv6=True)
 
     def cleanup(self):
         self.cleanup_flower('vxlan0')
@@ -1197,12 +1205,17 @@ class FlowerMatchVXLANInVLAN(FlowerTunnel):
         dut_mac = self.get_dut_mac('int-port')
         self.execute_tun_vlan_match(iface, ingress, dut_mac, 4789, 'vxlan0',
                                     'int-port')
+        self.move_ip_address(self.dut_addr_v6[0], iface, 'int-port', ipv6=True)
+        self.execute_tun_vlan_match(iface, ingress, dut_mac, 4789, 'vxlan0',
+                                    'int-port', ipv6=True)
 
     def cleanup(self):
         self.cleanup_flower(self.dut_ifn[0])
         self.cleanup_flower('vxlan0')
         self.del_tun_dev('vxlan0')
         self.move_ip_address(self.dut_addr[0], 'int-port', self.dut_ifn[0])
+        self.move_ip_address(self.dut_addr_v6[0], 'int-port', self.dut_ifn[0],
+                             ipv6=True)
         self.del_ovs_internal_port('int-port')
         return super(FlowerMatchVXLANInVLAN, self).cleanup()
 
@@ -1212,6 +1225,8 @@ class FlowerMatchGeneve(FlowerTunnel):
         self.add_geneve_dev('gene0')
         dut_mac = self.get_dut_mac(iface)
         self.execute_tun_match(iface, ingress, dut_mac, 6081, 'gene0')
+        self.execute_tun_match(iface, ingress, dut_mac, 6081, 'gene0',
+                               ipv6=True)
 
     def cleanup(self):
         self.cleanup_flower('gene0')
@@ -1233,12 +1248,17 @@ class FlowerMatchGeneveInVLAN(FlowerTunnel):
         dut_mac = self.get_dut_mac('int-port')
         self.execute_tun_vlan_match(iface, ingress, dut_mac, 6081, 'gene0',
                                     'int-port')
+        self.move_ip_address(self.dut_addr_v6[0], iface, 'int-port', ipv6=True)
+        self.execute_tun_vlan_match(iface, ingress, dut_mac, 6081, 'gene0',
+                                    'int-port', ipv6=True)
 
     def cleanup(self):
         self.cleanup_flower(self.dut_ifn[0])
         self.cleanup_flower('gene0')
         self.del_tun_dev('gene0')
         self.move_ip_address(self.dut_addr[0], 'int-port', self.dut_ifn[0])
+        self.move_ip_address(self.dut_addr_v6[0], 'int-port', self.dut_ifn[0],
+                             ipv6=True)
         self.del_ovs_internal_port('int-port')
         return super(FlowerMatchGeneveInVLAN, self).cleanup()
 
