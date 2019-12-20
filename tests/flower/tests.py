@@ -363,8 +363,9 @@ class FlowerTunnel(FlowerBase):
         self.dut.cmd('ovs-dpctl del-dp %s' % dev_name, fail=False)
         self.dut.cmd('modprobe -r openvswitch', fail=False)
 
-    def add_pre_tunnel_rule(self, dev_name, int_mac, int_dev):
-        match = 'ip flower dst_mac %s' % int_mac
+    def add_pre_tunnel_rule(self, dev_name, int_mac, int_dev, ipv6=False):
+        proto = 'ipv6' if ipv6 else 'ip'
+        match = '%s flower dst_mac %s' % (proto, int_mac)
         action = 'skbedit ptype host pipe mirred egress redirect dev %s' \
                  % int_dev
         self.install_filter(dev_name, match, action)
@@ -381,22 +382,32 @@ class FlowerTunnel(FlowerBase):
             raise NtiError('Counter mismatch. Expected: %s, Got: %s'  \
                            % (exp_packets, stats.tc_ing['tc_49152_pkts']))
 
-    def add_tun_redirect_rule(self, dev_name, egress_dev):
-        self.dut.cmd('tc qdisc add dev %s handle ffff: clsact' % dev_name)
-        self.dut.cmd('tc filter add dev %s protocol ip parent ffff:fff3 ' \
+    def add_tun_redirect_rule(self, dev_name, egress_dev, ipv6=False):
+        proto = 'ipv6' if ipv6 else 'ip'
+        self.dut.cmd('tc qdisc add dev %s handle ffff: clsact' % dev_name,
+                     fail=False)
+        self.dut.cmd('tc filter add dev %s protocol %s parent ffff:fff3 ' \
                      'flower action mirred egress redirect dev %s' \
-                     % (dev_name, egress_dev))
+                     % (dev_name, proto, egress_dev))
 
-    def add_tun_redirect_rule_vlan(self, dev_name, egress_dev, vlan_id):
-        self.dut.cmd('tc qdisc add dev %s handle ffff: clsact' % dev_name)
-        self.dut.cmd('tc filter add dev %s protocol ip parent ffff:fff3 ' \
+    def add_tun_redirect_rule_vlan(self, dev_name, egress_dev, vlan_id,
+                                   ipv6=False):
+        proto = 'ipv6' if ipv6 else 'ip'
+        self.dut.cmd('tc qdisc add dev %s handle ffff: clsact' % dev_name,
+                     fail=False)
+        self.dut.cmd('tc filter add dev %s protocol %s parent ffff:fff3 ' \
                      'flower action vlan push id %s ' \
                      'pipe mirred egress redirect dev %s'
-                     % (dev_name, vlan_id, egress_dev))
+                     % (dev_name, proto, vlan_id, egress_dev))
 
-    def get_ip_addresses(self):
-        src_ip = self.src_addr[0].split('/')[0]
-        dut_ip = self.dut_addr[0].split('/')[0]
+    def get_ip_addresses(self, ipv6=False):
+        if ipv6:
+            src_ip = self.src_addr_v6[0].split('/')[0]
+            dut_ip = self.dut_addr_v6[0].split('/')[0]
+            return (src_ip, dut_ip)
+        else:
+            src_ip = self.src_addr[0].split('/')[0]
+            dut_ip = self.dut_addr[0].split('/')[0]
         return (src_ip, dut_ip)
 
     def get_dut_mac(self, dev):
@@ -409,23 +420,29 @@ class FlowerTunnel(FlowerBase):
                               % dev)
         return mac
 
-    def move_ip_address(self, addr, src_dev, dst_dev):
-        self.dut.cmd('ip addr del %s dev %s' % (addr, src_dev), fail=False)
-        self.dut.cmd('ip addr add %s dev %s' % (addr, dst_dev), fail=False)
+    def move_ip_address(self, addr, src_dev, dst_dev, ipv6=False):
+        v6 = '-6' if ipv6 else ''
+        self.dut.cmd('ip %s addr del %s dev %s'
+                     % (v6, addr, src_dev), fail=False)
+        self.dut.cmd('ip %s addr add %s dev %s'
+                     % (v6, addr, dst_dev), fail=False)
         self.dut.cmd('ip link set dev %s up' % dst_dev)
 
-    def setup_dut_neighbour(self, addr, dev):
+    def setup_dut_neighbour(self, addr, dev, ipv6=False):
         _, src_mac = self.src.cmd('cat /sys/class/net/%s/address | tr -d "\n"' \
                                   % self.src_ifn[0])
-        self.dut.cmd('ip neigh add %s lladdr %s dev %s' % (addr, src_mac, dev))
+        v6 = '-6' if ipv6 else ''
+        self.dut.cmd('ip %s neigh add %s lladdr %s dev %s'
+                     % (v6, addr, src_mac, dev))
 
-    def delete_dut_neighbour(self, addr, dev):
-        self.dut.cmd('ip neigh del %s dev %s' % (addr, dev), fail=False)
-        self.dut.cmd('ip neigh flush dev %s' % dev, fail=False)
+    def delete_dut_neighbour(self, addr, dev, ipv6=False):
+        v6 = '-6' if ipv6 else ''
+        self.dut.cmd('ip %s neigh del %s dev %s' % (v6, addr, dev), fail=False)
+        self.dut.cmd('ip %s neigh flush dev %s' % (v6, dev), fail=False)
 
     def execute_tun_match(self, iface, ingress, dut_mac, tun_port, tun_dev,
-                          vlan_id=0, fail=False):
-        src_ip, dut_ip = self.get_ip_addresses()
+                          vlan_id=0, fail=False, ipv6=False):
+        src_ip, dut_ip = self.get_ip_addresses(ipv6)
         src_mac = self.get_src_mac(ingress)
         self.add_egress_qdisc(tun_dev)
 
@@ -449,8 +466,12 @@ class FlowerTunnel(FlowerBase):
             pkt = pkt/Dot1Q(vlan=vlan_id, prio=0)
             pkt_diff += len(Dot1Q())
 
-        pkt = pkt/IP(src=src_ip, dst=dut_ip, ttl=99, tos=30)
-        pkt_diff += len(IP())
+        if ipv6:
+            pkt = pkt/IPv6(src=src_ip, dst=dut_ip, hlim=99, tc=30)
+            pkt_diff += len(IPv6())
+        else:
+            pkt = pkt/IP(src=src_ip, dst=dut_ip, ttl=99, tos=30)
+            pkt_diff += len(IP())
 
         if tun_port == 4789:
             pkt = pkt/UDP(sport=4567, dport=tun_port)
@@ -477,9 +498,13 @@ class FlowerTunnel(FlowerBase):
 
         self.cleanup_filter(tun_dev)
 
+        false_ip = '1.1.1.1'
+        if ipv6:
+            false_ip = 'ff::ff'
+
         # Miss test - incorrect enc ip src
-        match = 'ip flower enc_src_ip 1.1.1.1 enc_dst_ip %s %s enc_key_id 321' \
-                % (dut_ip, port_match)
+        match = 'ip flower enc_src_ip %s enc_dst_ip %s %s enc_key_id 321' \
+                % (false_ip, dut_ip, port_match)
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(tun_dev, match, action)
 
@@ -488,8 +513,8 @@ class FlowerTunnel(FlowerBase):
         self.cleanup_filter(tun_dev)
 
         # Miss test - incorrect enc ip dst
-        match = 'ip flower enc_src_ip %s enc_dst_ip 1.1.1.1 %s enc_key_id 321' \
-                % (src_ip, port_match)
+        match = 'ip flower enc_src_ip %s enc_dst_ip %s %s enc_key_id 321' \
+                % (src_ip, false_ip, port_match)
         action = 'mirred egress redirect dev %s' % iface
         self.install_filter(tun_dev, match, action)
 
@@ -540,9 +565,10 @@ class FlowerTunnel(FlowerBase):
             self.cleanup_filter(tun_dev)
 
     def execute_tun_vlan_match(self, iface, ingress, dut_mac, tun_port, tun_dev,
-                               int_dev):
-        self.add_pre_tunnel_rule(iface, dut_mac, int_dev)
-        self.execute_tun_match(iface, ingress, dut_mac, tun_port, tun_dev)
+                               int_dev, ipv6=False):
+        self.add_pre_tunnel_rule(iface, dut_mac, int_dev, ipv6=ipv6)
+        self.execute_tun_match(iface, ingress, dut_mac, tun_port, tun_dev,
+                               ipv6=ipv6)
         # verify all packets sent are matching on the pre-tunnel rule
         if self.dut.kernel_ver_ge(4, 19):
            self.check_pre_tun_stats(iface, 700)
@@ -553,7 +579,7 @@ class FlowerTunnel(FlowerBase):
         self.cleanup_filter(iface)
         self.add_pre_tunnel_rule_vlan(iface, dut_mac, int_dev, 20)
         self.execute_tun_match(iface, ingress, dut_mac, tun_port, tun_dev,
-                               vlan_id=20)
+                               vlan_id=20, ipv6=ipv6)
         if self.dut.kernel_ver_ge(4, 19):
            self.check_pre_tun_stats(iface, 700)
         else:
@@ -563,15 +589,16 @@ class FlowerTunnel(FlowerBase):
         self.cleanup_filter(iface)
         self.add_pre_tunnel_rule_vlan(iface, dut_mac, int_dev, 20)
         self.execute_tun_match(iface, ingress, dut_mac, tun_port, tun_dev,
-                               vlan_id=21, fail=True)
+                               vlan_id=21, fail=True, ipv6=ipv6)
         self.check_pre_tun_stats(iface, 0)
+        self.cleanup_filter(iface)
 
     def execute_tun_action(self, iface, ingress, dut_mac, tun_port, tun_dev,
-                           vlan_id=0):
+                           vlan_id=0, ipv6=False):
         M = self.dut
         A = self.src
 
-        src_ip, dut_ip = self.get_ip_addresses()
+        src_ip, dut_ip = self.get_ip_addresses(ipv6)
         src_mac = self.get_src_mac(ingress)
 
         # Hit test - match all tcp packets and encap in vxlan
@@ -606,7 +633,10 @@ class FlowerTunnel(FlowerBase):
         pkt_diff = len(Ether())
         if vlan_id:
             pkt_diff+=len(Dot1Q())
-        pkt_diff+=len(IP())
+        if ipv6:
+            pkt_diff+=len(IPv6())
+        else:
+            pkt_diff+=len(IP())
         if tun_port:
             pkt_diff+=len(UDP())
         # tun header
@@ -618,7 +648,10 @@ class FlowerTunnel(FlowerBase):
         exp_pkt = Ether(src=dut_mac,dst=src_mac)
         if vlan_id:
             exp_pkt = exp_pkt/Dot1Q(vlan=vlan_id, prio=0)
-        exp_pkt = exp_pkt/IP(src=dut_ip, dst=src_ip, ttl=99, tos=30)
+        if ipv6:
+            exp_pkt = exp_pkt/IPv6(src=dut_ip, dst=src_ip, hlim=99, tc=30)
+        else:
+            exp_pkt = exp_pkt/IP(src=dut_ip, dst=src_ip, ttl=99, tos=30)
         if tun_port:
             exp_pkt = exp_pkt/UDP(sport=0, dport=tun_port)
         else:
@@ -644,13 +677,25 @@ class FlowerTunnel(FlowerBase):
             l3_offset = len(Ether()) + len(Dot1Q())
             vlan_header = str(exp_pkt).encode("hex")[len(Ether())*2 : l3_offset*2]
 
-        ip_addresses = str(exp_pkt).encode("hex")[(l3_offset + 12)*2:
-                                                  (l3_offset + len(IP()))*2]
-        ip_proto = str(exp_pkt).encode("hex")[(l3_offset + 9)*2:
-                                              (l3_offset + 10)*2]
-        ttl = str(exp_pkt).encode("hex")[(l3_offset + 8)*2: (l3_offset + 9)*2]
-        tos = str(exp_pkt).encode("hex")[(l3_offset + 1)*2: (l3_offset + 2)*2]
-        l4_offset = l3_offset + len(IP())
+        if ipv6:
+            ip_addresses = str(exp_pkt).encode("hex")[(l3_offset + 8)*2:
+                                                      (l3_offset + len(IPv6()))*2]
+            ip_proto = str(exp_pkt).encode("hex")[(l3_offset + 6)*2:
+                                                  (l3_offset + 7)*2]
+            ttl = str(exp_pkt).encode("hex")[(l3_offset + 7)*2:
+                                             (l3_offset + 8)*2]
+            tos = str(exp_pkt).encode("hex")[l3_offset*2: (l3_offset + 2)*2]
+            l4_offset = l3_offset + len(IPv6())
+        else:
+            ip_addresses = str(exp_pkt).encode("hex")[(l3_offset + 12)*2:
+                                                      (l3_offset + len(IP()))*2]
+            ip_proto = str(exp_pkt).encode("hex")[(l3_offset + 9)*2:
+                                                  (l3_offset + 10)*2]
+            ttl = str(exp_pkt).encode("hex")[(l3_offset + 8)*2:
+                                             (l3_offset + 9)*2]
+            tos = str(exp_pkt).encode("hex")[(l3_offset + 1)*2:
+                                             (l3_offset + 2)*2]
+            l4_offset = l3_offset + len(IP())
 
         if tun_port:
             dest_port = str(exp_pkt).encode("hex")[(l4_offset + 2)*2:
@@ -681,12 +726,20 @@ class FlowerTunnel(FlowerBase):
         self.pcap_cmp_pkt_bytes(pack_cap, mac_header, 0)
         # check VLAN header
         self.pcap_cmp_pkt_bytes(pack_cap, vlan_header, len(Ether()))
-        # check tunnel IP addresses
-        self.pcap_cmp_pkt_bytes(pack_cap, ip_addresses, l3_offset + 12)
-        # check tunnel TTL is non zero
-        self.pcap_cmp_pkt_bytes(pack_cap, no_ttl, l3_offset + 8, fail=True)
-        # check tunnel IP proto
-        self.pcap_cmp_pkt_bytes(pack_cap, ip_proto, l3_offset + 9)
+        if ipv6:
+            # check tunnel IP addresses
+            self.pcap_cmp_pkt_bytes(pack_cap, ip_addresses, l3_offset + 8)
+            # check tunnel TTL is non zero
+            self.pcap_cmp_pkt_bytes(pack_cap, no_ttl, l3_offset + 7, fail=True)
+            # check tunnel IP proto
+            self.pcap_cmp_pkt_bytes(pack_cap, ip_proto, l3_offset + 6)
+        else:
+            # check tunnel IP addresses
+            self.pcap_cmp_pkt_bytes(pack_cap, ip_addresses, l3_offset + 12)
+            # check tunnel TTL is non zero
+            self.pcap_cmp_pkt_bytes(pack_cap, no_ttl, l3_offset + 8, fail=True)
+            # check tunnel IP proto
+            self.pcap_cmp_pkt_bytes(pack_cap, ip_proto, l3_offset + 9)
         # check tunnel destination UDP port - empty string for GRE
         self.pcap_cmp_pkt_bytes(pack_cap, dest_port, l4_offset + 2)
         # check udp checksum
@@ -697,19 +750,26 @@ class FlowerTunnel(FlowerBase):
 
         # Setting of tunnel ToS and TTL are added in kernel 4.19
         if self.dut.kernel_ver_ge(4, 19):
-            # check tunnel TTL
-            self.pcap_cmp_pkt_bytes(pack_cap, ttl, l3_offset + 8)
-            # check tunnel ToS
-            self.pcap_cmp_pkt_bytes(pack_cap, tos, l3_offset + 1)
+            if ipv6:
+                # check tunnel TTL
+                self.pcap_cmp_pkt_bytes(pack_cap, ttl, l3_offset + 7)
+                # check tunnel ToS
+                self.pcap_cmp_pkt_bytes(pack_cap, tos, l3_offset)
+            else:
+                # check tunnel TTL
+                self.pcap_cmp_pkt_bytes(pack_cap, ttl, l3_offset + 8)
+                # check tunnel ToS
+                self.pcap_cmp_pkt_bytes(pack_cap, tos, l3_offset + 1)
 
         self.cleanup_filter(iface)
 
-        # modify action to uncheck the udp checksum flag
-        action = 'tunnel_key set id 123 src_ip %s dst_ip %s dst_port %s ' \
-                 'nocsum action mirred egress redirect dev %s' \
-                 % (dut_ip, src_ip, tun_port, tun_dev)
-        self.install_filter(iface, match, action)
         if tun_port:
+            # modify action to uncheck the udp checksum flag
+            action = 'tunnel_key set id 123 src_ip %s dst_ip %s dst_port %s ' \
+                     'nocsum action mirred egress redirect dev %s' \
+                     % (dut_ip, src_ip, tun_port, tun_dev)
+            self.install_filter(iface, match, action)
+
             self.capture_packs(iface, ingress, pkt, dump_file,
                                'udp dst port %s' % tun_port)
             pack_cap = rdpcap(dump_file)
