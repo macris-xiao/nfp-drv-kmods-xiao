@@ -2462,11 +2462,16 @@ class FlowerActionGRE(FlowerTunnel):
         self.setup_dut_neighbour(src_ip, iface)
         dut_mac = self.get_dut_mac(iface)
         self.execute_tun_action(iface, ingress, dut_mac, 0, 'gre1')
+        src_ip, _ = self.get_ip_addresses(ipv6=True)
+        self.setup_dut_neighbour(src_ip, iface, ipv6=True)
+        self.execute_tun_action(iface, ingress, dut_mac, 0, 'gre1', ipv6=True)
 
     def cleanup(self):
         self.cleanup_flower(self.dut_ifn[0])
         src_ip, _ = self.get_ip_addresses()
         self.delete_dut_neighbour(src_ip, self.dut_ifn[0])
+        src_ip, _ = self.get_ip_addresses(ipv6=True)
+        self.delete_dut_neighbour(src_ip, self.dut_ifn[0], ipv6=True)
         self.del_tun_dev('gre1')
         return super(FlowerActionGRE, self).cleanup()
 
@@ -2483,11 +2488,18 @@ class FlowerActionMergeGRE(FlowerTunnel):
         self.add_tun_redirect_rule('int-port', iface)
         dut_mac = self.get_dut_mac('int-port')
         self.execute_tun_action(iface, ingress, dut_mac, 0, 'gre1')
+        self.move_ip_address(self.dut_addr_v6[0], iface, 'int-port', ipv6=True)
+        src_ip, _ = self.get_ip_addresses(ipv6=True)
+        self.setup_dut_neighbour(src_ip, 'int-port', ipv6=True)
+        self.add_tun_redirect_rule('int-port', iface, ipv6=True)
+        self.execute_tun_action(iface, ingress, dut_mac, 0, 'gre1', ipv6=True)
 
     def cleanup(self):
         self.cleanup_flower(self.dut_ifn[0])
         self.del_tun_dev('gre1')
         self.move_ip_address(self.dut_addr[0], 'int-port', self.dut_ifn[0])
+        self.move_ip_address(self.dut_addr_v6[0], 'int-port', self.dut_ifn[0],
+                             ipv6=True)
         self.del_ovs_internal_port('int-port')
         return super(FlowerActionMergeGRE, self).cleanup()
 
@@ -2499,11 +2511,17 @@ class FlowerActionVXLAN(FlowerTunnel):
         self.setup_dut_neighbour(src_ip, iface)
         dut_mac = self.get_dut_mac(iface)
         self.execute_tun_action(iface, ingress, dut_mac, 4789, 'vxlan0')
+        src_ip, _ = self.get_ip_addresses(ipv6=True)
+        self.setup_dut_neighbour(src_ip, iface, ipv6=True)
+        self.execute_tun_action(iface, ingress, dut_mac, 4789, 'vxlan0',
+                                ipv6=True)
 
     def cleanup(self):
         self.cleanup_flower(self.dut_ifn[0])
         src_ip, _ = self.get_ip_addresses()
         self.delete_dut_neighbour(src_ip, self.dut_ifn[0])
+        src_ip, _ = self.get_ip_addresses(ipv6=True)
+        self.delete_dut_neighbour(src_ip, self.dut_ifn[0], ipv6=True)
         self.del_tun_dev('vxlan0')
         return super(FlowerActionVXLAN, self).cleanup()
 
@@ -2520,11 +2538,19 @@ class FlowerActionMergeVXLAN(FlowerTunnel):
         self.add_tun_redirect_rule('int-port', iface)
         dut_mac = self.get_dut_mac('int-port')
         self.execute_tun_action(iface, ingress, dut_mac, 4789, 'vxlan0')
+        self.move_ip_address(self.dut_addr_v6[0], iface, 'int-port', ipv6=True)
+        src_ip, _ = self.get_ip_addresses(ipv6=True)
+        self.setup_dut_neighbour(src_ip, 'int-port', ipv6=True)
+        self.add_tun_redirect_rule('int-port', iface, ipv6=True)
+        self.execute_tun_action(iface, ingress, dut_mac, 4789, 'vxlan0',
+                                ipv6=True)
 
     def cleanup(self):
         self.cleanup_flower(self.dut_ifn[0])
         self.del_tun_dev('vxlan0')
         self.move_ip_address(self.dut_addr[0], 'int-port', self.dut_ifn[0])
+        self.move_ip_address(self.dut_addr_v6[0], 'int-port', self.dut_ifn[0],
+                             ipv6=True)
         self.del_ovs_internal_port('int-port')
         return super(FlowerActionMergeVXLAN, self).cleanup()
 
@@ -2548,11 +2574,19 @@ class FlowerActionMergeVXLANInVLAN(FlowerTunnel):
         dut_mac = self.get_dut_mac('int-port')
         self.execute_tun_action(iface, ingress, dut_mac, 4789, 'vxlan0',
                                 vlan_id=20)
+        self.move_ip_address(self.dut_addr_v6[0], iface, 'int-port', ipv6=True)
+        src_ip, _ = self.get_ip_addresses(ipv6=True)
+        self.setup_dut_neighbour(src_ip, 'int-port', ipv6=True)
+        self.add_tun_redirect_rule_vlan('int-port', iface, 20, ipv6=True)
+        self.execute_tun_action(iface, ingress, dut_mac, 4789, 'vxlan0',
+                                vlan_id=20, ipv6=True)
 
     def cleanup(self):
         self.cleanup_flower(self.dut_ifn[0])
         self.del_tun_dev('vxlan0')
         self.move_ip_address(self.dut_addr[0], 'int-port', self.dut_ifn[0])
+        self.move_ip_address(self.dut_addr_v6[0], 'int-port', self.dut_ifn[0],
+                             ipv6=True)
         self.del_ovs_internal_port('int-port')
         return super(FlowerActionMergeVXLANInVLAN, self).cleanup()
 
@@ -2564,11 +2598,17 @@ class FlowerActionGENEVE(FlowerTunnel):
         self.setup_dut_neighbour(src_ip, iface)
         dut_mac = self.get_dut_mac(iface)
         self.execute_tun_action(iface, ingress, dut_mac, 6081, 'gene0')
+        src_ip, _ = self.get_ip_addresses(ipv6=True)
+        self.setup_dut_neighbour(src_ip, iface, ipv6=True)
+        self.execute_tun_action(iface, ingress, dut_mac, 6081, 'gene0',
+                                ipv6=True)
 
     def cleanup(self):
         self.cleanup_flower(self.dut_ifn[0])
         src_ip, _ = self.get_ip_addresses()
         self.delete_dut_neighbour(src_ip, self.dut_ifn[0])
+        src_ip, _ = self.get_ip_addresses(ipv6=True)
+        self.delete_dut_neighbour(src_ip, self.dut_ifn[0], ipv6=True)
         self.del_tun_dev('gene0')
         return super(FlowerActionGENEVE, self).cleanup()
 
@@ -2585,11 +2625,19 @@ class FlowerActionMergeGENEVE(FlowerTunnel):
         self.add_tun_redirect_rule('int-port', iface)
         dut_mac = self.get_dut_mac('int-port')
         self.execute_tun_action(iface, ingress, dut_mac, 6081, 'gene0')
+        self.move_ip_address(self.dut_addr_v6[0], iface, 'int-port', ipv6=True)
+        src_ip, _ = self.get_ip_addresses(ipv6=True)
+        self.setup_dut_neighbour(src_ip, 'int-port', ipv6=True)
+        self.add_tun_redirect_rule('int-port', iface, ipv6=True)
+        self.execute_tun_action(iface, ingress, dut_mac, 6081, 'gene0',
+                                ipv6=True)
 
     def cleanup(self):
         self.cleanup_flower(self.dut_ifn[0])
         self.del_tun_dev('gene0')
         self.move_ip_address(self.dut_addr[0], 'int-port', self.dut_ifn[0])
+        self.move_ip_address(self.dut_addr_v6[0], 'int-port', self.dut_ifn[0],
+                             ipv6=True)
         self.del_ovs_internal_port('int-port')
         return super(FlowerActionMergeGENEVE, self).cleanup()
 
@@ -2613,11 +2661,19 @@ class FlowerActionMergeGENEVEInVLAN(FlowerTunnel):
         dut_mac = self.get_dut_mac('int-port')
         self.execute_tun_action(iface, ingress, dut_mac, 6081, 'gene0',
                                 vlan_id=20)
+        self.move_ip_address(self.dut_addr_v6[0], iface, 'int-port', ipv6=True)
+        src_ip, _ = self.get_ip_addresses(ipv6=True)
+        self.setup_dut_neighbour(src_ip, 'int-port', ipv6=True)
+        self.add_tun_redirect_rule_vlan('int-port', iface, 20, ipv6=True)
+        self.execute_tun_action(iface, ingress, dut_mac, 6081, 'gene0',
+                                vlan_id=20, ipv6=True)
 
     def cleanup(self):
         self.cleanup_flower(self.dut_ifn[0])
         self.del_tun_dev('gene0')
         self.move_ip_address(self.dut_addr[0], 'int-port', self.dut_ifn[0])
+        self.move_ip_address(self.dut_addr_v6[0], 'int-port', self.dut_ifn[0],
+                             ipv6=True)
         self.del_ovs_internal_port('int-port')
         return super(FlowerActionMergeGENEVEInVLAN, self).cleanup()
 
