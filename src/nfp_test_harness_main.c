@@ -1168,8 +1168,7 @@ static int __init nth_init(void)
 	fail |= !debugfs_create_blob("hwinfo_val", 0400, nth.dir,
 				     &nth.hwinfo_val);
 
-	fail |= !debugfs_create_u32("fw_dump_level", 0600, nth.dir,
-				    &nth.dump_level);
+	debugfs_create_u32("fw_dump_level", 0600, nth.dir, &nth.dump_level);
 	fail |= !debugfs_create_file("fw_dump_spec", 0200, nth.dir, NULL,
 				     &nth_fwdump_spec_ops);
 	fail |= !debugfs_create_file("fw_dump_trigger", 0400, nth.dir, NULL,
