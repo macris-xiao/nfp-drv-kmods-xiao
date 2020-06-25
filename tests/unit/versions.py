@@ -28,7 +28,7 @@ class VersionsTest(CommonNonUpstreamTest):
                   "Board model")
         assert_eq(fixed["board.rev"], self.dut.get_hwinfo("assembly.revision"),
                   "Board revision")
-        assert_eq(fixed["board.vendor"], self.dut.get_hwinfo("assembly.vendor"),
+        assert_eq(fixed["board.manufacture"], self.dut.get_hwinfo("assembly.vendor"),
                   "Board vendor")
         assert_eq(fixed["board.model"], self.dut.get_hwinfo("assembly.model"),
                   "Board name")
@@ -53,6 +53,8 @@ class VersionsTest(CommonNonUpstreamTest):
         # Compare
         for m in matches:
             for k in ("running", "stored"):
+                if nsp[k][m[0]] == '-':
+                    continue
                 assert_eq(nsp[k][m[0]], info["versions"][k][m[1]],
                           "Checking NSP %s vs devlink %s (%s)" %
                           (m[0], m[1], k))
