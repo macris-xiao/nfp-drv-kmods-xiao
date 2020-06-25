@@ -1962,6 +1962,9 @@ class FlowerMatchFragIPv4(FlowerMatchFrag):
 class FlowerMatchFragIPv6(FlowerMatchFrag):
     def __init__(self, *args, **kwargs):
         super(FlowerMatchFragIPv6, self).__init__(*args, **kwargs)
+        # Default setting for ipv6 Router Solicitation setting
+        self.ra_changed = False
+
         self.ip_ver = 'ipv6'
         self.pkt = Ether(src=self.ipv6_mc_mac[0],dst=self.ipv6_mc_mac[1])/\
                    IPv6()/TCP()/Raw('\x00'*1024)
@@ -1973,6 +1976,27 @@ class FlowerMatchFragIPv6(FlowerMatchFrag):
                           ' not udp port 5353 and' \
                           ' not ether host 01:80:c2:00:00:0e and' \
                           ' not ether host ff:ff:ff:ff:ff:ff"'
+
+    def install_test(self, flag, iface):
+        # Store current router solicitation setting
+        cmd = "sysctl -a -r net.ipv6.conf.%s.accept_ra$" % (iface)
+        _, ret_str = self.src.cmd(cmd)
+        self.ra = int(ret_str.strip().split(" ")[-1])
+
+        # Disable ipv6 router solicitation which causes extra packets
+        cmd = 'sysctl -w net.ipv6.conf.%s.accept_ra=0;' % (iface)
+        self.src.cmd(cmd)
+        self.ra_changed = True
+
+        super(FlowerMatchFragIPv6, self).install_test(flag, iface)
+
+    def cleanup(self):
+        # Restore the saved ipv6 solicitation setting
+        if self.ra_changed is True:
+            cmd = 'sysctl -w net.ipv6.conf.%s.accept_ra=%d;' % (self.src_ifn[0], self.ra)
+            self.src.cmd(cmd)
+            self.ra_changed = False
+        super(FlowerMatchFragIPv6, self).cleanup()
 
 class FlowerModifyMTU(FlowerBase):
     def set_sending_source_mtu(self, ingress, mtu):
