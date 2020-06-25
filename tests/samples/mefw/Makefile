@@ -7,6 +7,20 @@ CFLAGS := -W3 -chip $(CHIP)
 FWNAME := TEST_FW_12345678
 
 NFLD := nfld
+
+# Some targets needs to be linked using an older version of the toolchain
+# Get the version of the toolchain, and if it is old enough just use it, if not
+# use the nfld_old binary that is present in newer toolchains
+NFLD_OLD := nfld
+TOOLCHAIN_VER=$(shell nfld --version | grep Version | grep -Eo "[0-9].[0-9].[0-9].[0-9]")
+MAJOR_VER=$(shell echo $(TOOLCHAIN_VER) | cut -d '.' -f 1)
+MINOR_VER=$(shell echo $(TOOLCHAIN_VER) | cut -d '.' -f 2)
+ifeq ($(MAJOR_VER),6)
+ifeq ($(MINOR_VER),3)
+NFLD_OLD := nfld_old
+endif
+endif
+
 LDFLAGS := -res.i24.emem.base 0x00008000 -chip $(CHIP)
 TARGET_MES := mei0.me0
 
@@ -32,7 +46,7 @@ rm_%.nffw: %.list
 rm1_%.nffw: %.list
 	$(NFLD) -rtsyms -mip_v1 $(LDFLAGS) -o $@ -u $(TARGET_MES) $<
 rm2_%.nffw: %.list
-	$(NFLD) -rtsyms -mip_v2 $(LDFLAGS) -o $@ -u $(TARGET_MES) $<
+	$(NFLD_OLD) -rtsyms -mip_v2 $(LDFLAGS) -o $@ -u $(TARGET_MES) $<
 rts_dump.nffw: rts_17.list abs_rtsym.list
 	$(NFLD) -L abs_rtsym.list -rtsyms -name $(FWNAME) -mip $(LDFLAGS) \
 	-o $@ -u $(TARGET_MES) $<
