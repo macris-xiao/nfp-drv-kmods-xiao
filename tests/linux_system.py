@@ -79,10 +79,11 @@ class LinuxSystem(System):
     # Version checks
     ###############################
     def _kernel_ver_detect_net_next(self):
-        _, (_, err) = self.cmd("ip link add przejrzystosc type strzelista",
-                               fail=False, include_stderr=True)
-        if err.rstrip() == "Error: Unknown device type.":
-            return "4.21.0"
+        """
+        Wrapper in case some version checks needs to be done on versions
+        that has not been tagged properly yet, e.g for a while it was needed
+        to detect version 4.21 before it was changed to 5.0.
+        """
         return self.kernel_ver
 
     def _kernel_ver_read(self):
