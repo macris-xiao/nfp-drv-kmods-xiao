@@ -2,6 +2,7 @@ LLVM_VERSION ?= -6.0
 LLVM := $(shell clang$(LLVM_VERSION) --version)
 CLANG_FLAGS ?= -O2 -W -Wall \
 	-Wno-compare-distinct-pointer-types
+KERNEL_HEADERS ?= $(KSRC)/usr/include
 
 # Exclude testcases requiring specific eBPF CPU versions initially. They do not
 # always compile on old LLVM toolchain. Include them depending on probe results.
@@ -21,7 +22,7 @@ Q ?= @
 
 %.o: %.c
 	@echo "\tLLVM CC $@"
-	$(Q) clang$(LLVM_VERSION) $(INCLUDE_DIRS) -emit-llvm -c $< $(CLANG_FLAGS) -o $(patsubst %.o,%.llvm,$@)
+	$(Q) clang$(LLVM_VERSION) $(INCLUDE_DIRS) -I$(KERNEL_HEADERS) -emit-llvm -c $< $(CLANG_FLAGS) -o $(patsubst %.o,%.llvm,$@)
 	$(Q) llc$(LLVM_VERSION) -march=bpf -filetype=obj -o $@ $(patsubst %.o,%.llvm,$@)
 	$(Q) rm $(patsubst %.o,%.llvm,$@)
 

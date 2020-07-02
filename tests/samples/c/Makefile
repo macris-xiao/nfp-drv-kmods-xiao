@@ -1,4 +1,5 @@
 LIBBPF_PATH ?=
+KERNEL_HEADERS ?= $(KSRC)/usr/include
 
 SRCS=$(wildcard *.c *.S)
 OBJS=$(patsubst %.c,%,$(SRCS))
@@ -14,7 +15,7 @@ Q ?= @
 	$(Q) gcc -MMD -W -Wall -Wextra -Wshadow -O2 $< -o $@ \
 		lib/samples.a \
 		-lpthread -lbpf -lelf -lz \
-		-I$(LIBBPF_PATH) -L$(LIBBPF_PATH)
+		-I$(LIBBPF_PATH) -I$(KERNEL_HEADERS) -L$(LIBBPF_PATH)
 
 ifeq ($(LIBBPF_PATH),)
 all:
