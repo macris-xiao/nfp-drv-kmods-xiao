@@ -477,6 +477,8 @@ class LinuxSystem(System):
                     "tx"	: m.groups()[2] == "on",
             }
             LOG(str(ret))
+        except:
+            pass
         finally:
             LOG_endsec()
 

@@ -198,17 +198,26 @@ class ModuleEepromEthtool(CommonTest):
             ethtool = self.dut.ethtool_get_module_eeprom(iface)
 
             _, phy = self.dut.cmd_phymod('-P | grep -B2 "%s"' % mac_addr)
-            phy = phy.strip().split('\n')[1].split()
+            lines = phy.strip().split('\n')
+            # phymod output looks a bit different on older BSPs so need
+            # to use a different offset in the output.
+            if "NBI" in lines[0]:
+                phy = lines[1].split()
+            else:
+                phy = lines[0].split()
 
-            vendor_oui = 'oui:0x%s' % ethtool['Vendor OUI'].replace(':', '')
+            vendor_oui = '0x%s' % ethtool['Vendor OUI'].replace(':', '')
+            vendor_oui = int(vendor_oui, 16)
+            phymod_oui = phy[3].strip('\"').replace("oui:","")
+            phymod_oui = int(phymod_oui, 16)
 
             # Only check the standard Vendor info per phy
             if ethtool['Vendor name'] != phy[0].strip('\"'):
                 raise NtiError("%s, Vendor Name, phymod reports:%s ethtool:%s" %
                                (iface, phy[0], ethtool['Vendor name']))
-            if vendor_oui != phy[3].strip('\"'):
+            if vendor_oui != phymod_oui:
                 raise NtiError("%s, Vendor OUI, phymod reports:%s ethtool:%s" %
-                               (iface, phy[3], vendor_oui))
+                               (iface, phymod_oui, vendor_oui))
             if str(ethtool['Vendor PN']) != phy[1].strip('\"'):
                 raise NtiError("%s, Vendor PN, phymod reports:%s ethtool:%s" %
                                (iface, phy[1].strip('\"'), ethtool['Vendor PN']))

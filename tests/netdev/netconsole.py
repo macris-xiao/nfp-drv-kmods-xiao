@@ -104,12 +104,13 @@ class NetconsoleTest(CommonTest):
     def netcons_prep(self):
         self.dut.skip_test_if_mode_switchdev()
 
-        # Enable pause frames and save old values (for NFP they're always on)
+        ## Enable pause frames and save old values (for NFP they're always on)
         self.src_pause = self.src.ethtool_pause_get(self.src_ifn[self.port])
-        self.src.ethtool_pause_set(self.src_ifn[self.port],
-                                   {"autoneg"	: self.src_pause["autoneg"],
-                                    "rx"	: True,
-                                    "tx"	: True })
+        if self.src_pause:
+            self.src.ethtool_pause_set(self.src_ifn[self.port],
+                                       {"autoneg"	: self.src_pause["autoneg"],
+                                        "rx"	: True,
+                                        "tx"	: True })
 
         # Read ethtool stats in case we loose packets record start counters
         self.src.cmd('ethtool -S %s' % (self.src_ifn[self.port]))
