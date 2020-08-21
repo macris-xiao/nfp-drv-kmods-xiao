@@ -20,7 +20,7 @@ import re
 
 #pylint cannot find TCP, UDP, IP, IPv6, Dot1Q in scapy for some reason
 #pylint: disable=no-name-in-module
-from scapy.all import Raw, Ether, rdpcap, wrpcap, TCP, UDP, IP, IPv6, Dot1Q, fragment, fragment6, IPv6ExtHdrFragment, GRE
+from scapy.all import Raw, Ether, rdpcap, wrpcap, TCP, UDP, IP, IPv6, Dot1Q, Dot1AD, fragment, fragment6, IPv6ExtHdrFragment, GRE
 #You need latest scapy to import from contrib
 from scapy.contrib.mpls import MPLS
 
@@ -45,6 +45,7 @@ class NFPKmodFlower(NFPKmodAppGrp):
              ('flower_match_vlan_id', FlowerMatchVLANID, "Checks basic flower vlan id match capabilities"),
              ('flower_match_vlan_pcp', FlowerMatchVLANPCP, "Checks basic flower vlan pcp match capabilities"),
              ('flower_match_vlan', FlowerMatchVLAN, "Checks basic flower vlan match capabilities"),
+             ('flower_match_qinq', FlowerMatchQinQ, "Checks basic flower qinq match capabilities"),
              ('flower_match_vlan_cfi', FlowerMatchVLANCFI, "Checks basic flower vlan with CFI set match capabilities"),
              ('flower_match_ipv4', FlowerMatchIPv4, "Checks basic flower ipv4 match capabilities"),
              ('flower_match_ipv6', FlowerMatchIPv6, "Checks basic flower ipv6 match capabilities"),
@@ -864,6 +865,154 @@ class FlowerMatchVLAN(FlowerBase):
     def cleanup(self):
         self.cleanup_flower(self.dut_ifn[0])
         return super(FlowerMatchVLAN, self).cleanup()
+
+class FlowerMatchQinQ(FlowerBase):
+    """ Checking if all the vlan ether types for inner/outer headers work as
+        expected. For this test we keep the rest of the vlan/cvlan fields
+        constant.
+
+        Hit patterns:
+            0x8100, 0x8100
+            0x88A8, 0x8100
+            0x88A8, 0x88A8
+            0x8100, 0x88A8
+    """
+    def _check_prereqs(self):
+        check = "man tc-flower | grep cvlan"
+        description = "tc matching on cvlan, please upgrade iproute2"
+        self.check_prereq(check, description, on_src=False)
+        # TODO: Add prereq check to see if feature is enabled in driver
+        # and/or host
+
+    def execute(self):
+        self._check_prereqs()
+
+        vlan_id = 170
+        vlan_prio = 6
+        cvlan_id = 182
+        cvlan_prio = 1
+
+        iface, ingress = self.configure_flower()
+
+        # Hit test, 0x8100, 0x8100
+        match = '802.1Q flower vlan_id %d vlan_prio %d ' %(vlan_id, vlan_prio)
+        match += 'vlan_ethtype 802.1Q cvlan_id %d cvlan_prio %d' %(cvlan_id, cvlan_prio)
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        pkt = Ether(src=self.group.hwaddr_x[0],dst=self.ipv4_mc_mac[0])/\
+              Dot1Q(vlan=vlan_id, prio=vlan_prio)/\
+              Dot1Q(vlan=cvlan_id, prio=cvlan_prio)/\
+              IP()/TCP()/Raw('\x00'*64)
+        self.test_filter(iface, ingress, pkt, pkt, 100)
+        self.cleanup_filter(iface)
+
+        # Miss test, 0x8100, 0x8100
+        match = '802.1Q flower vlan_id %d vlan_prio %d ' %(vlan_id, vlan_prio)
+        match += 'vlan_ethtype 802.1Q cvlan_id %d cvlan_prio %d' %(cvlan_id, cvlan_prio)
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        # The following packet header combinations should all miss the rule
+        vlan_combos = [(Dot1AD, Dot1Q), (Dot1AD, Dot1AD), (Dot1Q, Dot1AD)]
+        for svlan_type, cvlan_type in vlan_combos:
+            pkt = Ether(src=self.group.hwaddr_x[0],dst=self.ipv4_mc_mac[0])/\
+                  svlan_type(vlan=vlan_id, prio=vlan_prio)/\
+                  cvlan_type(vlan=cvlan_id, prio=cvlan_prio)/\
+                  IP()/TCP()/Raw('\x00'*64)
+            self.test_filter(iface, ingress, pkt, None, 0)
+        self.cleanup_filter(iface)
+
+        # Hit test, 0x88a8, 0x8100
+        match = '802.1AD flower vlan_id %d vlan_prio %d ' %(vlan_id, vlan_prio)
+        match += 'vlan_ethtype 802.1Q cvlan_id %d cvlan_prio %d' %(cvlan_id, cvlan_prio)
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        pkt = Ether(src=self.group.hwaddr_x[0],dst=self.ipv4_mc_mac[0])/\
+              Dot1AD(vlan=vlan_id, prio=vlan_prio)/\
+              Dot1Q(vlan=cvlan_id, prio=cvlan_prio)/\
+              IP()/TCP()/Raw('\x00'*64)
+        self.test_filter(iface, ingress, pkt, pkt, 100)
+        self.cleanup_filter(iface)
+
+        # Miss test, 0x88a8, 0x8100
+        match = '802.1AD flower vlan_id %d vlan_prio %d ' %(vlan_id, vlan_prio)
+        match += 'vlan_ethtype 802.1Q cvlan_id %d cvlan_prio %d' %(cvlan_id, cvlan_prio)
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        # The following packet header combinations should all miss the rule
+        vlan_combos = [(Dot1Q, Dot1Q), (Dot1AD, Dot1AD), (Dot1Q, Dot1AD)]
+        for svlan_type, cvlan_type in vlan_combos:
+            pkt = Ether(src=self.group.hwaddr_x[0],dst=self.ipv4_mc_mac[0])/\
+                  svlan_type(vlan=vlan_id, prio=vlan_prio)/\
+                  cvlan_type(vlan=cvlan_id, prio=cvlan_prio)/\
+                  IP()/TCP()/Raw('\x00'*64)
+            self.test_filter(iface, ingress, pkt, None, 0)
+        self.cleanup_filter(iface)
+
+        # Hit test, 0x88a8, 0x88a8
+        match = '802.1AD flower vlan_id %d vlan_prio %d ' %(vlan_id, vlan_prio)
+        match += 'vlan_ethtype 802.1AD cvlan_id %d cvlan_prio %d' %(cvlan_id, cvlan_prio)
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        pkt = Ether(src=self.group.hwaddr_x[0],dst=self.ipv4_mc_mac[0])/\
+              Dot1AD(vlan=vlan_id, prio=vlan_prio)/\
+              Dot1AD(vlan=cvlan_id, prio=cvlan_prio)/\
+              IP()/TCP()/Raw('\x00'*64)
+        self.test_filter(iface, ingress, pkt, pkt, 100)
+        self.cleanup_filter(iface)
+
+        # Miss test, 0x88a8, 0x88a8
+        match = '802.1AD flower vlan_id %d vlan_prio %d ' %(vlan_id, vlan_prio)
+        match += 'vlan_ethtype 802.1AD cvlan_id %d cvlan_prio %d' %(cvlan_id, cvlan_prio)
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        # The following packet header combinations should all miss the rule
+        vlan_combos = [(Dot1Q, Dot1Q), (Dot1AD, Dot1Q), (Dot1Q, Dot1AD)]
+        for svlan_type, cvlan_type in vlan_combos:
+            pkt = Ether(src=self.group.hwaddr_x[0],dst=self.ipv4_mc_mac[0])/\
+                  svlan_type(vlan=vlan_id, prio=vlan_prio)/\
+                  cvlan_type(vlan=cvlan_id, prio=cvlan_prio)/\
+                  IP()/TCP()/Raw('\x00'*64)
+            self.test_filter(iface, ingress, pkt, None, 0)
+        self.cleanup_filter(iface)
+
+        # Hit test, 0x8100, 0x88a8
+        match = '802.1Q flower vlan_id %d vlan_prio %d ' %(vlan_id, vlan_prio)
+        match += 'vlan_ethtype 802.1AD cvlan_id %d cvlan_prio %d' %(cvlan_id, cvlan_prio)
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        pkt = Ether(src=self.group.hwaddr_x[0],dst=self.ipv4_mc_mac[0])/\
+              Dot1Q(vlan=vlan_id, prio=vlan_prio)/\
+              Dot1AD(vlan=cvlan_id, prio=cvlan_prio)/\
+              IP()/TCP()/Raw('\x00'*64)
+        self.test_filter(iface, ingress, pkt, pkt, 100)
+        self.cleanup_filter(iface)
+
+        # Miss test, 0x8100, 0x88a8
+        match = '802.1Q flower vlan_id %d vlan_prio %d ' %(vlan_id, vlan_prio)
+        match += 'vlan_ethtype 802.1AD cvlan_id %d cvlan_prio %d' %(cvlan_id, cvlan_prio)
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        # The following packet header combinations should all miss the rule
+        vlan_combos = [(Dot1Q, Dot1Q), (Dot1AD, Dot1Q), (Dot1AD, Dot1AD)]
+        for svlan_type, cvlan_type in vlan_combos:
+            pkt = Ether(src=self.group.hwaddr_x[0],dst=self.ipv4_mc_mac[0])/\
+                  svlan_type(vlan=vlan_id, prio=vlan_prio)/\
+                  cvlan_type(vlan=cvlan_id, prio=cvlan_prio)/\
+                  IP()/TCP()/Raw('\x00'*64)
+            self.test_filter(iface, ingress, pkt, None, 0)
+        self.cleanup_filter(iface)
+
+    def cleanup(self):
+        self.cleanup_flower(self.dut_ifn[0])
+        return super(FlowerMatchQinQ, self).cleanup()
 
 class FlowerMatchVLANCFI(FlowerBase):
     def execute(self):
