@@ -594,7 +594,9 @@ exec 3<>$BUILD_ROOT/build.log
 	    # Run coccicheck
 	    #
 	    bold_yellow "Run coccicheck"
-	    make CC=$DEFAULT_CC -C ../net-next M=`pwd`/src coccicheck | tee ../cocci.log
+	    [ ! -e ../cocci-debug.log ] || rm ../cocci-debug.log
+	    make CC=$DEFAULT_CC -C ../net-next M=`pwd`/src \
+		DEBUG_FILE=../cocci-debug.log coccicheck | tee ../cocci.log
 	    cocci_warnings=$(grep '^/' ../cocci.log | wc -l)
 	    check_warn_cnt $cocci_warnings $INCUMBENT_COCCI_WARNINGS cocci
 	)
