@@ -93,7 +93,7 @@ nfp_flower_install_rate_limiter(struct nfp_app *app, struct net_device *netdev,
 		return -EOPNOTSUPP;
 	}
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 3, 0)
+#if VER_NON_RHEL_LT(5, 3)
 	if (flow->common.prio != (1 << 16)) {
 #else
 	if (flow->common.prio != 1) {

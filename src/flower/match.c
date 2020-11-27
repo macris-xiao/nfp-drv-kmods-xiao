@@ -8,7 +8,7 @@
 #include "main.h"
 
 static void
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 nfp_flower_compile_meta_tci(struct nfp_flower_meta_tci *ext,
 			    struct nfp_flower_meta_tci *msk,
 			    struct flow_rule *rule, u8 key_type, bool qinq_sup)
@@ -103,7 +103,7 @@ nfp_flower_compile_port(struct nfp_flower_in_port *frame, u32 cmsg_port,
 	return 0;
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 static int
 nfp_flower_compile_mac(struct nfp_flower_mac_mpls *ext,
 		       struct nfp_flower_mac_mpls *msk, struct flow_rule *rule,
@@ -263,7 +263,7 @@ nfp_flower_fill_vlan(struct flow_dissector_key_vlan *key,
 }
 
 static void
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 nfp_flower_compile_vlan(struct nfp_flower_vlan *ext,
 			struct nfp_flower_vlan *msk,
 			struct flow_rule *rule)
@@ -309,10 +309,10 @@ nfp_flower_compile_vlan(struct nfp_flower_vlan *frame,
 	}
 #endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0) */
 }
-#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0) */
+#endif /* VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1) */
 
 static void
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 nfp_flower_compile_tport(struct nfp_flower_tp_ports *ext,
 			 struct nfp_flower_tp_ports *msk,
 			 struct flow_rule *rule)
@@ -351,7 +351,7 @@ nfp_flower_compile_tport(struct nfp_flower_tp_ports *frame,
 #endif
 
 static void
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 nfp_flower_compile_ip_ext(struct nfp_flower_ip_ext *ext,
 			  struct nfp_flower_ip_ext *msk, struct flow_rule *rule)
 {
@@ -482,7 +482,7 @@ nfp_flower_compile_ip_ext(struct nfp_flower_ip_ext *frame,
 #endif
 
 static void
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 nfp_flower_compile_ipv4(struct nfp_flower_ipv4 *ext,
 			struct nfp_flower_ipv4 *msk, struct flow_rule *rule)
 {
@@ -525,7 +525,7 @@ nfp_flower_compile_ipv4(struct nfp_flower_ipv4 *frame,
 #endif
 
 static void
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 nfp_flower_compile_ipv6(struct nfp_flower_ipv6 *ext,
 			struct nfp_flower_ipv6 *msk, struct flow_rule *rule)
 {
@@ -568,7 +568,7 @@ nfp_flower_compile_ipv6(struct nfp_flower_ipv6 *frame,
 #endif
 
 static int
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 nfp_flower_compile_geneve_opt(void *ext, void *msk, struct flow_rule *rule)
 {
 	struct flow_match_enc_opts match;
@@ -595,7 +595,7 @@ nfp_flower_compile_geneve_opt(void *key_buf, struct tc_cls_flower_offload *flow,
 }
 #endif
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 static void
 nfp_flower_compile_tun_ipv4_addrs(struct nfp_flower_tun_ipv4 *ext,
 				  struct nfp_flower_tun_ipv4 *msk,
@@ -677,7 +677,7 @@ nfp_flower_compile_tun_gre_key(__be32 *key, __be32 *key_msk, __be16 *flags,
 }
 #endif
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 static void
 nfp_flower_compile_ipv4_gre_tun(struct nfp_flower_ipv4_gre_tun *ext,
 				struct nfp_flower_ipv4_gre_tun *msk,
@@ -698,7 +698,7 @@ nfp_flower_compile_ipv4_gre_tun(struct nfp_flower_ipv4_gre_tun *ext,
 #endif
 
 static void
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 nfp_flower_compile_ipv4_udp_tun(struct nfp_flower_ipv4_udp_tun *ext,
 				struct nfp_flower_ipv4_udp_tun *msk,
 				struct flow_rule *rule)
@@ -753,7 +753,7 @@ nfp_flower_compile_ipv4_udp_tun(struct nfp_flower_ipv4_udp_tun *frame,
 }
 #endif
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 static void
 nfp_flower_compile_ipv6_udp_tun(struct nfp_flower_ipv6_udp_tun *ext,
 				struct nfp_flower_ipv6_udp_tun *msk,
@@ -794,7 +794,7 @@ int nfp_flower_compile_flow_match(struct nfp_app *app,
 				  enum nfp_flower_tun_type tun_type,
 				  struct netlink_ext_ack *extack)
 {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 	struct flow_rule *rule = compat__flow_cls_offload_flow_rule(flow);
 #endif
 	struct nfp_flower_priv *priv = app->priv;
@@ -815,7 +815,7 @@ int nfp_flower_compile_flow_match(struct nfp_app *app,
 
 	qinq_sup = !!(priv->flower_ext_feats & NFP_FL_FEATS_VLAN_QINQ);
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 	nfp_flower_compile_meta_tci((struct nfp_flower_meta_tci *)ext,
 				    (struct nfp_flower_meta_tci *)msk,
 				    rule, key_ls->key_layer, qinq_sup);
@@ -856,7 +856,7 @@ int nfp_flower_compile_flow_match(struct nfp_app *app,
 	msk += sizeof(struct nfp_flower_in_port);
 
 	if (NFP_FLOWER_LAYER_MAC & key_ls->key_layer) {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 		err = nfp_flower_compile_mac((struct nfp_flower_mac_mpls *)ext,
 					     (struct nfp_flower_mac_mpls *)msk,
 					     rule, extack);
@@ -875,7 +875,7 @@ int nfp_flower_compile_flow_match(struct nfp_app *app,
 	}
 
 	if (NFP_FLOWER_LAYER_TP & key_ls->key_layer) {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 		nfp_flower_compile_tport((struct nfp_flower_tp_ports *)ext,
 					 (struct nfp_flower_tp_ports *)msk,
 					 rule);
@@ -892,7 +892,7 @@ int nfp_flower_compile_flow_match(struct nfp_app *app,
 	}
 
 	if (NFP_FLOWER_LAYER_IPV4 & key_ls->key_layer) {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 		nfp_flower_compile_ipv4((struct nfp_flower_ipv4 *)ext,
 					(struct nfp_flower_ipv4 *)msk,
 					rule);
@@ -909,7 +909,7 @@ int nfp_flower_compile_flow_match(struct nfp_app *app,
 	}
 
 	if (NFP_FLOWER_LAYER_IPV6 & key_ls->key_layer) {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 		nfp_flower_compile_ipv6((struct nfp_flower_ipv6 *)ext,
 					(struct nfp_flower_ipv6 *)msk,
 					rule);
@@ -925,7 +925,7 @@ int nfp_flower_compile_flow_match(struct nfp_app *app,
 		msk += sizeof(struct nfp_flower_ipv6);
 	}
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 	if (key_ls->key_layer_two & NFP_FLOWER_LAYER2_GRE) {
 		if (key_ls->key_layer_two & NFP_FLOWER_LAYER2_TUN_IPV6) {
 			struct nfp_flower_ipv6_gre_tun *gre_match;
@@ -963,7 +963,7 @@ int nfp_flower_compile_flow_match(struct nfp_app *app,
 #endif
 
 	if (NFP_FLOWER_LAYER2_QINQ & key_ls->key_layer_two) {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 		nfp_flower_compile_vlan((struct nfp_flower_vlan *)ext,
 					(struct nfp_flower_vlan *)msk,
 					rule);
@@ -981,7 +981,7 @@ int nfp_flower_compile_flow_match(struct nfp_app *app,
 
 	if (key_ls->key_layer & NFP_FLOWER_LAYER_VXLAN ||
 	    key_ls->key_layer_two & NFP_FLOWER_LAYER2_GENEVE) {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 		if (key_ls->key_layer_two & NFP_FLOWER_LAYER2_TUN_IPV6) {
 			struct nfp_flower_ipv6_udp_tun *udp_match;
 			struct nfp_ipv6_addr_entry *entry;
@@ -1003,7 +1003,7 @@ int nfp_flower_compile_flow_match(struct nfp_app *app,
 #endif
 			__be32 dst;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 			nfp_flower_compile_ipv4_udp_tun((void *)ext,
 							(void *)msk, rule);
 #else
@@ -1023,12 +1023,12 @@ int nfp_flower_compile_flow_match(struct nfp_app *app,
 			 */
 			nfp_flow->nfp_tun_ipv4_addr = dst;
 			nfp_tunnel_add_ipv4_off(app, dst);
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 		}
 #endif
 
 		if (key_ls->key_layer_two & NFP_FLOWER_LAYER2_GENEVE_OP) {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 			err = nfp_flower_compile_geneve_opt(ext, msk, rule);
 #else
 			err = nfp_flower_compile_geneve_opt(ext, flow, false);

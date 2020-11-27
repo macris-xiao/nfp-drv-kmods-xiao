@@ -324,7 +324,7 @@ struct nfp_fl_payload {
 	char *unmasked_data;
 	char *mask_data;
 	char *action_data;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 0, 0)
+#if VER_NON_RHEL_LT(5, 0)
 	bool ingress_offload;
 #endif
 	struct list_head linked_flows;
@@ -448,7 +448,7 @@ void nfp_tunnel_request_route_v4(struct nfp_app *app, struct sk_buff *skb);
 void nfp_tunnel_request_route_v6(struct nfp_app *app, struct sk_buff *skb);
 void nfp_tunnel_keep_alive(struct nfp_app *app, struct sk_buff *skb);
 void nfp_tunnel_keep_alive_v6(struct nfp_app *app, struct sk_buff *skb);
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 0, 0)
+#if VER_NON_RHEL_LT(5, 0)
 int nfp_flower_setup_tc_egress_cb(enum tc_setup_type type, void *type_data,
 				  void *cb_priv);
 #endif
@@ -465,7 +465,7 @@ int nfp_flower_lag_populate_pre_action(struct nfp_app *app,
 				       struct netlink_ext_ack *extack);
 int nfp_flower_lag_get_output_id(struct nfp_app *app,
 				 struct net_device *master);
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 2, 0)
+#if VER_NON_RHEL_GE(5, 2) || VER_RHEL_GE(8, 2)
 void nfp_flower_qos_init(struct nfp_app *app);
 void nfp_flower_qos_cleanup(struct nfp_app *app);
 int nfp_flower_setup_qos_offload(struct nfp_app *app, struct net_device *netdev,

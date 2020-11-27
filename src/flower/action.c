@@ -9,7 +9,7 @@
 #include <net/tc_act/tc_csum.h>
 #include <net/tc_act/tc_gact.h>
 #include <net/tc_act/tc_mirred.h>
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
+#if VER_NON_RHEL_GE(5, 4) || VER_RHEL_GE(8, 2)
 #include <net/tc_act/tc_mpls.h>
 #endif
 #include <net/tc_act/tc_pedit.h>
@@ -32,7 +32,7 @@
 						 NFP_FL_TUNNEL_KEY | \
 						 NFP_FL_TUNNEL_GENEVE_OPT)
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
+#if VER_NON_RHEL_GE(5, 4) || VER_RHEL_GE(8, 2)
 static int
 nfp_fl_push_mpls(struct nfp_fl_push_mpls *push_mpls,
 		 const struct flow_action_entry *act,
@@ -119,7 +119,7 @@ static void nfp_fl_pop_vlan(struct nfp_fl_pop_vlan *pop_vlan)
 
 static void
 nfp_fl_push_vlan(struct nfp_fl_push_vlan *push_vlan,
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 		 const struct flow_action_entry *act)
 #else
 		 const struct tc_action *act)
@@ -142,7 +142,7 @@ nfp_fl_push_vlan(struct nfp_fl_push_vlan *push_vlan,
 }
 
 static int
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 nfp_fl_pre_lag(struct nfp_app *app, const struct flow_action_entry *act,
 #else
 nfp_fl_pre_lag(struct nfp_app *app, const struct tc_action *act,
@@ -186,7 +186,7 @@ nfp_fl_pre_lag(struct nfp_app *app, const struct tc_action *act,
 
 static int
 nfp_fl_output(struct nfp_app *app, struct nfp_fl_output *output,
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 	      const struct flow_action_entry *act,
 #else
 	      const struct tc_action *act,
@@ -281,7 +281,7 @@ nfp_fl_output(struct nfp_app *app, struct nfp_fl_output *output,
 	return 0;
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 static enum nfp_flower_tun_type
 nfp_flower_tun_is_gre(compat__flow_cls_offload *flow, int start_idx)
 {
@@ -301,7 +301,7 @@ nfp_flower_tun_is_gre(compat__flow_cls_offload *flow, int start_idx)
 
 static enum nfp_flower_tun_type
 nfp_fl_get_tun_from_act(struct nfp_app *app,
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 			compat__flow_cls_offload *flow,
 			const struct flow_action_entry *act, int act_idx)
 #else
@@ -310,8 +310,8 @@ nfp_fl_get_tun_from_act(struct nfp_app *app,
 {
 	struct ip_tunnel_info *tun = compat__tca_tun_info(act);
 	struct nfp_flower_priv *priv = app->priv;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
 
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 	/* Determine the tunnel type based on the egress netdev
 	 * in the mirred action for tunnels without l4.
 	 */
@@ -354,7 +354,7 @@ static struct nfp_fl_pre_tunnel *nfp_fl_pre_tunnel(char *act_data, int act_len)
 
 static int
 nfp_fl_push_geneve_options(struct nfp_fl_payload *nfp_fl, int *list_len,
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 			   const struct flow_action_entry *act,
 			   struct netlink_ext_ack *extack)
 #else
@@ -429,7 +429,7 @@ nfp_fl_push_geneve_options(struct nfp_fl_payload *nfp_fl, int *list_len,
 
 static int
 nfp_fl_set_tun(struct nfp_app *app, struct nfp_fl_set_tun *set_tun,
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 	       const struct flow_action_entry *act,
 #else
 	       const struct tc_action *act,
@@ -552,7 +552,7 @@ static void nfp_fl_set_helper32(u32 value, u32 mask, u8 *p_exact, u8 *p_mask)
 }
 
 static int
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 nfp_fl_set_eth(const struct flow_action_entry *act, int idx, u32 off,
 #else
 nfp_fl_set_eth(const struct tc_action *act, int idx, u32 off,
@@ -591,7 +591,7 @@ struct ipv4_ttl_word {
 };
 
 static int
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 nfp_fl_set_ip4(const struct flow_action_entry *act, int idx, u32 off,
 #else
 nfp_fl_set_ip4(const struct tc_action *act, int idx, u32 off,
@@ -737,7 +737,7 @@ nfp_fl_set_ip6_hop_limit_flow_label(u32 off, __be32 exact, __be32 mask,
 }
 
 static int
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 nfp_fl_set_ip6(const struct flow_action_entry *act, int idx, u32 off,
 #else
 nfp_fl_set_ip6(const struct tc_action *act, int idx, u32 off,
@@ -781,7 +781,7 @@ nfp_fl_set_ip6(const struct tc_action *act, int idx, u32 off,
 }
 
 static int
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 nfp_fl_set_tport(const struct flow_action_entry *act, int idx, u32 off,
 #else
 nfp_fl_set_tport(const struct tc_action *act, int idx, u32 off,
@@ -846,13 +846,13 @@ nfp_fl_commit_mangle(compat__flow_cls_offload *flow, char *nfp_action,
 		     int *a_len, struct nfp_flower_pedit_acts *set_act,
 		     u32 *csum_updated)
 {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 	struct flow_rule *rule = compat__flow_cls_offload_flow_rule(flow);
 #endif
 	size_t act_size = 0;
 	u8 ip_proto = 0;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 	if (flow_rule_match_key(rule, FLOW_DISSECTOR_KEY_BASIC)) {
 		struct flow_match_basic match;
 
@@ -956,7 +956,7 @@ nfp_fl_commit_mangle(compat__flow_cls_offload *flow, char *nfp_action,
 }
 
 static int
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 nfp_fl_pedit(const struct flow_action_entry *act,
 	     compat__flow_cls_offload *flow, char *nfp_action, int *a_len,
 	     u32 *csum_updated, struct nfp_flower_pedit_acts *set_act,
@@ -964,7 +964,7 @@ nfp_fl_pedit(const struct flow_action_entry *act,
 {
 	enum flow_action_mangle_base htype;
 #else
-nfp_fl_pedit(const struct tc_action *act, struct tc_cls_flower_offload *flow,
+nfp_fl_pedit(const struct tc_action *act, compat__flow_cls_offload *flow,
 	     char *nfp_action, int *a_len, u32 *csum_updated,
 	     struct netlink_ext_ack *extack)
 {
@@ -974,7 +974,7 @@ nfp_fl_pedit(const struct tc_action *act, struct tc_cls_flower_offload *flow,
 	int idx, nkeys, err;
 	u32 offset, cmd;
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_LT(5, 1) || VER_RHEL_LT(8, 1)
 	set_act = kmalloc(sizeof(*set_act), GFP_KERNEL);
 	memset(set_act, 0, sizeof(*set_act));
 #endif
@@ -1026,7 +1026,7 @@ nfp_fl_pedit(const struct tc_action *act, struct tc_cls_flower_offload *flow,
 		if (err)
 			return err;
 	}
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_LT(5, 1) || VER_RHEL_LT(8, 1)
 	nfp_fl_commit_mangle(flow, nfp_action, a_len, set_act, csum_updated);
 #endif
 
@@ -1034,7 +1034,7 @@ nfp_fl_pedit(const struct tc_action *act, struct tc_cls_flower_offload *flow,
 }
 
 static int
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 nfp_flower_output_action(struct nfp_app *app,
 			 const struct flow_action_entry *act,
 #else
@@ -1091,7 +1091,7 @@ nfp_flower_output_action(struct nfp_app *app, const struct tc_action *act,
 }
 
 static int
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 nfp_flower_loop_action(struct nfp_app *app, const struct flow_action_entry *act,
 		       compat__flow_cls_offload *flow,
 		       struct nfp_fl_payload *nfp_fl, int *a_len,
@@ -1102,7 +1102,7 @@ nfp_flower_loop_action(struct nfp_app *app, const struct flow_action_entry *act,
 		       struct netlink_ext_ack *extack, int act_idx)
 #else
 nfp_flower_loop_action(struct nfp_app *app, const struct tc_action *act,
-		       struct tc_cls_flower_offload *flow,
+		       compat__flow_cls_offload *flow,
 		       struct nfp_fl_payload *nfp_fl, int *a_len,
 		       struct net_device *netdev,
 		       enum nfp_flower_tun_type *tun_type, int *tun_out_cnt,
@@ -1113,11 +1113,11 @@ nfp_flower_loop_action(struct nfp_app *app, const struct tc_action *act,
 	struct nfp_fl_pre_tunnel *pre_tun;
 	struct nfp_fl_set_tun *set_tun;
 	struct nfp_fl_push_vlan *psh_v;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
+#if VER_NON_RHEL_GE(5, 4) || VER_RHEL_GE(8, 2)
 	struct nfp_fl_push_mpls *psh_m;
 #endif
 	struct nfp_fl_pop_vlan *pop_v;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
+#if VER_NON_RHEL_GE(5, 4) || VER_RHEL_GE(8, 2)
 	struct nfp_fl_pop_mpls *pop_m;
 	struct nfp_fl_set_mpls *set_m;
 #endif
@@ -1174,7 +1174,7 @@ nfp_flower_loop_action(struct nfp_app *app, const struct tc_action *act,
 	case FLOW_ACTION_TUNNEL_ENCAP: {
 		const struct ip_tunnel_info *ip_tun = compat__tca_tun_info(act);
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 		*tun_type = nfp_fl_get_tun_from_act(app, flow, act, act_idx);
 #else
 		*tun_type = nfp_fl_get_tun_from_act(app, act);
@@ -1220,7 +1220,7 @@ nfp_flower_loop_action(struct nfp_app *app, const struct tc_action *act,
 		return 0;
 	case FLOW_ACTION_MANGLE:
 		if (nfp_fl_pedit(act, flow, &nfp_fl->action_data[*a_len],
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 				 a_len, csum_updated, set_act, extack))
 #else
 				 a_len, csum_updated, extack))
@@ -1238,7 +1238,7 @@ nfp_flower_loop_action(struct nfp_app *app, const struct tc_action *act,
 		 */
 		*csum_updated &= ~compat__tca_csum_update_flags(act);
 		break;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
+#if VER_NON_RHEL_GE(5, 4) || VER_RHEL_GE(8, 2)
 	case FLOW_ACTION_MPLS_PUSH:
 		if (*a_len +
 		    sizeof(struct nfp_fl_push_mpls) > NFP_FL_MAX_A_SIZ) {
@@ -1297,7 +1297,7 @@ nfp_flower_loop_action(struct nfp_app *app, const struct tc_action *act,
 	return 0;
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 static bool nfp_fl_check_mangle_start(struct flow_action *flow_act,
 				      int current_act_idx)
 {
@@ -1341,22 +1341,22 @@ int nfp_flower_compile_action(struct nfp_app *app,
 			      struct netlink_ext_ack *extack)
 {
 	int act_len, act_cnt, err, tun_out_cnt, out_cnt, i;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 	struct nfp_flower_pedit_acts set_act;
 #endif
 	enum nfp_flower_tun_type tun_type;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 	struct flow_action_entry *act;
 #else
 	const struct tc_action *act;
 #endif
 	bool pkt_host = false;
 	u32 csum_updated = 0;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 19, 0)
+#if VER_NON_RHEL_LT(4, 19)
 	LIST_HEAD(actions);
 #endif
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 7, 0)
+#if VER_NON_RHEL_GE(5, 7) || VER_RHEL_GE(8, 3)
 	if (!flow_action_hw_stats_check(&flow->rule->action, extack,
 					FLOW_ACTION_HW_STATS_DELAYED_BIT))
 		return -EOPNOTSUPP;
@@ -1370,22 +1370,22 @@ int nfp_flower_compile_action(struct nfp_app *app,
 	tun_out_cnt = 0;
 	out_cnt = 0;
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 19, 0)
+#if VER_NON_RHEL_LT(4, 19)
 	i = 0; i = i;
 	tcf_exts_to_list(flow->exts, &actions);
 	list_for_each_entry(act, &actions, list) {
-#elif LINUX_VERSION_CODE < KERNEL_VERSION(5, 1, 0)
+#elif VER_NON_RHEL_LT(5, 1) || VER_RHEL_LT(8, 1)
 	tcf_exts_for_each_action(i, act, flow->exts) {
 #else
 	flow_action_for_each(i, act, &flow->rule->action) {
 #endif
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 		if (nfp_fl_check_mangle_start(&flow->rule->action, i))
 			memset(&set_act, 0, sizeof(set_act));
 #endif
 		err = nfp_flower_loop_action(app, act, flow, nfp_flow, &act_len,
 					     netdev, &tun_type, &tun_out_cnt,
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 					     &out_cnt, &csum_updated,
 					     &set_act, &pkt_host, extack, i);
 #else
@@ -1395,7 +1395,7 @@ int nfp_flower_compile_action(struct nfp_app *app,
 		if (err)
 			return err;
 		act_cnt++;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#if VER_NON_RHEL_GE(5, 1) || VER_RHEL_GE(8, 1)
 		if (nfp_fl_check_mangle_end(&flow->rule->action, i))
 			nfp_fl_commit_mangle(flow,
 					     &nfp_flow->action_data[act_len],
