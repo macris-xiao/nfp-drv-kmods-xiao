@@ -572,8 +572,8 @@ class DrvSystem(LinuxSystem):
 
     def dfs_write(self, path, data, do_fail=False, timeout=None,
                   include_stderr=False):
-        cmd = 'echo -ne "%s" > %s' % (data,
-                                      os.path.join(self.dfs_dir, path))
+        cmd = '/bin/echo -ne "%s" > %s' % (data,
+                                           os.path.join(self.dfs_dir, path))
         if timeout:
             cmd = ('timeout %d ' % (timeout)) + cmd
         ret, data = self.cmd(cmd, fail=False, include_stderr=include_stderr)
