@@ -1161,7 +1161,7 @@ static int __init nth_init(void)
 				     NULL, &nth_interface_ops);
 
 	nth.hwinfo_static_db = true;
-	fail |= !debugfs_create_bool("hwinfo_static_db", 0600, nth.dir,
+	debugfs_create_bool("hwinfo_static_db", 0600, nth.dir,
 				     &nth.hwinfo_static_db);
 	fail |= !debugfs_create_file("hwinfo_key", 0600, nth.dir,
 				     &nth.hwinfo_key, &nth_hwinfo_ops);
@@ -1204,7 +1204,7 @@ static int __init nth_init(void)
 
 	fail |= !debugfs_create_file("rand_r", 0600, nth.dir,
 				     NULL, &nth_rand_r_ops);
-	fail |= !debugfs_create_bool("rand_trigger_warns", 0600, nth.dir,
+	debugfs_create_bool("rand_trigger_warns", 0600, nth.dir,
 				     &nth.rand_trigger_warns);
 
 	if (fail) {
