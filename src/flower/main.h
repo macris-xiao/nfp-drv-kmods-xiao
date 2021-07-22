@@ -420,7 +420,11 @@ int nfp_flower_merge_offloaded_flows(struct nfp_app *app,
 				     struct nfp_fl_payload *sub_flow1,
 				     struct nfp_fl_payload *sub_flow2);
 int nfp_flower_compile_flow_match(struct nfp_app *app,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+				  struct flow_rule *rule,
+#else
 				  compat__flow_cls_offload *flow,
+#endif
 				  struct nfp_fl_key_ls *key_ls,
 				  struct net_device *netdev,
 				  struct nfp_fl_payload *nfp_flow,
@@ -431,8 +435,7 @@ int nfp_flower_compile_action(struct nfp_app *app,
 			      struct net_device *netdev,
 			      struct nfp_fl_payload *nfp_flow,
 			      struct netlink_ext_ack *extack);
-int nfp_compile_flow_metadata(struct nfp_app *app,
-			      compat__flow_cls_offload *flow,
+int nfp_compile_flow_metadata(struct nfp_app *app, u32 cookie,
 			      struct nfp_fl_payload *nfp_flow,
 			      struct net_device *netdev,
 			      struct netlink_ext_ack *extack);
