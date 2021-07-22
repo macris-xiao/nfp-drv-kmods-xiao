@@ -139,7 +139,8 @@ class IFstats(CommonNetdevTest):
                 rings = self.dut.ethtool_rings_get(ifc)["current"]
                 rings2 = {}
                 for k in rings.keys():
-                    rings2[k] = rings[k] * 2
+                    if type(rings[k]):
+                        rings2[k] = rings[k] * 2
                 self.dut.ethtool_rings_set(ifc, rings2)
                 self.dut.ethtool_rings_set(ifc, rings)
 

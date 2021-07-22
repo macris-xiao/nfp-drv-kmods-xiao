@@ -569,16 +569,14 @@ Combined:	(\d+)"""
 """Ring parameters for \w+:
 Pre-set maximums:
 RX:		(\d+)
-RX Mini:	(\d+)
-RX Jumbo:	(\d+)
+RX Mini:	(\d+|n\/a)
+RX Jumbo:	(\d+|n\/a)
 TX:		(\d+)
 Current hardware settings:
 RX:		(\d+)
-RX Mini:	(\d+)
-RX Jumbo:	(\d+)
-TX:		(\d+)
-
-"""
+RX Mini:	(\d+|n\/a)
+RX Jumbo:	(\d+|n\/a)
+TX:		(\d+)"""
 
             _, out = self.cmd("ethtool -g " + ifc)
             m = re.search(r, out, flags=re.M)
@@ -586,14 +584,18 @@ TX:		(\d+)
             ret = {
                 "max"		: {
                     "rx"	: int(m.groups()[0]),
-                    "rx-mini"	: int(m.groups()[1]),
-                    "rx-jumbo"	: int(m.groups()[2]),
+                    "rx-mini"	: int(m.groups()[1]) \
+                                    if "n/a" not in m.groups()[1] else None,
+                    "rx-jumbo"	: int(m.groups()[2]) \
+                                    if "n/a" not in m.groups()[2] else None,
                     "tx"	: int(m.groups()[3]),
                 },
                 "current"	: {
                     "rx"	: int(m.groups()[4]),
-                    "rx-mini"	: int(m.groups()[5]),
-                    "rx-jumbo"	: int(m.groups()[6]),
+                    "rx-mini"	: int(m.groups()[5]) \
+                                    if "n/a" not in m.groups()[5] else None,
+                    "rx-jumbo"	: int(m.groups()[6]) \
+                                    if "n/a" not in m.groups()[6] else None,
                     "tx"	: int(m.groups()[7]),
                 },
             }
@@ -608,7 +610,8 @@ TX:		(\d+)
         try:
                 cmd = 'ethtool -G ' + ifc
                 for k in settings.keys():
-                    cmd += ' %s %s' % (k, settings[k])
+                    if type(settings[k]):
+                        cmd += ' %s %s' % (k, settings[k])
 
                 ret = self.cmd(cmd, fail=fail)
         finally:
