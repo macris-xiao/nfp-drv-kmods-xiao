@@ -350,7 +350,7 @@ class DevlinkPortsShow(CommonTest):
             self.dut.cmd('ip link show dev %s | grep %s' % (netdev, mac))
 
             # Check split group
-            if dl_port.find('split') != -1:
+            if dl_port.find('split_group') != -1:
                 split = re.match(".*split_group (\w*).*", dl_port).group(1)
                 if split != main_port:
                     raise NtiError("Split group %s, should be %s" %
