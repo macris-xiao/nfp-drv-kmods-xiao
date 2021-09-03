@@ -397,8 +397,12 @@ class FlowerTunnel(FlowerBase):
                  % int_dev
         self.install_filter(dev_name, match, action)
 
-    def add_pre_tunnel_rule_vlan(self, dev_name, int_mac, int_dev, vlan_id):
-        match = '802.1Q flower vlan_id %s dst_mac %s' % (vlan_id, int_mac)
+    def add_pre_tunnel_rule_vlan(self, dev_name, int_mac, int_dev, vlan_id,
+                                 ipv6 = False):
+        ip_proto = "ipv6" if ipv6 else "ipv4"
+        match = '802.1Q flower vlan_id %s ' % vlan_id
+        match += 'vlan_ethtype %s ' % ip_proto
+        match += 'dst_mac %s' % int_mac
         action = 'vlan pop pipe skbedit ptype host pipe ' \
                  'mirred egress redirect dev %s' % int_dev
         self.install_filter(dev_name, match, action)
@@ -604,7 +608,7 @@ class FlowerTunnel(FlowerBase):
 
         # add vlan to the tunnel
         self.cleanup_filter(iface)
-        self.add_pre_tunnel_rule_vlan(iface, dut_mac, int_dev, 20)
+        self.add_pre_tunnel_rule_vlan(iface, dut_mac, int_dev, 20, ipv6)
         self.execute_tun_match(iface, ingress, dut_mac, tun_port, tun_dev,
                                vlan_id=20, ipv6=ipv6)
         if self.dut.kernel_ver_ge(4, 19):
@@ -614,7 +618,7 @@ class FlowerTunnel(FlowerBase):
 
         # test for failure with the wrong vlan_id
         self.cleanup_filter(iface)
-        self.add_pre_tunnel_rule_vlan(iface, dut_mac, int_dev, 20)
+        self.add_pre_tunnel_rule_vlan(iface, dut_mac, int_dev, 20, ipv6)
         self.execute_tun_match(iface, ingress, dut_mac, tun_port, tun_dev,
                                vlan_id=21, fail=True, ipv6=ipv6)
         self.check_pre_tun_stats(iface, 0)
