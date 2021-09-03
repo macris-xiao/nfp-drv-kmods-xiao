@@ -153,6 +153,22 @@ class FlowerBase(CommonTest):
         M.refresh()
         return iface, ingress
 
+    def _get_pf_netdev(self, host, phy_repr):
+        """ Get PF netdev name from phy_repr iface. Do this
+        by iterating through the './device/net' netdevs on the
+        phy_repr device - the one that does not expose phys_port_name
+        is the PF.
+        """
+        _, ndevs = host.cmd("ls /sys/class/net/%s/device/net" % (phy_repr))
+        for ndev in ndevs.strip().split():
+            ret, _ = host.cmd(
+                'cat /sys/class/net/%s/phys_port_name' % (ndev),
+                fail=False
+                )
+            if ret != 0:
+                return ndev
+        raise NtiError('Could not determine PF for %s ' % iface)
+
     def configure_flower(self):
         M = self.dut
         iface = self.dut_ifn[0]
@@ -160,12 +176,22 @@ class FlowerBase(CommonTest):
         if ret:
             raise NtiError('interface %s is not a valid port' % iface)
 
+        # Check for NetworkManager, and disable it on the interfaces
+        ret, out = M.cmd("systemctl status NetworkManager", fail=False)
+        if "active (running)" in out:
+            M.cmd("nmcli device set %s managed no" % iface)
+            dut_pf_iface = self._get_pf_netdev(M, iface)
+            M.cmd("nmcli device set %s managed no" % dut_pf_iface)
+            # The tests expect the interface to be down, make sure to
+            # set it down in case NetworkManager already put in the up state
+            M.cmd('ip link set dev %s down' % (dut_pf_iface), fail=False)
+
         M.cmd('tc qdisc del dev %s handle ffff: ingress' % iface, fail=False)
         M.cmd('tc qdisc add dev %s handle ffff: ingress' % iface)
 
         ingress = self.src_ifn[0]
         if self.check_src_flower_fw(ingress):
-            pf_ifname = ingress[:-3]
+            pf_ifname = self._get_pf_netdev(self.src, ingress)
             self.src.cmd('ip link set dev %s up' % (pf_ifname), fail=False)
 
         M.refresh()
