@@ -169,6 +169,68 @@ class FlowerBase(CommonTest):
                 return ndev
         raise NtiError('Could not determine PF for %s ' % iface)
 
+    def _parse_flower_version(self, fw_name):
+        fw_v_dict = {}
+        prefix, vers = fw_name.split("-")
+        major, minor, symbol, buildnr = vers.split(".")
+        fw_v_dict["name"] = fw_name
+        fw_v_dict["major"] = int(major)
+        fw_v_dict["minor"] = int(minor)
+        fw_v_dict["symbol"] = symbol
+        fw_v_dict["buildnr"] = int(buildnr)
+        fw_cmp = int(major)<<16 | int(minor)<<8 | int(buildnr)
+        fw_v_dict["int_ver"] = fw_cmp
+        return fw_v_dict
+
+    def _ethtool_get_flower_version(self, host, iface):
+        ethtool_fields = host.ethtool_drvinfo(iface)
+        for subs in ethtool_fields["firmware-version"].split(" "):
+            if "AOTC" in subs:
+                fwname = subs
+        return self._parse_flower_version(fwname)
+
+    def flower_fw_version_eq(self, host, iface, compare_v):
+        """ Return true if firmware versions match """
+        host_version = self._ethtool_get_flower_version(host, iface)
+        in_version = self._parse_flower_version(compare_v)
+
+        if host_version["symbol"] != in_version["symbol"]:
+            raise NtiError("symbol '%s' must match '%s' in %s and %s" %(
+                host_version["symbol"],
+                in_version["symbol"],
+                host_version["name"],
+                in_version["name"],
+                ))
+        return host_version["int_ver"] == in_version["int_ver"]
+
+    def flower_fw_version_lt(self, host, iface, compare_v):
+        """ Return True if host version < compare_v """
+        host_version = self._ethtool_get_flower_version(host, iface)
+        in_version = self._parse_flower_version(compare_v)
+
+        if host_version["symbol"] != in_version["symbol"]:
+            raise NtiError("symbol '%s' must match '%s' in %s and %s" %(
+                host_version["symbol"],
+                in_version["symbol"],
+                host_version["name"],
+                in_version["name"],
+                ))
+        return host_version["int_ver"] < in_version["int_ver"]
+
+    def flower_fw_version_ge(self, host, iface, compare_v):
+        """ Return True if host version >= compare_v """
+        host_version = self._ethtool_get_flower_version(host, iface)
+        in_version = self._parse_flower_version(compare_v)
+
+        if host_version["symbol"] != in_version["symbol"]:
+            raise NtiError("symbol '%s' must match '%s' in %s and %s" %(
+                host_version["symbol"],
+                in_version["symbol"],
+                host_version["name"],
+                in_version["name"],
+                ))
+        return host_version["int_ver"] >= in_version["int_ver"]
+
     def configure_flower(self):
         M = self.dut
         iface = self.dut_ifn[0]
@@ -2380,10 +2442,17 @@ class FlowerVxlanWhitelist(FlowerBase):
         self.install_filter(iface, match, action, False)
         self.cleanup_filter(iface)
 
-        # Check that vxlan with ipv6 header is installed in software only (not_in_hw)
+        # Check that vxlan with ipv6 header is installed
+        # either in_hw or not_in_hw, depending on FW version
         match = 'ip flower enc_src_ip %s enc_dst_ip %s enc_dst_port 4789 enc_key_id 123' % (src_ip6, dut_ip6)
         action = 'mirred egress redirect dev %s' % iface
-        self.install_filter('vxlan0', match, action, False)
+
+        # Later version of FW+kernel does support ipv6 offload
+        if self.flower_fw_version_ge(M, iface, "AOTC-2.14.A.6") and \
+          self.dut.kernel_ver_ge(5, 6):
+            self.install_filter('vxlan0', match, action)
+        else:
+            self.install_filter('vxlan0', match, action, False)
         self.cleanup_filter('vxlan0')
 
         # Check that multiple vxlan tunnel output is installed in software only (not_in_hw)
@@ -2398,10 +2467,16 @@ class FlowerVxlanWhitelist(FlowerBase):
         self.install_filter('vxlan0', match, action, False)
         self.cleanup_filter('vxlan0')
 
-        # Check that a vxlan tunnel output with ipv6 src/dest is installed in software only (not_in_hw)
+        # Check that a vxlan tunnel output with ipv6 src/dest
+        # either in_hw or not_in_hw, depending on FW version
         match = 'ip flower ip_proto tcp'
         action = 'tunnel_key set id 123 src_ip %s dst_ip %s dst_port 4789 nocsum action mirred egress redirect dev vxlan0' % (dut_ip6, src_ip6)
-        self.install_filter(iface, match, action, False)
+        # Later version of FW+kernel does support ipv6 offload
+        if self.flower_fw_version_ge(M, iface, "AOTC-2.14.A.6") and \
+          self.dut.kernel_ver_ge(5, 6):
+            self.install_filter(iface, match, action)
+        else:
+            self.install_filter(iface, match, action, False)
         self.cleanup_filter(iface)
 
     def cleanup(self):
