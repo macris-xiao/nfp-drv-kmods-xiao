@@ -424,16 +424,16 @@ class FlowerTunnel(FlowerBase):
     def add_vxlan_dev(self, dev_name):
         self.dut.cmd('ip link add name %s type vxlan dstport 0 external' \
                      % dev_name)
-        self.dut.cmd('ifconfig %s up' % dev_name)
+        self.dut.cmd('ip link set dev %s up' % dev_name)
 
     def add_geneve_dev(self, dev_name):
         self.dut.cmd('ip link add name %s type geneve dstport 0 external' \
                      % dev_name)
-        self.dut.cmd('ifconfig %s up' % dev_name)
+        self.dut.cmd('ip link set dev %s up' % dev_name)
 
     def add_gre_dev(self, dev_name):
         self.dut.cmd('ip link add %s type gretap external' % dev_name)
-        self.dut.cmd('ifconfig %s up' % dev_name)
+        self.dut.cmd('ip link set dev %s up' % dev_name)
 
     def del_tun_dev(self, dev_name):
         self.dut.cmd('ip link delete %s' % dev_name, fail=False)
@@ -1635,7 +1635,7 @@ class FlowerMatchGeneveOpt(FlowerBase):
 
         M.cmd('ip link delete gene0', fail=False)
         M.cmd('ip link add gene0 type geneve dstport 6081 external')
-        M.cmd('ifconfig gene0 up')
+        M.cmd('ip link set dev gene0 up')
 
         self.add_egress_qdisc('gene0')
 
@@ -1761,7 +1761,7 @@ class FlowerMatchGeneveMultiOpt(FlowerBase):
 
         M.cmd('ip link delete gene0', fail=False)
         M.cmd('ip link add gene0 type geneve dstport 6081 external')
-        M.cmd('ifconfig gene0 up')
+        M.cmd('ip link set dev gene0 up')
 
         self.add_egress_qdisc('gene0')
 
@@ -1886,7 +1886,7 @@ class FlowerMatchTunnelToSharedMAC(FlowerBase):
         M.cmd('ip link set dev %s up' % self.dut_ifn[1])
 
         M.cmd('ip link add name vxlan0 type vxlan dstport 0 external')
-        M.cmd('ifconfig vxlan0 up')
+        M.cmd('ip link set dev vxlan0 up')
 
         self.add_egress_qdisc('vxlan0')
 
@@ -2382,7 +2382,7 @@ class FlowerMatchWhitelist(FlowerBase):
 
         # Check match offloaded to non repr is rejected even with repr  egress dev
         M.cmd('ip link add dummy1 type dummy')
-        M.cmd('ifconfig dummy1 up')
+        M.cmd('ip link set dev dummy1 up')
 
         self.add_egress_qdisc('dummy1')
         match = 'ip flower dst_mac 02:12:23:34:45:56'
@@ -2408,7 +2408,7 @@ class FlowerVxlanWhitelist(FlowerBase):
 
         M.cmd('ip link delete vxlan0', fail=False)
         M.cmd('ip link add vxlan0 type vxlan dstport 4789 dev %s external' % self.dut_ifn[0])
-        M.cmd('ifconfig vxlan0 up')
+        M.cmd('ip link set dev vxlan0 up')
 
         self.add_egress_qdisc('vxlan0')
 
@@ -2458,10 +2458,10 @@ class FlowerVxlanWhitelist(FlowerBase):
         # Check that multiple vxlan tunnel output is installed in software only (not_in_hw)
         M.cmd('ip link delete vxlan1', fail=False)
         M.cmd('ip link add vxlan1 type vxlan id 0 dstport 4790')
-        M.cmd('ifconfig vxlan1 up')
+        M.cmd('ip link set dev vxlan1 up')
         M.cmd('ip link delete vxlan2', fail=False)
         M.cmd('ip link add vxlan2 type vxlan id 0 dstport 4791')
-        M.cmd('ifconfig vxlan2 up')
+        M.cmd('ip link set dev vxlan2 up')
         match = 'ip flower ip_proto tcp'
         action = 'tunnel_key set id 123 src_ip 10.0.0.1 dst_ip 10.0.0.2 dst_port 4789 action mirred egress mirror dev vxlan1 action mirred egress redirect dev vxlan2'
         self.install_filter('vxlan0', match, action, False)
@@ -2498,7 +2498,7 @@ class FlowerGREWhitelist(FlowerBase):
 
         M.cmd('ip link del dev gre1', fail=False)
         M.cmd('ip link add gre1 type gretap remote %s local %s dev %s external' % (src_ip, dut_ip, self.dut_ifn[0]))
-        M.cmd('ifconfig gre1 up')
+        M.cmd('ip link set dev gre1 up')
 
         self.add_egress_qdisc('gre1')
 
@@ -3021,9 +3021,10 @@ class FlowerActionGENEVEOpt(FlowerBase):
 
         # the destination port is defined by the tc rule - confirmed in both skip_sw and skip_hw
         M.cmd('ip link add name gene0 type geneve dstport 0 external')
-        M.cmd('ifconfig gene0 down')
-        M.cmd('ifconfig gene0 up')
-        M.cmd('arp -i %s -s %s %s' % (self.dut_ifn[0], src_ip, src_mac))
+        M.cmd('ip link set dev gene0 down')
+        M.cmd('ip link set dev gene0 up')
+        M.cmd("ip neigh add %s lladdr %s dev %s" % (
+            src_ip, src_mac, self.dut_ifn[0]))
 
         # Hit test - match all tcp packets and encap in geneve
         geneve_opt = {'ver_opt_len': '02',
@@ -3065,7 +3066,10 @@ class FlowerActionGENEVEOpt(FlowerBase):
     def cleanup(self):
         self.cleanup_flower(self.dut_ifn[0])
         src_ip = self.src_addr[0].split('/')[0]
-        self.dut.cmd('arp -i %s -d %s' % (self.dut_ifn[0], src_ip), fail=False)
+        # Do neigh delete and flush, otherwise it just ends up in "FAILED"
+        # state instead of being deleted
+        self.dut.cmd("ip neigh del %s dev %s" % (src_ip, self.dut_ifn[0]))
+        self.dut.cmd("ip neigh flush dev %s" % (self.dut_ifn[0]))
         self.dut.cmd('ip link delete gene0', fail=False)
         return super(FlowerActionGENEVEOpt, self).cleanup()
 
@@ -3139,9 +3143,10 @@ class FlowerActionGENEVEMultiOpt(FlowerBase):
 
         # the destination port is defined by the tc rule - confirmed in both skip_sw and skip_hw
         M.cmd('ip link add name gene0 type geneve dstport 0 external')
-        M.cmd('ifconfig gene0 down')
-        M.cmd('ifconfig gene0 up')
-        M.cmd('arp -i %s -s %s %s' % (self.dut_ifn[0], src_ip, src_mac))
+        M.cmd('ip link set dev gene0 down')
+        M.cmd('ip link set dev gene0 up')
+        M.cmd("ip neigh add %s lladdr %s dev %s" % (
+            src_ip, src_mac, self.dut_ifn[0]))
 
         # Hit test - match all tcp packets and encap in geneve with 2 options
         # Total push action length = 24 Bytes
@@ -3184,7 +3189,10 @@ class FlowerActionGENEVEMultiOpt(FlowerBase):
     def cleanup(self):
         self.cleanup_flower(self.dut_ifn[0])
         src_ip = self.src_addr[0].split('/')[0]
-        self.dut.cmd('arp -i %s -d %s' % (self.dut_ifn[0], src_ip), fail=False)
+        # Do neigh delete and flush, otherwise it just ends up in "FAILED"
+        # state instead of being deleted
+        self.dut.cmd("ip neigh del %s dev %s" % (src_ip, self.dut_ifn[0]))
+        self.dut.cmd("ip neigh flush dev %s" % (self.dut_ifn[0]))
         self.dut.cmd('ip link delete gene0', fail=False)
         return super(FlowerActionGENEVEMultiOpt, self).cleanup()
 
