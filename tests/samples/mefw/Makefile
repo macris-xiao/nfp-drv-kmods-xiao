@@ -16,7 +16,7 @@ TOOLCHAIN_VER=$(shell nfld --version | grep Version | grep -Eo "[0-9].[0-9].[0-9
 MAJOR_VER=$(shell echo $(TOOLCHAIN_VER) | cut -d '.' -f 1)
 MINOR_VER=$(shell echo $(TOOLCHAIN_VER) | cut -d '.' -f 2)
 ifeq ($(MAJOR_VER),6)
-ifeq ($(MINOR_VER),3)
+ifeq ($(shell expr $(MINOR_VER) \>= 3), 1)
 NFLD_OLD := nfld_old
 endif
 endif
@@ -48,13 +48,13 @@ rm1_%.nffw: %.list
 rm2_%.nffw: %.list
 	$(NFLD_OLD) -rtsyms -mip_v2 $(LDFLAGS) -o $@ -u $(TARGET_MES) $<
 rts_dump.nffw: rts_17.list abs_rtsym.list
-	$(NFLD) -L abs_rtsym.list -rtsyms -name $(FWNAME) -mip $(LDFLAGS) \
+	$(NFLD) -L abs_rtsym.list -rtsyms -fw_name $(FWNAME) -mip $(LDFLAGS) \
 	-o $@ -u $(TARGET_MES) $<
 rts_vals.nffw: rts_vals.list abs_rtsym.list
-	$(NFLD) -L abs_rtsym.list -rtsyms -name $(FWNAME) -mip $(LDFLAGS) \
+	$(NFLD) -L abs_rtsym.list -rtsyms -fw_name $(FWNAME) -mip $(LDFLAGS) \
 	-o $@ -u $(TARGET_MES) $<
 dummy_nfd.nffw: dummy_nfd.list
-	$(NFLD) -rtsyms -name $(FWNAME) -mip $(LDFLAGS) \
+	$(NFLD) -rtsyms -fw_name $(FWNAME) -mip $(LDFLAGS) \
 	-o $@ -u $(TARGET_MES) $<
 
 # This rule will generate different count of RT-SYMS by setting a define
