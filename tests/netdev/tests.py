@@ -13,6 +13,7 @@ from phys_port_name import PhysPortName
 from repr_caps import ReprCaps
 from stats_ethtool import StatsEthtool
 from coalesce_pf import coalescePF
+from coalesce_vf import CoalesceVF
 
 class NFPKmodNetdev(NFPKmodAppGrp):
     """Basic FW-independent NIC tests for the NFP Linux drivers"""
@@ -56,6 +57,7 @@ class NFPKmodNetdev(NFPKmodAppGrp):
             ('huge_ring', HugeRings, "Check allocation of huge rings"),
             ('repr_caps', ReprCaps, "Representor capabilities"),
             ('coalesce_pf', coalescePF, "Test coalesce function on PF"),
+            ('coalesce_vf', CoalesceVF, "Test coalesce function on VF"),
         )
 
         for t in tests:
