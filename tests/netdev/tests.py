@@ -12,6 +12,7 @@ from netconsole import NetconsoleTest
 from phys_port_name import PhysPortName
 from repr_caps import ReprCaps
 from stats_ethtool import StatsEthtool
+from coalesce_pf import coalescePF
 
 class NFPKmodNetdev(NFPKmodAppGrp):
     """Basic FW-independent NIC tests for the NFP Linux drivers"""
@@ -54,6 +55,7 @@ class NFPKmodNetdev(NFPKmodAppGrp):
              "Check if driver sets correct fl_bufsz and mtu"),
             ('huge_ring', HugeRings, "Check allocation of huge rings"),
             ('repr_caps', ReprCaps, "Representor capabilities"),
+            ('coalesce_pf', coalescePF, "Test coalesce function on PF"),
         )
 
         for t in tests:
