@@ -139,7 +139,7 @@ class IFstats(CommonNetdevTest):
                 rings = self.dut.ethtool_rings_get(ifc)["current"]
                 rings2 = {}
                 for k in rings.keys():
-                    if type(rings[k]):
+                    if rings[k] is not None:
                         rings2[k] = rings[k] * 2
                 self.dut.ethtool_rings_set(ifc, rings2)
                 self.dut.ethtool_rings_set(ifc, rings)

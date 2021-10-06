@@ -610,7 +610,7 @@ TX:		(\d+)"""
         try:
                 cmd = 'ethtool -G ' + ifc
                 for k in settings.keys():
-                    if type(settings[k]):
+                    if settings[k] is not None:
                         cmd += ' %s %s' % (k, settings[k])
 
                 ret = self.cmd(cmd, fail=fail)
