@@ -1,4 +1,4 @@
-LLVM_VERSION ?= -6.0
+LLVM_VERSION ?= -12
 LLVM := $(shell clang$(LLVM_VERSION) --version)
 CLANG_FLAGS ?= -O2 -W -Wall \
 	-Wno-compare-distinct-pointer-types
@@ -23,7 +23,7 @@ Q ?= @
 %.o: %.c
 	@echo "\tLLVM CC $@"
 	$(Q) clang$(LLVM_VERSION) $(INCLUDE_DIRS) -I$(KERNEL_HEADERS) -emit-llvm -c $< $(CLANG_FLAGS) -o $(patsubst %.o,%.llvm,$@)
-	$(Q) llc$(LLVM_VERSION) -march=bpf -filetype=obj -o $@ $(patsubst %.o,%.llvm,$@)
+	$(Q) llc -march=bpf -filetype=obj -o $@ $(patsubst %.o,%.llvm,$@)
 	$(Q) rm $(patsubst %.o,%.llvm,$@)
 
 %.o: %.S
