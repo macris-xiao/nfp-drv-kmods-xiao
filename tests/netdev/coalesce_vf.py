@@ -52,9 +52,7 @@ class CoalesceVF(CommonTest):
                 raise NtiError("Failed to set coalesce:rx-usecs(s/d)=(%s:%s), \
                 rx-frames(s/d)=(%s/%s)" % (rx_usecs, d_usecs, rx_frames, d_frames))
         else:
-            #cmd = 'ip netns exec %s ethtool --show-coalesce %s | grep Adaptive' % (ns, vport)
-            #ret, out = self.dut.cmd(cmd)
-            cmd = 'ethtool --show-coalesce %s | grep Adaptive' % (ns, vport)
+            cmd = 'ethtool --show-coalesce %s | grep Adaptive' % vport
             ret, out = self.netns_cmd(cmd, ns)
             adaptive_rx = out.strip().split()[2]
             adaptive_tx = out.strip().split()[-1]
