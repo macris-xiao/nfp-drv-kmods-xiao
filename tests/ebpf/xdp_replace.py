@@ -25,7 +25,13 @@ class XDPReplaceTest(CommonTest):
         if ret:
             raise NtiSkip('netdevsim module not available')
 
-        self.dut.cmd('ip link add name %s type netdevsim' % (self.nsim_name))
+        self.dut.cmd('echo "1 1" > /sys/bus/netdevsim/new_device')
+        ret, out = self.dut.cmd('ls /sys/bus/netdevsim/devices/netdevsim1/net')
+        netdevsim = out.strip().split(' ')[-1]
+        self.dut.cmd('ip link set %s down' % netdevsim)
+        self.dut.cmd('ip link set %s name %s' % (netdevsim, self.nsim_name))
+        self.dut.cmd('ip link set %s up' % self.nsim_name)
+
         self.xdp_start('pass.o', ifc=self.nsim_name, mode="offload")
 
         # Pin netdevsim's prog so we can refer to it in iproute2
@@ -47,6 +53,6 @@ class XDPReplaceTest(CommonTest):
 
     def cleanup(self):
         self.xdp_reset()
-        self.dut.cmd('ip link del ' + self.nsim_name, fail=False)
+        self.dut.cmd('echo "1 1" > /sys/bus/netdevsim/del_device', fail=False)
         self.dut.cmd('rm -f ' + self.nsim_prog)
         return super(XDPReplaceTest, self).cleanup()
