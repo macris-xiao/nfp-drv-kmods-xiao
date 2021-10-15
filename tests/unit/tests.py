@@ -306,8 +306,11 @@ class NspEthTable(CommonNTHTest):
             if len(self.enable_state) <= i:
                 self.enable_state += [n[0]]
                 self.port2idx += [t[2]]
-            # Now force the enable state to what is expected
-            n[0] = self.enable_state[i]
+            # Now judge whether flipping state works
+            state_expect = self.enable_state[i]
+            if n[0] != state_expect or t[9] != state_expect:
+                raise NtiGeneralError("Flipping state fails with user space: %s, kernel: %s, but expect is %s" %
+                                      (n[0], t[9], state_expect))
 
             userspace = " ".join((p[0], p[1], p[2], p[3], p[4] + "000") +
                                  tuple(n))
@@ -329,6 +332,7 @@ class NspEthTable(CommonNTHTest):
                                                      self.enable_state[i]))
         M.dfs_write('nth/eth_enable', " ".join((self.port2idx[i],
                                                 self.enable_state[i])))
+        time.sleep(2)
 
     def nth_execute(self):
         M = self.dut
@@ -343,7 +347,8 @@ class NspEthTable(CommonNTHTest):
         # expects, see NFPBSP-3238.
         _, eth_table = M.cmd_nsp('-E')
         for i in range(0, len(self.enable_state)):
-            port_type = re.search('eth%d.*\n.*Phy: ([^ ]+)' % i, eth_table,
+            port_type = re.search('eth%s.*\n.*Phy: ([^ ]+)' % self.port2idx[i],
+                                  eth_table,
                                   re.MULTILINE).group(1)
             if port_type.lower() == 'copper':
                 self.enable_state[i] = -1
@@ -626,7 +631,7 @@ class SriovNDOs(CommonNetdevTest):
         vf_macs = self.gen_macs(num_vfs + 1)
         for vf_idx in range(0, num_vfs + 1):
             self.test_sriov_ndo(ifc, num_vfs, vf_idx, 'mac', vf_macs[vf_idx],
-                                'MAC ([0-9a-f:]+),', report, ~caps & 1 or is_vf)
+                                'link/ether ([0-9a-f:]+)', report, ~caps & 1 or is_vf)
             # TODO: test unset vlan (0)?
             self.test_sriov_ndo(ifc, num_vfs, vf_idx, 'vlan',
                                 str(random.randint(1,4095)),
@@ -818,7 +823,8 @@ class AutonegEthtool(CommonNonUpstreamTest):
         if self.dut.get_part_no() == 'AMDA0099-0001':
             return self.get_hwinfo_status_aneg(ifc)
         else:
-            return self.get_hwinfo_status_cr(ifc)
+            # Currently, only nic_AMDA0099-0001_2x25.nffw support the auto-negotiation
+            raise NtiSkip("Test only support nic_AMDA0099-0001 currently")
 
     def state_check(self):
         i = 0
@@ -994,7 +1000,7 @@ class FECModesTest(CommonNonUpstreamTest):
         _, ethtool_fec_output = self.dut.ethtool_get_fec(iface)
         s = re.search("active fec encoding:(.*)\n", ethtool_fec_output.lower(),
                       re.MULTILINE)
-        if s:
+        if s.groups()[0] != ' none':
             active_encoding = s.groups()[0]
         else:
             active_encoding = ""

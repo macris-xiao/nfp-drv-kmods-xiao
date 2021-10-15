@@ -11,10 +11,10 @@ class RTSymTest(CommonTest):
                     ('rm2_rts_100', -22),
                     ('rts_100', -22),
                     ('rm_rts_17', 17), ('rm_rts_1', 1),
-                    ('rm_rts_0', 0), ('rm_rts_2', 2),
+                    ('rm_rts_0', -22), ('rm_rts_2', 2),
                     ('rm_rts_100', 100)]
 
-        self.syms = ['.mip', '_o', 'i32._two', '_three',
+        self.syms = ['_o', 'i32._two', '_three',
                 '_thisisaverylongname000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000end',
         ]
         self.syms += ['_a%d' % i for i in range(5, 101)]
@@ -29,15 +29,20 @@ class RTSymTest(CommonTest):
             raise NtiFail('RTSym count not %d (%s, %s)' % (exp, name, val))
 
     def check_syms(self, name, num):
-        last = ['_o', '.mip'][num == 1]
-        self.dut.dfs_write('nth/rtsym_key', last, do_fail=(num < 1))
+        self.dut.dfs_write('nth/rtsym_key', '_o', do_fail=(num < 0))
+
+	if (num < 0):
+		return
 
         syms = self.dut.dfs_read('nth/rtsym_dump')
-        syms = syms.split().sort()
-        dump = self.syms[0:num].sort()
-        if syms != dump:
+        sym_get = syms.split()
+        sym_get.sort()
+        sym_comp = self.syms[0:num]
+        sym_comp.sort()
+
+        if sym_get != sym_comp:
             raise NtiFail('RTSym dump differs for %s (%s, %s)' %
-                          (name, dump, syms))
+                          (name, sym_comp, sym_get))
 
     def test_all(self, user_space_load=True):
         fwdir_base = os.path.basename(self.group.mefw)
@@ -55,13 +60,8 @@ class RTSymTest(CommonTest):
                 self.dut.nffw_load('%s.nffw' % (os.path.join(fwdir, tu[0])))
 
             self.loaded = bool(tu[0])
-
-            num = tu[1]
-            # Account for ".mip" symbol
-            if num >= 0:
-                num = num + 1
-            self.check_cnt(tu[0], num)
-            self.check_syms(tu[0], num)
+            self.check_cnt(tu[0], tu[1])
+            self.check_syms(tu[0], tu[1])
 
 
     def execute(self):
