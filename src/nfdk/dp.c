@@ -96,7 +96,7 @@ nfp_nfdk_tx_csum(struct nfp_net_dp *dp, struct nfp_net_r_vector *r_vec,
 	if (skb->ip_summed != CHECKSUM_PARTIAL)
 		return flags;
 
-	flags |= NFDK_DESC_TX_L4_CSUM;
+	flags |= (NFDK_DESC_TX_L4_CSUM | NFDK_DESC_TX_L3_CSUM);
 
 	u64_stats_update_begin(&r_vec->tx_sync);
 	if (!skb->encapsulation) {
