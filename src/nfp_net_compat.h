@@ -1423,14 +1423,14 @@ struct flow_block_cb {};
 
 #if VER_NON_RHEL_GE(5, 0) || VER_RHEL_GE(8, 0)
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
+#if VER_NON_RHEL_GE(5, 9) || VER_RHEL_GE(8, 4)
 #define compat__nfp_flower_indr_setup_tc_cb nfp_flower_indr_setup_tc_cb
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(5, 8, 0)
+#elif VER_NON_RHEL_GE(5, 8)
 int compat__nfp_flower_indr_setup_tc_cb(struct net_device *netdev,
 					void *cb_priv, enum tc_setup_type type,
 					void *type_data, void *data,
 					void (*cleanup)(struct flow_block_cb *block_cb));
-#else
+#elif VER_NON_RHEL_LT(5, 8) || VER_RHEL_GE(8, 3)
 int compat__nfp_flower_indr_setup_tc_cb(struct net_device *netdev,
 					void *cb_priv, enum tc_setup_type type,
 					void *type_data);
