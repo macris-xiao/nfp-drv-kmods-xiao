@@ -785,12 +785,6 @@ static inline void timer_setup(struct timer_list *t, void (*f)(unsigned long),
 	container_of((void *)callback_timer, typeof(*var), timer_fieldname)
 #endif
 
-/* Kconfig will add this variable for RHEL 7.5+, however, we intentionally
- * disable support for this feature.
- */
-#if VER_RHEL_GE(7, 5)
-#undef CONFIG_NFP_APP_FLOWER
-#endif
 
 #if VER_NON_RHEL_LT(4, 16) || VER_RHEL_LT(7, 6)
 struct xdp_rxq_info {
