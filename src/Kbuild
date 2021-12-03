@@ -138,6 +138,10 @@ RHEL_GE_8_2 := \
 	$(shell [ $(RHEL_MAJOR) -gt 8 -o \
 	\( $(RHEL_MAJOR) -eq 8 -a $(RHEL_MINOR) -ge 2 \) ] && echo y)
 
+RHEL_GE_8_3 := \
+        $(shell [ $(RHEL_MAJOR) -gt 8 -o \
+        \( $(RHEL_MAJOR) -eq 8 -a $(RHEL_MINOR) -ge 3 \) ] && echo y)
+
 KERNEL_GE_4_6 := \
 	$(shell [ $(VERSION) -gt 4 -o \
 	\( $(VERSION) -eq 4 -a $(PATCHLEVEL) -ge 6 \) ] && echo y)
@@ -340,7 +344,7 @@ ifneq (,$(filter y,$(CONFIG_NFP_NET_PF) $(CONFIG_NFP_NET_VF)))
 		flower/qos_conf.o
 	  endif
 
-	  ifeq ($(KERNEL_GE_5_9),y)
+          ifneq (,$(filter y,$(KERNEL_GE_5_9) $(RHEL_GE_8_3)))
 	    nfp-objs += \
 		flower/conntrack.o
 	  endif

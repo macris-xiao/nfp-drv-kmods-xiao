@@ -3,6 +3,7 @@
 
 #include "nfp_net_compat.h"
 
+#include <linux/netfilter.h>
 #include <linux/skbuff.h>
 #include <net/devlink.h>
 #include <net/pkt_cls.h>
@@ -10,7 +11,7 @@
 #include "cmsg.h"
 #include "main.h"
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
+#if VER_NON_RHEL_GE(5, 9) || VER_RHEL_GE(8, 3)
 #include "conntrack.h"
 #endif
 
@@ -29,7 +30,7 @@
 	(FLOW_DIS_IS_FRAGMENT | \
 	 FLOW_DIS_FIRST_FRAG)
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
+#if VER_NON_RHEL_GE(5, 9) || VER_RHEL_GE(8, 3)
 #define NFP_FLOWER_WHITELIST_DISSECTOR \
 	(BIT(FLOW_DISSECTOR_KEY_CONTROL) | \
 	 BIT(FLOW_DISSECTOR_KEY_BASIC) | \
@@ -1540,7 +1541,7 @@ nfp_flower_validate_pre_tun_rule(struct nfp_app *app,
 	return 0;
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
+#if VER_NON_RHEL_GE(5, 9) || VER_RHEL_GE(8, 3)
 static bool offload_pre_check(struct flow_cls_offload *flow)
 {
 	struct flow_rule *rule = flow_cls_offload_flow_rule(flow);
@@ -1597,7 +1598,7 @@ nfp_flower_add_offload(struct nfp_app *app, struct net_device *netdev,
 	if (nfp_netdev_is_nfp_repr(netdev))
 		port = nfp_port_from_netdev(netdev);
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
+#if VER_NON_RHEL_GE(5, 9) || VER_RHEL_GE(8, 3)
 	if (is_pre_ct_flow(flow))
 		return nfp_fl_ct_handle_pre_ct(priv, netdev, flow, extack);
 
@@ -1838,7 +1839,7 @@ nfp_flower_del_offload(struct nfp_app *app, struct net_device *netdev,
 #endif
 {
 	struct nfp_flower_priv *priv = app->priv;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
+#if VER_NON_RHEL_GE(5, 9) || VER_RHEL_GE(8, 3)
 	struct nfp_fl_ct_map_entry *ct_map_ent;
 #endif
 	struct netlink_ext_ack *extack = NULL;
@@ -1855,7 +1856,7 @@ nfp_flower_del_offload(struct nfp_app *app, struct net_device *netdev,
 	if (nfp_netdev_is_nfp_repr(netdev))
 		port = nfp_port_from_netdev(netdev);
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
+#if VER_NON_RHEL_GE(5, 9) || VER_RHEL_GE(8, 3)
 	/* Check ct_map_table */
 	ct_map_ent = rhashtable_lookup_fast(&priv->ct_map_table, &flow->cookie,
 					    nfp_ct_map_params);
@@ -1986,7 +1987,7 @@ nfp_flower_get_stats(struct nfp_app *app, struct net_device *netdev,
 #endif
 {
 	struct nfp_flower_priv *priv = app->priv;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
+#if VER_NON_RHEL_GE(5, 9) || VER_RHEL_GE(8, 3)
 	struct nfp_fl_ct_map_entry *ct_map_ent;
 #endif
 	struct netlink_ext_ack *extack = NULL;
@@ -1996,7 +1997,7 @@ nfp_flower_get_stats(struct nfp_app *app, struct net_device *netdev,
 #endif
 	u32 ctx_id;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
+#if VER_NON_RHEL_GE(5, 9) || VER_RHEL_GE(8, 3)
 	/* Check ct_map table first */
 	ct_map_ent = rhashtable_lookup_fast(&priv->ct_map_table, &flow->cookie,
 					    nfp_ct_map_params);
@@ -2110,15 +2111,15 @@ int nfp_flower_setup_tc_egress_cb(enum tc_setup_type type, void *type_data,
 static int nfp_flower_setup_tc_block_cb(enum tc_setup_type type,
 					void *type_data, void *cb_priv)
 {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
+#if VER_NON_RHEL_GE(5, 9) || VER_RHEL_GE(8, 3)
 	struct flow_cls_common_offload *common = type_data;
 #endif
 	struct nfp_repr *repr = cb_priv;
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 9, 0)
-	if (!tc_cls_can_offload_and_chain0(repr->netdev, type_data))
-#else
+#if VER_NON_RHEL_GE(5, 9) || VER_RHEL_GE(8, 3)
 	if (!tc_can_offload_extack(repr->netdev, common->extack))
+#else
+	if (!tc_cls_can_offload_and_chain0(repr->netdev, type_data))
 #endif
 		return -EOPNOTSUPP;
 
@@ -2279,7 +2280,7 @@ int nfp_flower_setup_indr_block_cb(enum tc_setup_type type, void *type_data,
 				   void *cb_priv)
 {
 	struct nfp_flower_indr_block_cb_priv *priv = cb_priv;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 9, 0)
+#if VER_NON_RHEL_LT(5, 9) && VER_RHEL_LT(8, 3)
 	compat__flow_cls_offload *flower = type_data;
 
 	if (flower->common.chain_index)

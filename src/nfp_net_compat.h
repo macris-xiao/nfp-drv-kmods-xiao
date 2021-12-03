@@ -861,7 +861,7 @@ void compat__devlink_port_attrs_set(struct devlink_port *devlink_port,
 }
 #else
 #define compat__devlink_port_attrs_set devlink_port_attrs_set
-#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(5, 9, 0) */
+#endif /* VER_NON_RHEL_LT(5, 9) || VER_RHEL_LT(8, 4) */
 
 #endif /* COMPAT__HAS_DEVLINK */
 
@@ -1512,7 +1512,7 @@ compat__flow_indr_block_cb_alloc(flow_setup_cb_t *cb, void *cb_ident,
 }
 #endif
 
-#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0) */
+#endif /* VER_NON_RHEL_GE(5, 0) || VER_RHEL_GE(8, 0) */
 
 #if (VER_NON_RHEL_GE(5, 3) && VER_NON_RHEL_LT(5, 8)) || (VER_RHEL_GE(8, 2) && VER_RHEL_LT(8, 4))
 static inline void
