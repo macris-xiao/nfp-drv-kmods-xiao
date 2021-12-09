@@ -355,17 +355,20 @@ netdev_tx_t nfp_nfdk_tx(struct sk_buff *skb, struct net_device *netdev)
 
 	(txd - 1)->dma_len_type = cpu_to_le16(dlen_type | NFDK_DESC_TX_EOP);
 
-	/* Metadata desc */
-	metadata = nfp_nfdk_tx_csum(dp, r_vec, 1, skb, metadata);
-	txd->raw = cpu_to_le64(metadata);
-	txd++;
-
 	if (!skb_is_gso(skb)) {
 		real_len = skb->len;
-	} else {
-		txd->raw = nfp_nfdk_tx_tso(r_vec, txbuf, skb);
+		/* Metadata desc */
+		metadata = nfp_nfdk_tx_csum(dp, r_vec, 1, skb, metadata);
+		txd->raw = cpu_to_le64(metadata);
 		txd++;
+	} else {
+		/* lso desc should be placed after metadata desc */
+		(txd + 1)->raw = nfp_nfdk_tx_tso(r_vec, txbuf, skb);
 		real_len = txbuf->real_len;
+		/* Metadata desc */
+		metadata = nfp_nfdk_tx_csum(dp, r_vec, txbuf->pkt_cnt, skb, metadata);
+		txd->raw = cpu_to_le64(metadata);
+		txd += 2;
 		txbuf++;
 	}
 
