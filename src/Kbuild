@@ -243,6 +243,16 @@ ifeq ($(COMPAT__HAVE_NETIF_SET_REAL_NUM_QUEUES),y)
         ccflags-y +=-DCOMPAT__HAVE_NETIF_SET_REAL_NUM_QUEUES=1
 endif
 
+# Check for BC Linux
+utsrelease_h_path :=$(srctree)/include/generated/utsrelease.h
+ifneq (,$(wildcard $(utsrelease_h_path)))
+  COMPAT_BCLINUX := \
+        $(shell grep -q bclinux $(utsrelease_h_path) && echo y)
+endif
+ifeq ($(COMPAT_BCLINUX),y)
+        ccflags-y +=-DCOMPAT_BCLINUX=1
+endif
+
 ifneq (,$(filter y,$(CONFIG_NFP_NET_PF) $(CONFIG_NFP_NET_VF)))
   ccflags-y += -DCONFIG_NFP_DEBUG
 
