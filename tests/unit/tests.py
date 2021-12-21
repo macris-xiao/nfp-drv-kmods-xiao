@@ -668,11 +668,19 @@ class SriovNDOs(CommonNetdevTest):
     def netdev_execute(self):
         # We have no way to read the cap upstream right now,
         # hardcode the project capabilities
-        sriov_caps = (
-            { "name" : "flow", "caps" : 0x0b, "reprs" : True },
-            { "name" : "cNIC", "caps" : 0x0f, "reprs" : False },
-            { "name" : "sriov", "caps" : 0x1f, "reprs" : False },
-        )
+        _, out = self.dut.nffw_status()
+        loaded_fw_version = re.search('Firmware version: (.*)\n', out).groups()[0]
+        if loaded_fw_version == '2.1.16':
+            sriov_caps = (
+                { "name" : "corenic", "caps" : 0x0f, "reprs" : False, "keyword" : "nic-"},
+                { "name" : "sriov", "caps" : 0x0f, "reprs" : False, "keyword" : "sriov-" },
+            )
+        else:
+            sriov_caps = (
+                { "name" : "flower", "caps" : 0x0b, "reprs" : True, "keyword" : "flo" },
+                { "name" : "corenic", "caps" : 0x1f, "reprs" : False, "keyword" : "nic-"},
+                { "name" : "sriov", "caps" : 0x1f, "reprs" : False, "keyword" : "sriov-" },
+            )
 
         info = self.dut.ethtool_drvinfo(self.nfp_netdevs[0])
         caps = None
@@ -680,7 +688,7 @@ class SriovNDOs(CommonNetdevTest):
         LOG_sec("Checking app name")
         LOG(info["firmware-version"])
         for sc in sriov_caps:
-            if info["firmware-version"].find(sc["name"]) != -1:
+            if info["firmware-version"].find(sc["keyword"]) != -1:
                 caps = sc["caps"]
                 reprs = sc["reprs"]
                 LOG("Identified as app %s" % sc["name"])

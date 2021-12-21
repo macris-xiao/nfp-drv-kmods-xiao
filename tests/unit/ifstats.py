@@ -49,6 +49,14 @@ def check_ifstats_etstats(ifstats, etstats, num_rings, is_core_nic_2_0):
         assert_eq(num_rings, found, "HWq " + d + " rings")
 
 class IFstats(CommonNetdevTest):
+    def prepare(self):
+        self.dut.insmod(netdev=True, userspace=True)
+        _, out = self.dut.nffw_status()
+        loaded = re.search('Firmware loaded: (.*)\n', out).groups()[0]
+        if loaded == 'Yes':
+            self.dut.nffw_unload()
+        self.dut.rmmod()
+
     def ifstat(self, ifc):
         _, linkinfo = self.dut.ip_link_stats(ifc)
         return linkinfo["stats64"]
@@ -168,4 +176,7 @@ class IFstats(CommonNetdevTest):
     def cleanup(self):
         for ifc in self.src_ifn:
             self.src.ip_link_set_up(ifc)
-        return super(IFstats, self).cleanup()
+        self.dut.reset_mods()
+        self.dut.insmod()
+        self.dut.nffw_unload()
+        self.dut.reset_mods()
