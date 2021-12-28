@@ -48,13 +48,45 @@ from ..common_test import *
 from ..drv_system import DrvSystem
 
 class SpeedSet(CommonNetdevTest):
+    def port_index_obtain(self):
+        self.port2idx = []
+        _, nsp = self.dut.cmd_nsp(' -E | grep NBI')
+        self.nsp = nsp.strip().split('\n')
+        for i in range(0, len(self.nsp)):
+            p = re.match('eth(.*): NBI', self.nsp[i]).groups()
+            self.port2idx += [int(p[0])]
+
+    def reload_fw_to_2x10G(self, ifc_list):
+        self.dut.cmd('mkdir -p /lib/firmware/netronome')
+        self.netdevfw_2x10G = os.path.join(os.path.dirname(self.group.netdevfw),
+                                           'nic_AMDA0099-0001_2x10.nffw')
+        self.dut.cp_to(self.netdevfw_2x10G, '/lib/firmware/netronome/')
+        self.dut.nffw_unload()
+        self.dut.reset_mods()
+        self.dut.insmod(netdev=True, userspace=True)
+        for ifc in ifc_list:
+            self.dut.cmd('ip link set dev %s up' % (ifc))
+
+    def set_src_speed(self, speed, ifc_list):
+        for ifc in ifc_list:
+            self.src.cmd('ip link set dev %s down; ethtool -s %s speed %d' %
+                         (ifc, ifc, speed))
+        self.src.cmd('rmmod nfp && modprobe nfp')
+        for ifc in ifc_list:
+            self.src.cmd('ip link set dev %s up' % ifc)
+
+        self.src.cmd('ip addr add dev %s %s' % (self.src_ifn[0], self.src_addr[0]))
+        self.src.cmd('ip addr add dev %s %s' % (self.src_ifn[0], self.src_addr_v6[0]))
+        self.src.cmd('ip addr add dev %s %s' % (self.src_ifn[1], self.src_addr[1]))
+        self.src.cmd('ip addr add dev %s %s' % (self.src_ifn[1], self.src_addr_v6[1]))
+
     def check_fails(self, ifc, all_speeds, skip_speeds=[]):
         for speed in all_speeds:
             if speed in skip_speeds:
                 continue
 
             ret, out = self.dut.ethtool_set_speed(ifc, speed, fail=False)
-            if out[1].find('not setting speed') == -1:
+            if out[1].find('link settings update failed') == -1:
                 raise NtiError('Set %s speed to %d did not fail' %
                                (ifc, speed))
 
@@ -63,6 +95,12 @@ class SpeedSet(CommonNetdevTest):
             self.check_fails(ifc, all_speeds, skip_speeds)
 
     def netdev_execute(self):
+        # Make sure remote host using nfp
+        for ifc in self.src_ifn:
+            _, src_drv_info = self.src.cmd('ethtool -i %s | grep driver' % ifc)
+            if src_drv_info.split()[1] != 'nfp':
+                raise NtiSkip("EP expect: nfp, actual: %s" % src_drv_info.split()[1])
+
         all_speeds = ( 0, 1, 1237, 10000, 25000, 40000 )
 
         # Check for old NSP
@@ -93,13 +131,14 @@ class SpeedSet(CommonNetdevTest):
 
         speeds = supported_speeds[partno]
         if cur_speed not in speeds:
-            raise NtiError("Speed %d is not on the supported list" % speed)
+            raise NtiError("Speed %d is not on the supported list" % cur_speed)
 
         for i in range(len(self.dut_ifn)):
-            at_speed = self.dut.nfp_phymod_get_speed(i)
+            self.port_index_obtain()
+            at_speed = self.dut.nfp_phymod_get_speed(self.port2idx[i])
             if at_speed != cur_speed:
                 raise NtiError("Phymod and ethtool speed mismatch (%d vs %d)" %
-                               (at_speed, speed))
+                               (at_speed, cur_speed))
 
         # Rotate the list until the current speed is at the beginning
         while speeds[0] != cur_speed:
@@ -115,12 +154,14 @@ class SpeedSet(CommonNetdevTest):
             # @supported_speeds has the "default" mode first, we need to
             # try to keep the last port in default mode when mixed config
             ifc_list = self.dut_ifn
+            src_ifc_list = self.src_ifn
             if speeds[0] == supported_speeds[partno][0]:
                 ifc_list = list(reversed(ifc_list))
+                src_ifc_list = list(reversed(src_ifc_list))
 
             for ifc in ifc_list:
                 ret, out = self.dut.ethtool_set_speed(ifc, speeds[0])
-                if out[1].find('not setting speed') != -1:
+                if out[1].find('link settings update failed') != -1:
                     raise NtiError('Failed to set %s speed to %d' %
                                    (ifc, speeds[0]))
 
@@ -130,14 +171,20 @@ class SpeedSet(CommonNetdevTest):
                 if ret == 0:
                     raise NtiError("Netdev didn't disappear")
 
-            self.reload_driver()
+            if speeds[0] == supported_speeds[partno][0]:
+                self.reload_driver()
+            else:
+                self.reload_fw_to_2x10G(ifc_list)
 
+            self.set_src_speed(speeds[0], src_ifc_list)
+
+            time.sleep(3)
             self.ifc_skip_if_not_all_up()
 
             for i in range(len(self.dut_ifn)):
                 ifc = self.dut_ifn[i]
-
-                at_speed = self.dut.nfp_phymod_get_speed(i)
+                self.port_index_obtain()
+                at_speed = self.dut.nfp_phymod_get_speed(self.port2idx[i])
                 if at_speed != speeds[0]:
                     raise NtiError('Phymod speed not %d after reload on %s' %
                                    (speeds[0], ifc))
