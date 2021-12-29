@@ -232,14 +232,17 @@ class DevlinkSplit(CommonNetdevTest):
             self.check_fails_unsplit(i)
 
     def unsplit(self, card_info):
-        for i in list(reversed(range(0, card_info[0]))):
-            # Pick the unsplit port at random.
-            idxs = range(i * card_info[1], (i + 1) * card_info[1])
-            self.dut.devlink_unsplit(random.choice(idxs))
+        for i in [x * card_info[1] for x in list(reversed(range(0, card_info[0])))]:
+            self.dut.devlink_unsplit(i)
 
-        cur_cnt = len(self.dut.phys_netdevs)
-        if cur_cnt:
-            raise NtiError('Not all netdevs disappeared %d left' % (cur_cnt))
+        cur_cnt_remain = 0
+        for ifc in self.dut_ifn:
+            ret,_ = self.dut.cmd('ip link show %s' % ifc, fail=False)
+            if ret == 0:
+                cur_cnt_remain += 1
+
+        if cur_cnt_remain:
+            raise NtiError('Not all netdevs disappeared %d left' % (cur_cnt_remain))
 
     def split_check(self, card_info):
         cur_cnt = len(self.dut.phys_netdevs)
@@ -262,9 +265,14 @@ class DevlinkSplit(CommonNetdevTest):
         for i in [x * card_info[1] for x in range(0, card_info[0])]:
             self.dut.devlink_split(i, card_info[1])
 
-        cur_cnt = len(self.dut.phys_netdevs)
-        if cur_cnt:
-            raise NtiError('Not all netdevs disappeared %d left' % (cur_cnt))
+        cur_cnt_remain = 0
+        for ifc in self.dut_ifn:
+            ret,_ = self.dut.cmd('ip link show %s' % ifc, fail=False)
+            if ret == 0:
+                cur_cnt_remain += 1
+
+        if cur_cnt_remain:
+            raise NtiError('Not all netdevs disappeared %d left' % (cur_cnt_remain))
 
     def reload_driver(self, partno, card_info, split):
         if split:
