@@ -151,7 +151,7 @@ class DrvSystem(LinuxSystem):
         return int(speed.groups()[0])
 
     def ethtool_set_speed(self, ifc, speed, fail=True):
-        return self.cmd('ifconfig %s down; ethtool -s %s speed %d' %
+        return self.cmd('ip link set dev %s down; ethtool -s %s speed %d' %
                         (ifc, ifc, speed),
                         include_stderr=True, fail=fail)
 

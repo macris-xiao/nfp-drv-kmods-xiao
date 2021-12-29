@@ -126,7 +126,7 @@ class SpeedSet(CommonNetdevTest):
 
                 # Make sure port disappears
                 time.sleep(3) # Refresh of eth table may take some time
-                ret, _ = self.dut.cmd('ifconfig %s' % (ifc), fail=False)
+                ret, _ = self.dut.cmd('ip link show %s' % (ifc), fail=False)
                 if ret == 0:
                     raise NtiError("Netdev didn't disappear")
 

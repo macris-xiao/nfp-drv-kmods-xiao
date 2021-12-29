@@ -61,11 +61,12 @@ class KernelLoadTest(CommonTest):
             # Ignore possible VF/PF representors and vNICs, but bring them up.
             # One of them may be our CPU port.
             if ifc not in self.dut_ifn:
-                self.dut.cmd('ifconfig %s up' % (ifc))
+                self.dut.cmd('ip link set dev %s up' % (ifc))
                 continue
 
             i = self.dut_ifn.index(ifc)
-            M.cmd('ifconfig %s %s up' % (ifc, self.dut_addr[i]))
+            M.cmd('ip link set dev %s up' % ifc)
+            M.cmd('ip addr add dev %s %s' % (ifc, self.dut_addr[i]))
 
         for ifc in self.dut_ifn:
             self.dut.link_wait(ifc)
