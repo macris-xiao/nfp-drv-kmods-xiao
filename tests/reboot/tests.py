@@ -49,33 +49,68 @@ class FlashArm(CommonNetdevTest):
     def flash_test(self, fw_path, fw_name, version, version_idx):
 
         # Make some garbage binary file based on the actual flash image
-        garbage_flash = "/tmp/flash-garbage.bin"
-        self.dut.cmd("base64 %s/%s > %s" % (fw_path, fw_name, garbage_flash))
+        garbage_flash = "/lib/firmware/flash-garbage.bin"
+        self.dut.cmd("base64 %s%s > %s" % (fw_path, fw_name, garbage_flash))
+        self.dut.cmd("yes | cp %s%s /lib/firmware/" % (fw_path, fw_name))
 
-        for ifc in self.nfp_netdevs:
-            ret, out = self.dut.cmd("ethtool -f %s ../../%s" %
-                                  (ifc, garbage_flash), include_stderr=True,
-                                  fail=False)
-            if ret == 0:
-                raise NtiError("Expected to fail flashing garbage image on interface %s" % \
-                               ifc)
-            if not re.match("Flashing failed", out[1]):
-                raise NtiError("Expected failure trying to flash garbage file on interface %s. Got %s instead." %
-                               (ifc, out))
+        if not self.dut.kernel_ver_lt(5, 1):
 
-            ret, out = self.dut.cmd("ethtool -f %s ../../%s/%s 1" %
-                                    (ifc, fw_path, fw_name),
-                                    include_stderr=True, fail=False)
-            if ret == 0:
-                raise NtiError("Expected to fail flashing region #1 on interface %s" % \
-                               ifc)
-            if out[1] != "Flashing failed: Operation not supported\n":
-                raise NtiError("Expected EOPNOTSUPP failure trying to flash region #1 on interface %s. Got %s instead." %
-                               (ifc, out))
+            for ifc in self.nfp_netdevs:
+                ret, out = self.dut.cmd("devlink dev flash pci/0000:%s file flash-garbage.bin" %
+                                        (self.group.pci_id), include_stderr=True,
+                                        fail=False)
+                if ret == 0:
+                    raise NtiError("Expected to fail flashing garbage image on interface %s" % \
+                                    ifc)
 
-        self.dut.cmd("ethtool -f %s ../../%s/%s" %
-                     (self.dut_ifn[0], fw_path, fw_name))
-        self.reboot()
+                _, out = self.dut.cmd('dmesg | grep "nfp 0000:%s" | tail -5' % (self.group.pci_id))
+                if "nfp_nsp: Result (error) code set: -8 (1) command: 11" not in out:
+                    raise NtiError("Expected failure trying to flash garbage file on interface %s. Got %s instead." %
+                                    (ifc, out))
+
+                ret, out = self.dut.cmd("devlink dev flash pci/0000:%s file %s component 1" %
+                                        (self.group.pci_id, fw_name),
+                                        include_stderr=True, fail=False)
+
+                if ret == 0:
+                    raise NtiError("Expected to fail flashing region #1 on interface %s" % \
+                                    ifc)
+
+                if out[1] != "Error: component update is not supported by this device.\n":
+                    raise NtiError("Expected EOPNOTSUPP failure trying to flash region #1 on interface %s. Got %s instead." %
+                                    (ifc, out))
+
+            self.dut.cmd("devlink dev flash pci/0000:%s file %s" %
+                         (self.group.pci_id, fw_name))
+            self.reboot()
+
+        else:
+            for ifc in self.nfp_netdevs:
+                ret, out = self.dut.cmd("ethtool -f %s flash-garbage.bin" %
+                                        (ifc), include_stderr=True,
+                                        fail=False)
+                if ret == 0:
+                    raise NtiError("Expected to fail flashing garbage image on interface %s" % \
+                                    ifc)
+                if not re.match("Flashing failed", out[1]):
+                    raise NtiError("Expected failure trying to flash garbage file on interface %s. Got %s instead." %
+                                    (ifc, out))
+                ret, out = self.dut.cmd("ethtool -f %s %s 1" %
+                                        (ifc, fw_name),
+                                        include_stderr=True, fail=False)
+                _, flash_confirm = self.dut.cmd("dmesg --level=info | tail -n 1")
+
+                if "Finished writing flash image" not in flash_confirm:
+                    if ret == 0:
+                        raise NtiError("Expected to fail flashing region #1 on interface %s" % \
+                                        ifc)
+                    if out[1] != "Flashing failed: Operation not supported\n":
+                        raise NtiError("Expected EOPNOTSUPP failure trying to flash region #1 on interface %s. Got %s instead." %
+                                        (ifc, out))
+
+            self.dut.cmd("ethtool -f %s %s" %
+                         (self.dut_ifn[0], fw_name))
+            self.reboot()
 
         cmd  = 'dmesg | grep "nfp 0000:%s"' % (self.group.pci_id)
         cmd += ' | grep -o "BSP: .*" | cut -c 6- | tail -1 | tr -d "\n"'
@@ -83,12 +118,12 @@ class FlashArm(CommonNetdevTest):
         comp = ver.split('.')
         if len(comp) != 3:
             raise NtiError('Did not find the expected BSP version string: %s' % \
-                           comp)
+                            comp)
         if not version is None and not version_idx is None:
             LOG("checking actual version...")
             if comp[version_idx] != version:
                 raise NtiError('Incorrect BSP version: %s != %s' % \
-                               (comp[version_idx], version))
+                                (comp[version_idx], version))
 
     def netdev_execute(self):
         self.nsp_min(21)
@@ -104,10 +139,13 @@ class FlashArm(CommonNetdevTest):
 
         # Default branch BSP uses flash-boot.bin instead of flash-nic/flash-one
         # images.
-        nsp_version_re = re.search("flash-boot-(\w+).bin", contents)
+        nsp_version_re = re.findall("flash-boot-(\w+)\.bin", contents)
         if nsp_version_re:
-            nsp_version = nsp_version_re.groups(1)[0]
-            flash_images.append(["flash-boot.bin", nsp_version, 2])
+            if nsp_version_re[0] != 'raw':
+                nsp_version = nsp_version_re[0]
+            else:
+                nsp_version = nsp_version_re[1]
+            flash_images.append(["flash-boot.bin", nsp_version, 1])
         else:
             nsp_version_re = re.search("nfp-nspd-(0\w+).bin", contents)
             if not nsp_version_re:

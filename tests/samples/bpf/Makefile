@@ -1,4 +1,4 @@
-LLVM_VERSION ?= -12
+LLVM_VERSION ?= -13
 LLVM := $(shell clang$(LLVM_VERSION) --version)
 CLANG_FLAGS ?= -O2 -W -Wall \
 	-Wno-compare-distinct-pointer-types
