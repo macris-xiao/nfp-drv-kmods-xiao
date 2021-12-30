@@ -34,8 +34,13 @@ RTSYM_FILES := rts_0.list rts_1.list rts_2.list rts_3.list rts_17.list \
 # Build the firmwares with MIP and RT-SYM but also one without MIP or
 # a specific version of it
 FWS = $(patsubst %.list,rm_%.nffw,${RTSYM_FILES}) \
-	rts_100.nffw rm1_rts_100.nffw rm2_rts_100.nffw \
+	rts_100.nffw rm1_rts_100.nffw \
 	rts_dump.nffw rts_vals.nffw dummy_nfd.nffw
+
+# nfp-3800 cannot use -mip_v2
+ifneq ($(CHIP),nfp-38xxc)
+FWS += rm2_rts_100.nffw
+endif
 
 all: $(FWS) clean
 
@@ -67,7 +72,7 @@ rts_vals.list: rts_vals.c
 	$(NFCC) $< $(CFLAGS) -o $@
 
 abs_rtsym.list: abs_rtsym.uc
-	nfas -o $@ -codeless $<
+	nfas -o $@ --chip $(CHIP) -codeless $<
 
 dummy_nfd.list: dummy_nfd.uc
 	nfas $(CFLAGS) -D NUM_DUMMY_PORTS=$(NUM_DUMMY_PORTS) -o $@ $<

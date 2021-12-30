@@ -522,7 +522,10 @@ class SriovTest(CommonDrvTest):
     def sriov_set(self, num=0):
         self.dut.cmd('echo %s > /sys/bus/pci/devices/0000:%s/sriov_numvfs' %
                      (num, self.group.pci_id))
-        _, out = self.dut.cmd('lspci -d 19ee:6003 | wc -l')
+        if self.dut.get_part_no() != 'AMDA0145-0002':
+            _, out = self.dut.cmd('lspci -d 19ee:6003 | wc -l')
+        else:
+            _, out = self.dut.cmd('lspci -d 19ee:3803 | wc -l')
         got = int(out)
         if got != num:
             raise NtiGeneralError('Incorrect SR-IOV number got:%d want:%d' %

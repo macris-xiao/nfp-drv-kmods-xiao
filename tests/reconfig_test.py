@@ -223,7 +223,8 @@ class ReconfigTest(CommonNetdevTest):
         # Init current config
         self.ring_curr = (self.orig['ring_rx'], self.orig['ring_tx'],
                           self.orig['ring_comb'])
-        self.desc_curr = (self.orig['rxd'], self.orig['txd'])
+        self.desc_curr = (self.orig['rxd'], self.orig['txd'] * \
+                          self.tx_desc_per_simple_pkt)
 
     def state_dump(self):
         LOG_sec('Exit dump')
@@ -251,6 +252,12 @@ class ReconfigTest(CommonNetdevTest):
             raise NtiSkip("Can't deal with representors")
 
         self.netdev_wait()
+
+        drvinfo = self.dut.ethtool_drvinfo(self.dut_ifn[0])
+        if drvinfo["firmware-version"][0] == "1":
+            self.tx_desc_per_simple_pkt = 2
+        else:
+            self.tx_desc_per_simple_pkt = 1
 
         # Get real max tx queues
         _, out = self.dut.cmd('dmesg | grep %s | grep TxQs | tail -1' %

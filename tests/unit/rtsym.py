@@ -49,6 +49,9 @@ class RTSymTest(CommonTest):
         fwdir = os.path.join('/lib/firmware/netronome/', fwdir_base)
 
         for tu in self.fws:
+            if tu[0] == 'rm2_rts_100' and \
+               self.dut.get_part_no() == 'AMDA0145-0002':
+                continue
             if not tu[0]:
                 self.dut.dfs_read('nth/reset')
             elif not user_space_load:
