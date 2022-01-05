@@ -27,7 +27,8 @@ class DrvInfoEthtool(CommonTest):
     def check_common_vnic(self, info):
         if info["supports-register-dump"] != "yes":
             raise NtiError("vNIC without register dump")
-        if not info["firmware-version"].startswith("0.0."):
+        if not info["firmware-version"].startswith("0.0.") and \
+           not info["firmware-version"].startswith("1.0."):
             raise NtiError("Bad NFD version")
 
         self.check_common(info)

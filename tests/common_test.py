@@ -323,7 +323,8 @@ class CommonTest(Test):
         return host.cmd(cmd.format(pid=pidfile, sig=sig, max_fail=max_fail))
 
     def nfp_ifc_is_vnic(self, ethtool_info):
-        return ethtool_info["firmware-version"][0] == "0" # NFD version
+        return ethtool_info["firmware-version"][0] == "0" or \
+               ethtool_info["firmware-version"][0] == "1" # NFD version
 
     def nfp_ifc_is_repr(self, ethtool_info):
         return ethtool_info["firmware-version"][0] == "*"
