@@ -168,7 +168,9 @@ class KexecWithTraffic(CommonNetdevTest):
 
     def netdev_execute(self):
         self.dut.cmd('''kexec -l /boot/vmlinuz-$(uname -r) \
-            --initrd=/boot/initrd.img-$(uname -r) --reuse-cmdline''')
+            --ramdisk=/boot/initramfs-$(uname -r).img --reuse-cmdline''')
+
+        time.sleep(5)
 
         if not self.group.upstream_drv:
             uptime = self.dut.get_nsp_uptime()
@@ -199,6 +201,6 @@ class KexecWithTraffic(CommonNetdevTest):
             self.dut.rmmod()
 
         self.netdev_prep()
-
+        time.sleep(5)
         # Check we can still pass traffic after kexec
         self.ping(0)
