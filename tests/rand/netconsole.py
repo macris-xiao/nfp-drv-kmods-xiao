@@ -52,7 +52,7 @@ class NetconsoleRandTest(NetconsoleTest):
         if self.src_netperf:
             f = self.src_netperf
             self.src_netperf = None
-            self.kill_pidfile(self.src, f, max_fail=2)
+            self.kill_pidfile(self.src, f, max_fail=16)
 
     def flip_xdp(self):
         if self.xdp == None:
@@ -122,13 +122,13 @@ class NetconsoleRandTest(NetconsoleTest):
 
             LOG_sec('Test #%d => %d' % (tid, c))
             try:
-                if c < 20:
+                if c < 10:
                     self.flip_xdp()
-                elif c < 30:
+                elif c < 20:
                     self.flip_link()
-                elif c < 40:
+                elif c < 30:
                     self.flip_rings()
-                elif c < 50:
+                elif c < 40:
                     self.flip_bufs()
                 else:
                     self.flip_driver()
