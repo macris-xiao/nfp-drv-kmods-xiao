@@ -65,10 +65,15 @@ class SyntheticProg(BPFPerf):
         write_rate = int(self.map_fill(m, self.map_records))
 
         eth_data = self.get_ethtool_rate(self.dut, self.dut_ifn[0], sampletime)
-        tx_packets = eth_data['dev_tx_pkts']
-        tx_mbytes = float(eth_data['dev_tx_bytes'])
+        if self.group.xdp_mode() == "offload":
+            tx_packets = eth_data['bpf_app2_pkts']
+            tx_bytes = float(eth_data['bpf_app2_bytes'])
+        else:
+            tx_packets = eth_data['dev_tx_pkts']
+            tx_bytes = float(eth_data['dev_tx_bytes'])
+
         assert_neq(0, tx_packets, "Zero TX packets")
-        avg_packet_size = tx_mbytes / tx_packets
+        avg_packet_size = tx_bytes / tx_packets
 
         if self.packet_extend == 1:
             assert_approx(80, 0.1, avg_packet_size, "TX packet size")
