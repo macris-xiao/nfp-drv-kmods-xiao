@@ -419,8 +419,9 @@ class XDPprep256B(XDPtxBase):
         return self.std_pkt()
 
     def get_exp_pkt_raw(self):
+        pad = 256 - 14 - 32
         pkt = self.get_src_pkt()
-        pkt = pkt[6:12] + pkt[0:6] + '\x12\x34' + '\x00' * 242 + pkt
+        pkt = pkt[6:12] + pkt[0:6] + '\x12\x34' + '\x00' * pad + pkt
 
         return pkt
 
@@ -428,12 +429,14 @@ class XDPprep256B(XDPtxBase):
         return 'adjust_head_prep_256.o'
 
 class XDPprep256Bmtu(XDPtxBase):
+    pad = 256 - 14 - 32
+
     def get_src_pkt(self):
-        return self.std_pkt(size=(self.group.mtu_x[0] + 14 - 256))
+        return self.std_pkt(size=(self.group.mtu_x[0] - self.pad))
 
     def get_exp_pkt_raw(self):
         pkt = self.get_src_pkt()
-        pkt = pkt[6:12] + pkt[0:6] + '\x12\x34' + '\x00' * 242 + pkt
+        pkt = pkt[6:12] + pkt[0:6] + '\x12\x34' + '\x00' * self.pad + pkt
 
         return pkt
 
