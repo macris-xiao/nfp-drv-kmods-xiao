@@ -472,18 +472,23 @@ class CommonTest(Test):
             opts += "--setack %d " % ack
         if win is not None:
             opts += "--win %d " % win
+        if count is not None:
+            opts += "-c %d " % count
         opts += "--{speed} ".format(speed=speed)
 
-        cmd  = 'hping3 {addr} -c {cnt} -s {sport} -p {dport} -d {size} {opts}'
+        cmd  = 'hping3 {addr} -s {sport} -p {dport} -d {size} {opts}'
         cmd = cmd.format(addr=self.dut_addr[port][:-3], cnt=count, sport=sport,
                          dport=dport, size=size, opts=opts)
         return cmd
 
     def tcpping(self, port, count=10, sport=100, dport=58, size=50, tos=None,
                 ip_id=None, ttl=None, seq=None, ack=None, win=None, keep=True,
-                speed="fast", fail=False, should_fail=False):
+                speed="fast", fail=False, should_fail=False, timeout = None):
         opts = "--syn "
-        cmd = self.hping3_cmd(port=port, count=count, sport=sport, dport=dport,
+        cmd = ""
+        if timeout is not None:
+            cmd += "timeout %d " % timeout
+        cmd += self.hping3_cmd(port=port, count=count, sport=sport, dport=dport,
                               size=size, tos=tos, ip_id=ip_id, ttl=ttl, seq=seq,
                               ack=ack, win=win, keep=keep, speed=speed,
                               opts=opts)

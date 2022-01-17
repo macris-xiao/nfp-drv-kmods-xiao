@@ -23,8 +23,7 @@ class BPFPerf(MapTest):
         t0 = time.time()
         bef = host.ethtool_stats(self.dut_ifn[port])
 
-        sleeptime = sample_period - (time.time() - t0)
-        time.sleep(sleeptime)
+        self.tcpping(port=0, count=None, size=6, speed="fast", timeout = sample_period)
 
         aft = host.ethtool_stats(self.dut_ifn[port])
 
