@@ -61,6 +61,7 @@ class NetconsoleRandTest(NetconsoleTest):
             else:
                 self.xdp = 'drv'
             prog = 'pass.o' if self.xdp == 'drv' else 'map_atomic32.o'
+            self.dut.cmd('ethtool -L %s rx 0 tx 0 combined 1' % (self.dut_ifn[0]))
             self.xdp_start(prog, mode=self.xdp)
         else:
             self.xdp_stop(mode=self.xdp)
