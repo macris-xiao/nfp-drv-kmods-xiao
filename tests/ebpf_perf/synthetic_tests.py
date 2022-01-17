@@ -116,4 +116,4 @@ class SyntheticProg(BPFPerf):
 
     def cleanup(self):
         self.xdp_stop(mode=self.group.xdp_mode())
-        self.dut.bpf_wait_maps_clear(expected=self.n_start_maps)
+        self.dut.bpf_wait_maps_clear(expected=self.n_start_maps, n_retry=50)
