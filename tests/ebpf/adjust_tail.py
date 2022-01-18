@@ -2,6 +2,7 @@
 # Copyright (C) 2018,  Netronome Systems, Inc.  All rights reserved.
 #
 
+from ..common_test import *
 from .xdp import XDPpassAll
 
 class XDPadjustTailPassAll(XDPpassAll):
@@ -20,3 +21,10 @@ class XDPadjustTail14(XDPadjustTailPassAll):
 class XDPadjustTailMulti(XDPadjustTailPassAll):
     def get_exp_pkt(self):
         return self.std_pkt()[:-30]
+
+class XDPadjustTailPositive(XDPadjustTailPassAll):
+    def execute(self):
+        if self.is_offload_mode():
+            raise NtiSkip("Current FW doesn't support positive tail adjust")
+
+        return super(XDPadjustTailPassAll, self).execute()

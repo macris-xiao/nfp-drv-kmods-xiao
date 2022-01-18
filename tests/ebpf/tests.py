@@ -16,7 +16,7 @@ from ..ebpf_test import *
 from drv_and_offload import XDPDrvOffCnt, XDPDrvOffAdjHead
 from xdp import *
 from adjust_tail import XDPadjustTailPassAll, XDPadjustTail14, \
-    XDPadjustTailMulti
+    XDPadjustTailMulti, XDPadjustTailPositive
 from xdp_replace import XDPReplaceTest
 from maps import *
 from obj_sharing import XDPProgMapShare, XDPProgXIfc, XDPProgXIfcCheck
@@ -199,7 +199,7 @@ class NFPKmodBPF(NFPKmodAppGrp):
                 "XDP truncate multiple times"),
                ('xdp_adjust_tail_negative_bad', XDPadjustTailPassAll,
                 "XDP truncate negative offset error cases"),
-               ('xdp_adjust_tail_positive', XDPadjustTailPassAll,
+               ('xdp_adjust_tail_positive', XDPadjustTailPositive,
                 "XDP truncate positive offset error cases"),
                ('xdp_shifts', XDPshifts, 'XDP test of logic shift operations'),
                ('xdp_shifts_ind_1', XDPshiftsind_1,

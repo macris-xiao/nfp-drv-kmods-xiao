@@ -16,11 +16,6 @@ int xdp_prog1(struct xdp_md *xdp) {
 		return XDP_ABORTED;
 	if (bpf_xdp_adjust_tail(xdp, -5))
 		return XDP_ABORTED;
-
-	/* Mix a bad one in */
-	if (bpf_xdp_adjust_tail(xdp, 5) != -EINVAL)
-		return XDP_ABORTED;
-
 	if (bpf_xdp_adjust_tail(xdp, -15))
 		return XDP_ABORTED;
 
