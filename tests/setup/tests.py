@@ -151,6 +151,6 @@ class PythonTest(CommonTest):
 
 class BPFSetupToolsTest(CommonTest):
     def execute(self):
-        ret, _ = self.dut.cmd('ip link set lo xdpoffload off', fail=False)
-        if ret != 2:
+        ret, _ = self.dut.cmd('ip link help 2>&1 | grep xdpoffload', fail=False)
+        if ret != 0:
             raise NtiError("ip link doesn't have xdp offload mode support")
