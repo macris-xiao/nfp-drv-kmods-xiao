@@ -959,7 +959,7 @@ class eBPFmtu(eBPFtest):
                           group=group, name=name, summary=summary)
 
     def set_mtu(self, val, fail=True):
-        return self.dut.cmd('ifconfig %s mtu %d' % (self.dut_ifn[0], val),
+        return self.dut.cmd('ip link set %s mtu %d' % (self.dut_ifn[0], val),
                             fail=fail)
 
     def execute(self):
