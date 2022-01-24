@@ -125,10 +125,15 @@ class KernelLoadTest(CommonTest):
         if len(phy) != 2:
             raise NtiSkip('Sample FW only supports 2 port cards')
 
+        if self.dut.get_pci_device_id() != '3800':
+            self.spi_bus = 0
+        else:
+            self.spi_bus = 1
+
         fw_path = os.path.join(self.dut.tmpdir, 'dummy_nfd.nffw')
-        M.cmd_fis('-b0 delete nti.fw', fail=False)
-        M.cmd_fis('-b0 create -b %s nti.fw' % fw_path)
-        M.cmd_hwinfo('-u mefw.loadbus=0 appfw.part=nti.fw')
+        M.cmd_fis('-b %d delete nti.fw' % self.spi_bus, fail=False)
+        M.cmd_fis('-b %d create -b %s nti.fw' % (self.spi_bus, fw_path))
+        M.cmd_hwinfo('-u mefw.loadbus=%d appfw.part=nti.fw' % self.spi_bus)
 
         for arg in tests:
             LOG_sec('FW load with: %s' % arg[0])
@@ -150,6 +155,6 @@ class KernelLoadTest(CommonTest):
             self.dut.insmod(netdev=False, userspace=True)
             self.dut.cmd_hwinfo('-u mefw.loadbus= appfw.part=')
             self.dut.cmd_hwinfo('-u app_fw_from_flash= abi_drv_reset=')
-            self.dut.cmd_fis('-b0 delete nti.fw', fail=False)
+            self.dut.cmd_fis('-b %d delete nti.fw' % self.spi_bus, fail=False)
 
         self.dut.reset_mods()
