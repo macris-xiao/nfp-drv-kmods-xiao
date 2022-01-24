@@ -112,8 +112,10 @@ class Mefw(CommonTest):
                  'rm_rts_3.nffw',
                  'rm_rts_17.nffw',
                  'rm_rts_100.nffw',
-                 'rm1_rts_100.nffw',
-                 'rm2_rts_100.nffw')
+                 'rm1_rts_100.nffw')
+
+        if self.dut.get_pci_device_id() != '3800':
+            mefws += ('rm2_rts_100.nffw',)
         mefws = " ".join(map(prep_path, mefws))
 
         ret, _ = cmd_log('ls %s %s' % (self.group.netdevfw, mefws))
