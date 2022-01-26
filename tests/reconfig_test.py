@@ -89,7 +89,8 @@ class ReconfigTest(CommonNetdevTest):
                                 (self.dut_ifn[0], config[0], config[1]),
                                 fail=False)
         if ret == 0:
-            self.desc_curr = config
+            self.desc_curr = (config[0], config[1] * \
+                              self.tx_desc_per_simple_pkt)
         return ret, out
 
     def refresh_desc_config(self):
