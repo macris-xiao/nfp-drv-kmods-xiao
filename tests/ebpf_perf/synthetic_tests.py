@@ -80,8 +80,9 @@ class SyntheticProg(BPFPerf):
         else:
             assert_approx(60, 0.1, avg_packet_size, "TX packet size")
 
-        assert_equal(0, eth_data['bpf_app1_pkts'], "xdp_drop packets")
-        assert_equal(0, eth_data['bpf_app3_pkts'], "xdp_abort packets")
+        if self.group.xdp_mode() == "offload":
+            assert_equal(0, eth_data['bpf_app1_pkts'], "xdp_drop packets")
+            assert_equal(0, eth_data['bpf_app3_pkts'], "xdp_abort packets")
 
         self.test_metrics.append(tx_packets)
         self.test_metrics.append(write_rate)
