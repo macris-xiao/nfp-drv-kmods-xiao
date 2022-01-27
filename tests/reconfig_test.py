@@ -110,15 +110,24 @@ class ReconfigTest(CommonNetdevTest):
                              self.curr['ring_comb'] * 2))
 
     def mtu_may_fail(self, mtu, xdp_loaded):
+        ''' In driver, rings are reconfigured when loading xdp on xdpdrv mode which causes
+        check of freelist buffer size(dp->fl_bufsz < PAGE_SIZE). "fl_bufsz" is calculated
+        in "nfp_net_calc_fl_bufsz".
+        fl_bufsz = SKB_DATA_ALIGN(NFP_NET_RX_BUF_HEADROOM + dp->rx_dma_off +
+                                  NFP_NET_MAX_PREPEND/dp->rx_offset +
+                                  ETH_HLEN + VLAN_HLEN * 2 + dp->mtu) +
+                   SKB_DATA_ALIGN(sizeof(struct skb_shared_info))
+        '''
         return self.mtu_should_fail(mtu, xdp_loaded) or \
-            (xdp_loaded and (mtu not in range(68, 3584)))
+            (xdp_loaded and (mtu not in range(68, 3371)))
 
     def set_xdp_prog(self, name=None):
         should_fail = False
         may_fail = False
         force = ""
         if name and name != "stop":
-            what = 'obj %s.o sec ".text"' % name
+            what = 'obj %s sec ".text"' % os.path.join(self.group.samples_xdp, \
+                                                      '%s.o' % name)
             should_fail = self.mtu_should_fail(self.mtu, True)
             may_fail = self.mtu_may_fail(self.mtu, True)
             if self.xdp_loaded:
@@ -244,7 +253,7 @@ class ReconfigTest(CommonNetdevTest):
         self.state_init()
 
         # Check if XDP is available
-        ret, _ = self.dut.cmd('ls ~/xdp/pass.py /lib/modules/`uname -r`/build',
+        ret, _ = self.dut.cmd('ls %s' % (os.path.join(self.group.samples_xdp, 'pass.o')),
                               fail=False)
         self.has_xdp = ret == 0
 
@@ -261,8 +270,14 @@ class ReconfigTest(CommonNetdevTest):
             self.tx_desc_per_simple_pkt = 1
 
         # Get real max tx queues
-        _, out = self.dut.cmd('dmesg | grep %s | grep TxQs | tail -1' %
-                              self.group.pci_id)
+        if (len(self.dut_ifn) == 2):
+            _, out = self.dut.cmd('dmesg | grep %s | grep TxQs | tail -2 | head -1' %
+                                  self.group.pci_id)
+        elif (len(self.dut_ifn) == 1):
+            _, out = self.dut.cmd('dmesg | grep %s | grep TxQs | tail -1' %
+                                  self.group.pci_id)
+        else:
+            raise NtiSkip("Breakout mode unsupported")
         self.total_tx_rings = int(re.search('TxQs=\d*/(\d*)', out).groups()[0])
 
         self.ifup()

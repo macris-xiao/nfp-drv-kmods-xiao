@@ -122,6 +122,7 @@ class ChannelReconfig(ReconfigTest):
             return
 
         ret, _ = self.set_ring_config((0, 0, 1))
+        self.refresh_ring_config()
         if ret != 0:
             raise NtiError("Trivial 0,0,1 config (for XDP) rejected")
         self.set_xdp_prog("pass")
