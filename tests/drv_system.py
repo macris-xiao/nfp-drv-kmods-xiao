@@ -27,6 +27,7 @@ class DrvSystem(LinuxSystem):
         self.part_no = None
         self.fw_name = None
         self.fw_name_serial = None
+        self.pci_device_id = None
         self.netdevfw_dir = None
         self.grp = grp
 
@@ -643,6 +644,13 @@ class DrvSystem(LinuxSystem):
         if load:
             self.rmmod()
         return self.part_no
+
+    def get_pci_device_id(self):
+        if self.pci_device_id:
+            return self.pci_device_id
+        _, pci_device_info = self.cmd('lspci | grep %s' % self.grp.pci_id)
+        self.pci_device_id = pci_device_info.split()[-1]
+        return self.pci_device_id
 
     def get_fw_name(self):
         if self.fw_name:
