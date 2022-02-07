@@ -1,7 +1,7 @@
 #include <linux/bpf.h>
 #include "../bpf/bpf_helpers.h"
 
-int do_adjust_head(struct xdp_md *xdp, int delta, unsigned char *data);
+static int do_adjust_head(struct xdp_md *xdp, int delta, unsigned char *data);
 
 int xdp_prog1(struct xdp_md *xdp)
 {
@@ -40,7 +40,7 @@ int xdp_prog1(struct xdp_md *xdp)
 
 /* CHECK-CODEGEN: .*rtn\[gprA_\d\].* */
 __attribute__ ((noinline))
-int do_adjust_head(struct xdp_md *xdp, int delta, unsigned char *data)
+static int do_adjust_head(struct xdp_md *xdp, int delta, unsigned char *data)
 {
 	if (!data || *data == 0xef)
 		return -1;
