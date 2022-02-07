@@ -924,6 +924,8 @@ class eBPFtc_feature(eBPFtest):
         if ret == 0:
             raise NtiError("Disabled TC offloads with filter loaded")
 
+        # Revert the requested status
+        self.dut.cmd('ethtool -K %s hw-tc-offload on' % (self.dut_ifn[0]))
         # Clean the existing filter
         cmd  = 'tc qdisc del dev %s ingress; ' % (self.dut_ifn[0])
         cmd += 'tc qdisc add dev %s ingress; ' % (self.dut_ifn[0])
