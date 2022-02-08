@@ -331,8 +331,9 @@ class CommonTest(Test):
 
     def ifc_all_up(self):
         for i in range(0, len(self.dut_ifn)):
-            self.dut.cmd('ifconfig %s %s up' % (self.dut_ifn[i],
-                                                self.dut_addr[i]))
+            self.dut.cmd(
+                'ip a add %s dev %s && ip link set dev %s up' %
+                        (self.dut_addr[i], self.dut_ifn[i], self.dut_ifn[i]))
 
     def ifc_all_down(self):
         for i in range(0, len(self.dut_ifn)):
@@ -746,7 +747,7 @@ class CommonTest(Test):
             self.dut_addr_v6 = [0] * len(self.vnics)
 
         for ifc in self.nfp_netdevs:
-            self.dut.cmd('ifconfig %s up' % (ifc))
+            self.dut.cmd('ip link set %s up' % (ifc))
         self.ifc_all_up()
 
         LOG_endsec() # NFP netdev test prep

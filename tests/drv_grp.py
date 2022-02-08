@@ -447,16 +447,16 @@ class NFPKmodAppGrp(NFPKmodGrp):
         self.mtu_a = []
         self.promisc_a = []
         for p in range(0, len(self.eth_x)):
-            _, out = self.dut.cmd("ifconfig %s" % self.eth_x[p])
-            ifcfg = _parse_ifconfig(out)
-            self.hwaddr_x.append(ifcfg["hwaddr"])
-            self.mtu_x.append(ifcfg["mtu"])
+            _, out = self.dut.cmd("ip link show dev %s" % self.eth_x[p])
+            ipdevinfo = _parse_ip_addr_stats(out)
+            self.hwaddr_x.append(ipdevinfo["hwaddr"])
+            self.mtu_x.append(ipdevinfo["mtu"])
             self.promisc_x.append(out.find("PROMISC") != -1)
 
-            _, out = self.host_a.cmd("ifconfig %s" % self.eth_a[p])
-            ifcfg = _parse_ifconfig(out)
-            self.hwaddr_a.append(ifcfg["hwaddr"])
-            self.mtu_a.append(ifcfg["mtu"])
+            _, out = self.host_a.cmd("ip link show dev %s" % self.eth_a[p])
+            ipdevinfo = _parse_ip_addr_stats(out)
+            self.hwaddr_a.append(ipdevinfo["hwaddr"])
+            self.mtu_a.append(ipdevinfo["mtu"])
             self.promisc_a.append(out.find("PROMISC") != -1)
 
             # add static arp entries to speed up drop tests
