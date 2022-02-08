@@ -226,7 +226,7 @@ class LinuxSystem(System):
             raise NtiGeneralError("Could TCP ping endpoint")
         return ret
 
-    def spawn_netperfs(self, host, tag="nti"):
+    def spawn_netperfs(self, host, tag="nti", n=16):
         name = 'netperf_' + tag + '.pid'
 
         cmd = ''' # spawn_netperfs
@@ -240,7 +240,7 @@ class LinuxSystem(System):
         '''
 
         pidfile = os.path.join(self.tmpdir, name)
-        self.cmd(cmd.format(n=16, host=host, pidfile=pidfile))
+        self.cmd(cmd.format(n=n, host=host, pidfile=pidfile))
         return pidfile
 
     ###############################

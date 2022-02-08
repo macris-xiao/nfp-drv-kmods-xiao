@@ -332,7 +332,7 @@ class CommonTest(Test):
     def ifc_all_up(self):
         for i in range(0, len(self.dut_ifn)):
             self.dut.cmd(
-                'ip a add %s dev %s && ip link set dev %s up' %
+                'ip addr replace %s dev %s && ip link set dev %s up' %
                         (self.dut_addr[i], self.dut_ifn[i], self.dut_ifn[i]))
 
     def ifc_all_down(self):

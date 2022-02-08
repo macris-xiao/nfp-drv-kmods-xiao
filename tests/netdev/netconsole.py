@@ -77,7 +77,7 @@ class NetconsoleTest(CommonTest):
         return os.path.join(self.group.tmpdir,
                             os.path.basename(self.netconsfile))
 
-    def test_with_data(self, n):
+    def test_with_data(self, n, fail=True):
         self.spawn_nc()
 
         cmd = ''
@@ -98,8 +98,16 @@ class NetconsoleTest(CommonTest):
         self.log('File data', data)
 
         # Check all expected lines are present
-        for i in range(n):
-            assert_equal(1, data.count('this_is_line_%d_' % i), 'Line %d' % i)
+        if fail:
+            for i in range(n):
+                assert_equal(1, data.count('this_is_line_%d_' % i), 'Line %d' % i)
+        else:
+            for i in range(n):
+                if data.count('this_is_line_%d_' % i) != 1:
+                    self.log("Fail log", "Line %d: expected '1' but was '%r'" % \
+                             (i, data.count('this_is_line_%d_' % i)))
+                    return 1
+        return 0
 
     def netcons_prep(self):
         self.dut.skip_test_if_mode_switchdev()

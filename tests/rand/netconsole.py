@@ -16,6 +16,13 @@ class NetconsoleRandTest(NetconsoleTest):
         self.n_rings = 8
         self.n_bufs = 512
 
+        fw_name = self.dut.get_fw_name()
+        speed = re.search('x(\d*).nffw', fw_name).group(1)
+        if speed == '10':
+            self.netperf_num = 4
+        else:
+            self.netperf_num = 16
+
     def prepare(self):
         self.init_state()
         self.netcons_noise_running = False
@@ -38,9 +45,11 @@ class NetconsoleRandTest(NetconsoleTest):
 
     def spawn_netperfs(self, port=0):
         self.dut_netperf = self.dut.spawn_netperfs(self.group.addr_a[port][:-3],
-                                                   self._netconsname)
+                                                   self._netconsname,
+                                                   self.netperf_num)
         self.src_netperf = self.src.spawn_netperfs(self.group.addr_x[port][:-3],
-                                                   self._netconsname)
+                                                   self._netconsname,
+                                                   self.netperf_num)
 
     def stop_netperfs(self):
         if self.dut_netperf:
@@ -48,11 +57,11 @@ class NetconsoleRandTest(NetconsoleTest):
             self.dut_netperf = None
             # DUT netperfs may have already died because we call this after
             # taking link down or unloading the driver, so max_fail=num_started.
-            self.kill_pidfile(self.dut, f, max_fail=16)
+            self.kill_pidfile(self.dut, f, max_fail=self.netperf_num)
         if self.src_netperf:
             f = self.src_netperf
             self.src_netperf = None
-            self.kill_pidfile(self.src, f, max_fail=16)
+            self.kill_pidfile(self.src, f, max_fail=self.netperf_num)
 
     def flip_xdp(self):
         if self.xdp == None:
@@ -107,6 +116,7 @@ class NetconsoleRandTest(NetconsoleTest):
 
         self.netcons_prep()
 
+        fail_count = 0
         self.has_bpf_offload = self.read_scalar_nffw('_pf0_net_app_id') == 2
         self.dut.copy_c_samples()
         self.dut.copy_xdp_samples()
@@ -135,7 +145,11 @@ class NetconsoleRandTest(NetconsoleTest):
                     self.flip_driver()
 
                 time.sleep(0.5)
-                self.test_with_data(100)
+                self.dut.cmd('dmesg -C')
+                fail_count += self.test_with_data(100, fail=False)
+                if fail_count > 20:
+                    raise NtiGeneralError("Fail too many times: %d" % fail_count)
+
             finally:
                 LOG_endsec()
 
