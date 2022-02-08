@@ -425,6 +425,7 @@ class BPFdrvMapCache(MapTest):
 
         # get first, delete first, get first, update first, get first
         if ents > 1 and self.get_map_type() == 'hash':
+            _, elems = self.dut.bpftool("map dump id %d" % (m["id"]))
             self.get_next_delete(m, "", str2int(elems[0]["key"]))
 
         if ents > 2:
@@ -433,6 +434,7 @@ class BPFdrvMapCache(MapTest):
 
             # get third, delete third, get third, update third
             if self.get_map_type() == 'hash':
+                _, elems = self.dut.bpftool("map dump id %d" % (m["id"]))
                 self.get_next_delete(m, elems[1]["key"],
                                      str2int(elems[2]["key"]))
 
