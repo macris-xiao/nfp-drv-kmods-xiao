@@ -54,6 +54,8 @@ class SyntheticProg(BPFPerf):
         return self.shared_results[1] / self.shared_results[0]
 
     def execute(self):
+        for ifc in self.dut_ifn:
+            self.dut.cmd('sysctl -w net.ipv6.conf.%s.disable_ipv6=1' % ifc)
         sampletime = 3
         filename = self.filename
         _, maps = self.dut.bpftool_map_list()
@@ -117,4 +119,6 @@ class SyntheticProg(BPFPerf):
 
     def cleanup(self):
         self.xdp_stop(mode=self.group.xdp_mode())
+        for ifc in self.dut_ifn:
+            self.dut.cmd('sysctl -w net.ipv6.conf.%s.disable_ipv6=0' % ifc)
         self.dut.bpf_wait_maps_clear(expected=self.n_start_maps, n_retry=50)
