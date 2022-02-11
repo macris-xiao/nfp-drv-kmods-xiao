@@ -13,7 +13,7 @@ import tempfile
 import netro.testinfra
 from netro.testinfra import LOG_sec, LOG_endsec
 from netro.testinfra.nti_exceptions import *
-from netro.testinfra.system import _parse_ifconfig
+from netro.testinfra.system import _parse_ip_addr_stats
 from libs.nrt_system import NrtSystem
 from libs.nrt_system import kill_bg_process
 from drv_system import *
