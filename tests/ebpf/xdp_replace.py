@@ -26,6 +26,10 @@ class XDPReplaceTest(CommonTest):
             raise NtiSkip('netdevsim module not available')
 
         self.dut.cmd('echo "1 1" > /sys/bus/netdevsim/new_device')
+
+        if self.group.xdp_mode() != "offload":
+            raise NtiSkip("Only support xdpoffload mode")
+
         ret, out = self.dut.cmd('ls /sys/bus/netdevsim/devices/netdevsim1/net')
         netdevsim = out.strip().split(' ')[-1]
         self.dut.cmd('ip link set %s down' % netdevsim)
