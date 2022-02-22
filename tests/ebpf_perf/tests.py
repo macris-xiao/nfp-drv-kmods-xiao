@@ -579,5 +579,10 @@ class NFPKmodBPFPerf(NFPKmodBPF):
         return
 
 class NFPKmodBPFPerfdrv(NFPKmodBPFPerf):
+    def _init(self):
+        NFPKmodBPFPerf._init(self)
+        for p in range(len(self.eth_x)):
+            self.dut.cmd('ethtool -L %s rx 0 tx 0 combined 1' % self.eth_x[p])
+
     def xdp_mode(self):
         return "drv"
