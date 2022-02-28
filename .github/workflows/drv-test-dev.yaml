@@ -1,0 +1,579 @@
+name: Driver Regression Tests
+
+on:
+  push:
+    branches:
+      - '*-test*'
+      - '*test-*'
+  workflow_dispatch: # Manual trigger
+    inputs:
+      test:
+        type: string
+        required: true
+        default: 'all'
+        description: >-
+          Specify which test/s to run
+      fw_type:
+        type: choice
+        required: false
+        options:
+          - AUTO
+          - BPF
+          - NIC
+          - SRIOV
+          - DISA
+        description: >-
+          Specify which type of firmware to use
+          when running the specified tests
+      fw_name:
+        type: string
+        required: false
+        default: ''
+        description: >-
+          Name of firmware to use
+          when running the specified tests
+      fw_path:
+        type: string
+        required: false
+        default: ''
+        description: >-
+          Path to firmware to use
+          when running the specified tests
+      kernel:
+        type: string
+        default: ''
+        required: false
+        description: >-
+          Which kernel to install on the DUT, if blank the latest build
+          available will be used
+
+jobs:
+  # ===================================================
+  # PREPARE - derive test parameters, determine workflow skipping
+  prepare:
+    name: 'drv-test-dev: Prepare'
+    runs-on:
+      - self-hosted
+      - ci-linter-vm
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+
+    steps:
+
+      - name: Checkout provisioning repo
+        uses: actions/checkout@v3
+        with:
+          repository: Corigine/ci-libs
+          ref: main
+          token: ${{ secrets.GHUB_TOKEN }}
+          path: ci-libs
+
+      - name: Extract Ticket name from branch
+        shell: bash
+        run: |
+          HEAD_REF="${{ github.head_ref || github.ref_name }}"
+          echo "HEAD_REF=$HEAD_REF" >> $GITHUB_ENV
+          echo "JIRA_TICKET=$( echo $HEAD_REF | grep -Eo '[A-Za-z]+[^[:alnum:]]?[0-9]+' | head -1)" >> $GITHUB_ENV
+
+      - name: Test if custom kernel for JIRA ticket is present
+        if: github.event_name == 'push' || github.event.inputs.kernel == ''
+        uses: ./ci-libs/github_actions/azure/azcopy_list
+        id: artifact
+        with:
+          connection-string: ${{ secrets.AZ_SAS_TOK }}
+          src: tmp/net_next_builds/centos-stream8/
+          pattern: '.*'
+
+      - name: Find kernel for this JIRA Ticket
+        if: >-
+          contains(steps.artifact.outputs.file_list, env.JIRA_TICKET) &&
+          ( github.event_name == 'push' || github.event.inputs.kernel == '' )
+        uses: ./ci-libs/github_actions/azure/azcopy_list
+        id: artifact_jira
+        with:
+          connection-string: ${{ secrets.AZ_SAS_TOK }}
+          src: tmp/net_next_builds/centos-stream8/
+          pattern: '.*${{ env.JIRA_TICKET }}.*'
+
+      - name: Set environment variable for kernel to download
+        if: >-
+          contains(steps.artifact.outputs.file_list, env.JIRA_TICKET) &&
+          ( github.event_name == 'push' || github.event.inputs.kernel == '' )
+        shell: bash
+        run: |
+          echo "KERNEL_TAR=${{ steps.artifact_jira.outputs.latest }}" >> $GITHUB_ENV
+
+      - name: Find latest kernel on push
+        if: >-
+          contains(steps.artifact.outputs.file_list, env.JIRA_TICKET) == false &&
+          ( github.event_name == 'push' || github.event.inputs.kernel == '' )
+        uses: ./ci-libs/github_actions/azure/azcopy_list
+        id: artifact_latest_push
+        with:
+          connection-string: ${{ secrets.AZ_SAS_TOK }}
+          src: tmp/net_next_builds/centos-stream8/
+          pattern: 'kernel-.*_net_next.tar.gz'
+
+      - name: Set environment variable for kernel to download
+        if: >-
+          contains(steps.artifact.outputs.file_list, env.JIRA_TICKET) == false &&
+          ( github.event_name == 'push' || github.event.inputs.kernel == '' )
+        shell: bash
+        run: |
+          echo "KERNEL_TAR=${{ steps.artifact_latest_push.outputs.latest }}" >> $GITHUB_ENV
+
+      - name: Find latest kernel on workflow_dispatch
+        if: >-
+           github.event_name == 'workflow_dispatch' || github.event.inputs.kernel != ''
+        uses: ./ci-libs/github_actions/azure/azcopy_list
+        id: artifact_latest_dispatch
+        with:
+          connection-string: ${{ secrets.AZ_SAS_TOK }}
+          src: tmp/net_next_builds/centos-stream8/
+          pattern: '.*${{ github.event.inputs.kernel }}.*'
+
+      - name: Set environment variable for kernel to download
+        if: >-
+           github.event_name == 'workflow_dispatch' || github.event.inputs.kernel != ''
+        shell: bash
+        run: |
+          echo "KERNEL_TAR=${{ steps.artifact_latest_dispatch.outputs.latest }}" >> $GITHUB_ENV
+
+      - name: Extract tags name from branch
+        shell: bash
+        run: |
+          echo "TAGS=$(echo $HEAD_REF | sed 's/'wip'//g' | sed 's/'$JIRA_TICKET'//g' | sed 's/'test'//g'| sed 's/'-'//g' )" >> $GITHUB_ENV
+
+      - name: Populate test matrix on push
+        if: github.event_name == 'push'
+        id: matrix_push
+        shell: python3 {0}
+        run: |
+          import json
+
+          testMatrix = {'platform':[
+                        'osprey'],
+                      'os':[
+                        'CentOS-8'],
+                      'kernel':[
+                        '${{ env.KERNEL_TAR }}']
+                    }
+          tags = '${{ env.TAGS }}'
+          names = []
+          include = []
+
+          if 'reboot' in tags or tags == '':
+              names.append('reboot_tests')
+              include.append({'name':'reboot_tests',
+                      'iproute_version':'5.15.0',
+                      'firmware_name':'agilio-nic-firmware-',
+                      'firmware_path':'binaries/nic/releases/tgz',
+                      'config_file':'generic',
+                      'test_cases':['reboot']})
+
+          testMatrix["name"] = names
+          testMatrix["include"] = include
+          print(json.dumps(testMatrix, indent=2))
+
+          print("::set-output name=matrix::" + str(testMatrix))
+
+      - name: Populate test matrix on dispatch
+        if: github.event_name == 'worflow_dispatch'
+        id: matrix_dispatch
+        shell: python3 {0}
+        run: |
+          import json
+
+          testMatrix = {'platform':[
+                        'osprey'],
+                      'os':[
+                        'CentOS-8'],
+                      'kernel':[
+                        '${{ env.KERNEL_TAR }}']
+                    }
+          names = []
+          include = []
+
+          if ( ${{ github.event.inputs.test }} == 'all' and
+                ( ${{ github.event.inputs.fw_type }} == 'AUTO' or
+                  ${{ github.event.inputs.fw_type }} == 'BPF' ) ):
+
+              if ( ${{ github.event.inputs.fw_name }} == ''
+                    ${{ github.event.inputs.fw_path }} == ''):
+                fw_name = 'agilio-bpf-firmware-'
+                fw_path = 'binaries/nic/bpf/tgz'
+              else:
+                fw_name = '${{ github.event.inputs.fw_path }}'
+                fw_path = '${{ github.event.inputs.fw_path }}'
+
+              names.append('ebpf_tests')
+              include.append({'name':'ebpf_tests',
+                      'iproute_version':'5.12.0',
+                      'firmware_name':fw_name,
+                      'firmware_path':fw_path,
+                      'config_file':'generic',
+                      'test_cases':['ebpf',
+                                    'ebpfdrv',
+                                    'ebpf_perf',
+                                    'ebpf_perf_drv']})
+
+
+
+          if ( ${{ github.event.inputs.test }} == 'all' and
+                ( ${{ github.event.inputs.fw_type }} == 'AUTO' or
+                  ${{ github.event.inputs.fw_type }} == 'DISA' ) ):
+
+              if ( ${{ github.event.inputs.fw_name }} == ''
+                    ${{ github.event.inputs.fw_path }} == ''):
+                fw_name = 'agilio-disa-firmware-'
+                fw_path = 'binaries/disa/releases/tgz'
+              else:
+                fw_name = '${{ github.event.inputs.fw_path }}'
+                fw_path = '${{ github.event.inputs.fw_path }}'
+
+              names.append('flower_tests')
+              include.append({'name':'flower_tests',
+                      'iproute_version':'5.15.0',
+                      'firmware_name':fw_name,
+                      'firmware_path':fw_path,
+                      'config_file':'flower',
+                      'test_cases':['flower']})
+
+              names.append('netdev_flower_tests')
+              include.append({'name':'netdev_flower_tests',
+                      'iproute_version':'5.15.0',
+                      'firmware_name':fw_name,
+                      'firmware_path':fw_path,
+                      'config_file':'flower',
+                      'test_cases':['netdev.repr_caps']})
+
+
+          if ( ${{ github.event.inputs.test }} == 'all' and
+                ( ${{ github.event.inputs.fw_type }} == 'AUTO' or
+                  ${{ github.event.inputs.fw_type }} == 'NIC' ) ):
+
+              if ( ${{ github.event.inputs.fw_name }} == ''
+                    ${{ github.event.inputs.fw_path }} == ''):
+                fw_name = 'agilio-nic-firmware-'
+                fw_path = 'binaries/nic/releases/tgz'
+              else:
+                fw_name = '${{ github.event.inputs.fw_path }}'
+                fw_path = '${{ github.event.inputs.fw_path }}'
+
+              names.append('reboot_tests')
+              include.append({'name':'reboot_tests',
+                      'iproute_version':'5.15.0',
+                      'firmware_name':fw_name,
+                      'firmware_path':fw_path,
+                      'config_file':'generic',
+                      'test_cases':['reboot']})
+
+              names.append('reload_tests')
+              include.append({'name':'reload_tests',
+                      'iproute_version':'5.15.0',
+                      'firmware_name':fw_name,
+                      'firmware_path':fw_path,
+                      'config_file':'generic',
+                      'test_cases':['reload']})
+
+              names.append('netdev_nic_tests')
+              include.append({'name':'netdev_nic_tests',
+                      'iproute_version':'5.15.0',
+                      'firmware_name':fw_name,
+                      'firmware_path':fw_path,
+                      'config_file':'generic',
+                      'test_cases':['netdev.bsp_version',
+                                    'netdev.bsp_diag',
+                                    'netdev.sensors',
+                                    'netdev.phys_port_name',
+                                    'netdev.ethtool_drvinfo',
+                                    'netdev.ethtool_get_speed',
+                                    'netdev.ethtool_stats',
+                                    'netdev.ethtool_mac_stats',
+                                    'netdev.ethtool_get_mod_eeprom',
+                                    'netdev.ethtool_port_show',
+                                    'netdev.netconsole',
+                                    'netdev.mtu_flbufsz_check',
+                                    'netdev.huge_ring']})
+
+              names.append('unit_nic_tests')
+              include.append({'name':'unit_nic_tests',
+                      'iproute_version':'5.15.0',
+                      'firmware_name':fw_name,
+                      'firmware_path':fw_path,
+                      'config_file':'generic',
+                      'test_cases':['unit.modinfo',
+                                    'unit.serial_and_ifc',
+                                    'unit.resource',
+                                    'unit.lock_busting',
+                                    'unit.nsp_eth_table',
+                                    'unit.hwinfo',
+                                    'unit.nsp_hwinfo',
+                                    'unit.rtsym',
+                                    'unit.rtsym_data',
+                                    'unit.fw_dump',
+                                    'unit.fw_names',
+                                    'unit.vnic_tlv_caps',
+                                    'unit.vnic_tlv_stats',
+                                    'unit.sriov',
+                                    'unit.netdev',
+                                    'unit.params_incompat',
+                                    'unit.dev_cpp',
+                                    'unit.channel_reconfig',
+                                    'unit.ethtool_aneg',
+                                    'unit.port_config',
+                                    'unit.versions',
+                                    'unit.devlink_param']})
+
+
+
+          if ( ${{ github.event.inputs.test }} == 'all' and
+                ( ${{ github.event.inputs.fw_type }} == 'AUTO' ):
+
+              if ( ${{ github.event.inputs.fw_name }} == ''
+                    ${{ github.event.inputs.fw_path }} == ''):
+                fw_name = 'agilio-nic-firmware-'
+                fw_path = 'binaries/nic/releases/tgz'
+              else:
+                fw_name = '${{ github.event.inputs.fw_path }}'
+                fw_path = '${{ github.event.inputs.fw_path }}'
+
+              names.append('rand_tests')
+              include.append({'name':'rand_tests',
+                      'iproute_version':'5.12.0',
+                      'firmware_name':fw_name,
+                      'firmware_path':fw_path,
+                      'config_file':'generic',
+                      'test_cases':['rand',
+                                    'rand_err']})
+
+          if ( ${{ github.event.inputs.test }} == 'all' and
+                ( ${{ github.event.inputs.fw_type }} == 'AUTO' or
+                  ${{ github.event.inputs.fw_type }} == 'SRIOV' ):
+
+              if ( ${{ github.event.inputs.fw_name }} == ''
+                    ${{ github.event.inputs.fw_path }} == ''):
+                fw_name = 'agilio-sriov-firmware-'
+                fw_path = 'binaries/nic/releases/tgz'
+              else:
+                fw_name = '${{ github.event.inputs.fw_path }}'
+                fw_path = '${{ github.event.inputs.fw_path }}'
+
+              names.append('netdev_sriov_tests')
+              include.append({'name':'netdev_sriov_tests',
+                      'iproute_version':'5.15.0',
+                      'firmware_name':fw_name,
+                      'firmware_path':fw_path,
+                      'config_file':'generic',
+                      'test_cases':['netdev.coalesce_pf',
+                                    'netdev.coalesce_vf']})
+
+              names.append('unit_sriov_tests')
+              include.append({'name':'unit_sriov_tests',
+                      'iproute_version':'5.15.0',
+                      'firmware_name':fw_name,
+                      'firmware_path':fw_path,
+                      'config_file':'generic',
+                      'test_cases':['unit.sriov_ndos',
+                                    'unit.fec_modes',
+                                    'unit.ifstats_reconfig']})
+
+            if ( ${{ github.event.inputs.test }} != 'all' ):
+
+              if ( ${{ github.event.inputs.fw_name }} == ''
+                    ${{ github.event.inputs.fw_path }} == ''):
+                if ${{ github.event.inputs.fw_type }} == 'BPF':
+                  iproute = '5.12.0'
+                  fw_name: 'agilio-bpf-firmware-'
+                  fw_path = 'binaries/nic/bpf/tgz'
+                elif ${{ github.event.inputs.fw_type }} == 'SRIOV':
+                  iproute = '5.15.0'
+                  fw_name: 'agilio-sriov-firmware-'
+                  fw_path = 'binaries/nic/releases/tgz'
+                elif ${{ github.event.inputs.fw_type }} == 'NIC':
+                  iproute = '5.15.0'
+                  fw_name: 'agilio-nic-firmware-'
+                  fw_path = 'binaries/nic/releases/tgz'
+                elif ${{ github.event.inputs.fw_type }} == 'DISA':
+                  iproute = '5.15.0'
+                  fw_name: 'agilio-flower-firmware-'
+                  fw_path = 'binaries/disa/releases/tgz'
+              else:
+                fw_name = '${{ github.event.inputs.fw_path }}'
+                fw_path = '${{ github.event.inputs.fw_path }}'
+
+              names.append('user_specified_tests')
+              include.append({'name':'user_specified_tests',
+                      'iproute_version':iproute,
+                      'firmware_name':fw_name,
+                      'firmware_path':fw_path,
+                      'config_file':'generic',
+                      'test_cases':'${{ github.event.inputs.test }}'})
+
+          testMatrix["name"] = names
+          testMatrix["include"] = include
+          print(json.dumps(testMatrix, indent=2))
+
+          print("::set-output name=matrix::" + str(testMatrix))
+
+      - name: Print test matrix
+        id: matrix
+        shell: python3 {0}
+        run: |
+          import json
+          if '${{ github.event_name }}' == 'push':
+            print("::set-output name=matrix::" + str(${{ steps.matrix_push.outputs.matrix }}))
+
+          if '${{ github.event_name }}' == 'workflow_dispatch':
+            print("::set-output name=matrix::" + str(${{ steps.matrix_dispatch.outputs.matrix }}))
+
+  regression-tests:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+
+    runs-on:
+      - self-hosted
+      - ${{ matrix.platform }}
+      - ci-${{ matrix.os }}
+      - ci-cluster-vm
+      - DUT-DUT
+      - two-port
+
+    steps:
+    # ----- PROVISION -----
+      - name: Clean old artifacts
+        run: sudo git clean -ffdx || sudo find -delete
+
+      - name: Checkout provisioning repo
+        uses: actions/checkout@v3
+        with:
+          repository: Corigine/ci-libs
+          ref: wip-CICD-681-ci-config-fix
+          token: ${{ secrets.GHUB_TOKEN }}
+          path: ci-libs
+
+      - name: Get kernel to reset to after tests
+        shell: bash
+        run: |
+          source ci-libs/ci-config/$HOSTNAME/environment
+          echo "KERNEL_RESET=$(ssh -xn root@$CLUSTER_DUT "uname -r")" >> $GITHUB_ENV
+
+      - name: Create directory for custom kernel and llvm tarballs
+        shell: bash
+        run: |
+          mkdir ci-libs/ansible/roles/kernel_installer/files
+          mkdir ci-libs/ansible/roles/llvm/files
+
+      - name: Download kernel
+        uses: ./ci-libs/github_actions/azure/azcopy_download
+        with:
+          connection-string: ${{ secrets.AZ_SAS_TOK }}
+          src: tmp/net_next_builds/centos-stream8/${{ matrix.kernel }}
+          dst: ci-libs/ansible/roles/kernel_installer/files/${{ matrix.kernel }}
+
+      - name: Find llvm
+        uses: ./ci-libs/github_actions/azure/azcopy_list
+        id: artifact_llvm
+        with:
+          connection-string: ${{ secrets.AZ_SAS_TOK }}
+          src: binaries/misc/llvm
+          pattern: 'llvm-toolchain-13.*'
+
+      - name: Download llvm
+        uses: ./ci-libs/github_actions/azure/azcopy_download
+        with:
+          connection-string: ${{ secrets.AZ_SAS_TOK }}
+          src: binaries/misc/llvm/${{ steps.artifact_llvm.outputs.latest }}
+          dst: ci-libs/ansible/roles/llvm/files/llvm-toolchain.tar.gz
+
+      - name: Provision test machines
+        uses: ./ci-libs/github_actions/ansible/ansible_playbook
+        with:
+          playbook: provision_ci_dev_drv.yaml
+          tags: provision
+          extra_vars: |
+            target=${HOSTNAME//-/_}
+            allow_unsupported_platforms=yes
+            kernel_src='custom_package'
+            kernel_file_tar=${{ matrix.kernel }}
+            ci_dev_drv_iproute_version=${{ matrix.iproute_version }}
+            drv_llvm_install_src='custom_package'
+            dut_drv_version=${{ env.HEAD_REF }}
+            github_token=${{ secrets.GHUB_TOKEN }}
+          sudo: yes
+
+      - name: Get kernel to uninstall after tests
+        shell: bash
+        run: |
+          source ci-libs/ci-config/$HOSTNAME/environment
+          echo "KERNEL_REMOVE=$(ssh -xn root@$CLUSTER_DUT "uname -r" | sed 's/-/_/g')" >> $GITHUB_ENV
+
+      - name: Create firmware directories for tests
+        shell: bash
+        run: |
+          mkdir -p ./firmware/
+          mkdir -p ./firmware/test/
+          mkdir -p ~/logs/ci-dev-drv/
+
+      - name: Find test FW
+        uses: ./ci-libs/github_actions/azure/azcopy_list
+        id: artifact_fw
+        with:
+          connection-string: ${{ secrets.AZ_SAS_TOK }}
+          src: ${{ matrix.firmware_path }}
+          pattern: ${{ matrix.firmare_name }}
+
+      - name: Download test FW
+        uses: ./ci-libs/github_actions/azure/azcopy_download
+        with:
+          connection-string: ${{ secrets.AZ_SAS_TOK }}
+          src: ${{ matrix.firmware_path }}/${{ steps.artifact_fw.outputs.latest }}
+          dst: ./firmware/firmware.tar.gz
+
+      - name: Extract test firmware
+        shell: bash
+        run: |
+          sudo tar -xvzf ./firmware/firmware.tar.gz --strip-components=1 -C ./firmware/test/
+
+      - name: Copy driver from DUT
+        shell: bash
+        run: |
+          source ci-libs/ci-config/$HOSTNAME/environment
+          scp -r root@$CLUSTER_DUT:/root/nfp-drv-kmods-private .
+
+      - name: Checkout testing repo
+        uses: actions/checkout@v3
+        with:
+          repository: Corigine/nti-private
+          token: ${{ secrets.GHUB_TOKEN }}
+          path: nti-private
+
+      - name: Run tests
+        continue-on-error: true
+        shell: bash
+        run: |
+          CONFIG_FILE=$(ls ci-libs/ci-config/$HOSTNAME/ci-dev-drv/${{ matrix.config_file }}.* | head -1)
+          cd nfp-drv-kmods-private
+          for i in ${{ matrix.test_cases }}
+          do
+            ../nti-private/ti/ticmd -c ../$CONFIG_FILE -l ~/logs/ci-dev-drv/$i run tests.$i || true
+          done
+
+      - name: Uninstall kernel from test machines
+        if: always()
+        uses: ./ci-libs/github_actions/ansible/ansible_playbook
+        with:
+          playbook: site.yaml
+          tags: kernel_uninstaller
+          extra_vars: |
+            target=${HOSTNAME//-/_}_dut
+            allow_unsupported_platforms=yes
+            kernel_remove=${{ env.KERNEL_REMOVE }}
+            kernel_uninstaller_ver_reset=${{ env.KERNEL_RESET }}
+            github_token=${{ secrets.GHUB_TOKEN }}
+          sudo: yes
+
+      - name: Cleanup environment
+        run: sudo git clean -ffdx || sudo find -delete
