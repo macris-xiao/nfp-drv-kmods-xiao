@@ -1049,7 +1049,10 @@ class FECModesTest(CommonNonUpstreamTest):
                 self.src.cmd("/opt/netronome/bin/nfp-nsp -Z %s -C +fec3 %s" % (self.src_pci_addr, self.port2idx[i]))
 
         time.sleep(3) # Takes time for NSP to action this command
-        self.ping(port, should_fail=True)
+        if fec != "auto":
+            self.ping(port, should_fail=True)
+        else:
+            self.ping(port)
         for i in range(len(self.nsp)):
             self.src.cmd("/opt/netronome/bin/nfp-nsp -Z %s -C +%s %s" % (self.src_pci_addr, nsp_fec_mode, self.port2idx[i]))
 
