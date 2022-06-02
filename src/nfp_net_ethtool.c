@@ -270,6 +270,10 @@ nfp_net_set_fec_link_mode(struct nfp_eth_table_port *eth_port,
 #endif
 }
 
+static void nfp_add_media_link_mode(struct nfp_port *port, struct nfp_eth_table_port *eth_port)
+{
+}
+
 /**
  * nfp_net_get_link_ksettings - Get Link Speed settings
  * @netdev:	network interface device structure
@@ -300,6 +304,10 @@ nfp_net_get_link_ksettings(struct net_device *netdev,
 	ethtool_link_ksettings_add_link_mode(cmd, supported, FIBRE);
 	ethtool_link_ksettings_add_link_mode(cmd, supported, Pause);
 	ethtool_link_ksettings_add_link_mode(cmd, advertising, Pause);
+	ethtool_link_ksettings_add_link_mode(cmd, supported, 1000baseKX_Full);
+	ethtool_link_ksettings_add_link_mode(cmd, advertising, 1000baseKX_Full);
+	ethtool_link_ksettings_add_link_mode(cmd, supported, 10000baseKR_Full);
+	ethtool_link_ksettings_add_link_mode(cmd, advertising, 10000baseKR_Full);
 	cmd->base.port = PORT_OTHER;
 	compat__ethtool_cmd_speed_set(cmd, SPEED_UNKNOWN);
 	cmd->base.duplex = DUPLEX_UNKNOWN;
@@ -311,6 +319,8 @@ nfp_net_get_link_ksettings(struct net_device *netdev,
 			AUTONEG_ENABLE : AUTONEG_DISABLE;
 		nfp_net_set_fec_link_mode(eth_port, cmd);
 	}
+
+	nfp_add_media_link_mode(port, eth_port);
 
 	if (!netif_carrier_ok(netdev))
 		return 0;
