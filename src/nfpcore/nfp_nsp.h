@@ -65,6 +65,11 @@ static inline bool nfp_nsp_has_read_module_eeprom(struct nfp_nsp *state)
 	return nfp_nsp_get_abi_ver_minor(state) > 28;
 }
 
+static inline bool nfp_nsp_has_read_media(struct nfp_nsp *state)
+{
+	return nfp_nsp_get_abi_ver_minor(state) > 29;
+}
+
 enum nfp_eth_interface {
 	NFP_INTERFACE_NONE	= 0,
 	NFP_INTERFACE_SFP	= 1,
@@ -250,6 +255,17 @@ enum nfp_nsp_sensor_id {
 
 int nfp_hwmon_read_sensor(struct nfp_cpp *cpp, enum nfp_nsp_sensor_id id,
 			  long *val);
+
+struct nfp_eth_media_buf {
+	u8 eth_index;
+	u64 supported_modes[2];
+	u64 advertised_modes[2];
+};
+
+int nfp_nsp_read_media(struct nfp_nsp *state, void *buf, unsigned int size);
+struct nfp_eth_media_buf * nfp_eth_read_media(struct nfp_cpp *cpp, int eth_index);
+struct nfp_eth_media_buf *
+__nfp_eth_read_media(struct nfp_nsp *nsp, int eth_index);
 
 #define NFP_NSP_VERSION_BUFSZ	1024 /* reasonable size, not in the ABI */
 

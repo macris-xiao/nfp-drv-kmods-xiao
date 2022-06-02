@@ -610,3 +610,62 @@ int __nfp_eth_set_split(struct nfp_nsp *nsp, unsigned int lanes)
 	return NFP_ETH_SET_BIT_CONFIG(nsp, NSP_ETH_RAW_PORT, NSP_ETH_PORT_LANES,
 				      lanes, NSP_ETH_CTRL_SET_LANES);
 }
+
+struct eth_media_buf {
+	u8 eth_index;
+	u8 reserved[7];
+	u64 supported_modes[2];
+	u64 advertised_modes[2];
+};
+
+struct nfp_eth_media_buf *nfp_eth_read_media(struct nfp_cpp *cpp, int eth_index)
+{
+	struct nfp_eth_media_buf *ret;
+	struct nfp_nsp *nsp;
+
+	nsp = nfp_nsp_open(cpp);
+	if (IS_ERR(nsp))
+		return NULL;
+
+	ret = __nfp_eth_read_media(nsp, eth_index);
+	nfp_nsp_close(nsp);
+
+	return ret;
+}
+
+struct nfp_eth_media_buf *
+__nfp_eth_read_media(struct nfp_nsp *nsp, int eth_index)
+{
+	struct nfp_eth_media_buf *ethm = NULL;
+	struct eth_media_buf *em;
+	int ret;
+
+	if (!nfp_nsp_has_read_media(nsp))
+		return NULL;
+
+	em = kzalloc(sizeof(*em), GFP_KERNEL);
+	if(!em)
+		return NULL;
+
+	em->eth_index = eth_index;
+	ret = nfp_nsp_read_media(nsp, em, sizeof(*em));
+	if (ret < 0) {
+		nfp_err(nfp_nsp_cpp(nsp), "reading bsp version failed %d\n",
+			ret);
+		goto exit_free;
+	}
+
+	ethm = kzalloc(sizeof(*ethm), GFP_KERNEL);
+	if (!ethm)
+		goto exit_free;
+
+	ethm->eth_index = em->eth_index;
+	memcpy(ethm->supported_modes, em->supported_modes,
+	       sizeof(em->supported_modes));
+	memcpy(ethm->advertised_modes, em->advertised_modes,
+	       sizeof(em->advertised_modes));
+
+exit_free:
+	kfree(em);
+	return ethm;
+}
