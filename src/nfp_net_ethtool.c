@@ -270,8 +270,69 @@ nfp_net_set_fec_link_mode(struct nfp_eth_table_port *eth_port,
 #endif
 }
 
-static void nfp_add_media_link_mode(struct nfp_port *port, struct nfp_eth_table_port *eth_port)
+struct nfp_eth_media_config {
+	int supported;
+	int advertised;
+};
+
+static
+struct nfp_eth_media_config nfp_eth_media_table[NFP_LINK_MODES_NUMBER];
+
+#define NFP_ETH_BUILD_LINK_MODES_CONFIG(reg_, mode)		\
+	({							\
+		struct nfp_eth_media_config *cfg;		\
+		cfg = &nfp_eth_media_table[reg_];		\
+		cfg->supported = mode;				\
+		cfg->advertised = mode;				\
+	})
+
+void nfp_eth_build_link_modes_map(void)
 {
+	memset(nfp_eth_media_table, 0, sizeof(nfp_eth_media_table));
+
+	NFP_ETH_BUILD_LINK_MODES_CONFIG(NFP_MEDIA_W0_RJ45_10M,
+					ETHTOOL_LINK_MODE_10baseT_Full_BIT);
+	NFP_ETH_BUILD_LINK_MODES_CONFIG(NFP_MEDIA_W0_RJ45_10M_HD,
+					ETHTOOL_LINK_MODE_10baseT_Half_BIT);
+	NFP_ETH_BUILD_LINK_MODES_CONFIG(NFP_MEDIA_W0_RJ45_100M,
+					ETHTOOL_LINK_MODE_100baseT_Full_BIT);
+	NFP_ETH_BUILD_LINK_MODES_CONFIG(NFP_MEDIA_W0_RJ45_100M_HD,
+					ETHTOOL_LINK_MODE_100baseT_Half_BIT);
+	NFP_ETH_BUILD_LINK_MODES_CONFIG(NFP_MEDIA_W0_R1_25G_CR_RSFEC,
+					ETHTOOL_LINK_MODE_25000baseCR_Full_BIT);
+}
+
+#define nfp_ethtool_add_media_link_mode(ptr, name, link_mode)	\
+	__set_bit(link_mode, (ptr)->link_modes.name)
+
+static void nfp_add_media_link_mode(struct nfp_port *port,
+				    struct nfp_eth_table_port *eth_port,
+				    struct ethtool_link_ksettings *cmd)
+{
+	struct nfp_cpp *cpp = port->app->cpp;
+	u8 eth_index = eth_port->eth_index;
+	struct nfp_eth_media_buf *ethm;
+	int i;
+
+	ethm = nfp_eth_read_media(cpp, eth_index);
+	nfp_eth_build_link_modes_map();
+	for (i = 0; i < NFP_LINK_MODES_NUMBER; ++i) {
+		if (i < 64) {
+			if ((ethm->supported_modes[0] & BIT(i)) != 0)
+				nfp_ethtool_add_media_link_mode(cmd, supported,
+								nfp_eth_media_table[i].supported);
+			if ((ethm->advertised_modes[0] & BIT(i)) != 0)
+				nfp_ethtool_add_media_link_mode(cmd, advertising,
+								nfp_eth_media_table[i].advertised);
+		} else {
+			if ((ethm->supported_modes[1] & BIT(i-63)) != 0)
+				nfp_ethtool_add_media_link_mode(cmd, supported,
+								nfp_eth_media_table[i].supported);
+			if ((ethm->advertised_modes[1] & BIT(i-63)) != 0)
+				nfp_ethtool_add_media_link_mode(cmd, advertising,
+								nfp_eth_media_table[i].advertised);
+		}
+	}
 }
 
 /**
@@ -311,12 +372,11 @@ nfp_net_get_link_ksettings(struct net_device *netdev,
 	if (eth_port) {
 		ethtool_link_ksettings_add_link_mode(cmd, supported, Pause);
 		ethtool_link_ksettings_add_link_mode(cmd, advertising, Pause);
+		nfp_add_media_link_mode(port, eth_port, cmd);
 		cmd->base.autoneg = eth_port->aneg != NFP_ANEG_DISABLED ?
 			AUTONEG_ENABLE : AUTONEG_DISABLE;
 		nfp_net_set_fec_link_mode(eth_port, cmd);
 	}
-
-	nfp_add_media_link_mode(port, eth_port);
 
 	if (!netif_carrier_ok(netdev))
 		return 0;
