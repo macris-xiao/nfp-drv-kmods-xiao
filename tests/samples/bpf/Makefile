@@ -1,7 +1,8 @@
-LLVM_VERSION ?= -13
-LLVM := $(shell clang$(LLVM_VERSION) --version)
+LLVM_VERSION ?= 13
+LLVM := $(shell clang-$(LLVM_VERSION) --version)
 CLANG_FLAGS ?= -O2 -W -Wall \
 	-Wno-compare-distinct-pointer-types
+CLANG_DIRS ?= /lib/clang/$(LLVM_VERSION)/include
 KERNEL_HEADERS ?= $(KSRC)/usr/include
 
 # Exclude testcases requiring specific eBPF CPU versions initially. They do not
@@ -9,7 +10,7 @@ KERNEL_HEADERS ?= $(KSRC)/usr/include
 ALL_SRCS = $(wildcard *.c *.S)
 SRCS = $(filter-out $(SRCS_LLVM_CPU_V3), $(ALL_SRCS))
 LLVM_SUPPORT_CPU_V3 = $(shell echo "int main () { return 0; }" | \
-			clang$(LLVM_VERSION) -target bpf -mcpu=v3 -E - 2>&1 | \
+			clang-$(LLVM_VERSION) -target bpf -mcpu=v3 -E - 2>&1 | \
 			grep "main")
 ifneq ($(LLVM_SUPPORT_CPU_V3),)
 SRCS += $(SRCS_LLVM_CPU_V3)
@@ -22,13 +23,14 @@ Q ?= @
 
 %.o: %.c
 	@echo "\tLLVM CC $@"
-	$(Q) clang$(LLVM_VERSION) $(INCLUDE_DIRS) -I$(KERNEL_HEADERS) -emit-llvm -c $< $(CLANG_FLAGS) -o $(patsubst %.o,%.llvm,$@)
+	$(Q) clang-$(LLVM_VERSION) $(INCLUDE_DIRS) -I$(KERNEL_HEADERS) -I$(CLANG_DIRS) \
+		-emit-llvm -c $< $(CLANG_FLAGS) -o $(patsubst %.o,%.llvm,$@)
 	$(Q) llc -march=bpf -filetype=obj -o $@ $(patsubst %.o,%.llvm,$@)
 	$(Q) rm $(patsubst %.o,%.llvm,$@)
 
 %.o: %.S
 	@echo "\tLLVM ASM $@"
-	$(Q) clang$(LLVM_VERSION) -target bpf $(INCLUDE_DIRS) $(CLANG_FLAGS) -c $< -o $@
+	$(Q) clang-$(LLVM_VERSION) -target bpf $(INCLUDE_DIRS) $(CLANG_FLAGS) -c $< -o $@
 
 ifeq ($(LLVM),)
 all:
