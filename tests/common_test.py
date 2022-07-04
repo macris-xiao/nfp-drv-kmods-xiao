@@ -734,6 +734,43 @@ class CommonTest(Test):
 
         return list(set(self.dut._netifs) - set(netifs_old))
 
+    def spawn_tc_vf_netdev(self, num):
+        # Enable TC VFs if supported
+        max_vfs = self.read_scalar_nffw('nfd_vf_cfg_max_vfs')
+        num_vfs = int(num)
+        if num_vfs > max_vfs:
+             raise NtiError('num_vfs must less than max_vfs')
+        if not self.dut.kernel_ver_ge(4, 12):
+            self.dut.cmd('modprobe -r pci_stub')
+        self.dut.cmd('echo %d > /sys/bus/pci/devices/%s/sriov_numvfs' %
+                                  (num_vfs, self.group.pci_dbdf))
+        pci_dbdf = self.group.pci_dbdf
+        pci_dbdf_cut = re.findall("\d+", pci_dbdf)
+        ret, out = self.dut.cmd('lspci | grep Eth | grep "6003" | grep %s' % pci_dbdf_cut[1])
+        lines = out.split("\n")
+        vfs = []
+        vf_reps = []
+        for line in lines:
+            if line == '':
+                continue
+            vf_pci_bdf = line.split(" ")
+            vf_pci = pci_dbdf_cut[0] +  ":" + vf_pci_bdf[0]
+            ret, out = self.dut.cmd('ls /sys/bus/pci/devices/%s/net/' % vf_pci)
+            vf = re.findall(".*", out)
+            vfs.append(vf[0])
+            vf_reps.append("")
+        netifs_old = self.dut._netifs
+        self.dut.cmd("udevadm settle")
+        self.dut._get_netifs()
+        vfs_and_reprs = set(self.dut._netifs) - set(netifs_old)
+        vf_reps_tmp = set(vfs_and_reprs) - set(vfs)
+        for vf_rep in vf_reps_tmp:
+            _, out = self.dut.cmd('cat /sys/class/net/%s/phys_port_name' % vf_rep)
+            m = re.findall("\d+", out)
+            index = int(m[-1])
+            vf_reps[index] = vf_rep
+        return vfs, vf_reps
+
     def netdev_prep(self, fwname=None):
         LOG_sec("NFP netdev test prep")
 

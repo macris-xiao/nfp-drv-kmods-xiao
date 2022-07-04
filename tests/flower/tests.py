@@ -4262,8 +4262,11 @@ class FlowerActionIngressRateLimit(FlowerBase):
 
         netperf_ip_1 = '20.0.0.10'
         netperf_ip_2 = '20.0.0.20'
-        vf1, self.vf_repr1 = self.spawn_vf_netdev()
-        vf2, self.vf_repr2 = self.spawn_vf_netdev()
+        vfs, vf_reprs = self.spawn_tc_vf_netdev(2)
+        self.vf_repr1 = vf_reprs[0]
+        self.vf_repr2 = vf_reprs[1]
+        vf1 = vfs[0]
+        vf2 = vfs[1]
 
         iface = self.dut_ifn[0]
         if not iface[:-1].endswith('np') or not iface.startswith('en'):
@@ -4321,8 +4324,8 @@ class FlowerActionIngressRateLimit(FlowerBase):
 
         # Start netperf - 1 mbps
         self.dut.cmd('ip netns exec ns2 netserver')
-        ret, out = self.dut.cmd('ip netns exec ns1 netperf -H %s -l 60' % netperf_ip_2)
-        rate_line = out.split('\n')[-2].strip()
+        ret, out = self.dut.cmd('ip netns exec ns1 netperf -t UDP_STREAM -H %s -l 60 -- -M 1024 -m 1024' % netperf_ip_2)
+        rate_line = out.split('\n')[-3].strip()
         rate = float(rate_line.split()[-1])
         if rate > 1.15:
             raise NtiError("Rate equals more than 15%% the expected rate: %.2f" % rate)
@@ -4349,8 +4352,8 @@ class FlowerActionIngressRateLimit(FlowerBase):
 
         # Start netperf - 10 mbps
         self.dut.cmd('ip netns exec ns1 netserver')
-        ret, out = self.dut.cmd('ip netns exec ns2 netperf -H %s -l 60' % netperf_ip_1)
-        rate_line = out.split('\n')[-2].strip()
+        ret, out = self.dut.cmd('ip netns exec ns2 netperf -t UDP_STREAM -H %s -l 60 -- -M 1024 -m 1024' % netperf_ip_1)
+        rate_line = out.split('\n')[-3].strip()
         rate = float(rate_line.split()[-1])
         if rate > 11.5:
             raise NtiError("Rate equals more than 15%% the expected rate: %.2f" % rate)
