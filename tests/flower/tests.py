@@ -2257,10 +2257,10 @@ class FlowerModifyMTU(FlowerBase):
         iface, ingress = self.configure_flower()
         M = self.dut
 
-        # Test for high MTU set - 9420 should be max
-        ret = M.ip_link_set_mtu(iface, 9421, fail=False)
+        # Test for high MTU set - 9532 should be max
+        ret = M.ip_link_set_mtu(iface, 9533, fail=False)
         if not ret:
-            raise NtiError('invalid MTU of 9421 accepted on %s' %iface)
+            raise NtiError('invalid MTU of 9533 accepted on %s' %iface)
 
         # Test for high MTU set - 68 should be min
         ret = M.ip_link_set_mtu(iface, 67, fail=False)
@@ -2281,17 +2281,17 @@ class FlowerModifyMTU(FlowerBase):
         pcap_src = self.prep_pcap_simple_to_list(pkt)
         self.test_with_traffic(pcap_src, None,
                                (self.src, self.src_ifn[0], self.src),
-                               snaplen=9420)
+                               snaplen=9532)
 
         self.cleanup_filter(iface)
 
-        # Set mtu to 9420 and check it passes
-        ret = M.ip_link_set_mtu(iface, 9420)
+        # Set mtu to 9532 and check it passes
+        ret = M.ip_link_set_mtu(iface, 9532)
 
         self.install_filter(iface, match, action)
         self.test_with_traffic(pcap_src, str(pkt),
                                (self.src, self.src_ifn[0], self.src),
-                               snaplen=9420)
+                               snaplen=9532)
 
         self.cleanup_filter(iface)
 
@@ -2301,7 +2301,7 @@ class FlowerModifyMTU(FlowerBase):
         self.install_filter(iface, match, action)
         self.test_with_traffic(pcap_src, None,
                                (self.src, self.src_ifn[0], self.src),
-                               snaplen=9420)
+                               snaplen=9532)
 
         self.cleanup_filter(iface)
 
