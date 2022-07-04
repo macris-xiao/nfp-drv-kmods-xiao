@@ -172,20 +172,30 @@ class FlowerBase(CommonTest):
     def _parse_flower_version(self, fw_name):
         fw_v_dict = {}
         prefix, vers = fw_name.split("-")
-        major, minor, symbol, buildnr = vers.split(".")
-        fw_v_dict["name"] = fw_name
-        fw_v_dict["major"] = int(major)
-        fw_v_dict["minor"] = int(minor)
-        fw_v_dict["symbol"] = symbol
-        fw_v_dict["buildnr"] = int(buildnr)
-        fw_cmp = int(major)<<16 | int(minor)<<8 | int(buildnr)
-        fw_v_dict["int_ver"] = fw_cmp
-        return fw_v_dict
+        if "tc" in fw_name:
+            major, minor, symbol = vers.split(".")
+            fw_v_dict["name"] = fw_name
+            fw_v_dict["major"] = int(major)
+            fw_v_dict["minor"] = int(minor)
+            fw_v_dict["symbol"] = symbol
+            fw_cmp = int(major)<<16 | int(minor)<<8 
+            fw_v_dict["int_ver"] = fw_cmp
+            return fw_v_dict
+        else:
+            major, minor, symbol, buildnr = vers.split(".")
+            fw_v_dict["name"] = fw_name
+            fw_v_dict["major"] = int(major)
+            fw_v_dict["minor"] = int(minor)
+            fw_v_dict["symbol"] = symbol
+            fw_v_dict["buildnr"] = int(buildnr)
+            fw_cmp = int(major)<<16 | int(minor)<<8 | int(buildnr)
+            fw_v_dict["int_ver"] = fw_cmp
+            return fw_v_dict
 
     def _ethtool_get_flower_version(self, host, iface):
         ethtool_fields = host.ethtool_drvinfo(iface)
         for subs in ethtool_fields["firmware-version"].split(" "):
-            if "AOTC" in subs:
+            if "AOTC" in subs or "tc-" in subs:
                 fwname = subs
         return self._parse_flower_version(fwname)
 
@@ -2445,7 +2455,11 @@ class FlowerVxlanWhitelist(FlowerBase):
         action = 'mirred egress redirect dev %s' % iface
 
         # Later version of FW+kernel does support ipv6 offload
-        if self.flower_fw_version_ge(M, iface, "AOTC-2.14.A.6") and \
+        host_fw = self._ethtool_get_flower_version(M, iface)
+        if "tc-" in host_fw["name"]:
+            self.install_filter('vxlan0', match, action)
+        elif "AOTC" in host_fw and \
+          self.flower_fw_version_ge(M, iface, "AOTC-2.14.A.6") and \
           self.dut.kernel_ver_ge(5, 6):
             self.install_filter('vxlan0', match, action)
         else:
@@ -2469,7 +2483,10 @@ class FlowerVxlanWhitelist(FlowerBase):
         match = 'ip flower ip_proto tcp'
         action = 'tunnel_key set id 123 src_ip %s dst_ip %s dst_port 4789 nocsum action mirred egress redirect dev vxlan0' % (dut_ip6, src_ip6)
         # Later version of FW+kernel does support ipv6 offload
-        if self.flower_fw_version_ge(M, iface, "AOTC-2.14.A.6") and \
+        if "tc-" in host_fw["name"]:
+            self.install_filter(iface, match, action)
+        elif "AOTC" in host_fw and \
+          self.flower_fw_version_ge(M, iface, "AOTC-2.14.A.6") and \
           self.dut.kernel_ver_ge(5, 6):
             self.install_filter(iface, match, action)
         else:
