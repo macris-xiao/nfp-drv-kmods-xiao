@@ -3,6 +3,7 @@ CHIP ?= nfp-4xxx-b0
 AMDA ?= hydrogen
 
 NFCC := nfcc
+TOOLCHAIN_DIRS ?= /opt/netronome/components/standardlibrary/microc/include
 CFLAGS := -W3 -chip $(CHIP)
 FWNAME := TEST_FW_12345678
 
@@ -65,11 +66,11 @@ dummy_nfd.nffw: dummy_nfd.list
 # This rule will generate different count of RT-SYMS by setting a define
 # and using the single C source as a basis
 rts_%.list: rts.c
-	$(NFCC) $< $(CFLAGS) -o $@ \
+	$(NFCC) $< $(CFLAGS) -I$(TOOLCHAIN_DIRS) -o $@ \
 	-D NUM_SYMS=$(subst .list,,$(subst rts_,,$@))
 
 rts_vals.list: rts_vals.c
-	$(NFCC) $< $(CFLAGS) -o $@
+	$(NFCC) $< $(CFLAGS) -I$(TOOLCHAIN_DIRS) -o $@
 
 abs_rtsym.list: abs_rtsym.uc
 	nfas -o $@ --chip $(CHIP) -codeless $<
