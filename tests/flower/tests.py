@@ -2144,10 +2144,10 @@ class FlowerMatchTOS(FlowerBase):
         return super(FlowerMatchTOS, self).cleanup()
 
 class FlowerMatchFrag(FlowerBase):
-    def install_test(self, flag, iface):
+    def install_test(self, flag, iface, ingress):
         match = self.ip_ver + ' flower ip_flags ' + flag
         action = 'mirred egress redirect dev %s' % iface
-        self.install_filter(iface, match, action)
+        self.install_filter(iface, match, action)    
 
     def frag_filter(self, flags, iface, ingress):
         pkt = self.pkt
@@ -2176,9 +2176,8 @@ class FlowerMatchFrag(FlowerBase):
     def frag_test(self):
         iface, ingress = self.configure_flower()
         frag = ['nofrag', 'frag', 'firstfrag', 'nofirstfrag']
-
         for flags in frag:
-            self.install_test(flags, iface)
+            self.install_test(flags, iface, ingress)
             self.frag_filter(flags, iface, ingress)
             self.cleanup_filter(iface)
 
@@ -2218,18 +2217,16 @@ class FlowerMatchFragIPv6(FlowerMatchFrag):
                           ' not ether host 01:80:c2:00:00:0e and' \
                           ' not ether host ff:ff:ff:ff:ff:ff"'
 
-    def install_test(self, flag, iface):
+    def install_test(self, flag, iface, ingress):
         # Store current router solicitation setting
-        cmd = "sysctl -a -r net.ipv6.conf.%s.accept_ra$" % (iface)
+        cmd = "sysctl -a -r net.ipv6.conf.%s.accept_ra$" % (ingress)
         _, ret_str = self.src.cmd(cmd)
         self.ra = int(ret_str.strip().split(" ")[-1])
-
         # Disable ipv6 router solicitation which causes extra packets
-        cmd = 'sysctl -w net.ipv6.conf.%s.accept_ra=0;' % (iface)
+        cmd = 'sysctl -w net.ipv6.conf.%s.accept_ra=0;' % (ingress)
         self.src.cmd(cmd)
         self.ra_changed = True
-
-        super(FlowerMatchFragIPv6, self).install_test(flag, iface)
+        super(FlowerMatchFragIPv6, self).install_test(flag, iface, ingress)
 
     def cleanup(self):
         # Restore the saved ipv6 solicitation setting
