@@ -178,7 +178,7 @@ jobs:
           print("::set-output name=matrix::" + str(testMatrix))
 
       - name: Populate test matrix on dispatch
-        if: github.event_name == 'worflow_dispatch'
+        if: github.event_name == 'workflow_dispatch'
         id: matrix_dispatch
         shell: python3 {0}
         run: |
@@ -325,6 +325,72 @@ jobs:
                                     'unit.versions',
                                     'unit.devlink_param']})
 
+              names.append('flower_nic_tests')
+              include.append({'name':'flower_nic_tests',
+                      'iproute_version':'5.15.0',
+                      'firmware_name':fw_name,
+                      'firmware_path':fw_path,
+                      'config_file':'generic',
+                      'test_cases':['flower.flower_match_mac',
+                                    'flower.flower_match_vlan_id',
+                                    'flower.flower_match_vlan_pcp',
+                                    'flower.flower_match_vlan',
+                                    'flower.flower_match_qinq',
+                                    'flower.flower_match_vlan_cfi',
+                                    'flower.flower_match_ipv4',
+                                    'flower.flower_match_ipv6 ',
+                                    'flower.flower_match_tcp',
+                                    'flower.flower_match_ipv4_tcp_flags ',
+                                    'flower.flower_match_ipv6_tcp_flags',
+                                    'flower.flower_match_udp',
+                                    'flower.flower_match_mpls',
+                                    'flower.flower_match_ttl',
+                                    'flower.flower_match_tos',
+                                    'flower.flower_match_frag_ipv4',
+                                    'flower.flower_match_frag_ipv6',
+                                    'flower.flower_match_gre',
+                                    'flower.flower_match_gre_in_vlan',
+                                    'flower.flower_match_vxlan',
+                                    'flower.flower_match_vxlan_in_vlan',
+                                    'flower.flower_match_geneve',
+                                    'flower.flower_match_geneve_in_vlan',
+                                    'flower.flower_match_geneve_opt',
+                                    'flower.flower_match_geneve_multi_opt',
+                                    'flower.flower_match_block',
+                                    'flower.flower_match_tunnel_to_shared_mac',
+                                    'flower.flower_modify_mtu',
+                                    'flower.flower_match_whitelist',
+                                    'flower.flower_vxlan_whitelist',
+                                    'flower.flower_gre_whitelist',
+                                    'flower.flower_csum_whitelist',
+                                    'flower.flower_action_push_vlan',
+                                    'flower.flower_action_pop_vlan',
+                                    'flower.flower_action_encap_gre',
+                                    'flower.flower_action_encap_gre_merge',
+                                    'flower.flower_action_encap_vxlan',
+                                    'flower.flower_action_encap_vxlan_merge',
+                                    'flower.flower_action_encap_vxlan_merge_in_vlan',
+                                    'flower.flower_action_encap_geneve',
+                                    'flower.flower_action_encap_geneve_merge',
+                                    'flower.flower_action_encap_geneve_merge_in_vlan',
+                                    'flower.flower_action_encap_geneve_opt',
+                                    'flower.flower_action_encap_geneve_multi_opt',
+                                    'flower.flower_action_set_ether',
+                                    'flower.flower_action_set_ipv4',
+                                    'flower.flower_action_set_ipv4_ttl_tos',
+                                    'flower.flower_action_set_ipv6',
+                                    'flower.flower_action_set_ipv6_hl_fl',
+                                    'flower.flower_action_set_udp',
+                                    'flower.flower_action_set_tcp',
+                                    'flower.flower_action_set_multi',
+                                    'flower.flower_action_push_mpls',
+                                    'flower.flower_action_pop_mpls',
+                                    'flower.flower_action_set_mpls',
+                                    'flower.flower_vlan_repr',
+                                    'flower.flower_repr_linkstate',
+                                    'flower.flower_bond_egress',
+                                    'flower.flower_ingress_rate_limit',
+                                    'flower.flower_max_entries',
 
 
           if ( ${{ github.event.inputs.test }} == 'all' and
