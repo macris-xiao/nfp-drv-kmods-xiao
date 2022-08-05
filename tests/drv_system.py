@@ -544,7 +544,10 @@ class DrvSystem(LinuxSystem):
         return data.strip()
 
     def dfs_read_raw(self, path):
-        _, data = self.cmd('cat %s' % (os.path.join(self.dfs_dir, path)))
+        # Read in single-byte hex format (no line suppression) and discard newlines.
+        _, data = self.cmd('od %s -v -t x1 -A n | tr -d " \n"' %
+                            (os.path.join(self.dfs_dir, path)))
+        data = str(bytearray.fromhex(data))
         return data
 
     def dfs_read_bytes(self, path):
