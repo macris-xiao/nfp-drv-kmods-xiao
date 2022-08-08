@@ -831,10 +831,10 @@ class AutonegEthtool(CommonNonUpstreamTest):
         raise NtiError('Invalid hwinfo aneg status: %s' % (status))
 
     def get_hwinfo_status(self, ifc):
-        if self.dut.get_part_no() == 'AMDA0099-0001':
+        if self.dut.get_part_no() in ['AMDA0099-0001', 'AMDA0099-0002']:
             return self.get_hwinfo_status_aneg(ifc)
         else:
-            # Currently, only nic_AMDA0099-0001_2x25.nffw support the auto-negotiation
+            # Currently, only nic_AMDA0099-000*_2x25.nffw support the auto-negotiation
             raise NtiSkip("Test only support nic_AMDA0099-0001 currently")
 
     def state_check(self):
