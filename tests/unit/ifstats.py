@@ -79,7 +79,7 @@ class IFstats(CommonNetdevTest):
 
         for ifc in self.vnics:
             port = self.dut_ifn.index(ifc)
-
+            # Wait for DUT link stability
             self.dut.link_wait(ifc)
             # Ping to ensure connectivity
             self.dut.ping(addr=self.src_addr[port][:-3], ifc=ifc)
@@ -172,6 +172,9 @@ class IFstats(CommonNetdevTest):
 
                 # Restore source link state
                 self.src.ip_link_set_up(self.src_ifn[port])
+
+                # Wait for DUT link stability
+                self.dut.link_wait(ifc)
 
     def cleanup(self):
         for ifc in self.src_ifn:
