@@ -1111,7 +1111,7 @@ class FECModesTest(CommonNonUpstreamTest):
             p = re.match('(.*): NBI', self.nsp[i]).groups()
             self.port2idx += [p[0]]
 
-        if self.dut.get_part_no() == 'AMDA0099-0001':
+        if self.dut.get_part_no() in ['AMDA0099-0001', 'AMDA0099-0002']:
             self.is_fec_capable = True
 
             # Reset the current FEC mode to default, i.e. auto and switch off
