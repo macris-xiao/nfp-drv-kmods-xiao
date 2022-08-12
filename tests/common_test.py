@@ -95,6 +95,47 @@ class NtiFail(DrvTestResultException):
 ###############################################################################
 # Helper functions
 ###############################################################################
+
+
+def bsp_string_to_num(version):
+    """
+    Converts BSP version to a new number and returns it
+    """
+    # Split digits at non-numerical characters,
+    # e.g. 22.07-0 => ["22","07","0"]
+    version = version.strip()
+    version = re.split(r'\D+', version)
+
+    # Check for if there is a version revision
+    if len(version) == 3:
+        revision = int(version[2])
+    else:
+        revision = 0
+
+    # Create new number by shifting their bits.
+    # This is used to compare BSP versions
+    # but as a new encoded number.
+    # 22.07-0 will be 1443584 as follows:
+    # 0x160000 + 0x700 + 0x0 = 0x160700 => 1443584
+    bsp_ver = (int(version[0]) << 16) + (int(version[1]) << 8) + revision
+
+    return bsp_ver
+
+
+def bsp_num_to_string(number):
+    """
+    Returns BSP version as follows: 22.07-0
+    """
+    # 22   07   0
+    # |    |    |
+    # maj  min  ref
+    maj = (number >> 16) & 0xff
+    min = (number >> 8) & 0xff
+    ref = number & 0xff
+    version = "%s.0%s-%s" % (maj, min, ref)
+
+    return version
+
 def drv_load_record_ifcs(obj, group, fwname=None):
     # Load the driver and remember which interfaces got spawned
     obj.dut._get_netifs()
