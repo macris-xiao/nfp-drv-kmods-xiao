@@ -1042,21 +1042,26 @@ class FECModesTest(CommonNonUpstreamTest):
         # However, if the DUT is configured for auto FEC detection, the first
         # ping should succeed.
         if fec == "off":
-            for i in range(len(self.nsp)):
-                self.src.cmd("/opt/netronome/bin/nfp-nsp -Z %s -C +fec1 %s" % (self.src_pci_addr, self.port2idx[i]))
+            for port in range(0, len(self.src_ifn)):
+                iface = self.src_ifn[port]
+                self.src.ethtool_set_fec(iface, "baser")
         else:
-            for i in range(len(self.nsp)):
-                self.src.cmd("/opt/netronome/bin/nfp-nsp -Z %s -C +fec3 %s" % (self.src_pci_addr, self.port2idx[i]))
+            for port in range(0, len(self.src_ifn)):
+                iface = self.src_ifn[port]
+                self.src.ethtool_set_fec(iface, "off")
 
-        time.sleep(3) # Takes time for NSP to action this command
+        # Takes time for ethtool to take action on previous command
+        time.sleep(3)
         if fec != "auto":
             self.ping(port, should_fail=True)
         else:
             self.ping(port)
-        for i in range(len(self.nsp)):
-            self.src.cmd("/opt/netronome/bin/nfp-nsp -Z %s -C +%s %s" % (self.src_pci_addr, nsp_fec_mode, self.port2idx[i]))
+        for port in range(0, len(self.src_ifn)):
+            iface = self.src_ifn[port]
+            self.src.ethtool_set_fec(iface, fec)
 
-        time.sleep(3) # Takes time for NSP to action this command
+        # Takes time for ethtool to take action on previous command
+        time.sleep(3)
         self.ping(port)
 
     def set_fec_and_expect_to_fail(self, port_tuple, fec):
@@ -1073,28 +1078,24 @@ class FECModesTest(CommonNonUpstreamTest):
 
     def cleanup(self):
         if self.is_fec_capable:
-            for i in range(len(self.nsp)):
-                self.dut.cmd_nsp('-C +aneg0 ' + self.port2idx[i])
-                self.dut.cmd_nsp('-C +fec0 ' + self.port2idx[i])
-            for i in range(len(self.nsp)):
-                self.src.cmd("/opt/netronome/bin/nfp-nsp -Z %s -C +aneg0 %s" % (self.src_pci_addr, self.port2idx[i]))
-                self.src.cmd("/opt/netronome/bin/nfp-nsp -Z %s -C +fec0 %s" % (self.src_pci_addr, self.port2idx[i]))
+            for port in range(0, len(self.dut_ifn)):
+                iface = self.dut_ifn[port]
+                self.dut.ip_link_set_down(iface)
+                self.dut.ethtool_set_autoneg(iface, "on")
+                self.dut.ip_link_set_up(iface)
+                self.dut.ethtool_set_fec(iface, "auto")
+            for port in range(0, len(self.src_ifn)):
+                iface = self.src_ifn[port]
+                self.src.ip_link_set_down(iface)
+                self.src.ethtool_set_autoneg(iface, "on")
+                self.src.ip_link_set_up(iface)
+                self.src.ethtool_set_fec(iface, "auto")
 
         return super(CommonNonUpstreamTest, self).cleanup()
 
     def netdev_execute(self):
         self.check_nsp_min(22)
         self.skip_not_ifc_phys()
-
-        # In order to execute this test, one needs to have an ethtool version
-        # readily available in the PATH of your system that supports FEC mode
-        # configuration. At the time of authoring this test, FEC support in ethtool
-        # has not been available upstream yet, barring some experimental RFC
-        # patches. Refer to:
-        # https://www.mail-archive.com/netdev@vger.kernel.org/msg134138.html
-        ret, _ = self.dut.cmd('ethtool --help | grep -q FEC', False)
-        if ret != 0:
-            raise NtiSkip("Need ethtool FEC support to execute test.")
 
         port_mac_tuple_list = []
         for port in range(0, len(self.dut_ifn)):
@@ -1103,32 +1104,27 @@ class FECModesTest(CommonNonUpstreamTest):
                                        iface)
             port_mac_tuple_list.append((iface, mac_addr, port))
 
-        # Obtain the correct indexes of ports
-        self.port2idx = []
-        _, nsp = self.dut.cmd_nsp(' -E | grep NBI')
-        self.nsp = nsp.strip().split('\n')
-        for i in range(0, len(self.nsp)):
-            p = re.match('(.*): NBI', self.nsp[i]).groups()
-            self.port2idx += [p[0]]
-
         if self.dut.get_part_no() in ['AMDA0099-0001', 'AMDA0099-0002']:
             self.is_fec_capable = True
 
             # Reset the current FEC mode to default, i.e. auto and switch off
             # autoneg
-            for i in range(len(self.nsp)):
-                self.dut.cmd_nsp('-C +aneg4 ' + self.port2idx[i])
-                self.dut.cmd_nsp('-C +fec0 ' + self.port2idx[i])
+            for port in range(0, len(self.dut_ifn)):
+                iface = self.dut_ifn[port]
+                self.dut.ip_link_set_down(iface)
+                self.dut.ethtool_set_autoneg(iface, "off")
+                self.dut.ip_link_set_up(iface)
+                self.dut.ethtool_set_fec(iface, "auto")
 
-            # Obtain the pci address of HostA
-            _, src_pci_info = self.src.cmd("ethtool -i %s | grep bus-info" % self.src_ifn[0])
-            self.src_pci_addr = src_pci_info.split()[1]
             # We always disable autoneg on the endpoint.
             # Since 25G isn't prevalent at the moment, and no other NIC vendor we
             # use have this feature, assume that the endpoint will be another Carbon.
-            for i in range(len(self.nsp)):
-                self.src.cmd("/opt/netronome/bin/nfp-nsp -Z %s -C +aneg4 %s" % (self.src_pci_addr, self.port2idx[i]))
-                self.src.cmd("/opt/netronome/bin/nfp-nsp -Z %s -C +fec0 %s" % (self.src_pci_addr, self.port2idx[i]))
+            for port in range(0, len(self.src_ifn)):
+                iface = self.src_ifn[port]
+                self.src.ip_link_set_down(iface)
+                self.src.ethtool_set_autoneg(iface, "off")
+                self.src.ip_link_set_up(iface)
+                self.src.ethtool_set_fec(iface, "auto")
 
         for entry in port_mac_tuple_list:
             iface = entry[0]
