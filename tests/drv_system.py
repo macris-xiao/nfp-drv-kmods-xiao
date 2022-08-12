@@ -8,6 +8,7 @@ Driver DUT class
 import json
 import os
 import time
+import re
 import netro.testinfra
 from netro.testinfra.system import *
 from netro.testinfra.system import _parse_ethtool
@@ -279,12 +280,15 @@ class DrvSystem(LinuxSystem):
         raise Exception(err)
 
     def get_nsp_ver(self, ifc=None):
+        """
+        This function returns the NSP API Version
+        """
         if ifc:
             _, out = self.cmd('ethtool -i %s' % (ifc))
 
             sp_ver = re.search('firmware-version: [^ ]* (\d*\.\d*)', out)
             if not sp_ver:
-                raise NtiError("Can't get NSP version - ethtool output invalid")
+                raise NtiError("Can't get NSP API version - ethtool output invalid")
 
             sp_ver = sp_ver.groups()[0]
         else: # Use userspace
@@ -295,17 +299,28 @@ class DrvSystem(LinuxSystem):
         sp_ver = sp_ver.split(".")
 
         if len(sp_ver) != 2:
-            raise NtiError("Can't get NSP version - sp ver invalid")
+            raise NtiError("Can't get NSP API version - sp ver invalid")
         if sp_ver[0] != "0":
             raise NtiError("Non-0 major version")
 
         return int(sp_ver[1])
 
-    def get_nsp_flash_ver(self):
-        _, out = self.cmd('dmesg | awk -F "." "/BSP/ {print \$5}" | tail -n1 | tr -d "*"')
-        if out == "":
-            return 0
-        return int(out, 16)
+    def get_bsp_ver(self):
+        """
+        This function returns the BSP Version as a string format,
+        e.g. 22.07-1
+        """
+        _, out = self.cmd('dmesg | awk -F ":" "/BSP/ {print \$5}"'
+                          ' | tail -n1 | tr -d "* "')
+
+        # Check for old BSP version e.g. BSP version is
+        # 010217.010217.010325, therefore out = 010325
+        oldBSP = re.compile(r"[0-9]{6}")
+        if out == oldBSP or out == "":
+            raise NtiSkip("The BSP version is either outdated for "
+                          "these tests or BSP tools is not installed.")
+
+        return out
 
     # Reimplement cp_to with -r parameter
     def cp_to(self, src, dst):
