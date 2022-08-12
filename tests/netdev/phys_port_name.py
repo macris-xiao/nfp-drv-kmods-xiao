@@ -18,7 +18,8 @@ class PhysPortName(CommonTest):
         for i in `ls`
         do
             echo $i \
-                 $([ -e $i/device ] && basename $(readlink $i/device) || echo no_dev) \
+                 $([ -e $i/device ] \
+                 && basename $(readlink $i/device) || echo no_dev) \
                  $(cat $i/phys_port_name || echo /no_name/) \
                  $(cat $i/address || echo /no_addr/)
         done
@@ -30,7 +31,7 @@ class PhysPortName(CommonTest):
             ifc, pci_dbdf, port_name, ethaddr = d.split()
 
             if ifc not in self.dut.nfp_netdevs:
-                self.log("Skip %s, not a NFP netdev" % (ifc), '')
+                self.log("Skip {0:s}, not a NFP netdev" .format(ifc), '')
                 continue
 
             if not re.match("^p\d+$", port_name) and \
@@ -41,7 +42,7 @@ class PhysPortName(CommonTest):
                not port_name == '/no_name/':
                 raise NtiError('Unexpected phys_port_name: ' + port_name)
 
-            _, pci_info = self.dut.cmd('lspci -s %s -n' % pci_dbdf)
+            _, pci_info = self.dut.cmd('lspci -s {0:s} -n' .format(pci_dbdf))
             drvinfo = self.dut.ethtool_drvinfo(ifc)
 
             # Check vNIC names are not on reprs
@@ -73,7 +74,7 @@ class PhysPortName(CommonTest):
                pci_info.count('19ee:6003') != 0:
                 raise NtiError("VFs with non-vNIC netdev")
 
-            self.log("Interface %s OKAY" % (ifc), '')
+            self.log("Interface {0:s} OKAY" .format(ifc), '')
 
         # The rest of the checks require BSP access
         if self.group.upstream_drv:
@@ -93,22 +94,22 @@ class PhysPortName(CommonTest):
 
             found += 1
 
-            labels = re.search('%s (\d*)\.(\d*)' % ethaddr, tbl)
+            labels = re.search('{0:s} (\d*)\.(\d*)' .format(ethaddr), tbl)
             if not labels:
-                raise NtiError('MAC addr for interface %s not found in ETH table' %
-                               ifc)
+                raise NtiError('MAC addr for interface {0:s} not found in ETH'
+                               'table' .format(ifc))
 
             # if label X.1 exists the port is split
-            is_split = tbl.find(' %s.1 ' % labels.groups()[0]) != -1
+            is_split = tbl.find(' {0:s}.1 ' .format(labels.groups()[0])) != -1
             if is_split:
-                want = 'p%ss%s' % labels.groups()
+                want = 'p{0:s}s{1:s}' .format(labels.groups())
             else:
-                want = 'p%s' % labels.groups()[0]
+                want = 'p{0:s}' .format(labels.groups()[0])
 
             if want != port_name:
-                raise NtiError('Port name incorrect want: %s have: %s' %
-                               (want, port_name))
+                raise NtiError('Port name incorrect want: {0:s} have: {1:s}'
+                               .format(want, port_name))
 
         if found != len(self.group.addr_x):
-            raise NtiError('Expected %d interfaces, found %d' %
-                           (len(self.group.addr_x), found))
+            raise NtiError('Expected {0:d} interfaces, found {1:d}'
+                           .format(len(self.group.addr_x), found))
