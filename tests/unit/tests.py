@@ -421,7 +421,7 @@ class HWInfoNspTest(CommonNTHTest):
         return self.dut.dfs_read('nth/hwinfo_val')
 
     def nth_execute(self):
-        self.nsp_min(25)
+        self.check_nsp_min(25)
 
         # Find something in overwrites to test with
         hwi = self.dut.get_hwinfo_full(what="", params="")
@@ -863,7 +863,7 @@ class AutonegEthtool(CommonNonUpstreamTest):
 
     def netdev_execute(self):
         # Check NSP version
-        self.nsp_min(15)
+        self.check_nsp_min(15)
         self.skip_not_ifc_phys()
 
         self.state = {}
@@ -942,7 +942,7 @@ class IfConfigDownTest(CommonNonUpstreamTest):
         self.do_check_port(iface, mac_addr, "\-Configured")
 
     def netdev_execute(self):
-        self.nsp_flash_min(0x02003c)
+        self.check_bsp_min("22.04-0")
 
         nsp_ifaces = ""
         for port_index in range(0, len(self.dut_ifn)):
@@ -1083,7 +1083,7 @@ class FECModesTest(CommonNonUpstreamTest):
         return super(CommonNonUpstreamTest, self).cleanup()
 
     def netdev_execute(self):
-        self.nsp_min(22)
+        self.check_nsp_min(22)
         self.skip_not_ifc_phys()
 
         # In order to execute this test, one needs to have an ethtool version

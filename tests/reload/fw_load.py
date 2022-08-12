@@ -118,7 +118,7 @@ class KernelLoadTest(CommonTest):
             raise NtiSkip('Cannot test more complex FW loading scenarios upstream')
 
         M.insmod(netdev=False, userspace=True)
-        self.nsp_min(26)
+        self.check_nsp_min(26)
 
         _, phy = self.dut.cmd_phymod('-E | grep "^eth"')
         phy = phy.strip().split('\n')

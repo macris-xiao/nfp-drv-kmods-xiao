@@ -77,7 +77,7 @@ from ..nfd import NfdBarOff
 
 class BspVerTest(CommonTest):
     def execute(self):
-        self.nsp_min(16)
+        self.check_nsp_min(16)
 
         cmd  = 'dmesg | tac | sed -n "1,/nfp: NFP PCIe Driver/p"'
         cmd += ' | grep "nfp 0000:%s"' % (self.group.pci_id)
@@ -125,7 +125,7 @@ class SensorsTest(CommonTest):
         raise NtiError('didn\'t find attr: %s', attr)
 
     def execute(self):
-        self.nsp_min(15)
+        self.check_nsp_min(15)
 
         ret, out = self.dut.cmd('sensors -u nfp-pci-%s%s' %
                                 (self.group.pci_id[0:2],
@@ -180,7 +180,7 @@ class LinkSpeedEthtool(CommonTest):
 
 class ModuleEepromEthtool(CommonTest):
     def execute(self):
-        self.nsp_min(29)
+        self.check_nsp_min(29)
 
         if self.group.upstream_drv:
             for iface in self.dut_ifn:

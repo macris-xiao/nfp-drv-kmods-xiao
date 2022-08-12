@@ -318,20 +318,33 @@ class CommonTest(Test):
             return NrtResult(name=self.name, testtype=self.__class__.__name__,
                              passed=None, comment=comment)
 
-    def nsp_flash_min(self, exp_ver):
-        nsp_flash_ver = self.dut.get_nsp_flash_ver()
-        if nsp_flash_ver < exp_ver:
-            raise NtiSkip("NSP flash version 0x%x, test requires 0x%x" %
-                          (nsp_flash_ver, exp_ver))
+    def check_bsp_min(self, exp_ver):
+        """
+        This function checks that the BSP version is not too old
+        """
+        # Obtain BSP version on the DUT
+        nsp_flash_ver = self.dut.get_bsp_ver()
 
-    def nsp_min(self, exp_ver):
+        # Convert BSP versions to a new number
+        # for comparisons
+        bsp_num = bsp_string_to_num(nsp_flash_ver)
+        exp_bsp_num = bsp_string_to_num(exp_ver)
+
+        if bsp_num < exp_bsp_num:
+            raise NtiSkip("BSP version \"%s\" is outdated, the tests"
+                          " requires \"%s\"" % (nsp_flash_ver, exp_ver))
+
+    def check_nsp_min(self, exp_ver):
+        """
+        This function checks that the NSP API version is not too old
+        """
         if self.group.upstream_drv:
             nsp_ver = self.dut.get_nsp_ver(ifc=self.dut_ifn[0])
         else:
             nsp_ver = self.dut.get_nsp_ver()
         if nsp_ver < exp_ver:
-            raise NtiSkip("NSP version %d, test requires %d" %
-                          (nsp_ver, exp_ver))
+            raise NtiSkip("NSP API version \"0.%s\" is outdated, the test"
+                          " requires \"0.%s\"" % (nsp_ver, exp_ver))
 
     def skip_not_ifc_phys(self):
         for ifc in self.dut_ifn:

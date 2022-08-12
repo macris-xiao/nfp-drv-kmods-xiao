@@ -10,7 +10,7 @@ from ..common_test import CommonNonUpstreamTest, assert_eq
 
 class VersionsTest(CommonNonUpstreamTest):
     def netdev_execute(self):
-        self.nsp_min(28)
+        self.check_nsp_min(28)
 
         _, info = self.dut.devlink_get_info("pci/" + self.group.pci_dbdf)
         assert_eq(info["driver"], "nfp", "Driver name")

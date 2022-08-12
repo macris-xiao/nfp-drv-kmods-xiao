@@ -126,7 +126,7 @@ class FlashArm(CommonNetdevTest):
                                 (comp[version_idx], version))
 
     def netdev_execute(self):
-        self.nsp_min(21)
+        self.check_nsp_min(21)
         fw_path = "/opt/netronome/flash/"
         flash_images = []
         _, contents = self.dut.cmd("find %s -maxdepth 1 -mindepth 1" % fw_path)
