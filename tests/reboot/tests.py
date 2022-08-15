@@ -139,7 +139,7 @@ class FlashArm(CommonNetdevTest):
 
         # Default branch BSP uses flash-boot.bin instead of flash-nic/flash-one
         # images.
-        nsp_version_re = re.findall("flash-boot-(\w+)\.bin", contents)
+        nsp_version_re = re.findall("flash-boot-([\w|\d\.-]*)\.bin", contents)
         if nsp_version_re:
             if nsp_version_re[0] != 'raw':
                 nsp_version = nsp_version_re[0]
@@ -147,7 +147,7 @@ class FlashArm(CommonNetdevTest):
                 nsp_version = nsp_version_re[1]
             flash_images.append(["flash-boot.bin", nsp_version, 1])
         else:
-            nsp_version_re = re.search("nfp-nspd-(0\w+).bin", contents)
+            nsp_version_re = re.search("nfp-nspd-([\w|\d\.-]*)\bin", contents)
             if not nsp_version_re:
                 raise NtiError("Unable to read NSP version from filename")
             nsp_version = nsp_version_re.groups(1)[0]
