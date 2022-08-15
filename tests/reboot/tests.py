@@ -46,7 +46,7 @@ from ..common_test import *
 from ..drv_system import DrvSystem
 
 class FlashArm(CommonNetdevTest):
-    def flash_test(self, fw_path, fw_name, version, version_idx):
+    def flash_test(self, fw_path, fw_name, version):
 
         # Make some garbage binary file based on the actual flash image
         garbage_flash = "/lib/firmware/flash-garbage.bin"
@@ -112,18 +112,8 @@ class FlashArm(CommonNetdevTest):
                          (self.dut_ifn[0], fw_name))
             self.reboot()
 
-        cmd  = 'dmesg | grep "nfp 0000:%s"' % (self.group.pci_id)
-        cmd += ' | grep -o "BSP: .*" | cut -c 6- | tail -1 | tr -d "\n"'
-        _, ver = self.dut.cmd(cmd)
-        comp = ver.split('.')
-        if len(comp) != 3:
-            raise NtiError('Did not find the expected BSP version string: %s' % \
-                            comp)
-        if not version is None and not version_idx is None:
-            LOG("checking actual version...")
-            if comp[version_idx] != version:
-                raise NtiError('Incorrect BSP version: %s != %s' % \
-                                (comp[version_idx], version))
+        # Check that correct BSP for this test is used
+        self.check_bsp_min(version)
 
     def netdev_execute(self):
         self.check_nsp_min(21)
@@ -160,7 +150,7 @@ class FlashArm(CommonNetdevTest):
                 raise NtiSkip("Test requires BSP package installed with access to the %s" % \
                               fw[0])
 
-            self.flash_test(fw_path, fw[0], fw[1], fw[2])
+            self.flash_test(fw_path, fw[0], fw[1])
 
 class KexecWithTraffic(CommonNetdevTest):
     def prepare(self):
