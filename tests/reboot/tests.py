@@ -50,7 +50,7 @@ class FlashArm(CommonNetdevTest):
 
         # Make some garbage binary file based on the actual flash image
         garbage_flash = "/lib/firmware/flash-garbage.bin"
-        self.dut.cmd("base64 %s%s > %s" % (fw_path, fw_name, garbage_flash))
+        self.dut.cmd("base32 %s%s > %s" % (fw_path, fw_name, garbage_flash))
         self.dut.cmd("yes | cp %s%s /lib/firmware/" % (fw_path, fw_name))
 
         if not self.dut.kernel_ver_lt(5, 1):
