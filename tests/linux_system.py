@@ -69,11 +69,17 @@ class LinuxSystem(System):
     def wait_online(self):
         ret = -1
         stop_time = time.time() + 400
+        # Fall back to ssh instead of an xmlrpc connection as the
+        # server is terminated during a reboot
+        self.cmd_proxy = None
         while ret != 0:
             ret, _ = self.cmd('ip link', fail=False)
             if time.time() >= stop_time:
                 raise NtiError('Waiting for reboot timed out')
             time.sleep(1)
+        # Once the machine is back on, re-initiate xmlrpc server
+        # on the machine
+        self.bootstrap_xmlrpc()
 
     ###############################
     # Version checks
