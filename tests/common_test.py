@@ -549,12 +549,12 @@ class CommonTest(Test):
                                direction='in', stderrfn=stderr,
                                filter_expr=filter_expr, snaplen=snaplen)
 
-        self.tcpdump.start()
+        self.tcpdump.start(wait=3)
 
         # Run command
         cmd_system.cmd(cmd)
 
-        self.tcpdump.stop()
+        self.tcpdump.stop(wait=3)
 
         # Dump the packets to logs for debug
         capture_system.cmd('tcpdump -xxvvv -r ' + dump)
