@@ -1128,7 +1128,7 @@ class FlowerMatchVLANCFI(FlowerBase):
 
         #In Scapy id is the 12th -bit (i.e. the DEI/CFI bit)
         pkt = Ether(src=self.group.hwaddr_x[0],dst=self.ipv4_mc_mac[0])/\
-              Dot1Q(vlan=100, prio=6, id=1)/IP()/TCP()/Raw('\x00'*64)
+              Dot1Q(vlan=100, prio=6, id=0)/IP()/TCP()/Raw('\x00'*64)
         self.test_filter(iface, ingress, pkt, pkt, 100)
 
         self.cleanup_filter(iface)
@@ -1139,7 +1139,7 @@ class FlowerMatchVLANCFI(FlowerBase):
         self.install_filter(iface, match, action)
 
         pkt = Ether(src=self.group.hwaddr_x[0],dst=self.ipv4_mc_mac[0])/\
-              Dot1Q(vlan=100, prio=0, id=1)/IP()/TCP()/Raw('\x00'*64)
+              Dot1Q(vlan=100, prio=0, id=0)/IP()/TCP()/Raw('\x00'*64)
         self.test_filter(iface, ingress, pkt, None, 0)
 
         self.cleanup_filter(iface)
@@ -1150,7 +1150,7 @@ class FlowerMatchVLANCFI(FlowerBase):
         self.install_filter(iface, match, action)
 
         pkt = Ether(src=self.group.hwaddr_x[0],dst=self.ipv4_mc_mac[0])/\
-              Dot1Q(vlan=0, id=1)/IP()/TCP()/Raw('\x00'*64)
+              Dot1Q(vlan=0, id=0)/IP()/TCP()/Raw('\x00'*64)
         self.test_filter(iface, ingress, pkt, pkt, 100)
 
         self.cleanup_filter(iface)
@@ -1161,7 +1161,7 @@ class FlowerMatchVLANCFI(FlowerBase):
         self.install_filter(iface, match, action)
 
         pkt = Ether(src=self.group.hwaddr_x[0],dst=self.ipv4_mc_mac[0])/\
-              Dot1Q(vlan=100, id=1)/IP()/TCP()/Raw('\x00'*64)
+              Dot1Q(vlan=100, id=0)/IP()/TCP()/Raw('\x00'*64)
         self.test_filter(iface, ingress, pkt, None, 0)
 
         self.cleanup_filter(iface)
