@@ -530,6 +530,7 @@ class FlowerTunnel(FlowerBase):
         self.dut.cmd('ip %s addr add %s dev %s'
                      % (v6, addr, dst_dev), fail=False)
         self.dut.cmd('ip link set dev %s up' % dst_dev)
+        sleep(2)
 
     def setup_dut_neighbour(self, addr, dev, ipv6=False):
         _, src_mac = self.src.cmd('cat /sys/class/net/%s/address | tr -d "\n"' \
