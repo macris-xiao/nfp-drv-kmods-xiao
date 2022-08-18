@@ -4074,16 +4074,16 @@ class FlowerReprLinkstate(CommonTest):
 
     def execute(self):
         self.dut.cmd('dmesg -c')
-        new_ifcs = self.spawn_vf_netdev()
+        new_ifcs = self.spawn_tc_vf_netdev(1)
         if (len(new_ifcs) != 2):
             raise NtiError("Only expected to find 2 new interfaces, found %i instead" % len(new_ifcs))
 
         # Assume the ordering then check it
-        vf = new_ifcs[0]
-        repr = new_ifcs[1]
+        vf = new_ifcs[0][0]
+        repr = new_ifcs[1][0]
         if not self.is_repr(repr) and self.is_repr(vf):
-            vf = new_ifcs[1]
-            repr = new_ifcs[0]
+            vf = new_ifcs[1][0]
+            repr = new_ifcs[0][0]
 
         # Final sanity check
         if not self.is_repr(repr) or self.is_repr(vf):
@@ -4091,18 +4091,24 @@ class FlowerReprLinkstate(CommonTest):
 
         self.dmesg_check()
 
+        # Set initial link state to down
+        self.dut.cmd('ip link set %s down' % (repr))
+        self.dut.cmd('ip link set %s down' % (vf))
         self.dut.link_wait(repr, state=False)
         self.dut.link_wait(vf, state=False)
 
+        # Verify both vf and repr down if only repr link up
         self.dut.cmd('ip link set %s up' % (repr))
         self.dut.link_wait(repr, state=False)
         self.dut.link_wait(vf, state=False)
 
+        # Verify both vf and repr down if only vf link up
         self.dut.cmd('ip link set %s down' % (repr))
         self.dut.cmd('ip link set %s up' % (vf))
         self.dut.link_wait(repr, state=False)
         self.dut.link_wait(vf, state=False)
 
+        # Verify both vf and repr link up
         self.dut.cmd('ip link set %s up' % (repr))
         self.dut.link_wait(repr, state=True)
         self.dut.link_wait(vf, state=True)
