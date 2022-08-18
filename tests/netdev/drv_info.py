@@ -8,12 +8,21 @@ from ..common_test import CommonTest
 
 class DrvInfoEthtool(CommonTest):
     def check_common(self, info):
-        yes = [ "supports-statistics" ]
-        no = [ "supports-test", "supports-eeprom-access",
-               "supports-priv-flags" ]
+        # Checking that ethtool correctly shows what features the driver
+        # supports:
+        # It is expected that info (ethtool -i output) will have features set
+        # to "yes" and "no" according to what is expected of the driver to
+        # support.
+        yes = [ "supports-statistics", "supports-test" ]
+        no = ["supports-eeprom-access", "supports-priv-flags" ]
 
         for i in yes:
-            if info[i] != "yes":
+            if info[i] != "yes" and i == "supports-test":
+                raise NtiError(i + ": " + info[i] + ", expected yes. Driver "
+                               + "version is possibly too old. Ensure you have "
+                               + "the latest driver installed, newer than July "
+                               + "2022.")
+            elif info[i] != "yes":
                 raise NtiError(i + ": " + info[i] + ", expected yes")
         for i in no:
             if info[i] != "no":
