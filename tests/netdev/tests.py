@@ -77,20 +77,55 @@ from ..nfd import NfdBarOff
 
 class BspVerTest(CommonTest):
     def execute(self):
+        # This test verifies if the function nfp_nsp_identify is working
+        # correctly, thus, if that function is receiving information that seems
+        # like it could be the BSP version. It also checks that the BSP
+        # version is in the correct format.
         self.check_nsp_min(16)
 
         cmd  = 'dmesg | tac | sed -n "1,/nfp: NFP PCIe Driver/p"'
         cmd += ' | grep "nfp 0000:%s"' % (self.group.pci_id)
         cmd += ' | grep -o "BSP: .*" | cut -c 6- | tr -d "\n"'
         _, ver = self.dut.cmd(cmd)
+        # Split version into two with the second part possibly containing the
+        # revision number as well:
         comp = ver.split('.')
-        if len(comp) != 3:
-            raise NtiError('bad bsp version format: %s %d' % (ver, len(comp)))
-        for i in range(3):
-            if len(comp[i]) != 6:
-                raise NtiError('bad bsp version format: %s' % ver)
-            if False == all(c in '0123456789abcdefABCDEF' for c in comp[i]):
-                raise NtiError('bad bsp version format (char): %s' % ver)
+        # Well formed version example: 22.07-0
+        # with comp[0] = 22; comp[1] = 07-0
+
+        # Check if there is only two parts (e.g. 22 and 07-0) after the split:
+        if len(comp) != 2:
+            # if the following is true, then it is a non-release build:
+            if '~' in comp[1] and 'main' in comp[2]:
+                raise NtiSkip('Non-release version of BSP: version: %s which '
+                              'could cause failure of other tests '
+                              % (ver))
+            else:
+                raise NtiError('bad BSP version format: version: %s and number '
+                               'of components: %d. Expecting number of '
+                               'components to be 2' % (ver, len(comp)))
+
+        # Check if all the components of the version is the correct length:
+        if len(comp[0]) != 2: # expecting comp[0] = "22" or similar
+            raise NtiError('bad BSP version format: version: %s with length of '
+                           'first part: %d, but expecting length: 2.'
+                           % (ver, len(comp[0])))
+        if len(comp[1]) == 2: # expecting "07"
+            decimal = comp[1]
+        elif (len(comp[1]) == 4 and comp[1][2] == '-'):
+            # or expecting "07-0" with "-" or similar
+            decimal = comp[1].split("-")[0]
+            revision = comp[1].split("-")[1]
+        else:
+            raise NtiError('bad BSP version format: version: %s with length of '
+                           'second part: %d, but expecting length: 2 or 4.'
+                           % (ver, len(comp[1])))
+
+        # Check if certain parts of the version are numbers:
+        if (comp[0].isdigit() == False or decimal.isdigit() == False or
+            revision.isdigit() == False):
+            raise NtiError('bad BSP version format: version: %s with '
+                           'non-numerical values' % (ver))
 
 class BSPDiag(CommonTest):
     def execute(self):
