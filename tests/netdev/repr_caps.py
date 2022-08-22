@@ -24,7 +24,7 @@ class ReprCaps(CommonTest):
 
     def check_features(self, rep, cap, highdma='on', rxcsum='on', txcsum='on',
                        rxhash='on', rxvlan='on', txvlan='on', sg='on',
-                       tso='off', tc='on'):
+                       tso='on', tso_mangleid='off', tc='on'):
         feat = self.dut.ethtool_features_get(rep)
 
         for f in feat:
@@ -34,9 +34,10 @@ class ReprCaps(CommonTest):
                 assert_eq(highdma, feat[f], "Feature '%s'" % (f))
             elif f == 'hw-tc-offload':
                 assert_eq(tc, feat[f], "Feature '%s'" % (f))
-            elif f in { 'tx-tcp-segmentation', 'tx-tcp6-segmentation',
-                        'tx-tcp-mangleid-segmentation' }:
+            elif f in { 'tx-tcp-segmentation', 'tx-tcp6-segmentation'}:
                 self.check_feature(feat, f, cap, NfdCap.LSO | NfdCap.LSO2, tso)
+            elif f == 'tx-tcp-mangleid-segmentation':
+                self.check_feature(feat, f, cap, NfdCap.LSO | NfdCap.LSO2, tso_mangleid)
             elif f == 'rx-checksumming':
                 self.check_feature(feat, f, cap, NfdCap.RXCSUM, rxcsum)
             elif f in { 'tx-checksum-ipv4', 'tx-checksum-ipv6' }:
@@ -58,6 +59,10 @@ class ReprCaps(CommonTest):
                 assert_eq(exp, feat[f], "Feature '%s'" % (f))
             elif f == 'tx-lockless':
                 assert_eq('on [fixed]', feat[f], "Feature '%s'" % (f))
+            elif f == 'rx-gro-list':
+                assert_eq('off', feat[f], "Feature '%s'" % (f))
+            elif f == 'rx-udp-gro-forwarding':
+                assert_eq('off', feat[f], "Feature '%s'" % (f))
             else:
                 assert_eq('off [fixed]', feat[f], "Feature '%s'" % (f))
 
@@ -142,12 +147,13 @@ class ReprCaps(CommonTest):
         # Turn TX csum off
         if cap & NfdCap.TXCSUM:
             self.dut.cmd('ethtool -K %s tx off' % (vnic))
-            self.check_features(rep, cap, txcsum='off [requested on]')
-
+            self.check_features(rep, cap, txcsum='off [requested on]',
+                                tso='off [requested on]')
             self.dut.cmd('ethtool -K %s tx on' % (vnic))
-            self.check_features(rep, cap)
+            self.check_features(rep, cap, tso='on')
             self.dut.cmd('ethtool -K %s tx off' % (rep))
-            self.check_features(rep, cap, txcsum='off')
+            self.check_features(rep, cap, txcsum='off',
+                                tso='off [requested on]')
             self.dut.cmd('ethtool -K %s tx on' % (rep))
 
         # Turn HASH features off
@@ -164,12 +170,13 @@ class ReprCaps(CommonTest):
         # Turn scatter-gather off
         if cap & NfdCap.GATHER:
             self.dut.cmd('ethtool -K %s sg off' % (vnic))
-            self.check_features(rep, cap, sg='off [requested on]')
-
+            self.check_features(rep, cap, sg='off [requested on]',
+                                tso='off [requested on]')
             self.dut.cmd('ethtool -K %s sg on' % (vnic))
             self.check_features(rep, cap)
             self.dut.cmd('ethtool -K %s sg off' % (rep))
-            self.check_features(rep, cap, sg='off')
+            self.check_features(rep, cap, sg='off',
+                                tso='off [requested on]')
             self.dut.cmd('ethtool -K %s sg on' % (rep))
 
         # Turn LSO on
@@ -179,26 +186,29 @@ class ReprCaps(CommonTest):
                 raise NtiError('FW supports LSO without SG and TXCSUM')
 
             self.dut.cmd('ethtool -K %s tso on' % (rep), fail=False)
-            self.check_features(rep, cap, tso='off [requested on]')
+            self.check_features(rep, cap, tso='on', tso_mangleid='off [requested on]')
             self.dut.cmd('ethtool -K %s tso on' % (vnic))
-            self.check_features(rep, cap, tso='on')
+            self.check_features(rep, cap, tso='on', tso_mangleid='on')
 
             # Turn SG off
             self.dut.cmd('ethtool -K %s sg off' % (vnic))
             self.check_features(rep, cap, sg='off [requested on]',
-                                tso='off [requested on]')
+                                tso='off [requested on]',
+                                tso_mangleid='off [requested on]')
             self.dut.cmd('ethtool -K %s sg on' % (vnic))
 
             # Turn txcsum off
             self.dut.cmd('ethtool -K %s tx off' % (vnic))
             self.check_features(rep, cap, txcsum='off [requested on]',
-                                tso='off [requested on]')
+                                tso='off [requested on]',
+                                tso_mangleid='off [requested on]')
             self.dut.cmd('ethtool -K %s tx on' % (vnic))
 
             # Also try just turning off txcsum on repr
             self.dut.cmd('ethtool -K %s tx off' % (rep))
             self.check_features(rep, cap, txcsum='off',
-                                tso='off [requested on]')
+                                tso='off [requested on]',
+                                tso_mangleid='off [requested on]')
             self.dut.cmd('ethtool -K %s tx on' % (rep))
 
             self.dut.cmd('ethtool -K %s tso off' % (rep))
