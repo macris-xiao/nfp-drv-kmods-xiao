@@ -4360,8 +4360,12 @@ class FlowerActionIngressRateLimit(FlowerBase):
         self.dut.cmd('ip netns exec ns2 ip addr add %s/24 dev %s' % (netperf_ip_2, vf2))
         self.dut.cmd('ip netns exec ns2 ip link set dev %s up' % vf2)
 
+        # Wait for VFs to up
+        sleep(2)
+
         # Start netperf - 1 mbps
         self.dut.cmd('ip netns exec ns2 netserver')
+        sleep(1)
         ret, out = self.dut.cmd('ip netns exec ns1 netperf -t UDP_STREAM -H %s -l 60 -- -M 1024 -m 1024' % netperf_ip_2)
         rate_line = out.split('\n')[-3].strip()
         rate = float(rate_line.split()[-1])
@@ -4370,6 +4374,8 @@ class FlowerActionIngressRateLimit(FlowerBase):
         elif rate < 0.85:
             raise NtiError("Rate equals less than 15%% the expected rate: %.2f" % rate)
 
+        # Wait for stats to stabilise
+        sleep(1)
         # Check stats - vf1 - 1 mbps
         stats = self.dut.netifs[self.vf_repr1].stats(get_tc_ing=True)
         ret, out = self.dut.cmd('ip netns exec ns1 cat /proc/net/dev | grep %s' % vf1)
@@ -4390,6 +4396,7 @@ class FlowerActionIngressRateLimit(FlowerBase):
 
         # Start netperf - 10 mbps
         self.dut.cmd('ip netns exec ns1 netserver')
+        sleep(1)
         ret, out = self.dut.cmd('ip netns exec ns2 netperf -t UDP_STREAM -H %s -l 60 -- -M 1024 -m 1024' % netperf_ip_1)
         rate_line = out.split('\n')[-3].strip()
         rate = float(rate_line.split()[-1])
@@ -4398,6 +4405,8 @@ class FlowerActionIngressRateLimit(FlowerBase):
         elif rate < 8.5:
             raise NtiError("Rate equals less than 15%% the expected rate: %.2f" % rate)
 
+        # Wait for stats to stabilise
+        sleep(1)
         # Check stats - vf2 - 10 mbps
         stats = self.dut.netifs[self.vf_repr2].stats(get_tc_ing=True)
         ret, out = self.dut.cmd('ip netns exec ns2 cat /proc/net/dev | grep %s' % vf2)
