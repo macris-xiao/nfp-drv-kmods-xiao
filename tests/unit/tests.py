@@ -1009,9 +1009,10 @@ class FECModesTest(CommonNonUpstreamTest):
                            (iface, expected_nsp_fec, nsp_fec))
 
         _, ethtool_fec_output = self.dut.ethtool_get_fec(iface)
-        s = re.search("active fec encoding:(.*)\n", ethtool_fec_output.lower(),
+        s = re.search("active fec encoding: (.*)\n", ethtool_fec_output.lower(),
                       re.MULTILINE)
-        if s.groups()[0] != ' none':
+
+        if s.groups()[0] != 'none':
             active_encoding = s.groups()[0]
         else:
             active_encoding = ""
