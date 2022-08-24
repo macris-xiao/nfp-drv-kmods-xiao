@@ -1057,19 +1057,21 @@ class FECModesTest(CommonNonUpstreamTest):
                 iface = self.src_ifn[port]
                 self.src.ethtool_set_fec(iface, "off")
 
+        # TODO: Add ping tests back once NO CARRIER issue has been resolved
+
         # Takes time for ethtool to take action on previous command
-        time.sleep(3)
-        if fec != "auto":
-            self.ping(port, should_fail=True)
-        else:
-            self.ping(port)
+        # time.sleep(3)
+        # if fec != "auto":
+        #     self.ping(port, should_fail=True)
+        # else:
+        #     self.ping(port)
         for port in range(0, len(self.src_ifn)):
             iface = self.src_ifn[port]
             self.src.ethtool_set_fec(iface, fec)
 
         # Takes time for ethtool to take action on previous command
-        time.sleep(3)
-        self.ping(port)
+        # time.sleep(3)
+        # self.ping(port)
 
     def set_fec_and_expect_to_fail(self, port_tuple, fec):
         iface = port_tuple[0]
