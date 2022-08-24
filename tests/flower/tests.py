@@ -462,19 +462,20 @@ class FlowerTunnel(FlowerBase):
         self.dut.cmd('ovs-dpctl del-dp %s' % dev_name, fail=False)
         self.dut.cmd('modprobe -r openvswitch', fail=False)
 
-    def add_pre_tunnel_rule(self, dev_name, int_mac, int_dev, ipv6=False):
+    def add_pre_tunnel_rule(self, dev_name, int_mac, src_mac, int_dev, ipv6=False):
         proto = 'ipv6' if ipv6 else 'ip'
-        match = '%s flower dst_mac %s' % (proto, int_mac)
+        match = '%s flower dst_mac %s src_mac %s' % (proto, int_mac, src_mac)
         action = 'skbedit ptype host pipe mirred egress redirect dev %s' \
                  % int_dev
         self.install_filter(dev_name, match, action)
 
-    def add_pre_tunnel_rule_vlan(self, dev_name, int_mac, int_dev, vlan_id,
+    def add_pre_tunnel_rule_vlan(self, dev_name, int_mac, src_mac, int_dev, vlan_id,
                                  ipv6 = False):
         ip_proto = "ipv6" if ipv6 else "ipv4"
         match = '802.1Q flower vlan_id %s ' % vlan_id
         match += 'vlan_ethtype %s ' % ip_proto
-        match += 'dst_mac %s' % int_mac
+        match += 'dst_mac %s ' % int_mac
+        match += 'src_mac %s' % src_mac
         action = 'vlan pop pipe skbedit ptype host pipe ' \
                  'mirred egress redirect dev %s' % int_dev
         self.install_filter(dev_name, match, action)
@@ -670,7 +671,8 @@ class FlowerTunnel(FlowerBase):
 
     def execute_tun_vlan_match(self, iface, ingress, dut_mac, tun_port, tun_dev,
                                int_dev, ipv6=False):
-        self.add_pre_tunnel_rule(iface, dut_mac, int_dev, ipv6=ipv6)
+        src_mac = self.get_src_mac(ingress)
+        self.add_pre_tunnel_rule(iface, dut_mac, src_mac, int_dev, ipv6=ipv6)
         self.execute_tun_match(iface, ingress, dut_mac, tun_port, tun_dev,
                                ipv6=ipv6)
         # verify all packets sent are matching on the pre-tunnel rule
@@ -681,7 +683,7 @@ class FlowerTunnel(FlowerBase):
 
         # add vlan to the tunnel
         self.cleanup_filter(iface)
-        self.add_pre_tunnel_rule_vlan(iface, dut_mac, int_dev, 20, ipv6)
+        self.add_pre_tunnel_rule_vlan(iface, dut_mac, src_mac, int_dev, 20, ipv6)
         self.execute_tun_match(iface, ingress, dut_mac, tun_port, tun_dev,
                                vlan_id=20, ipv6=ipv6)
         if self.dut.kernel_ver_ge(4, 19):
@@ -691,7 +693,7 @@ class FlowerTunnel(FlowerBase):
 
         # test for failure with the wrong vlan_id
         self.cleanup_filter(iface)
-        self.add_pre_tunnel_rule_vlan(iface, dut_mac, int_dev, 20, ipv6)
+        self.add_pre_tunnel_rule_vlan(iface, dut_mac, src_mac, int_dev, 20, ipv6)
         self.execute_tun_match(iface, ingress, dut_mac, tun_port, tun_dev,
                                vlan_id=21, fail=True, ipv6=ipv6)
         self.check_pre_tun_stats(iface, 0)
@@ -1471,10 +1473,14 @@ class FlowerMatchGREInVLAN(FlowerTunnel):
         self.add_gre_dev('gre1')
         self.add_ovs_internal_port('int-port')
         self.move_ip_address(self.dut_addr[0], iface, 'int-port')
+        src_ip, _ = self.get_ip_addresses()
+        self.setup_dut_neighbour(src_ip, 'int-port')
         dut_mac = self.get_dut_mac('int-port')
         self.execute_tun_vlan_match(iface, ingress, dut_mac, 0, 'gre1',
                                     'int-port')
         self.move_ip_address(self.dut_addr_v6[0], iface, 'int-port', ipv6=True)
+        src_ip, _ = self.get_ip_addresses(ipv6=True)
+        self.setup_dut_neighbour(src_ip, 'int-port', ipv6=True)
         self.execute_tun_vlan_match(iface, ingress, dut_mac, 0, 'gre1',
                                     'int-port', ipv6=True)
 
@@ -1514,10 +1520,14 @@ class FlowerMatchVXLANInVLAN(FlowerTunnel):
         self.add_vxlan_dev('vxlan0')
         self.add_ovs_internal_port('int-port')
         self.move_ip_address(self.dut_addr[0], iface, 'int-port')
+        src_ip, _ = self.get_ip_addresses()
+        self.setup_dut_neighbour(src_ip, 'int-port')
         dut_mac = self.get_dut_mac('int-port')
         self.execute_tun_vlan_match(iface, ingress, dut_mac, 4789, 'vxlan0',
                                     'int-port')
         self.move_ip_address(self.dut_addr_v6[0], iface, 'int-port', ipv6=True)
+        src_ip, _ = self.get_ip_addresses(ipv6=True)
+        self.setup_dut_neighbour(src_ip, 'int-port', ipv6=True)
         self.execute_tun_vlan_match(iface, ingress, dut_mac, 4789, 'vxlan0',
                                     'int-port', ipv6=True)
 
@@ -1557,10 +1567,14 @@ class FlowerMatchGeneveInVLAN(FlowerTunnel):
         self.add_geneve_dev('gene0')
         self.add_ovs_internal_port('int-port')
         self.move_ip_address(self.dut_addr[0], iface, 'int-port')
+        src_ip, _ = self.get_ip_addresses()
+        self.setup_dut_neighbour(src_ip, 'int-port')
         dut_mac = self.get_dut_mac('int-port')
         self.execute_tun_vlan_match(iface, ingress, dut_mac, 6081, 'gene0',
                                     'int-port')
         self.move_ip_address(self.dut_addr_v6[0], iface, 'int-port', ipv6=True)
+        src_ip, _ = self.get_ip_addresses(ipv6=True)
+        self.setup_dut_neighbour(src_ip, 'int-port', ipv6=True)
         self.execute_tun_vlan_match(iface, ingress, dut_mac, 6081, 'gene0',
                                     'int-port', ipv6=True)
 
