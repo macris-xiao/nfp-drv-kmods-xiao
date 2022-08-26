@@ -625,6 +625,55 @@ TX:		(\d+)"""
 
         return ret
 
+    def ethtool_get_autoneg(self, ifc):
+        _, out = self.cmd('ethtool %s | grep Auto-negotiation' % (ifc))
+
+        if out.find(': on') != -1:
+            return True
+        if out.find(': off') != -1:
+            return False
+        raise NtiError('Invalid ethtool response: %s' % (out))
+
+    def ethtool_get_speed(self, ifc):
+        _, out = self.cmd('ethtool %s' % (ifc))
+
+        speed = re.search('Speed: (\d*)Mb/s', out)
+
+        return int(speed.groups()[0])
+
+    def ethtool_set_speed(self, ifc, speed, fail=True):
+        return self.cmd('ip link set dev %s down; ethtool -s %s speed %d' %
+                        (ifc, ifc, speed),
+                        include_stderr=True, fail=fail)
+
+    def ethtool_set_fec(self, ifc, fec, fail=True):
+        return self.cmd('ethtool --set-fec %s encoding %s' %
+                        (ifc, fec),
+                        include_stderr=True, fail=fail)
+
+    def ethtool_get_fec(self, ifc, fail=True):
+        return self.cmd('ethtool --show-fec %s' %
+                        (ifc), fail=fail)
+
+    def ethtool_get_fwdump(self, ifc, level, fail=True):
+        self.cmd('ethtool -W %s %d' % (ifc, level), fail=fail)
+        self.cmd('ethtool -w %s' % (ifc), fail=fail)
+
+        cmd = ('F=`mktemp -p %s`; '
+               'ethtool -w %s data $F && echo -n $F || rm $F' %
+               (self.tmpdir, ifc))
+        ret, out = self.cmd(cmd, fail=fail)
+        if ret != 0:
+            return ret, out
+
+        self.mv_from(out, self.grp.tmpdir)
+        file_name = os.path.join(self.grp.tmpdir, os.path.basename(out))
+        return 0, file_name
+
+    def ethtool_get_module_eeprom(self, ifc):
+        _, out = self.cmd('ethtool -m %s' % (ifc))
+        return _parse_ethtool(out)
+
     ###############################
     # devlink
     ###############################
