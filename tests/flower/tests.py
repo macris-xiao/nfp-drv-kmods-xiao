@@ -1886,6 +1886,7 @@ class FlowerMaxEntries(FlowerBase):
 
     def cleanup(self):
         self.cleanup_flower(self.dut_ifn[0])
+        sleep(3)
         return super(FlowerMaxEntries, self).cleanup()
 
 class FlowerMatchTunnelToSharedMAC(FlowerBase):
