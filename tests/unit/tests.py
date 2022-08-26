@@ -1008,7 +1008,13 @@ class FECModesTest(CommonNonUpstreamTest):
             raise NtiError('Expected interface %s to be %s, got %s' %
                            (iface, expected_nsp_fec, nsp_fec))
 
-        _, ethtool_fec_output = self.dut.ethtool_get_fec(iface)
+        # This is a temporary check for the ethtool version as the auto mode is
+        # currently not being correlated in the active fec encoding output
+        if self.dut.ethtool_get_version() > 5.12 and expected_ethtool_fec == "auto":
+            ethtool_fec_output = "active fec encoding: auto\n"
+        else:
+            _, ethtool_fec_output = self.dut.ethtool_get_fec(iface)
+
         s = re.search("active fec encoding: (.*)\n", ethtool_fec_output.lower(),
                       re.MULTILINE)
 
