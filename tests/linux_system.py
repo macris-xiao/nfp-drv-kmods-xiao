@@ -625,6 +625,15 @@ TX:		(\d+)"""
 
         return ret
 
+    def ethtool_get_version(self):
+        _, out = self.cmd('ethtool --version | awk \'{print $3}\'')
+        return float(out)
+
+    def ethtool_set_autoneg(self, ifc, mode, fail=True):
+        return self.cmd('ethtool -s %s autoneg %s' %
+                        (ifc, mode),
+                        include_stderr=True, fail=fail)
+
     def ethtool_get_autoneg(self, ifc):
         _, out = self.cmd('ethtool %s | grep Auto-negotiation' % (ifc))
 
