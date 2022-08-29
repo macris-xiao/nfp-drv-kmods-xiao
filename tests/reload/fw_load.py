@@ -113,6 +113,11 @@ class KernelLoadTest(CommonTest):
         finally:
             LOG_endsec()
 
+        if self.dut.get_pci_device_id() != '3800':
+            self.spi_bus = 0
+        else:
+            self.spi_bus = 1
+
         # Need at least hwinfo string lookup and FW loaded commands
         if self.group.upstream_drv:
             raise NtiSkip('Cannot test more complex FW loading scenarios upstream')
@@ -125,13 +130,9 @@ class KernelLoadTest(CommonTest):
         if len(phy) != 2:
             raise NtiSkip('Sample FW only supports 2 port cards')
 
-        if self.dut.get_pci_device_id() != '3800':
-            self.spi_bus = 0
-        else:
-            self.spi_bus = 1
-
         fw_path = os.path.join(self.dut.tmpdir, 'dummy_nfd.nffw')
         M.cmd_fis('-b %d delete nti.fw' % self.spi_bus, fail=False)
+        M.cmd_fis('-b %d -b0 init' % self.spi_bus)
         M.cmd_fis('-b %d create -b %s nti.fw' % (self.spi_bus, fw_path))
         M.cmd_hwinfo('-u mefw.loadbus=%d appfw.part=nti.fw' % self.spi_bus)
 
@@ -156,5 +157,8 @@ class KernelLoadTest(CommonTest):
             self.dut.cmd_hwinfo('-u mefw.loadbus= appfw.part=')
             self.dut.cmd_hwinfo('-u app_fw_from_flash= abi_drv_reset=')
             self.dut.cmd_fis('-b %d delete nti.fw' % self.spi_bus, fail=False)
+
+        for ifc in self.src_ifn:
+            self.src.cmd('ip a flush %s ' % ifc)
 
         self.dut.reset_mods()
