@@ -609,7 +609,10 @@ class DrvSystem(LinuxSystem):
         load = not 'nfp' in self._mods
         if load:
             self.insmod()
-        self.part_no = self.get_hwinfo('assembly.partno')
+        try:
+            self.part_no = self.get_hwinfo('nffw.partno')
+        except:
+            self.part_no = self.get_hwinfo('assembly.partno')
         if load:
             self.rmmod()
         return self.part_no
