@@ -21,6 +21,13 @@ from netro.testinfra import LOG_init, LOG_sec, LOG, LOG_endsec, CMD
 from netro.tests.tcpdump import TCPDump
 
 ###############################################################################
+# Assorted Cards
+###############################################################################
+
+# This list contains all AMDA numbers related to 25G cards
+AMDA_25G_CARDS = ['AMDA0099', 'AMDA0161', 'AMDA0144', 'AMDA2000']
+
+###############################################################################
 # Assert-style helper functions
 ###############################################################################
 

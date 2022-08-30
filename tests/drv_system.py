@@ -617,6 +617,12 @@ class DrvSystem(LinuxSystem):
             self.rmmod()
         return self.part_no
 
+    def get_amda_only(self):
+        # This returns the AMDAXXXX part of the card number
+        # for some cards there is different variations.
+        # e.g. crypto and no crypto
+        return self.get_part_no().split('-')[0]
+
     def get_pci_device_id(self):
         if self.pci_device_id:
             return self.pci_device_id

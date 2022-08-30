@@ -15,6 +15,7 @@ from ..drv_grp import NFPKmodGrp
 from ..ebpf.xdp import XDPTest
 from ifstats import IFstats
 from tlv_stats import TLVstatsTest
+from ..common_test import AMDA_25G_CARDS
 
 ###########################################################################
 # Unit Tests
@@ -831,11 +832,15 @@ class AutonegEthtool(CommonNonUpstreamTest):
         raise NtiError('Invalid hwinfo aneg status: %s' % (status))
 
     def get_hwinfo_status(self, ifc):
-        if self.dut.get_part_no() in ['AMDA0099-0001', 'AMDA0099-0002']:
+        # Get AMDAXXXX number
+        part_no = self.dut.get_amda_only()
+
+        # This checks for our 25G cards
+        if part_no in AMDA_25G_CARDS:
             return self.get_hwinfo_status_aneg(ifc)
         else:
-            # Currently, only nic_AMDA0099-000*_2x25.nffw support the auto-negotiation
-            raise NtiSkip("Test only support nic_AMDA0099-0001 currently")
+            # Currently, only our 25G cards support the auto-negotiation
+            raise NtiSkip("Test only supports 25G cards currently")
 
     def state_check(self):
         i = 0
@@ -1113,7 +1118,11 @@ class FECModesTest(CommonNonUpstreamTest):
                                        iface)
             port_mac_tuple_list.append((iface, mac_addr, port))
 
-        if self.dut.get_part_no() in ['AMDA0099-0001', 'AMDA0099-0002']:
+        # Get AMDAXXXX number
+        part_no = self.dut.get_amda_only()
+
+        # This checks for our 25G cards
+        if part_no in AMDA_25G_CARDS:
             self.is_fec_capable = True
 
             # Reset the current FEC mode to default, i.e. auto and switch off
