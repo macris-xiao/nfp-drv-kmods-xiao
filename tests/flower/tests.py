@@ -4160,6 +4160,10 @@ class FlowerActionBondEgress(FlowerBase):
         M.cmd('ip link set dev %s up' % iface)
         self.dut.link_wait(iface, state=True)
 
+        # Cleanup previous tc rules for interface 0
+        M.cmd('tc qdisc del dev %s handle ffff: ingress' % iface, fail=False)
+        M.cmd('tc qdisc add dev %s handle ffff: ingress' % iface)
+
         # Install filter outputting to bond0
         match = 'ip flower'
         action = 'mirred egress redirect dev bond0'
@@ -4188,6 +4192,11 @@ class FlowerActionBondEgress(FlowerBase):
         M.cmd('ip link set dev %s up' % iface2)
         self.dut.link_wait(iface2, state=True)
 
+        # Remove all tc rules for interface 1
+        M.cmd('tc qdisc del dev %s handle ffff: ingress' % iface2, fail=False)
+        M.cmd('tc qdisc add dev %s handle ffff: ingress' % iface2)
+
+        # Define dump file directories
         dump_file = os.path.join(self.group.tmpdir, 'dump.pcap')
         dump_file2 = os.path.join(self.group.tmpdir, 'dump2.pcap')
 
@@ -4225,6 +4234,15 @@ class FlowerActionBondEgress(FlowerBase):
         self.dut.link_wait(iface, state=True)
         M.cmd('ip link set dev %s up' % iface2)
         self.dut.link_wait(iface2, state=True)
+
+        # Re-add interface 0 qdisc, if removed by bonding mode configuration
+        M.cmd('tc qdisc del dev %s handle ffff: ingress' % iface, fail=False)
+        M.cmd('tc qdisc add dev %s handle ffff: ingress' % iface)
+
+        # Install filter outputting to bond0
+        match = 'ip flower'
+        action = 'mirred egress redirect dev bond0'
+        self.install_filter(iface, match, action)
 
         self.capture_packs_multiple_ifaces(iface, ingress, [ingress, ingress2],
                                            pkts, [dump_file, dump_file2],
@@ -4264,6 +4282,11 @@ class FlowerActionBondEgress(FlowerBase):
         M.cmd('ip link set dev %s up' % iface2)
         self.dut.link_wait(iface2, state=True)
 
+        # Cleanup previous tc rules for interface 0
+        M.cmd('tc qdisc del dev %s handle ffff: ingress' % iface, fail=False)
+        M.cmd('tc qdisc add dev %s handle ffff: ingress' % iface)
+
+        # Install filter outputting to team0
         action = 'mirred egress redirect dev team0'
         self.install_filter(iface, match, action)
 
