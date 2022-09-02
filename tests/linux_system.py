@@ -626,7 +626,8 @@ TX:		(\d+)"""
         return ret
 
     def ethtool_get_version(self):
-        _, out = self.cmd('ethtool --version | awk \'{print $3}\'')
+        _, out = self.cmd('ethtool --version')
+        out = out.split()[2]
         return float(out)
 
     def ethtool_set_autoneg(self, ifc, mode, fail=True):
