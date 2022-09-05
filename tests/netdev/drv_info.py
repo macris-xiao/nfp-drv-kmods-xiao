@@ -13,8 +13,9 @@ class DrvInfoEthtool(CommonTest):
         # It is expected that info (ethtool -i output) will have features set
         # to "yes" and "no" according to what is expected of the driver to
         # support.
-        yes = [ "supports-statistics", "supports-test" ]
-        no = ["supports-eeprom-access", "supports-priv-flags" ]
+        yes = [ "supports-statistics", "supports-test",
+                "supports-eeprom-access"]
+        no = ["supports-priv-flags" ]
 
         for i in yes:
             if info[i] != "yes" and i == "supports-test":
@@ -22,6 +23,11 @@ class DrvInfoEthtool(CommonTest):
                                + "version is possibly too old. Ensure you have "
                                + "the latest driver installed, newer than July "
                                + "2022.")
+            if info[i] != "yes" and i == "supports-eeprom-access":
+                raise NtiError(i + ": " + info[i] + ", expected yes. Driver "
+                               + "version is possibly too old. Ensure you have "
+                               + "the latest driver installed, newer than"
+                               + "August 2022.")
             elif info[i] != "yes":
                 raise NtiError(i + ": " + info[i] + ", expected yes")
         for i in no:
