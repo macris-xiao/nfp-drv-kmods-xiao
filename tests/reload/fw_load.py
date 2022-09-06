@@ -87,6 +87,11 @@ class KernelLoadTest(CommonTest):
     def execute(self):
         M = self.dut
 
+        if self.dut.get_pci_device_id() != '3800':
+            self.spi_bus = 0
+        else:
+            self.spi_bus = 1
+
         tests = [
             # HWinfo keys, expect dummy FW, expect explicit soft reset
             ('app_fw_from_flash=0 abi_drv_reset=0',   False,   True),
@@ -112,11 +117,6 @@ class KernelLoadTest(CommonTest):
             self.load_test(False, True)
         finally:
             LOG_endsec()
-
-        if self.dut.get_pci_device_id() != '3800':
-            self.spi_bus = 0
-        else:
-            self.spi_bus = 1
 
         # Need at least hwinfo string lookup and FW loaded commands
         if self.group.upstream_drv:
