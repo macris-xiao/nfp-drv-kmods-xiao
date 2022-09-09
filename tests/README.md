@@ -200,6 +200,7 @@ ethX: ens4np0
 addrX: 10.7.1.1/24
 addr6X: fc00:7:1:1::1/64
 netdevfw: /root/firmware/corenic/nic_AMDA0099-0001_2x25.nffw
+netdevfw_nfd3: True
 nfpkmods: /root/nfp-drv-kmods-private/src
 samples=/root/nfp-drv-kmods-private/tests/samples
 serial= 00:15:4d:12:20:d4
@@ -219,6 +220,9 @@ lspci -d "19ee:" -v  | sed -n "s/-/:/g;s/.*Serial Number \(.*\)/\\1/p" | cut -d 
 `netdevfw` refers to the specific firmware loaded onto the DUT and is test
 specific, see [the relevant section](#test-specific-firmware). This is
 where the firmware files themselves are located on the orchestrator.
+
+`netdevfw_nfd3` specifies whether the DUT netdev firmware is NFD3-based. This
+flag is only necessary when making use of a Kestrel-based NFP.
 
 Notes:
 - if using the parameter `rm_fw_dir: True`, it might be

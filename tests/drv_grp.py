@@ -69,6 +69,7 @@ class NFPKmodGrp(netro.testinfra.Group):
         ("nfpkmods", [False, "Directory with kernel mods to load on DUT"]),
         ("nfp", [False, "NFP device number to use (default 0)"]),
         ("netdevfw", [True, "Path to netdev firmware"]),
+        ("netdevfw_nfd3", [False, "Specifies whether netdev fw is nfd3-based"]),
         ("netdevfw_dir", [False, "Path to netdev firmwares"]),
         ("samples", [True, "Path to directory with test samples"]),
         ("ebpf_perf_baseline", [False,
@@ -123,6 +124,7 @@ class NFPKmodGrp(netro.testinfra.Group):
         self.nfp = 0
         self.nfpkmods = None
         self.netdevfw = None
+        self.netdevfw_nfd3 = False
         self.netdevfw_dir = None
         self.samples = None
         self.ebpf_baseline_file = None
@@ -329,6 +331,8 @@ class NFPKmodGrp(netro.testinfra.Group):
             self.nthkmod = os.path.join(self.nfpkmods, 'nfp_test_harness.ko')
         if self.cfg.has_option("DUT", "netdevfw"):
             self.netdevfw = self.cfg.get("DUT", "netdevfw")
+        if self.cfg.has_option("DUT", "netdevfw_nfd3"):
+            self.netdevfw_nfd3 = self.cfg.get("DUT", "netdevfw_nfd3")
         if self.cfg.has_option("DUT", "netdevfw_dir"):
             self.netdevfw_dir = self.cfg.get("DUT", "netdevfw_dir")
         if self.cfg.has_option("DUT", "samples"):

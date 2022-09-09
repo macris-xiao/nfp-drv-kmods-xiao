@@ -320,6 +320,9 @@ class DrvSystem(LinuxSystem):
             if not userspace is None:
                 params += ' nfp_dev_cpp=%d' % userspace
 
+            if self.grp.netdevfw_nfd3 and self.get_pci_device_id() == '3800':
+                params += ' force_40b_dma=1'
+
             if self.grp.upstream_drv and params != '':
                 LOG_sec ("SKIP nfp.ko %s" % (params))
                 LOG_endsec()
