@@ -90,6 +90,7 @@ class BspVerTest(CommonTest):
         # Split version into two with the second part possibly containing the
         # revision number as well:
         comp = ver.split('.')
+        revision = None
         # Well formed version example: 22.07-0
         # with comp[0] = 22; comp[1] = 07-0
 
@@ -122,10 +123,15 @@ class BspVerTest(CommonTest):
                            % (ver, len(comp[1])))
 
         # Check if certain parts of the version are numbers:
-        if (comp[0].isdigit() == False or decimal.isdigit() == False or
-            revision.isdigit() == False):
-            raise NtiError('bad BSP version format: version: %s with '
-                           'non-numerical values' % (ver))
+        if (comp[0].isdigit() == False or decimal.isdigit() == False):
+            if revision is not None:
+                if revision.isdigit() == False:
+                    raise NtiError('bad BSP version format: version: %s with '
+                            'non-numerical values. BSP version, including the'
+                            'revision number should be numerical' % (ver))
+            else:
+                raise NtiError('bad BSP version format: version: %s with '
+                            'non-numerical values' % (ver))
 
 class BSPDiag(CommonTest):
     def execute(self):
