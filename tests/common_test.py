@@ -807,7 +807,7 @@ class CommonTest(Test):
                                   (num_vfs, self.group.pci_dbdf))
         pci_dbdf = self.group.pci_dbdf
         pci_dbdf_cut = re.findall("\d+", pci_dbdf)
-        ret, out = self.dut.cmd('lspci | grep Eth | grep "6003" | grep %s' % pci_dbdf_cut[1])
+        ret, out = self.dut.cmd('lspci | grep Eth | grep "6003\|3803" | grep %s' % pci_dbdf_cut[1])
         lines = out.split("\n")
         vfs = []
         vf_reps = []
