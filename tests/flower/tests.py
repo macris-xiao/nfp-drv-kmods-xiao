@@ -1861,7 +1861,8 @@ class FlowerMaxEntries(FlowerBase):
         setup_dut = os.path.join(self.dut.tmpdir, 'generate_entries.py')
         entry_filename = os.path.join(self.dut.tmpdir, 'rules.flows')
         iface, ingress = self.configure_flower()
-        max_entry_cnt = 480000
+
+        max_entry_cnt = int(self.dut.get_rtsym_scalar("CONFIG_FC_HOST_CTX_COUNT") * 1.0)
 
         with open(setup_local, "w") as entry_file:
             entry_file.write('import ipaddress\n')
