@@ -207,7 +207,7 @@ jobs:
                             'firmware_name':'agilio-nic-firmware-',
                             'firmware_path':'binaries/nic/releases/tgz',
                             'config_file':'generic',
-                            'test_cases':'reboot|'})
+                            'test_cases':'reboot&'})
 
           if 'reload' in tags:
             names.append('reload_tests')
@@ -216,67 +216,25 @@ jobs:
                             'firmware_name':'agilio-nic-firmware-',
                             'firmware_path':'binaries/nic/releases/tgz',
                             'config_file':'generic',
-                            'test_cases':'reload|'})
+                            'test_cases':'reload&'})
 
           if 'unit' in tags:
-            names.append('unit_nic_tests')
-            include.append({'name':'unit_nic_tests',
-                            'iproute_version':'5.15.0',
-                            'firmware_name':'agilio-nic-firmware-',
-                            'firmware_path':'binaries/nic/releases/tgz',
-                            'config_file':'generic',
-                            'test_cases':'unit.modinfo|'\
-                                        'unit.serial_and_ifc|'\
-                                        'unit.resource|'\
-                                        'unit.lock_busting|'\
-                                        'unit.nsp_eth_table|'\
-                                        'unit.hwinfo|'\
-                                        'unit.nsp_hwinfo|'\
-                                        'unit.rtsym|'\
-                                        'unit.rtsym_data|'\
-                                        'unit.fw_dump|'\
-                                        'unit.fw_names|'\
-                                        'unit.vnic_tlv_caps|'\
-                                        'unit.vnic_tlv_stats|'\
-                                        'unit.netdev|'\
-                                        'unit.params_incompat|'\
-                                        'unit.dev_cpp|'\
-                                        'unit.channel_reconfig|'\
-                                        'unit.ethtool_aneg|'\
-                                        'unit.port_config|'\
-                                        'unit.versions|'\
-                                        'unit.devlink_param|'})
-
-            names.append('unit_sriov_tests')
-            include.append({'name':'unit_sriov_tests',
+            names.append('unit_tests')
+            include.append({'name':'unit_tests',
                             'iproute_version':'5.15.0',
                             'firmware_name':'agilio-sriov-firmware-',
                             'firmware_path':'binaries/nic/releases/tgz',
                             'config_file':'generic',
-                            'test_cases':'unit.sriov|'\
-                                        'unit.sriov_ndos|'\
-                                        'unit.fec_modes|'\
-                                        'unit.ifstats_reconfig|'})
+                            'test_cases':'unit.(multi|sriov).*&'})
 
           if 'netdev' in tags:
-            names.append('netdev_nic_tests')
+            names.append('netdev_bpf_tests')
             include.append({'name':'netdev_nic_tests',
                             'iproute_version':'5.15.0',
                             'firmware_name':'agilio-nic-firmware-',
                             'firmware_path':'binaries/nic/releases/tgz',
                             'config_file':'generic',
-                            'test_cases':'netdev.bsp_version|'\
-                                        'netdev.bsp_diag|'\
-                                        'netdev.sensors|'\
-                                        'netdev.phys_port_name|'\
-                                        'netdev.ethtool_drvinfo|'\
-                                        'netdev.ethtool_get_speed|'\
-                                        'netdev.ethtool_stats|'\
-                                        'netdev.ethtool_mac_stats|'\
-                                        'netdev.ethtool_get_mod_eeprom|'\
-                                        'netdev.devlink_port_show|'\
-                                        'netdev.netconsole|'\
-                                        'netdev.huge_ring|'})
+                            'test_cases':'netdev.bpf.*&'})
 
             names.append('netdev_flower_tests')
             include.append({'name':'netdev_flower_tests',
@@ -284,7 +242,7 @@ jobs:
                             'firmware_name':'agilio-flower-app-firmware-',
                             'firmware_path':'binaries/disa/releases/tgz',
                             'config_file':'flower',
-                            'test_cases':'netdev.repr_caps|'})
+                            'test_cases':'netdev.flower.*&'})
 
             names.append('netdev_sriov_tests')
             include.append({'name':'netdev_sriov_tests',
@@ -292,8 +250,7 @@ jobs:
                             'firmware_name':'agilio-sriov-firmware-',
                             'firmware_path':'binaries/nic/releases/tgz',
                             'config_file':'generic',
-                            'test_cases':'netdev.coalesce_pf|'\
-                                        'netdev.coalesce_vf'})
+                            'test_cases':'netdev.(multi|sriov).*&'})
 
           if 'flower' in tags:
             names.append('flower_tests')
@@ -302,60 +259,17 @@ jobs:
                             'firmware_name':'agilio-flower-app-firmware-',
                             'firmware_path':'binaries/disa/releases/tgz',
                             'config_file':'flower',
-                            'test_cases':'flower|'})
+                            'test_cases':'flower&'})
 
           if tags == '-':
-            names.append('corenic_tests')
-            include.append({'name':'corenic_tests',
-                            'iproute_version':'5.15.0',
-                            'firmware_name':'agilio-nic-firmware-',
-                            'firmware_path':'binaries/nic/releases/tgz',
-                            'config_file':'generic',
-                            'test_cases':'netdev.bsp_version|'\
-                                        'netdev.bsp_diag|'\
-                                        'netdev.sensors|'\
-                                        'netdev.phys_port_name|'\
-                                        'netdev.ethtool_drvinfo|'\
-                                        'netdev.ethtool_get_speed|'\
-                                        'netdev.ethtool_stats|'\
-                                        'netdev.ethtool_mac_stats|'\
-                                        'netdev.ethtool_get_mod_eeprom|'\
-                                        'netdev.devlink_port_show|'\
-                                        'netdev.netconsole|'\
-                                        'netdev.mtu_flbufsz_check|'\
-                                        'netdev.huge_ring|'\
-                                        'reboot|'\
-                                        'reload|'\
-                                        'unit.modinfo|'\
-                                        'unit.serial_and_ifc|'\
-                                        'unit.resource|'\
-                                        'unit.lock_busting|'\
-                                        'unit.nsp_eth_table|'\
-                                        'unit.hwinfo|'\
-                                        'unit.nsp_hwinfo|'\
-                                        'unit.rtsym|'\
-                                        'unit.rtsym_data|'\
-                                        'unit.fw_dump|'\
-                                        'unit.fw_names|'\
-                                        'unit.vnic_tlv_caps|'\
-                                        'unit.vnic_tlv_stats|'\
-                                        'unit.netdev|'\
-                                        'unit.params_incompat|'\
-                                        'unit.dev_cpp|'\
-                                        'unit.channel_reconfig|'\
-                                        'unit.ethtool_aneg|'\
-                                        'unit.port_config|'\
-                                        'unit.versions|'\
-                                        'unit.devlink_param|'})
-
             names.append('flower_tests')
             include.append({'name':'flower_tests',
                             'iproute_version':'5.15.0',
                             'firmware_name':'agilio-flower-app-firmware-',
                             'firmware_path':'binaries/disa/releases/tgz',
                             'config_file':'flower',
-                            'test_cases':'flower|'\
-                                        'netdev.repr_caps|'})
+                            'test_cases':'flower&'\
+                                        'netdev.flower.*&'})
 
             names.append('sriov_tests')
             include.append({'name':'sriov_tests',
@@ -363,13 +277,10 @@ jobs:
                             'firmware_name':'agilio-sriov-firmware-',
                             'firmware_path':'binaries/nic/releases/tgz',
                             'config_file':'generic',
-                            'test_cases':'netdev.coalesce_pf|'\
-                                        'netdev.coalesce_vf|'\
-                                        'unit.sriov|'\
-                                        'unit.sriov_ndos|'\
-                                        'unit.fec_modes|'\
-                                        'unit.ifstats_reconfig|'})
-
+                            'test_cases':'reload&'\
+                                        'reboot&'\
+                                        'netdev.(multi|sriov|nic).*&'\
+                                        'unit.(multi|sriov|nic)&'})
 
           testMatrix["name"] = names
           testMatrix["include"] = include
@@ -410,11 +321,11 @@ jobs:
                             'firmware_name':search_key,
                             'firmware_path':fw_path,
                             'config_file':'generic',
-                            'test_cases':'ebpf|'\
-                                        'ebpfdrv|'\
-                                        'ebpf_perf|'\
-                                        'ebpf_perf_drv|'\
-                                        'netdev.mtu_flbufsz_check|'})
+                            'test_cases':'ebpf&'\
+                                        'ebpfdrv&'\
+                                        'ebpf_perf&'\
+                                        'ebpf_perf_drv&'\
+                                        'netdev.bpf.*&'})
             search_key = '${{ env.SEARCH_KEY }}'
             fw_path = '${{ env.FW_PATH }}'
 
@@ -432,14 +343,13 @@ jobs:
                             'firmware_name':search_key,
                             'firmware_path':fw_path,
                             'config_file':'flower',
-                            'test_cases':'flower|'\
-                                         'netdev.repr_caps|'})
+                            'test_cases':'flower&'\
+                                         'netdev.flower.*&'})
             search_key = '${{ env.SEARCH_KEY }}'
             fw_path = '${{ env.FW_PATH }}'
 
           if ( '${{ inputs.test }}' == 'all' and
-              ( '${{ inputs.fw_type }}' == 'AUTO:all' or
-              'NIC' in '${{ inputs.fw_type }}' ) ):
+              'NIC' in '${{ inputs.fw_type }}' ):
 
             if ( search_key == '' ):
               search_key = 'agilio-nic-firmware-.*${{ inputs.fw_version }}.*'
@@ -451,41 +361,10 @@ jobs:
                             'firmware_name':search_key,
                             'firmware_path':fw_path,
                             'config_file':'generic',
-                            'test_cases':'reboot|'\
-                                        'reload|'\
-                                        'netdev.bsp_version|'\
-                                        'netdev.bsp_diag|'\
-                                        'netdev.sensors|'\
-                                        'netdev.phys_port_name|'\
-                                        'netdev.ethtool_drvinfo|'\
-                                        'netdev.ethtool_get_speed|'\
-                                        'netdev.ethtool_stats|'\
-                                        'netdev.ethtool_mac_stats|'\
-                                        'netdev.ethtool_get_mod_eeprom|'\
-                                        'netdev.devlink_port_show|'\
-                                        'netdev.netconsole|'\
-                                        'netdev.huge_ring|'\
-                                        'unit.modinfo|'\
-                                        'unit.serial_and_ifc|'\
-                                        'unit.resource|'\
-                                        'unit.lock_busting|'\
-                                        'unit.nsp_eth_table|'\
-                                        'unit.hwinfo|'\
-                                        'unit.nsp_hwinfo|'\
-                                        'unit.rtsym|'\
-                                        'unit.rtsym_data|'\
-                                        'unit.fw_dump|'\
-                                        'unit.fw_names|'\
-                                        'unit.vnic_tlv_caps|'\
-                                        'unit.vnic_tlv_stats|'\
-                                        'unit.netdev|'\
-                                        'unit.params_incompat|'\
-                                        'unit.dev_cpp|'\
-                                        'unit.channel_reconfig|'\
-                                        'unit.ethtool_aneg|'\
-                                        'unit.port_config|'\
-                                        'unit.versions|'\
-                                        'unit.devlink_param|'})
+                            'test_cases':'reload&'\
+                                        'reboot&'\
+                                        'netdev.(multi|nic).*&'\
+                                        'unit.(multi|nic)&'})
             search_key = '${{ env.SEARCH_KEY }}'
             fw_path = '${{ env.FW_PATH }}'
 
@@ -503,12 +382,10 @@ jobs:
                             'firmware_name':search_key,
                             'firmware_path':fw_path,
                             'config_file':'generic',
-                            'test_cases':'netdev.coalesce_pf|'\
-                                        'netdev.coalesce_vf|'\
-                                        'unit.sriov|'\
-                                        'unit.sriov_ndos|'\
-                                        'unit.fec_modes|'\
-                                        'unit.ifstats_reconfig|'})
+                            'test_cases':'reload&'\
+                                        'reboot&'\
+                                        'netdev.(multi|sriov).*&'\
+                                        'unit.(multi|sriov)&'})
             search_key = '${{ env.SEARCH_KEY }}'
             fw_path = '${{ env.FW_PATH }}'
 
@@ -529,7 +406,7 @@ jobs:
               'firmware_name':search_key,
               'firmware_path':fw_path,
               'config_file':'generic',
-              'test_cases':'${{ inputs.test }}|'})
+              'test_cases':'${{ inputs.test }}&'})
 
           testMatrix["name"] = names
           testMatrix["include"] = include
@@ -686,7 +563,7 @@ jobs:
         run: |
           CONFIG_FILE=$(ls ../ci-libs/ci-config/$HOSTNAME/ci-dev-drv/${{ matrix.config_file }}.* | head -1)
           FAIL=false
-          for test in $(echo '${{ matrix.test_cases }}' | tr '|' ' '); do
+          for test in $(echo "${{ matrix.test_cases }}" | tr '&' ' '); do
             ../nti-private/ti/ticmd -c $CONFIG_FILE -l /tmp/logs/ci-dev-drv/$test run tests.$test | \
             sed --unbuffered 's/.*FAILED/\0\n::error::\0/' || FAIL=true
           done
