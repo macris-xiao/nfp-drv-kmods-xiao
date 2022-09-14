@@ -21,7 +21,6 @@ on:
           - AUTO:all
           - BPF:agilio-bpf-firmware
           - NIC:agilio-nic-firmware
-          - NIC:agilio-sriov-firmware
           - SRIOV:agilio-sriov-firmware
           - DISA:agilio-flower-app-firmware
         description: >-
@@ -349,7 +348,7 @@ jobs:
             fw_path = '${{ env.FW_PATH }}'
 
           if ( '${{ inputs.test }}' == 'all' and
-              'NIC' in '${{ inputs.fw_type }}' ):
+              '${{ inputs.fw_type }}' == 'NIC:agilio-nic-firmware' ):
 
             if ( search_key == '' ):
               search_key = 'agilio-nic-firmware-.*${{ inputs.fw_version }}.*'
@@ -527,7 +526,6 @@ jobs:
           KERNEL_RESET=$(echo ${{ steps.KERNEL_RESET.outputs.stdout }} | tr --delete '\n')
           echo "KERNEL_RESET=$KERNEL_RESET" >> $GITHUB_ENV
           KERNEL_REMOVE=$(echo ${{ steps.KERNEL_REMOVE.outputs.stdout }} | tr --delete '\n')
-          KERNEL_REMOVE=$(echo $KERNEL_REMOVE | tr '-' '_')
           echo "KERNEL_REMOVE=$KERNEL_REMOVE" >> $GITHUB_ENV
 
       - name: Create firmware directories for tests
@@ -580,7 +578,7 @@ jobs:
           extra_vars: |
             target=${HOSTNAME//-/_}_dut
             allow_unsupported_platforms=yes
-            kernel_remove=${{ env.KERNEL_REMOVE }}
+            kernel_remove=${KERNEL_REMOVE//-/_}
             kernel_uninstaller_ver_reset=${{ env.KERNEL_RESET }}
             github_token=${{ secrets.GHUB_TOKEN }}
           sudo: yes
