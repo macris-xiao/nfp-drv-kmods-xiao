@@ -684,6 +684,37 @@ TX:		(\d+)"""
         _, out = self.cmd('ethtool -m %s' % (ifc))
         return _parse_ethtool(out)
 
+    def ethtool_get_coalesce(self, ifc):
+        """
+        ethtool -c sample output:
+        Coalesce parameters for <netdev>:
+        Adaptive RX: off  TX: off
+        stats-block-usecs: 0
+        sample-interval: 0
+        pkt-rate-low: 0
+
+        This output is converted into a dictionary. The adaptive
+        parameters are returned in a different method compared to
+        the rest of the parameters. Therefore, an extra check
+        is required.
+        """
+        _, out = self.cmd('ethtool -c %s' % (ifc))
+
+        ret = {}
+
+        parameters = out.split('\n')
+        for param in parameters:
+            vals = param.split(': ')
+            k = vals[0].strip()
+            if k.startswith('Adaptive'):
+                rx = vals[1].split(' ')
+                ret['Adaptive RX'] = rx[0]
+                ret['Adaptive TX'] = vals[2]
+            elif k and not k.startswith('Coalesce parameters for '):
+                ret[k] = vals[1]
+
+        return ret
+
     ###############################
     # devlink
     ###############################
