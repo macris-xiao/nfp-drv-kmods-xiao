@@ -39,6 +39,7 @@ class NFPKmodReload(NFPKmodGrp):
         for t in T:
             self._tests[t[0]] = t[1](src, dut, self, t[0], t[2])
 
+###########################################################################
 
 import time
 from netro.testinfra.nti_exceptions import NtiGeneralError
@@ -46,6 +47,8 @@ from netro.testinfra.nrt_result import NrtResult
 from netro.testinfra.system import cmd_log
 from ..common_test import *
 from ..drv_system import DrvSystem
+
+###########################################################################
 
 class SpeedSet(CommonNetdevTest):
     def port_index_obtain(self):
@@ -103,7 +106,6 @@ class SpeedSet(CommonNetdevTest):
 
         all_speeds = ( 0, 1, 1237, 10000, 25000, 40000 )
 
-        # Check for old NSP
         if self.dut.get_nsp_ver(self.dut_ifn[0]) < 15:
             self.check_fails_all(all_speeds)
             return
@@ -199,6 +201,7 @@ class SpeedSet(CommonNetdevTest):
                 return
             speeds = speeds[1:] + speeds[:1]
 
+###########################################################################
 class DevlinkSplit(CommonNetdevTest):
     def check_fails_split(self, idx, bad_counts):
         for count in bad_counts:
