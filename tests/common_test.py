@@ -360,7 +360,10 @@ class CommonTest(Test):
             if ret or not re.search('p\d+(s\d+)*$', name):
                 raise NtiSkip('Interface %s is not a physical ifc' % ifc)
 
-    def kill_pidfile(self, host, pidfile, sig="-HUP", max_fail=0):
+    def kill_pidfile(self, host, pidfile, sig="-SIGTERM", max_fail=0):
+        """
+        Note: the default -SIGTERM signal is used to terminate a process.
+        """
         cmd = ''' # kill_pidfile
         fail=0
 
