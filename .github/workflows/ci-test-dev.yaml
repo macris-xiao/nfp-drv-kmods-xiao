@@ -59,14 +59,24 @@ on:
         options:
           - osprey
           - kestrel
+          - all
         description: >-
           NFP architecture on which to run tests
-
+      os:
+        type: choice
+        required: false
+        options:
+          - CentOS-8
+          - Ubuntu-20.04
+          - all
+        description: >-
+          Which operating system the cluster DUT should be
+          running.
 jobs:
   # ===================================================
   # PREPARE - derive test parameters, determine workflow skipping
   prepare:
-    name: 'drv-test-dev: Prepare'
+    name: 'Prepare'
     runs-on:
       - self-hosted
       - ci-linter-vm
@@ -88,25 +98,60 @@ jobs:
           HEAD_REF="${{ github.head_ref || github.ref_name }}"
           echo "JIRA_TICKET=$(echo $HEAD_REF | grep -Eo '[A-Za-z]+[^[:alnum:]]?[0-9]+' | head -1 || true)" >> $GITHUB_ENV
 
-      - name: Get available kernels
+      - name: Get available kernels - CentOS-8
         uses: ./ci-libs/github_actions/azure/azcopy_list
-        id: artifact
+        id: artifact-centos
         with:
           connection-string: ${{ secrets.AZ_SAS_TOK }}
-          src: tmp/linux_stable_builds/centos-stream8/
+          src: tmp/linux_stable_builds/CentOS-8/
+          pattern: '.*'
+
+      - name: Get available kernels - Ubuntu-20.04
+        uses: ./ci-libs/github_actions/azure/azcopy_list
+        id: artifact-ubuntu
+        with:
+          connection-string: ${{ secrets.AZ_SAS_TOK }}
+          src: tmp/linux_stable_builds/Ubuntu-20.04/
           pattern: '.*'
 
       - name: Set kernel to use
         shell: bash
         run: |
-          FILES=$(echo "${{ steps.artifact.outputs.file-list }}" | sed -E 's/^.*?kernel/kernel/')
-          if [ ${{ github.event_name }} = 'workflow_dispatch' ]; then
-            if [ ${{ inputs.kernel }} = '' ]; then
+          FILES_CENTOS=$(echo "${{ steps.artifact-centos.outputs.file-list }}" | sed -E 's/^.*?kernel/kernel/')
+          FILES_UBUNTU=$(echo "${{ steps.artifact-ubuntu.outputs.file-list }}" | sed -E 's/^.*?kernel/kernel/')
+          if [[ '${{ github.event_name }}' = 'workflow_dispatch' ]]; then
+            if [[ '${{ inputs.kernel }}' = '' ]]; then
               # No kernel specified, use the latest available
-              echo "KERNEL_TAR=$(echo $FILES | awk '{ print $1 }')" >> $GITHUB_ENV
-              echo "::notice::Kernel $(echo $FILES | awk '{ print $1 }') will be used"
+              if [[ '${{ inputs.os }}' = 'all' ]]; then
+              # Need to select the latest kernel that is available for both operating systems
+                KERNEL_TAR=
+                for i in {1..$(echo $FILES_CENTOS | awk --field-separator=" " "{ print NF }")}; do
+                  CENTOS_KERNEL=$(echo $FILES_CENTOS | awk -v index_var=$i '{ print $index_var }')
+                  UBUNTU_KERNEL=$(echo $FILES_UBUNTU | awk -v index_var=$i '{ print $index_var }')
+                  if [[ $CENTOS_KERNEL = $UBUNTU_KERNEL ]]; then
+                    KERNEL_TAR=$CENTOS_KERNEL
+                    break
+                  fi
+                done
+                if [[ $KERNEL_TAR = '' ]]; then
+                # No kernel is found that is available for both CentOS and Ubuntu
+                  echo "::notice::No appropriate kernel found"
+                  exit 2
+                else
+                  echo "KERNEL_TAR=$KERNEL_TAR" >> $GITHUB_ENV
+                  echo "::notice::Kernel $KERNEL_TAR will be used"
+                fi
+              else
+                if [[ '${{ inputs.os }}' == 'CentOS-8' ]]; then
+                  echo "KERNEL_TAR=$(echo $FILES_CENTOS | awk '{ print $1 }')" >> $GITHUB_ENV
+                  echo "::notice::Kernel $(echo $FILES_CENTOS | awk '{ print $1 }') will be used"
+                else
+                  echo "KERNEL_TAR=$(echo $FILES_UBUNTU | awk '{ print $1 }')" >> $GITHUB_ENV
+                  echo "::notice::Kernel $(echo $FILES_UBUNTU | awk '{ print $1 }') will be used"
+                fi
+              fi
             else
-              KERNEL_TAR="$(echo ${FILES} | grep -Eo '[^ ]*${{ inputs.kernel }}[^ ]*' || true)"
+              KERNEL_TAR="$(echo ${FILES_CENTOS} | grep -Eo '[^ ]*${{ inputs.kernel }}[^ ]*' || true)"
               if [[ -z $KERNEL_TAR ]]; then
                 # Specified kernel is not found
                 echo "::notice::Kernel '' not found"
@@ -159,8 +204,10 @@ jobs:
           elif [ ${FW_TYPE%:*} = 'DISA' ]; then
             if [ '$RELEASE' = 'temporary' ]; then
               echo "FW_PATH=tmp/disa_builds/tgz" >> $GITHUB_ENV
-            else
+            elif [ '$RELEASE' = 'release' ]; then
               echo "FW_PATH=binaries/disa/$RELEASE/tgz" >> $GITHUB_ENV
+            else
+              echo "FW_PATH=binaries/disa/$RELEASE/agilio-tc-firmware/tgz" >> $GITHUB_ENV
             fi
           else
             if [ '$RELEASE' = 'temporary' ]; then
@@ -294,15 +341,25 @@ jobs:
         run: |
           import json
 
-          testMatrix = {'platform':[
-                          '${{ inputs.platform }}'],
-                        'os':[
-                          'CentOS-8'],
-                        'kernel':[
+          testMatrix = {'kernel':[
                           '${{ env.KERNEL_TAR }}']
                         }
+          os = []
+          platform = []
           names = []
           include = []
+
+          if ( '${{ inputs.os }}' == 'all' ):
+            os.append('CentOS-8')
+            os.append('Ubuntu-20.04')
+          else:
+            os.append('${{ inputs.os }}')
+
+          if ( '${{ inputs.platform }}' == 'all' ):
+            platform.append('osprey')
+            platform.append('kestrel')
+          else:
+            platform.append('${{ inputs.platform }}')
 
           search_key = '${{ env.SEARCH_KEY }}'
           fw_path = '${{ env.FW_PATH }}'
@@ -404,9 +461,11 @@ jobs:
               'iproute_version':iproute,
               'firmware_name':search_key,
               'firmware_path':fw_path,
-              'config_file':'generic',
+              'config_file':config,
               'test_cases':'${{ inputs.test }}&'})
 
+          testMatrix["os"] = os
+          testMatrix["platform"] = platform
           testMatrix["name"] = names
           testMatrix["include"] = include
           print(json.dumps(testMatrix, indent=2))
@@ -425,7 +484,7 @@ jobs:
             print("::set-output name=matrix::" + str(${{ steps.matrix_dispatch.outputs.matrix }}))
 
   regression-tests:
-    name: 'drv-test-dev: ${{ matrix.name }}'
+    name: '${{ matrix.name }} - ${{ matrix.os }}/${{ matrix.platform }}'
     needs: prepare
     strategy:
       fail-fast: false
@@ -471,10 +530,11 @@ jobs:
           mkdir ci-libs/ansible/roles/llvm/files
 
       - name: Download kernel
+        if: contains(${{ matrix }}, 'os')
         uses: ./ci-libs/github_actions/azure/azcopy_download_sync
         with:
           connection-string: ${{ secrets.AZ_SAS_TOK }}
-          src: tmp/linux_stable_builds/centos-stream8/${{ matrix.kernel }}
+          src: tmp/linux_stable_builds/${{ matrix.os }}/${{ matrix.kernel }}
           dst: ci-libs/ansible/roles/kernel_installer/files/${{ matrix.kernel }}
 
       - name: Find llvm
@@ -555,14 +615,33 @@ jobs:
         run: |
           sudo tar -xvzf ./firmware/firmware.tar.gz --strip-components=1 -C ./firmware/test/
 
+      - name: Select correct card on DUT
+        shell: bash
+        working-directory: ${{ github.workspace }}/ci-libs/ci-config
+        run: |
+          cd $HOSTNAME
+          for i in $(ls | grep AMDA || true); do
+            PLATFORM_PRESENT=$(grep ${{ matrix.platform }} $i || true)
+            if [[ $PLATFORM_PRESENT != '' ]]; then
+              if [[ ${{ matrix.config_file }} = 'generic' ]]; then
+                CONFIG_FILE=generic.$(echo $i | cut -d "-" -f2-).cfg
+              else
+                CONFIG_FILE=flower.$(echo $i | cut -d "-" -f2).cfg
+              fi
+              echo "CONFIG_FILE=$CONFIG_FILE" >> $GITHUB_ENV
+              break
+            fi
+          done
+
       - name: Run tests
         shell: bash
         working-directory: ${{ github.workspace }}/nfp-drv-kmods-private
         run: |
-          CONFIG_FILE=$(ls ../ci-libs/ci-config/$HOSTNAME/ci-dev-drv/${{ matrix.config_file }}.* | head -1)
           FAIL=false
-          for test in $(echo "${{ matrix.test_cases }}" | tr '&' ' '); do
-            ../nti-private/ti/ticmd -c $CONFIG_FILE -l /tmp/logs/ci-dev-drv/$test run tests.$test | \
+          for test in $(echo '${{ matrix.test_cases }}' | tr '&' ' '); do
+            ../nti-private/ti/ticmd \
+            -c ../ci-libs/ci-config/$HOSTNAME/ci-dev-drv/${{ env.CONFIG_FILE }} \
+            -l /tmp/logs/ci-dev-drv/$test run tests.$test | \
             sed --unbuffered 's/.*FAILED/\0\n::error::\0/' || FAIL=true
           done
           if ${FAIL}; then
