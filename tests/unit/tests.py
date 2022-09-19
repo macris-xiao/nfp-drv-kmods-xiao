@@ -523,10 +523,10 @@ class SriovTest(CommonDrvTest):
     def sriov_set(self, num=0):
         self.dut.cmd('echo %s > /sys/bus/pci/devices/0000:%s/sriov_numvfs' %
                      (num, self.group.pci_id))
-        if self.dut.get_part_no() != 'AMDA0145-0002':
-            _, out = self.dut.cmd('lspci -d 19ee:6003 | wc -l')
+        if self.dut.get_pci_device_id() != '3800':
+            _, out = self.dut.cmd('lspci -d %s:6003 | wc -l' % self.dut.get_vendor_id())
         else:
-            _, out = self.dut.cmd('lspci -d 19ee:3803 | wc -l')
+            _, out = self.dut.cmd('lspci -d %s:3803 | wc -l' % self.dut.get_vendor_id())
         got = int(out)
         if got != num:
             raise NtiGeneralError('Incorrect SR-IOV number got:%d want:%d' %
@@ -542,7 +542,12 @@ class SriovTest(CommonDrvTest):
             self.dut.cmd(cmd)
         else:
             self.dut.cmd('modprobe pci_stub')
-            cmd = 'echo 19ee 6003 > /sys/bus/pci/drivers/pci-stub/new_id'
+            if self.dut.get_pci_device_id() != '3800':
+                cmd = 'echo %s 6003 > /sys/bus/pci/drivers/pci-stub/new_id' % \
+                    self.dut.get_vendor_id()
+            else:
+                cmd = 'echo %s 3803 > /sys/bus/pci/drivers/pci-stub/new_id' % \
+                    self.dut.get_vendor_id()
             self.dut.cmd(cmd)
 
         M.insmod()
