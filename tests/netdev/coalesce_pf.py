@@ -24,13 +24,14 @@ class coalescePF(CommonTest):
         self.throughput_on = []
         self.latency_on = []
 
-    def config_coalesce(self, ifc, src_on=False, status='off', rxusecs='50', rxframes='64'):
+    def config_coalesce(self, ifc, src_on=False, status='off',
+                        req_rx_usecs='50', req_rx_frames='64'):
 
         if src_on == False:
             cmd = 'ethtool --coalesce %s '%(ifc)
             if status == 'off':
                 cmd += 'adaptive-rx off adaptive-tx off rx-usecs %s \
-                rx-frames %s' % (rxusecs, rxframes)
+                rx-frames %s' % (req_rx_usecs, req_rx_frames)
                 self.dut.cmd(cmd)
             else:
                 cmd += 'adaptive-rx on adaptive-tx on'
@@ -40,44 +41,41 @@ class coalescePF(CommonTest):
             cmd = 'ethtool --coalesce %s '% (ifc)
             if status == 'off':
                 cmd += 'adaptive-rx off adaptive-tx off rx-usecs %s \
-                rx-frames %s' % (rxusecs, rxframes)
+                rx-frames %s' % (req_rx_usecs, req_rx_frames)
                 self.src.cmd(cmd)
             else:
                 cmd += 'adaptive-rx on adaptive-tx on'
                 self.src.cmd(cmd)
 
-    def check_coalesce(self, ifc, src_on=False, status='off', rxusecs='50', rxframes='64'):
-
-        cmd = ''
-        cmd += 'ethtool --show-coalesce %s' % (ifc)
-        if status == 'off':
-            if src_on == False:
-                ret, out = self.dut.cmd('ethtool --show-coalesce %s | grep rx-usecs:' % (ifc))
-                rx_usecs = out.strip().split(' ')[-1]
-                ret, out = self.dut.cmd('ethtool --show-coalesce %s | grep rx-frames:' % (ifc))
-                rx_frames = out.strip().split(' ')[-1]
-            else:
-                ret, out = self.src.cmd('ethtool --show-coalesce %s | grep rx-usecs:' % (ifc))
-                rx_usecs = out.strip().split(' ')[-1]
-                ret, out = self.src.cmd('ethtool --show-coalesce %s | grep rx-frames:' % (ifc))
-                rx_frames = out.strip().split(' ')[-1]
-        else:
-            if src_on == False:
-                ret, out = self.dut.cmd('ethtool --show-coalesce %s | grep Adaptive' % (ifc))
-                adaptive_rx = out.strip().split()[2]
-                adaptive_tx = out.strip().split()[-1]
-            else:
-                ret, out = self.src.cmd('ethtool --show-coalesce %s | grep Adaptive' % (ifc))
-                adaptive_rx = out.strip().split()[2]
-                adaptive_tx = out.strip().split()[-1]
+    def check_coalesce(self, ifc, src_on=False, status='off', check='post',
+                       req_rx_usecs='50', req_rx_frames='64'):
+        M = self.dut
+        if src_on is True:
+            M = self.src
+        c_settings = M.ethtool_get_coalesce(ifc)
 
         if status == 'off':
-            if ((rx_usecs != rxusecs) | (rx_frames != rxframes)):
-                raise NtiError("Failed to set coalesce:rx-usecs(s/d)=(%s:%s), \
-                rx-frames(s/d) = (%s/%s)" % (rx_usecs, rxusecs, rx_frames, rxframes))
+            cur_rx_usecs = c_settings['rx-usecs']
+            cur_rx_frames = c_settings['rx-frames']
+            if ((cur_rx_usecs != req_rx_usecs) |
+               (cur_rx_frames != req_rx_frames)):
+
+                if check == 'pre':
+                    return False
+                else:
+                    raise NtiError("Failed to set coalesce:rx-usecs(s/d)=(%s:%s), \
+                    rx-frames(s/d) = (%s/%s)" % (cur_rx_usecs, req_rx_usecs,
+                                                 cur_rx_frames, req_rx_frames))
         else:
-            if ((adaptive_rx != 'on')|(adaptive_tx != 'on')):
-                raise NtiError("Failed to enable coalesce !")
+            adaptiverx = c_settings['Adaptive RX']
+            adaptivetx = c_settings['Adaptive TX']
+            if ((adaptiverx != 'on') | (adaptivetx != 'on')):
+                if check == 'pre':
+                    return False
+                else:
+                    raise NtiError("Failed to enable coalesce !")
+
+        return True
 
     def check_prereq(self, check, description, on_src=False):
         if on_src:
@@ -107,11 +105,22 @@ class coalescePF(CommonTest):
         # set coalesce rx-usecs/rx-frames is 50/64 test throughput and latency
         self.src.cmd('netserver', fail=False)
         for i in range(len(self.src_ifn)):
-            self.config_coalesce(self.src_ifn[i], src_on=True, status='off', rxusecs='50', rxframes='64')
-            self.check_coalesce(self.src_ifn[i], src_on=True, status='off', rxusecs='50', rxframes='64')
+            pre_check = self.check_coalesce(self.src_ifn[i], src_on=True,
+                                            status='off', check='pre',
+                                            req_rx_usecs='50',
+                                            req_rx_frames='64')
+            if(pre_check is False):
+                self.config_coalesce(self.src_ifn[i], src_on=True,
+                                     status='off',
+                                     req_rx_usecs='50',
+                                     req_rx_frames='64')
+            self.check_coalesce(self.src_ifn[i], src_on=True, status='off',
+                                req_rx_usecs='50', req_rx_frames='64')
         for i in range(len(self.dut_ifn)):
-            self.config_coalesce(self.dut_ifn[i], status='off', rxusecs='50', rxframes='64')
-            self.check_coalesce(self.dut_ifn[i], status='off', rxusecs='50', rxframes='64')
+            self.config_coalesce(self.dut_ifn[i], status='off',
+                                 req_rx_usecs='50', req_rx_frames='64')
+            self.check_coalesce(self.dut_ifn[i], status='off',
+                                req_rx_usecs='50', req_rx_frames='64')
             ret, out = self.dut.cmd('netperf -H %s -l 60' % self.src_addr[i][:-3])
             line = "".join(out).split('\n')[-2].strip()
             self.throughput_off.append(float(line.split()[-1]))
@@ -123,11 +132,15 @@ class coalescePF(CommonTest):
 
         # set coalesce rx-usecs/rx-frames is 0/1 test throughput and latency
         for i in range(len(self.src_ifn)):
-            self.config_coalesce(self.src_ifn[i], src_on=True, status='off', rxusecs='1', rxframes='0')
-            self.check_coalesce(self.src_ifn[i], src_on=True, status='off', rxusecs='1', rxframes='0')
+            self.config_coalesce(self.src_ifn[i], src_on=True, status='off',
+                                 req_rx_usecs='1', req_rx_frames='0')
+            self.check_coalesce(self.src_ifn[i], src_on=True, status='off',
+                                req_rx_usecs='1', req_rx_frames='0')
         for i in range(len(self.dut_ifn)):
-            self.config_coalesce(self.dut_ifn[i], status='off', rxusecs='1', rxframes='0')
-            self.check_coalesce(self.dut_ifn[i], status='off', rxusecs='1', rxframes='0')
+            self.config_coalesce(self.dut_ifn[i], status='off',
+                                 req_rx_usecs='1', req_rx_frames='0')
+            self.check_coalesce(self.dut_ifn[i], status='off',
+                                req_rx_usecs='1', req_rx_frames='0')
             ret, out = self.dut.cmd('netperf -H %s -l 60' % self.src_addr[i][:-3])
             line = "".join(out).split('\n')[-2].strip()
             self.throughput_off.append(float(line.split()[-1]))
@@ -168,8 +181,12 @@ class coalescePF(CommonTest):
     def cleanup(self):
         self.src.cmd('pkill netserver', fail=False)
         for i in range(len(self.src_ifn)):
-            self.config_coalesce(self.src_ifn[i], src_on=True, status='off', rxusecs='50', rxframes='64')
-            self.check_coalesce(self.src_ifn[i], src_on=True, status='off', rxusecs='50', rxframes='64')
+            self.config_coalesce(self.src_ifn[i], src_on=True, status='off',
+                                 req_rx_usecs='50', req_rx_frames='64')
+            self.check_coalesce(self.src_ifn[i], src_on=True, status='off',
+                                req_rx_usecs='50', req_rx_frames='64')
         for i in range(len(self.dut_ifn)):
-            self.config_coalesce(self.dut_ifn[i], status='off', rxusecs='50', rxframes='64')
-            self.check_coalesce(self.dut_ifn[i], status='off', rxusecs='50', rxframes='64')
+            self.config_coalesce(self.dut_ifn[i], status='off',
+                                 req_rx_usecs='50', req_rx_frames='64')
+            self.check_coalesce(self.dut_ifn[i], status='off',
+                                req_rx_usecs='50', req_rx_frames='64')
