@@ -45,6 +45,10 @@ class PhysPortName(CommonTest):
             _, pci_info = self.dut.cmd('lspci -s {0:s} -n' .format(pci_dbdf))
             drvinfo = self.dut.ethtool_drvinfo(ifc)
 
+            # Build PCI netdev ID from card dependent vendor ID and VF ID
+            pci_netdev_id = self.dut.get_vendor_id() + ':' \
+                + self.dut.get_vf_id()
+
             # Check vNIC names are not on reprs
             if not self.nfp_ifc_is_vnic(drvinfo) and \
                re.match("^n\d+$", port_name):
@@ -58,20 +62,20 @@ class PhysPortName(CommonTest):
 
             # VF or flower PF vNIC without a port
             if port_name == '/no_name/' and \
-               pci_info.count('19ee:6003') == 0 and \
+               pci_info.count(pci_netdev_id) == 0 and \
                drvinfo["firmware-version"].count("AOTC") == 0:
                 raise NtiError("Only VFs and Flower FW uses no-name vNICs")
 
             # VF or flower vNIC with a name
             if port_name != '/no_name/' and \
-               self.nfp_ifc_is_vnic(drvinfo) and \
-               (pci_info.count('19ee:6003') != 0 or \
+                self.nfp_ifc_is_vnic(drvinfo) and \
+                (pci_info.count(pci_netdev_id) != 0 or
                 drvinfo["firmware-version"].count("AOTC") != 0):
                 raise NtiError("VFs and Flower FW must use no-name vNICs")
 
             # Non-vNIC netdev on a VF
             if not self.nfp_ifc_is_vnic(drvinfo) and \
-               pci_info.count('19ee:6003') != 0:
+               pci_info.count(pci_netdev_id) != 0:
                 raise NtiError("VFs with non-vNIC netdev")
 
             self.log("Interface {0:s} OKAY" .format(ifc), '')
