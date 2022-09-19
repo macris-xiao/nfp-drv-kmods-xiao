@@ -29,6 +29,7 @@ class DrvSystem(LinuxSystem):
         self.fw_name = None
         self.fw_name_serial = None
         self.pci_device_id = None
+        self.vendor_id = None
         self.netdevfw_dir = None
         self.grp = grp
 
@@ -632,6 +633,20 @@ class DrvSystem(LinuxSystem):
         _, pci_device_info = self.cmd('lspci | grep %s' % self.grp.pci_id)
         self.pci_device_id = pci_device_info.split()[-1]
         return self.pci_device_id
+
+    def get_vendor_id(self):
+        # Determine vendor ID : 19ee (netronome) or 1da8 (corigine)
+        if self.vendor_id:
+            return self.vendor_id
+
+        _, out = self.cmd('cat /sys/bus/pci/devices/0000:%s/vendor' %
+                          self.group.pci_id, fail=False)
+        vendor_id = out.split('x')[1].strip()
+        if vendor_id not in ['19ee', '1da8']:
+            raise NtiError('Unexpected vendor ID: %s' % (vendor_id))
+        else:
+            self.vendor_id = vendor_id
+        return self.vendor_id
 
     def get_fw_name(self):
         if self.fw_name:
