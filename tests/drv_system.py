@@ -30,6 +30,7 @@ class DrvSystem(LinuxSystem):
         self.fw_name_serial = None
         self.pci_device_id = None
         self.vendor_id = None
+        self.vf_id = None
         self.netdevfw_dir = None
         self.grp = grp
 
@@ -647,6 +648,17 @@ class DrvSystem(LinuxSystem):
         else:
             self.vendor_id = vendor_id
         return self.vendor_id
+
+    def get_vf_id(self):
+        # Determine VF ID from PCI device ID
+        if self.vf_id:
+            return self.vf_id
+
+        if self.get_pci_device_id() != '3800':
+            self.vf_id = '6003'
+        else:
+            self.vf_id = '3803'
+        return self.vf_id
 
     def get_fw_name(self):
         if self.fw_name:
