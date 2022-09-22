@@ -8,7 +8,7 @@ test environment up and running, as well as running tests.
 
 ## Setting up the test environment
 
-The test configuration looks like this:
+The topology of the testing cluster is as seen below:
 ```
          +---------+
          |   DUT   |
@@ -16,25 +16,12 @@ The test configuration looks like this:
          |ethX ethY|
          +-^-----^-+
 +------+   |     |   +-------+
-|Host A|   |     |   |Host B*|
+|Host A|   |     |   |Host B|
 |  ethA<---+     +--->ethB   |
 +------+             +-------+
-                     *optional
 ```
 
-The setup process detailed below is for machines running Centos Stream 8.
 ### DUT:
-
-#### Package dependencies
-
-```bash
-dnf -y install dwarves clang python27 iproute pciutils binutils-devel openssl-devel netperf hping3 lm-sensors
-```
-Set `python27` as system-wide python command:
-```bash
-alias python=python2.7
-alias pip=pip2.7
-```
 
 #### Install a newer Linux kernel
 
@@ -49,11 +36,100 @@ configuration file when building the kernel:
 CONFIG_PCI_STUB: m
 CONFIG_DEBUG_INFO_BTF: y
 ```
+One can either install a kernel from source by cloning one of the above
+mentioned repos and configuring them appropriately, or by installing one of the
+pre-configured kernel packages available on the Azure cloud storage at
+```
+internal/tmp/linux-stable-builds/
+```
+
+The packages come in the form of a tarball, for example:
+<b>kernel-5.19.9-drv-616.tar.gz</b>
+Extracting this will show the following files:
+##### CentOS Stream 8
+```
+kernel-5.19.9_drv_616-1.x86_64.rpm
+kernel-devel-5.19.9_drv_616-1.x86_64.rpm
+kernel-headers-5.19.9_drv_616-1.x86_64.rpm
+```
+##### Ubuntu 20.04
+```
+linux-headers-5.19.9-drv-616_5.19.9-drv-616-1_amd64.deb
+linux-image-5.19.9-drv-616-dbg_5.19.9-drv-616-1_amd64.deb
+linux-image-5.19.9-drv-616_5.19.9-drv-616-1_amd64.deb
+linux-libc-dev_5.19.9-drv-616-1_amd64.deb
+linux-upstream_5.19.9-drv-616-1.diff.gz
+linux-upstream_5.19.9-drv-616-1.dsc
+linux-upstream_5.19.9-drv-616-1_amd64.buildinfo
+linux-upstream_5.19.9-drv-616-1_amd64.changes
+linux-upstream_5.19.9-drv-616.orig.tar.gz
+```
+
+For <b>CentOS Stream 8</b>, one must simply install all of the extracted
+<b>.rpm</b> package files using the <b>dnf</b> command line utility.
+
+For <b>Ubuntu 20.04</b>, one must first install all of the extracted <b>.deb</b>
+package files using either the <b>dpkg</b> or <b>apt</b> command line utilities.
+However, this does not include the Kconfig files in the kernel source directory,
+which are necessary in order to build bpftool in the step to follow. To ensure
+the presence of these files one must extract the contents of
+<b>linux-upstream_5.19.9-drv-616.orig.tar.gz</b> into the kernel source
+directory using the following command:
+
+```bash
+sudo tar xvfz linux-upstream_5.19.9-drv-616.orig.tar.gz --strip-components 1 -C /usr/src/linux-headers-5.19.9-drv-616/
+```
+
+Once the new kernel is installed on the DUT, restart the machine.
+
+#### Package dependencies
+
+##### CentOS Stream 8
+```bash
+dnf -y install dwarves clang python27 iproute pciutils binutils-devel openssl-devel netperf hping3 lm_sensors
+```
+##### Ubuntu 20.04
+```bash
+apt -y install dwarves clang python2.7 iproute2 pciutils binutils-dev libssl-dev netperf hping3 lm-sensors
+```
+
+Set `Python 2.7` as system-wide python command:
+##### CentOS Stream 8
+```bash
+sudo update-alternatives --install /usr/bin/unversioned-python python /usr/bin/python3 0
+sudo update-alternatives --install /usr/bin/unversioned-python python /usr/bin/python2 51
+```
+##### Ubuntu 20.04
+```bash
+sudo update-alternatives --install /usr/bin/python python /usr/bin/python3 0
+sudo update-alternatives --install /usr/bin/python python /usr/bin/python2.7 51
+```
+
+
+
+
 #### Build bpftool
+bpftool must be built and installed using the newly installed kernel. For this,
+one must first determine the kernel source directory.
+
+If the kernel was installed from source by cloning one of the above-mentioned
+repos and configuring it oneself before building and installing, this source
+directory will simply be the location of the cloned repo.
+
+If the kernel was installed using packages, then the kernel source directory,
+hereafter defined as <b>$KSRC</b>, will be located in
+##### CentOS Stream 8
+```bash
+/usr/src/kernels/5.19.9-drv-616
+```
+##### Ubuntu 20.04
+```bash
+/usr/src/linux-headers-5.19.9-drv-616/
+```
 
 For example:
 ```bash
-cd /root/linux-kernel-source
+cd $KSRC
 make -C tools/lib/bpf
 make -C tools/lib/bpf install
 make -C tools/bpf/bpftool install
@@ -64,10 +140,18 @@ export LIBBPF_PATH=/root/linux-kernel-source/tools/lib/bpf/
 
 For example:
 
+##### CentOS Stream 8
 ```bash
 cd /root/
 wget http://storage-01.cpt.corigine.com/cloud/binaries/nfp-sdk/releases/6.4.0/6.4.0.9/nfp-toolchain-6.4.0.9-0-5072.x86_64.rpm
 dnf -y install nfp-toolchain-6.4.0.9-0-5072.x86_64.rpm
+```
+
+##### Ubuntu 20.04
+```bash
+cd /root/
+wget http://storage-01.cpt.corigine.com/cloud/binaries/nfp-sdk/releases/6.4.0/6.4.0.9/nfp-toolchain_6.4.0.9-5072-2_amd64.deb
+apt -y install ./nfp-toolchain_6.4.0.9-5072-2_amd64.deb
 ```
 
 #### Add SDK directory to path:
@@ -80,11 +164,20 @@ PATH=${PATH}:${NETRONOME_DIR}/bin
 
 Most of the tests require not only the nfp-sdk but also the nfp-bsp.
 An example of how to install this can be seen below:
+##### CentOS Stream 8
 ```bash
-wget http://storage-01.cpt.corigine.com/cloud/binaries/nfp-bsp/distros/default/x86_64/rpm/nfp-bsp_2021.08.09.1610_1_x86_64.rpm
-dnf -y install nfp-bsp_2021.08.09.1610_1_x86_64.rpm
-wget http://storage-01.cpt.corigine.com/cloud/binaries/nfp-bsp/distros/default/x86_64/rpm/nfp-bsp-dev_2021.08.09.1610_1_x86_64.rpm
-dnf -y install nfp-bsp-dev_2021.08.09.1610_1_x86_64.rpm
+wget http://storage-01.cpt.corigine.com/cloud/binaries/nfp-bsp/releases/rpm/nfp-bsp_22.09-0.el8.x86_64.rpm
+dnf -y install nfp-bsp_22.09-0.el8.x86_64.rpm
+wget http://storage-01.cpt.corigine.com/cloud/binaries/nfp-bsp/releases/rpm/nfp-bsp-dev_22.09-0.el8.x86_64.rpm
+dnf -y install nfp-bsp-dev_22.09-0.el8.x86_64.rpm
+```
+
+##### Ubuntu 20.04
+```bash
+wget http://storage-01.cpt.corigine.com/cloud/binaries/nfp-bsp/releases/deb/nfp-bsp_22.09-0.bionic_amd64.deb
+apt -y install ./nfp-bsp_22.09-0.bionic_amd64.deb
+wget http://storage-01.cpt.corigine.com/cloud/binaries/nfp-bsp/releases/deb/nfp-bsp-dev_22.09-0.bionic_amd64.deb
+apt -y install ./nfp-bsp-dev_22.09-0.bionic_amd64.deb
 ```
 
 After installing the nfp-bsp packages on the machine it is a good idea to then
@@ -93,17 +186,52 @@ update the bsp version on the NIC itself using the following command:
 nfp-fw-update -Z 0000:02:00.0 --update
 ```
 with the PCI address of the NIC you intend to use for the tests.
+
+#### Install llvm and clang
+It is recommended to install the pre-built <b>llvm</b> and <b>clang</b>
+packages, to ensure the correct version and dependencies are installed,
+regardless of OS.
+
+Similarly to the custom kernel packages, these packages can be found on the
+Azure storage server at
+
+```
+/mnt/cloud/binaries/misc/llvm/
+```
+
+After downloading a tarball, they can be installed using the following commands:
+
+##### CentOS Stream 8
+```bash
+sudo tar xvfz llvm-toolchain-13-2022-06-20.tar.gz
+sudo dnf -y --nogpgcheck install ./centos8/*.rpm
+```
+##### Ubuntu 20.04
+```bash
+sudo tar xvfz llvm-toolchain-13-2022-06-20.tar.gz
+sudo dpkg -i ubuntu2004/*.deb
+```
+
 #### Install nfp-drv-kmods-private
 
 ```bash
 git clone https://github.com/Corigine/nfp-drv-kmods-private.git
 cd nfp-drv-kmods-private/
 make
-make install
 make test_prepare
 ```
-Note that when testing on nfp 3800 it is necessary to run
-```make test_prepare CHIP=nfp-38xx``` instead of simply ```make test_prepare```
+
+Depending on the user, one may wish to also install the driver on the DUT
+using the ```make install``` Makefile target, if one is working on the tests
+themselves this can be helpful to save the nti framework and Orchestrator
+from having to install it each time an instance of the tests is run.
+
+But generally speaking it is preferred to have the installation handled by the
+Orchestrator as it will then also uninstall the driver being tested, resulting
+in a cleaner setup once testing is finished.
+
+*Note that when testing on nfp 3800 it is necessary to run
+```make test_prepare CHIP=nfp-38xxc``` instead of simply ```make test_prepare```
 in order to compile the firmwares under the `tests/samples/mefw` directory.
 
 ### EP
@@ -113,9 +241,18 @@ difference in the installation of the driver, and additional step,
 the installation of firmware for the smartNIC.
 
 #### Driver
-The process for installing the driver for the EP differs only in that
-you do not have to build with the `test_prepare` tag. The installation
-of the driver on the EP is accomplished as follows:
+The process for installing the driver for the EP differs slightly, as this is
+not the version of the driver being tested, it is only really important that the
+versions are not so different that the tests fail due to missing features on the
+EP driver.
+
+If the versions are close enough then the EP can simply use the in-tree driver,
+enabled with the ```modprobe nfp``` command.
+
+If the versions are too out of date, then it is best to install the out of tree
+driver, the process is similar to that on the DUT, with substitution of the
+```install``` target for the previously used ```test_prepare``` target.
+The installation of the driver on the EP is accomplished as follows:
 ```bash
 git clone https://github.com/Corigine/nfp-drv-kmods-private.git
 cd nfp-drv-kmods-private/
