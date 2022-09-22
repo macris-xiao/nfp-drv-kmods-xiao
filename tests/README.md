@@ -493,7 +493,9 @@ example:
 
 ### Test Specific Firmware
 This section contains a table detailing the appropriate firmware to use for
-each test group.
+each test group. Test groups requiring multiple types of firmware for different
+tests within the same group now have that firmware type prepended to the test
+name.
 
 | Test group    | Test name        | Firmware to use               | Where to find the firmware
 | ------------- | ---------------- | ----------------------------- | --------------------------
@@ -503,20 +505,17 @@ each test group.
 | ebpfdrv       |                  | bpf *or* bpf_upd *or* bpf_big | http://storage-01.cpt.corigine.com/cloud/binaries/nic/bpf/tgz
 | ebpf_perf     |                  | bpf *or* bpf_upd *or* bpf_big | http://storage-01.cpt.corigine.com/cloud/binaries/nic/bpf/tgz
 | ebpf_perf_drv |                  | bpf *or* bpf_upd *or* bpf_big | http://storage-01.cpt.corigine.com/cloud/binaries/nic/bpf/tgz
-| rand          |                  | coreNIC                       | http://storage-01.cpt.corigine.com/cloud/binaries/nic/2.1/tgz
-| rand_err      |                  | coreNIC                       | http://storage-01.cpt.corigine.com/cloud/binaries/nic/2.1/tgz
-| flower        |                  | flower                        | http://storage-01.cpt.corigine.com/cloud/binaries/disa/releases/tar
-| unit          | sriov_ndos       | SRIOV                         | http://storage-01.cpt.corigine.com/cloud/binaries/nic/2.1/tgz
-| unit          | fec_modes        | SRIOV                         | http://storage-01.cpt.corigine.com/cloud/binaries/nic/2.1/tgz
-| unit          | ifstats_reconfig | SRIOV                         | http://storage-01.cpt.corigine.com/cloud/binaries/nic/2.1/tgz
-| unit          |                  | coreNIC                       | http://storage-01.cpt.corigine.com/cloud/binaries/nic/2.1/tgz
-| netdev        | repr_caps        | flower                        | http://storage-01.cpt.corigine.com/cloud/binaries/disa/releases/tar
-| netdev        | coalesce_pf      | SRIOV                         | http://storage-01.cpt.corigine.com/cloud/binaries/nic/2.1/tgz
-| netdev        | coalesce_vf      | SRIOV                         | http://storage-01.cpt.corigine.com/cloud/binaries/nic/2.1/tgz
-| netdev        |                  | coreNIC                       | http://storage-01.cpt.corigine.com/cloud/binaries/nic/2.1/tgz
-| reboot        |                  | coreNIC                       | http://storage-01.cpt.corigine.com/cloud/binaries/nic/2.1/tgz
-| reload        |                  | coreNIC                       | http://storage-01.cpt.corigine.com/cloud/binaries/nic/2.1/tgz
-| setup         |                  | coreNIC                       | http://storage-01.cpt.corigine.com/cloud/binaries/nic/2.1/tgz
+| rand          |                  | coreNIC                       | http://storage-01.cpt.corigine.com/cloud/binaries/nic/releases/tgz
+| rand_err      |                  | coreNIC                       | http://storage-01.cpt.corigine.com/cloud/binaries/nic/releases/tgz
+| flower        |                  | flower                        | http://storage-01.cpt.corigine.com/cloud/binaries/disa/releases/tgz
+| unit          | multi.*          | SRIOV *or* CoreNIC            | http://storage-01.cpt.corigine.com/cloud/binaries/nic/releases/tgz
+| netdev        | multi.*          | SRIOV *or* CoreNIC            | http://storage-01.cpt.corigine.com/cloud/binaries/nic/releases/tgz
+| netdev        | sriov.*          | SRIOV                         | http://storage-01.cpt.corigine.com/cloud/binaries/nic/releases/tgz
+| netdev        | flower.*         | flower                        | http://storage-01.cpt.corigine.com/cloud/binaries/disa/releases/tgz
+| netdev        | bpf.*            | bpf *or* bpf_upd *or* bpf_big | http://storage-01.cpt.corigine.com/cloud/binaries/nic/releases/tgz
+| reboot        |                  | coreNIC                       | http://storage-01.cpt.corigine.com/cloud/binaries/nic/releases/tgz
+| reload        |                  | coreNIC                       | http://storage-01.cpt.corigine.com/cloud/binaries/nic/releases/tgz
+| setup         |                  | coreNIC                       | http://storage-01.cpt.corigine.com/cloud/binaries/nic/releases/tgz
 
 ### Check test setup
 Finally, you can check if your test setup is properly provisioned by running
