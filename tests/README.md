@@ -314,7 +314,87 @@ pip install enum34 python-dateutil paramiko pyelftools scapy Flask Flask-SQLAlch
 ```
 git clone https://github.com/Corigine/nti-private.git
 ```
+## Provisioning using Ansible
 
+While the above process is acceptable to get the test framework up and running,
+certain tests require additional dependencies which are not detailed here, such
+as the installation of OVS required by the <b>tests.flower</b> test group.
+
+As new tests are developed, the Ansible provisioning playbook will be updated
+more regularly than this document. For these reasons it is recommended to
+instead provision the testing cluster using the ```provision_ci_dev_drv.yaml```
+playbook in the [ci-libs](https://github.com/Corigine/ci-libs "https://github.com/Corigine/ci-libs")
+repository.
+
+This section will detail the use of Ansible to provision a cluster of machines
+for Driver regression tests. The following example cluster in the za-cpt lab
+will be used:
+
+| Hostname                    | Role         |
+|-----------------------------|--------------|
+| example_vm.cpt.corigine.com | Orchestrator |
+| rick.cpt.corigine.com       | DUT          |
+| morty.cpt.corigine.com      | EP           |
+
+Working on the Orchestrator VM, clone the ```ci-libs``` repo:
+```bash
+git clone https://github.com/Corigine/ci-libs.git
+```
+
+Install ansible on the Orchestrator VM:
+##### CentOS Stream 8
+```bash
+sudo dnf -y epel-release python3 python3-pip sshpass
+pip3 install jmespath ansible
+```
+##### Ubuntu 20.04
+```bash
+sudo apt -y epel-release python3 python3-pip sshpass
+pip3 install jmespath ansible
+```
+
+This cluster then needs to be added to the inventory file for the za-cpt lab,
+located in ```ansible/inventories/za-cpt/hosts.yaml``` in the form:
+
+```yaml
+driver_regressions:
+  hosts:
+    example_vm.cpt.corigine.com:       # Orchestrator
+    rick.cpt.corigine.com:             # DUT
+    morty.cpt.corigine.com:            # EP
+  children:
+    driver_regressions_orch:
+      hosts:
+        example_vm.cpt.corigine.com:       # Orchestrator
+    driver_regressions_dut:
+      hosts:
+        rick.cpt.corigine.com:             # DUT
+    driver_regressions_ep:
+      hosts:
+        morty.cpt.corigine.com:            # EP
+```
+Once the inventory file has been updated, the custom kernel and llvm tarballs
+need to be copied to the appropriate directories using the following command:
+
+```bash
+mkdir ci-libs/ansible/roles/kernel_installer/files
+cp kernel-5.19.9-drv-616.tar.gz ci-libs/ansible/roles/kernel_installer/files/
+
+mkdir ci-libs/ansible/roles/llvm/files
+cp llvm-toolchain-13-2022-06-20.tar.gz ci-libs/ansible/roles/llvm/files/
+```
+Finally, run the ```provision_ci_dev_drv.yaml``` playbook:
+
+```bash
+cd ci-libs/ansible
+ansible-playbook provision_ci_dev_drv.yaml -i inventories/za-cpt/hosts.yaml -e \
+'{"target":"driver_regressions","kernel_src":"custom_package","kernel_file_tar":"kernel-5.19.9-drv-616.tar.gz","ci_dev_drv_install":"false","drv_llvm_install_src":"custom_package","dut_drv_version":"<DRIVER_VERSION_TO_TEST>"}' \
+-t "provision" --ask-vault-password
+```
+
+After the playbook is run, all that remains is to copy the built driver across
+to the Orchestrator from the DUT, as detailed in the previous section, and set
+up the test config files.
 ## Setting up the test config files:
 
 In order to run the tests using the nti tool, a config file must be created that
