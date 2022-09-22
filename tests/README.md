@@ -524,3 +524,62 @@ directory on the test orchestrator run the following command:
 ```
 ../nti-private/ti/ticmd -v -c ../<config>.cfg run tests.setup
 ```
+
+## Using the Driver Regression Tests GitHub Workflow
+
+If for some reason one is unable to run these tests on one's own cluster, it is
+recommended to make use of the Driver Regression Tests GitHub workflow. To use
+the workflow, first navigate to the appropriate page by going to the Actions
+pane within the ```Corigine/nfp-drv-kmods-private``` repo using the GitHub web
+interface and then selecting the appropriate workflow from the list:
+
+<p align="center">
+  <img src="https://github.com/Corigine/nfp-drv-kmods-private/blob/main/.github/images/readme_img1.png" />
+</p>
+
+Thereafter you can select the ```Run workflow``` dropdown menu to customize your
+workflow run:
+
+<p align="center">
+  <img src="https://github.com/Corigine/nfp-drv-kmods-private/blob/main/.github/images/readme_img2.png" />
+</p>
+
+Leaving the ```tests``` field as the default value ```all``` will result in all
+tests which make use of the selected firmware type to run, this combined with
+the default value for firmware type, ```AUTO:all```, will result in all tests
+being run.
+
+If the user enters a specific test, or test group, to run, the firmware type
+cannot be set to ```AUTO:all```, i.e. if the user specifies a test, they must
+also specifiy which firmware to use for the test.
+
+If the user is wishing to use these tests to a wip firmware build, the firmware
+type must also be specified. For example, if the user wishes to test a custom
+BPF firmware build, the values of the various fields should be as follows:
+
+<p align="center">
+  <img src="https://github.com/Corigine/nfp-drv-kmods-private/blob/main/.github/images/readme_img3.png" />
+</p>
+
+Which results in 4 jobs being created, for all of them all BPF related tests will
+be run, but the platform and OS combinations will be as follows:
+- CentOS/Osprey
+- CentOS/Kestrel
+- Ubuntu/Osprey
+- Ubuntu/Kestrel
+
+It is also important in this case, that the firmware that the user wishes to
+test is located in the correct directory, and named correctly.
+
+All wip/temporary firmware builds to be used for this workflow should be
+follow the naming convention ```agilio-<fw>-firmware-<Name/Version>.tar.gz```,
+where ```<fw>``` refers to one of the following:
+- bpf
+- nic
+- sriov
+- flower-app
+
+The tarballs should be located in the following places:
+- ```internal/tmp/bpf_builds/tgz``` for BPF firmware
+- ```internal/tmp/disa_builds/tgz``` for flower firmware
+- ```internal/tmp/nic_builds/tgz``` for NIC or SRIOV firmware
