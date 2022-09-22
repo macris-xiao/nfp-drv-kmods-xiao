@@ -405,28 +405,29 @@ regarding the parameters used in the config files can be found in
 An example config:
 ```
 [General]
-noclean: True
+noclean: False
 force_fw_reload: True
 rm_fw_dir: True
 installed_drv: False
 tun_net: 10.10.1
 
 [DUT]
-name: test1.zay.corigine.com
-ethX: ens4np0
-addrX: 10.7.1.1/24
-addr6X: fc00:7:1:1::1/64
-netdevfw: /root/firmware/corenic/nic_AMDA0099-0001_2x25.nffw
+name: rick.cpt.corigine.com
+ethX: ens4np0 ens4np1
+addrX: 169.254.1.1/24 169.254.2.1/24
+addr6X: fc00:7:1:1::1/64 fc00:7:1:2::1/64
+netdevfw: ../firmware/nic_AMDA0099-0001_2x25.nffw
+netdevfw_dir: ../firmware/
 netdevfw_nfd3: True
-nfpkmods: /root/nfp-drv-kmods-private/src
-samples=/root/nfp-drv-kmods-private/tests/samples
-serial= 00:15:4d:12:20:d4
+nfpkmods: ../nfp-drv-kmods-private/src
+samples: ../nfp-drv-kmods-private/tests/samples
+serial:  00:15:4d:16:57:fb
 
 [HostA]
-name: test2.zay.corigine.com
-ethA: ens4np0
-addrA: 10.7.1.2/24
-addr6A: fc00:7:1:1::2/64
+name: morty.cpt.corigine.com
+ethA: ens5np0 ens5np1
+addrA: 169.254.1.2/24 169.254.2.2/24
+addr6A: fc00:7:1:1::2/64 fc00:7:1:2::2/64
 reload: False
 ```
 `serial` refers to the serial number of the smartNIC itself and can be obtained
@@ -445,7 +446,8 @@ Notes:
 - if using the parameter `rm_fw_dir: True`, it might be
 required to re-create the symlink in `/lib/firmware/netronome/` between tests.
 - Only use absolute paths in the config file, i.e. no "~/"
-
+- Newer Corigine cards will have a vendor ID of `1da8`, not `19ee`. Adjust the `lspci`
+command accordingly if using a newer card.
 ## Running the tests in the nfp-drv-kmods-private/tests/ folder:
 
 The tests are run from the context of the driver source directory:
