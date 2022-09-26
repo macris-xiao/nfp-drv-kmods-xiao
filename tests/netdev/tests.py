@@ -247,13 +247,22 @@ class ModuleEepromEthtool(CommonTest):
             # phymod output looks a bit different on older BSPs so need
             # to use a different offset in the output.
             if "NBI" in lines[0]:
-                phy = lines[1].split()
+                nbi_line = lines[1]
             else:
-                phy = lines[0].split()
+                nbi_line = lines[0]
+
+            # Find all entries in double quotation marks:
+            phy = re.findall(r'"([A-Za-z0-9 -]*)"', nbi_line)
+            # Expected to find 3 entries
+            if len(phy) != 3:
+                raise NtiError("List does not contain 3 entries as"
+                               "expected. Length of list: %s" % len(phy))
+            phy_oui = re.findall('(oui:\S*)', nbi_line)
+            phy.append(phy_oui[0]) # for phy[3]
 
             vendor_oui = '0x%s' % ethtool['Vendor OUI'].replace(':', '')
             vendor_oui = int(vendor_oui, 16)
-            phymod_oui = phy[3].strip('\"').replace("oui:","")
+            phymod_oui = phy[3].replace("oui:","")
             phymod_oui = int(phymod_oui, 16)
 
             # Only check the standard Vendor info per phy
