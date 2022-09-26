@@ -6,6 +6,17 @@ from netro.testinfra.nti_exceptions import NtiError
 from ..common_test import CommonTest
 
 class PhysPortName(CommonTest):
+    info = """
+    Verify that the naming of the netdev interfaces are correct. The test
+    will fail for any of the following conditions:
+    - Non-vNIC has a vNIC phys_port_name
+    - vNIC has a repr-only phys_port_name
+    - A PF or non-flower FW function uses a no-name vNIC
+    - A VF or flower FW function doesn't use a no-name vNIC
+    - A VF has a non-vNIC netdev
+    - MAC address for device not found in ETH table
+    - The number of ports found does not match the number of entries in the .cfg file for the test
+    """
     def prepare(self):
         return self.kernel_min(4, 1)
 

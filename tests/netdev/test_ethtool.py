@@ -7,6 +7,23 @@ from ..common_test import CommonTest
 
 
 class TestEthtool(CommonTest):
+    info = """
+    Tests that the `ethtool --test` command functions as expected.
+    This is done in four parts, for each interface:
+    - The link state of the interface is changed and then compared to the
+    output of `ethtool -t` to ensure that the driver is correctly reporting
+    the state of the interface.
+    - The running firmware is inspected and compared to the output of
+    `ethtool -t` to confirm that the driver is correctly reporting
+    information regarding the firmware in use.
+    - The NSP version is detected and compared to the output of
+    `ethtool -t` to confirm that the driver is correctly reporting
+    information regarding the NSP
+    - It is tested whether or not the register can be used to read
+    device details and that this matches the output of `ethtool -t`
+
+    If any of these four steps fails, for any interface, the test will fail.
+    """
     def link_test(self, ifc):
         """
         Changes the link state and matches the output

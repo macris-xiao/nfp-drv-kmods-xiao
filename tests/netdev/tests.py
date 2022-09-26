@@ -83,6 +83,14 @@ from ..common_test import CommonTest, NtiSkip, assert_eq, assert_ge
 from ..nfd import NfdBarOff
 
 class BspVerTest(CommonTest):
+    info = """
+    Verify that the function 'nfp_nsp_identify' is working correctly,
+    i.e. that the function is receiving information that could be the BSP version.
+    The test also checks that the BSP version is in the correct format, e.g. 22.07-0,
+    indicating that the installed BSP is not outdated or a non-release version.
+    If it is a non-release version then the test will skip, if it is outdated,
+    the test will fail.
+    """
     def execute(self):
         # This test verifies if the function nfp_nsp_identify is working
         # correctly, thus, if that function is receiving information that seems
@@ -141,6 +149,15 @@ class BspVerTest(CommonTest):
                             'non-numerical values' % (ver))
 
 class BSPDiag(CommonTest):
+    info = """
+    Check the basic BSP diagnostics by inspecting the output from `ethtool -i` and
+    ethtool -w.
+    When inspecting the output of `ethtool -i`, if there is no firmware version reported,
+    then the test will fail. The test will also fail if the NSP ABI version returned by
+    ethtool does not match that returned by the `nfp-nsp` BSP tool.
+    Finally the test will fail if the `ethtool -w` command fails to return a dump report
+    for each interface.
+    """
     def execute(self):
         regx_sp = re.compile('[^ ]* (\d*\.\d*).*', re.M | re.S)
         for ifc in self.dut.nfp_netdevs:
@@ -166,6 +183,14 @@ class BSPDiag(CommonTest):
             _, out = self.dut.cmd('ethtool -w %s data /dev/null' % (ifc))
 
 class SensorsTest(CommonTest):
+    info = """
+    Verify the functionality of the Hwmon sensors.
+    Firstly the test will ensure that there are in fact sensors detected by
+    driver, otherwise the test will fail.
+
+    Then for both temperature and power consumption, if the returned values are
+    outside of a possible range then the test will fail.
+    """
     def get_attr(self, array, attr):
         for s in array :
             if attr in s :
@@ -202,6 +227,13 @@ class SensorsTest(CommonTest):
                 raise NtiError('invalid power val')
 
 class LinkSpeedEthtool(CommonTest):
+    info = """
+    The purpose of this test is to ensure that the speed reported
+    by the driver, via Ethtool, is accurate. For each interface,
+    the speed of the port relating to the interface is obtained using
+    `phymod`, this is compared to the speed shown by the `ethtool` command.
+    If these values are not the same, the test will fail.
+    """
     def execute(self):
         if self.group.upstream_drv:
             raise NtiSkip('BSP tools upstream')
@@ -227,6 +259,23 @@ class LinkSpeedEthtool(CommonTest):
                                (i, phymod, ethtool))
 
 class ModuleEepromEthtool(CommonTest):
+    info = """
+    The purpose of this test is to validate the output of the `ethtool -m`
+    command.
+
+    First, the details of both the phy and eth interfaces are obtained using
+    phymod, if the return values of these respective commands are not equal in
+    length then the test is skipped, as it does not support breakout mode.
+
+    Thereafter, for each DUT interface, the output of phymod and ethtool are
+    compared for:
+    - Vendor name
+    - Vendor oui
+    - Vendor PN
+    - Vendor SN
+
+    If any of these values differ between the two commands, the test will fail.
+    """
     def execute(self):
         self.check_nsp_min(29)
 
@@ -294,6 +343,19 @@ class ModuleEepromEthtool(CommonTest):
                                    (iface, length, out))
 
 class MtuFlbufCheck(CommonTest):
+    info = """
+    The purpose of this test is to ensure that the driver sets the correct
+    mtu and flbufsz.
+
+    The test will skip if the dev is not a vNIC or if the XDP samples are not found.
+
+    The tx and rx channels are set, using `ethtool -L` and the xdp `pass.o` is loaded
+    using `ip link`.
+
+    The xdp is checked by, for each of a set of MTU values, the MTU is set and the bar
+    values are retrieved. The test will then fail if the MTU is not equal to
+    the bar MTU and the fl_bufsz is not equal to the bar fl_bufsz.
+    """
     def get_vnic_reg(self, offset):
         return self.dut.nfd_reg_read_le32(self.dut.vnics[0], offset)
 
@@ -370,6 +432,14 @@ class MtuFlbufCheck(CommonTest):
         return super(MtuFlbufCheck, self).cleanup()
 
 class DevlinkPortsShow(CommonTest):
+    info = """
+    The purpose of this test is to ensure that the driver, via Devlink,
+    accurately reports information regarding the count and split of the
+    ports.
+
+    phymod and devlink are both used to retrieve information on the ports
+    of the device. If the number of ports are not the same the test will fail.
+    """
     def execute(self):
         if self.group.upstream_drv:
             raise NtiSkip('BSP tools upstream')
@@ -420,6 +490,16 @@ class DevlinkPortsShow(CommonTest):
                 raise NtiError("Split group not reported for non-0th subport")
 
 class HugeRings(CommonTest):
+    info = """
+    Test to verify that Huge rings are correctly allocated by the driver.
+
+    The test will skip if switchdev firmware is running on the NFP.
+
+    The test first obtains the information from ethtool -g for the first vNIC.
+    Thereafter the total number of rings for both RX and TX are set to the
+    maximum. Finally, dmesg output is inspected to ensure that the rings
+    were set correctly.
+    """
     def execute(self):
         self.port = 0
         self.rings_changed = False

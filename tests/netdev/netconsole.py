@@ -10,6 +10,18 @@ from netro.testinfra.test import *
 from ..common_test import CommonTest, assert_equal
 
 class NetconsoleTest(CommonTest):
+    info = """
+    Netconsole is a kernel module that logs kernel printk messages over UDP,
+    the purpose of this test is to ensure that the driver is able to correctly
+    log its activity using netconsole.
+
+    The test will create a file in which to log the relevant information and
+    then starts up netconsole with this file.
+
+    Lines of data are then echoed, nstat is checked for packet losses and the netconsole
+    process is stopped. More data is then echoed and then the contents of the file are
+    logged. If the expected lines are then not present, the test will fail.
+    """
     def prepare(self):
         self.port = 0
         self.netconsname = None

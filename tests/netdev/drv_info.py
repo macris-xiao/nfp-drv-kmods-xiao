@@ -7,6 +7,15 @@ from netro.testinfra.nti_exceptions import NtiError
 from ..common_test import CommonTest
 
 class DrvInfoEthtool(CommonTest):
+    info = """
+    Confirm features supported by driver by making use of the 'ethtool -i' command:
+    Expected values:
+    \tsupports-priv-flags:\t\tno
+    \tsupports-statistics:\t\tyes
+    \tsupports-test:\t\t\tyes
+    \tsupports-eeprom-access:\t\tyes
+    """
+
     def check_common(self, info):
         # Checking that ethtool correctly shows what features the driver
         # supports:

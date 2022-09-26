@@ -6,6 +6,21 @@ from netro.testinfra.nti_exceptions import NtiError
 from ..common_test import CommonTest
 
 class MacStatsEthtool(CommonTest):
+    info = """
+    The purpose of this test is to ensure that the MAC stats reported
+    by the driver, via Ethtool, are accurate.
+
+    The test will only test physical interfaces, and will also skip if
+    if the installed firmware does not support MAC statistics counting.
+
+    For each interface:
+    - `ethtool -S` is used to inspect the values of the MAC statistics
+    - The interface is pinged to increment the statistics
+    - `ethtool -S` is used to inspect the values of the MAC statistics again
+
+    If the difference between the values obtained from `ethtool -S` is below a
+    certain threshold for any of the statistics, the test will fail.
+    """
     def test_stat(self, ifidx, stat_name, size,
                   exp_inc=None, prepend=["rx_", "tx_"]):
         if exp_inc is None:

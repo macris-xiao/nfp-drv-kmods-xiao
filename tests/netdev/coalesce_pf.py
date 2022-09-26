@@ -9,6 +9,25 @@ from netro.testinfra.nti_exceptions import NtiError
 from ..common_test import CommonTest, NtiSkip
 
 class coalescePF(CommonTest):
+    info = """
+    Test the ethtool -c command on PF interfaces.
+
+    The test requires either SRIOV or NIC firmware, it will be skipped
+    if another firmware type is installed.
+
+    Netserver is started and configured with set values before
+    `ethtool --coalesce` is run and the rx_usecs and rx_frames values
+    are set.
+
+    These coalesce settings are then retrieved to determine if they were
+    correctly set. Thereafter, the latency and throughput values for each
+    interface are checked against a maximum acceptable error rate.
+
+    This process is repeated for rx-usecs/rx-frames combinations:
+    - 50/64
+    - 0/1
+    as well as for adaptive rx/tx
+    """
 
     def __init__(self, src, dut, group=None, name="", summary=None):
         """
