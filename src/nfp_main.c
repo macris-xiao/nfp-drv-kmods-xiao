@@ -63,6 +63,12 @@ MODULE_PARM_DESC(nfp_dev_cpp,
 int nfp_dev_cpp;
 #endif
 
+int nfp_pf_mgmt_netdev = 1;
+#if defined(CONFIG_NFP_NET_PF) && defined(CONFIG_NFP_USER_SPACE_CPP)
+module_param(nfp_pf_mgmt_netdev, bint, 0444);
+MODULE_PARM_DESC(nfp_pf_mgmt_netdev, "Allows a dedicated management netdev with external MAC address to be created (default = true)");
+#endif
+
 bool nfp_net_vnic;
 module_param(nfp_net_vnic, bool, 0444);
 MODULE_PARM_DESC(nfp_net_vnic, "vNIC net devices (default = false)");

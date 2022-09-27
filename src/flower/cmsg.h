@@ -14,6 +14,9 @@
 #include "../nfp_app.h"
 #include "../nfpcore/nfp_cpp.h"
 
+#define NFP_FLOWER_CMSG_PCIE_LOCAL      (0)
+#define NFP_FLOWER_CMSG_PCIE_REMOTE     (1)
+
 #define NFP_FLOWER_LAYER_EXT_META	BIT(0)
 #define NFP_FLOWER_LAYER_PORT		BIT(1)
 #define NFP_FLOWER_LAYER_MAC		BIT(2)
@@ -597,6 +600,7 @@ enum nfp_flower_cmsg_type_port {
 	NFP_FLOWER_CMSG_TYPE_NO_NEIGH_V6 =	23,
 	NFP_FLOWER_CMSG_TYPE_TUN_NEIGH_V6 =	24,
 	NFP_FLOWER_CMSG_TYPE_ACTIVE_TUNS_V6 =	25,
+	NFP_FLOWER_CMSG_TYPE_REMOTE_SRIOV =     26,
 	NFP_FLOWER_CMSG_TYPE_MAX =		32,
 };
 
@@ -642,6 +646,11 @@ struct nfp_flower_cmsg_merge_hint {
 		__be32 host_ctx;
 		__be64 host_cookie;
 	} __packed flow[];
+};
+
+struct nfp_flower_cmsg_remote_sriov {
+	__be16 pcie_num;
+	__be16 sriov_num;
 };
 
 enum nfp_flower_cmsg_port_type {

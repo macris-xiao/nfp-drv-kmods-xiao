@@ -12,6 +12,7 @@
 #include <net/dst_metadata.h>
 
 #include "main.h"
+#include "../nfpcore/nfp.h"
 #include "../nfpcore/nfp_cpp.h"
 #include "../nfpcore/nfp_nffw.h"
 #include "../nfpcore/nfp_nsp.h"
@@ -212,6 +213,8 @@ nfp_flower_non_repr_priv_put(struct nfp_app *app, struct net_device *netdev)
 static enum nfp_repr_type
 nfp_flower_repr_get_type_and_port(struct nfp_app *app, u32 port_id, u8 *port)
 {
+	int pcie;
+
 	switch (FIELD_GET(NFP_FLOWER_CMSG_PORT_TYPE, port_id)) {
 	case NFP_FLOWER_CMSG_PORT_TYPE_PHYS_PORT:
 		*port = FIELD_GET(NFP_FLOWER_CMSG_PORT_PHYS_PORT_NUM,
@@ -220,11 +223,16 @@ nfp_flower_repr_get_type_and_port(struct nfp_app *app, u32 port_id, u8 *port)
 
 	case NFP_FLOWER_CMSG_PORT_TYPE_PCIE_PORT:
 		*port = FIELD_GET(NFP_FLOWER_CMSG_PORT_VNIC, port_id);
+		pcie = FIELD_GET(NFP_FLOWER_CMSG_PORT_PCI, port_id);
 		if (FIELD_GET(NFP_FLOWER_CMSG_PORT_VNIC_TYPE, port_id) ==
 		    NFP_FLOWER_CMSG_PORT_VNIC_TYPE_PF)
-			return NFP_REPR_TYPE_PF;
+			return (pcie == NFP_FLOWER_CMSG_PCIE_LOCAL)
+					? NFP_REPR_TYPE_PF
+					: NFP_REPR_TYPE_PF_REMOTE;
 		else
-			return NFP_REPR_TYPE_VF;
+			return (pcie == NFP_FLOWER_CMSG_PCIE_LOCAL)
+					? NFP_REPR_TYPE_VF
+					: NFP_REPR_TYPE_VF_REMOTE;
 	}
 
 	return __NFP_REPR_TYPE_MAX;
@@ -375,10 +383,109 @@ static void nfp_flower_sriov_disable(struct nfp_app *app)
 {
 	struct nfp_flower_priv *priv = app->priv;
 
-	if (!priv->nn)
+	if (!priv->nn[NFP_FL_PF_NETDEV_PRIMARY])
 		return;
 
 	nfp_reprs_clean_and_free_by_type(app, NFP_REPR_TYPE_VF);
+}
+
+int nfp_flower_spawn_remote_vnic_reprs(struct nfp_app *app,
+				       enum nfp_flower_cmsg_port_vnic_type vnic_type,
+				       enum nfp_repr_type repr_type, unsigned int cnt,
+				       int nfp_remote_pcie)
+{
+	struct nfp_flower_priv *priv = app->priv;
+	atomic_t *replies = &priv->reify_replies;
+	struct nfp_flower_repr_priv *repr_priv;
+	enum nfp_port_type port_type;
+	struct nfp_repr *nfp_repr;
+	struct nfp_reprs *reprs;
+	int i, err, reify_cnt;
+	const u8 queue = 0;
+
+	port_type = repr_type == NFP_REPR_TYPE_PF_REMOTE ? NFP_PORT_PF_PORT :
+							   NFP_PORT_VF_PORT;
+
+	reprs = nfp_reprs_alloc(cnt);
+	if (!reprs)
+		return -ENOMEM;
+
+	for (i = 0; i < cnt; i++) {
+		struct net_device *repr;
+		struct nfp_port *port;
+		u32 port_id;
+
+		repr = nfp_repr_alloc(app);
+		if (!repr) {
+			err = -ENOMEM;
+			goto err_reprs_clean;
+		}
+
+		repr_priv = kzalloc(sizeof(*repr_priv), GFP_KERNEL);
+		if (!repr_priv) {
+			err = -ENOMEM;
+			goto err_reprs_clean;
+		}
+
+		nfp_repr = netdev_priv(repr);
+		nfp_repr->app_priv = repr_priv;
+
+		port = nfp_port_alloc(app, port_type, repr);
+		if (IS_ERR(port)) {
+			err = PTR_ERR(port);
+			nfp_repr_free(repr);
+			goto err_reprs_clean;
+		}
+		if (repr_type == NFP_REPR_TYPE_PF_REMOTE) {
+			port->pf_id = nfp_remote_pcie;
+			port->pf_split = cnt > 1;
+			port->pf_split_id = i;
+			port->vnic = priv->host_pf_cfg_mem + i * NFP_PF_CSR_SLICE_SIZE;
+		} else {
+			port->pf_id = nfp_remote_pcie;
+			port->vf_id = i;
+			port->vnic = priv->host_vf_cfg_mem + i * NFP_NET_CFG_BAR_SZ;
+		}
+
+		eth_hw_addr_random(repr);
+
+		port_id = nfp_flower_cmsg_pcie_port(nfp_remote_pcie, vnic_type,
+						    i, queue);
+		err = nfp_repr_init(app, repr,
+				    port_id, port, priv->nn[NFP_FL_PF_NETDEV_PRIMARY]->dp.netdev);
+		if (err) {
+			nfp_port_free(port);
+			nfp_repr_free(repr);
+			goto err_reprs_clean;
+		}
+
+		RCU_INIT_POINTER(reprs->reprs[i], repr);
+		nfp_info(app->cpp, "Remote PCIe%d: %s%d Representor(%s) created\n",
+			 nfp_remote_pcie,
+			 repr_type == NFP_REPR_TYPE_PF_REMOTE ? "PF" : "VF", i,
+			 repr->name);
+	}
+
+	nfp_app_reprs_set(app, repr_type, reprs);
+
+	atomic_set(replies, 0);
+	reify_cnt = nfp_flower_reprs_reify(app, repr_type, true);
+	if (reify_cnt < 0) {
+		err = reify_cnt;
+		nfp_warn(app->cpp, "Failed to notify firmware about repr creation\n");
+		goto err_reprs_remove;
+	}
+
+	err = nfp_flower_wait_repr_reify(app, replies, reify_cnt);
+	if (err)
+		goto err_reprs_remove;
+
+	return 0;
+err_reprs_remove:
+	reprs = nfp_app_reprs_set(app, repr_type, NULL);
+err_reprs_clean:
+	nfp_reprs_clean_and_free(app, reprs);
+	return err;
 }
 
 static int
@@ -425,9 +532,6 @@ nfp_flower_spawn_vnic_reprs(struct nfp_app *app,
 		nfp_repr->app_priv = repr_priv;
 		repr_priv->nfp_repr = nfp_repr;
 
-		/* For now we only support 1 PF */
-		WARN_ON(repr_type == NFP_REPR_TYPE_PF && i);
-
 		port = nfp_port_alloc(app, port_type, repr);
 		if (IS_ERR(port)) {
 			err = PTR_ERR(port);
@@ -436,8 +540,10 @@ nfp_flower_spawn_vnic_reprs(struct nfp_app *app,
 			goto err_reprs_clean;
 		}
 		if (repr_type == NFP_REPR_TYPE_PF) {
-			port->pf_id = i;
-			port->vnic = priv->nn->dp.ctrl_bar;
+			port->pf_id = 0;
+			port->pf_split = cnt > 1;
+			port->pf_split_id = i;
+			port->vnic = priv->nn[i]->dp.ctrl_bar;
 		} else {
 			port->pf_id = 0;
 			port->vf_id = i;
@@ -450,7 +556,9 @@ nfp_flower_spawn_vnic_reprs(struct nfp_app *app,
 		port_id = nfp_flower_cmsg_pcie_port(nfp_pcie, vnic_type,
 						    i, queue);
 		err = nfp_repr_init(app, repr,
-				    port_id, port, priv->nn->dp.netdev);
+				    port_id, port,
+				    priv->nn[NFP_FL_PF_NETDEV_PRIMARY]->dp.netdev);
+
 		if (err) {
 			kfree(repr_priv);
 			nfp_port_free(port);
@@ -459,7 +567,8 @@ nfp_flower_spawn_vnic_reprs(struct nfp_app *app,
 		}
 
 		RCU_INIT_POINTER(reprs->reprs[i], repr);
-		nfp_info(app->cpp, "%s%d Representor(%s) created\n",
+		nfp_info(app->cpp, "Local PCIe%d: %s%d Representor(%s) created\n",
+			 nfp_pcie,
 			 repr_type == NFP_REPR_TYPE_PF ? "PF" : "VF", i,
 			 repr->name);
 	}
@@ -490,7 +599,7 @@ static int nfp_flower_sriov_enable(struct nfp_app *app, int num_vfs)
 {
 	struct nfp_flower_priv *priv = app->priv;
 
-	if (!priv->nn)
+	if (!priv->nn[NFP_FL_PF_NETDEV_PRIMARY])
 		return 0;
 
 	return nfp_flower_spawn_vnic_reprs(app,
@@ -558,12 +667,13 @@ nfp_flower_spawn_phy_reprs(struct nfp_app *app, struct nfp_flower_priv *priv)
 			goto err_reprs_clean;
 		}
 
-		SET_NETDEV_DEV(repr, &priv->nn->pdev->dev);
+		SET_NETDEV_DEV(repr, &priv->nn[NFP_FL_PF_NETDEV_PRIMARY]->pdev->dev);
 		nfp_net_get_mac_addr(app->pf, repr, port);
 
 		cmsg_port_id = nfp_flower_cmsg_phys_port(phys_port);
 		err = nfp_repr_init(app, repr,
-				    cmsg_port_id, port, priv->nn->dp.netdev);
+				    cmsg_port_id, port,
+				    priv->nn[NFP_FL_PF_NETDEV_PRIMARY]->dp.netdev);
 		if (err) {
 			kfree(repr_priv);
 			nfp_port_free(port);
@@ -614,17 +724,71 @@ err_free_ctrl_skb:
 	return err;
 }
 
+static void nfp_flower_vnic_set_mac(struct nfp_app *app,
+				    struct net_device *netdev,
+				    int vnic_port)
+{
+	char *netm_mac = "ethm.mac";
+	struct nfp_hwinfo *hwinfo;
+	const char *hwinfo_mac;
+	u8 mac_addr[ETH_ALEN];
+	u8 mac_extract[ETH_ALEN];
+	int count = 0;
+	int err = 1;
+
+	eth_random_addr(mac_addr);
+
+	if (vnic_port == NFP_FL_PF_NETDEV_MGMT) {
+		// We share a MAC with this feature.
+		if (nfp_net_vnic)
+			goto mac_out;
+
+		/* Save the management MAC for use with Management port */
+		hwinfo = nfp_hwinfo_read(app->cpp);
+		hwinfo_mac = nfp_hwinfo_lookup(hwinfo, netm_mac);
+
+		if (hwinfo_mac)
+			count = sscanf(hwinfo_mac, "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
+				       &mac_extract[0], &mac_extract[1], &mac_extract[2],
+				       &mac_extract[3], &mac_extract[4], &mac_extract[5]);
+		kfree(hwinfo);
+
+		if (count == 6) {
+			memcpy(mac_addr, mac_extract, sizeof(mac_extract));
+			err = 0;
+			goto mac_out;
+		} else {
+			goto mac_out;
+		}
+	}
+
+mac_out:
+
+	// In case of non-dedicated MAC, all ports on PF may hash same random MAC, so we need to increment manually
+	if (err)
+		mac_addr[5] += vnic_port;
+
+	eth_hw_addr_set(netdev, mac_addr);
+	ether_addr_copy(netdev->perm_addr, mac_addr);
+}
+
 static int nfp_flower_vnic_alloc(struct nfp_app *app, struct nfp_net *nn,
 				 unsigned int id)
 {
-	if (id > 0) {
-		nfp_warn(app->cpp, "FlowerNIC doesn't support more than one data vNIC\n");
+	struct nfp_flower_priv *priv = app->priv;
+	int last_valid = (nfp_pf_mgmt_netdev) ? NFP_FL_PF_NETDEV_MGMT : NFP_FL_PF_NETDEV_PRIMARY;
+
+	if (id > last_valid) {
+		nfp_warn(app->cpp, "Too many data vNIC allocated\n");
 		goto err_invalid_port;
 	}
 
-	eth_hw_addr_random(nn->dp.netdev);
+	nn->dp.netdev->dev_port = id;
+	nfp_flower_vnic_set_mac(app, nn->dp.netdev, id);
 	netif_keep_dst(nn->dp.netdev);
 	nn->vnic_no_name = true;
+	nn->id = id;
+	priv->nn[nn->id] = nn;
 
 	return 0;
 
@@ -640,9 +804,11 @@ static void nfp_flower_vnic_clean(struct nfp_app *app, struct nfp_net *nn)
 	if (app->pf->num_vfs)
 		nfp_reprs_clean_and_free_by_type(app, NFP_REPR_TYPE_VF);
 	nfp_reprs_clean_and_free_by_type(app, NFP_REPR_TYPE_PF);
+	nfp_reprs_clean_and_free_by_type(app, NFP_REPR_TYPE_PF_REMOTE);
 	nfp_reprs_clean_and_free_by_type(app, NFP_REPR_TYPE_PHYS_PORT);
+	nfp_reprs_clean_and_free_by_type(app, NFP_REPR_TYPE_VF_REMOTE);
 
-	priv->nn = NULL;
+	priv->nn[nn->id] = NULL;
 }
 
 static int nfp_flower_vnic_init(struct nfp_app *app, struct nfp_net *nn)
@@ -650,35 +816,47 @@ static int nfp_flower_vnic_init(struct nfp_app *app, struct nfp_net *nn)
 	struct nfp_flower_priv *priv = app->priv;
 	int err;
 
-	priv->nn = nn;
+	if (nn->id == NFP_FL_PF_NETDEV_PRIMARY) {
+		err = nfp_flower_spawn_phy_reprs(app, app->priv);
+		if (err)
+			goto err_clear_nn;
 
-	err = nfp_flower_spawn_phy_reprs(app, app->priv);
-	if (err)
-		goto err_clear_nn;
-
-	err = nfp_flower_spawn_vnic_reprs(app,
-					  NFP_FLOWER_CMSG_PORT_VNIC_TYPE_PF,
-					  NFP_REPR_TYPE_PF, 1);
-	if (err)
-		goto err_destroy_reprs_phy;
-
-	if (app->pf->num_vfs) {
 		err = nfp_flower_spawn_vnic_reprs(app,
-						  NFP_FLOWER_CMSG_PORT_VNIC_TYPE_VF,
-						  NFP_REPR_TYPE_VF,
-						  app->pf->num_vfs);
+						  NFP_FLOWER_CMSG_PORT_VNIC_TYPE_PF,
+						  NFP_REPR_TYPE_PF, app->pf->max_data_vnics);
+		if (err)
+			goto err_destroy_reprs_phy;
+
+		if (priv->host_pcie)
+			err = nfp_flower_spawn_remote_vnic_reprs(app,
+								 NFP_FLOWER_CMSG_PORT_VNIC_TYPE_PF,
+								 NFP_REPR_TYPE_PF_REMOTE,
+								 app->pf->max_data_vnics,
+								 priv->host_pcie);
+
 		if (err)
 			goto err_destroy_reprs_pf;
+
+		if (app->pf->num_vfs) {
+			err = nfp_flower_spawn_vnic_reprs(app,
+							  NFP_FLOWER_CMSG_PORT_VNIC_TYPE_VF,
+							  NFP_REPR_TYPE_VF,
+							  app->pf->num_vfs);
+			if (err)
+				goto err_destroy_reprs_pf_fx_host;
+		}
 	}
 
 	return 0;
 
+err_destroy_reprs_pf_fx_host:
+	nfp_reprs_clean_and_free_by_type(app, NFP_REPR_TYPE_PF_REMOTE);
 err_destroy_reprs_pf:
 	nfp_reprs_clean_and_free_by_type(app, NFP_REPR_TYPE_PF);
 err_destroy_reprs_phy:
 	nfp_reprs_clean_and_free_by_type(app, NFP_REPR_TYPE_PHYS_PORT);
 err_clear_nn:
-	priv->nn = NULL;
+	priv->nn[nn->id] = NULL;
 	return err;
 }
 
@@ -758,6 +936,8 @@ static int nfp_flower_init(struct nfp_app *app)
 	u64 version, features, ctx_count, num_mems;
 	const struct nfp_pf *pf = app->pf;
 	struct nfp_flower_priv *app_priv;
+	const struct nfp_rtsym *sym;
+	u32 min_size;
 	int err;
 
 	if (!pf->eth_tbl) {
@@ -854,11 +1034,42 @@ static int nfp_flower_init(struct nfp_app *app)
 	INIT_LIST_HEAD(&app_priv->non_repr_priv);
 	app_priv->pre_tun_rule_cnt = 0;
 
+	/* Do we need to access PCIe1 for FX Flower? */
+	sym = nfp_rtsym_lookup(pf->rtbl, "_pf1_net_bar0");
+	if (sym)
+	{
+		app_priv->host_pcie = 1;
+
+		min_size = pf->max_data_vnics * NFP_PF_CSR_SLICE_SIZE;
+		app_priv->host_pf_cfg_mem = nfp_rtsym_map(pf->rtbl, "_pf1_net_bar0",
+							  "host.pf", min_size,
+							  &app_priv->host_data_vnic_bar);
+		if (IS_ERR(app_priv->host_pf_cfg_mem)) {
+			if (PTR_ERR(app_priv->host_pf_cfg_mem) != -ENOENT) {
+				err = PTR_ERR(app_priv->host_pf_cfg_mem);
+				goto err_cleanup_metadata;
+			}
+			app_priv->host_pf_cfg_mem = NULL;
+		}
+
+		min_size = NFP_NET_CFG_BAR_SZ * pf->limit_vfs;
+		app_priv->host_vf_cfg_mem = nfp_rtsym_map(pf->rtbl, "_pf1_net_vf_bar",
+							  "host.vf", min_size,
+							  &app_priv->host_vf_cfg_bar);
+		if (IS_ERR(app_priv->host_vf_cfg_mem)) {
+			if (PTR_ERR(app_priv->host_vf_cfg_mem) != -ENOENT) {
+				err = PTR_ERR(app_priv->host_vf_cfg_mem);
+				goto err_cleanup_metadata;
+			}
+			app_priv->host_vf_cfg_mem = NULL;
+		}
+	}
 	return 0;
 
 err_cleanup:
 	if (app_priv->flower_en_feats & NFP_FL_ENABLE_LAG)
 		nfp_flower_lag_cleanup(&app_priv->nfp_lag);
+err_cleanup_metadata:
 	nfp_flower_metadata_cleanup(app);
 err_free_app_priv:
 	vfree(app->priv);
@@ -883,6 +1094,12 @@ static void nfp_flower_clean(struct nfp_app *app)
 		nfp_flower_internal_port_cleanup(app_priv);
 
 	nfp_flower_metadata_cleanup(app);
+
+	if (app_priv->host_vf_cfg_bar)
+		nfp_cpp_area_release_free(app_priv->host_vf_cfg_bar);
+	if (app_priv->host_data_vnic_bar)
+		nfp_cpp_area_release_free(app_priv->host_data_vnic_bar);
+
 	vfree(app->priv);
 	app->priv = NULL;
 }

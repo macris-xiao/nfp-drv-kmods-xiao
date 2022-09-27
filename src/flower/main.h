@@ -76,6 +76,13 @@ struct nfp_app;
 	NFP_FL_FEATS_QOS_METER | \
 	NFP_FL_FEATS_DECAP_V2)
 
+/* PF netdev allocation */
+enum pf_netdev_alloc {
+	NFP_FL_PF_NETDEV_PRIMARY	= 0,
+	NFP_FL_PF_NETDEV_MGMT		= 1,
+	NFP_FL_PF_NETDEV_MAX		= 2,
+};
+
 struct nfp_fl_mask_id {
 	struct circ_buf mask_id_free_list;
 	ktime_t *last_used;
@@ -289,7 +296,7 @@ struct nfp_fl_internal_ports {
  */
 struct nfp_flower_priv {
 	struct nfp_app *app;
-	struct nfp_net *nn;
+	struct nfp_net *nn[NFP_FL_PF_NETDEV_MAX];
 	u32 mask_id_seed;
 	u64 flower_version;
 	u64 flower_ext_feats;
@@ -311,6 +318,11 @@ struct nfp_flower_priv {
 	struct nfp_mtu_conf mtu_conf;
 	struct nfp_fl_lag nfp_lag;
 	struct list_head indr_block_cb_priv;
+	struct nfp_cpp_area *host_data_vnic_bar;
+	u8 __iomem *host_pf_cfg_mem;
+	struct nfp_cpp_area *host_vf_cfg_bar;
+	u8 __iomem *host_vf_cfg_mem;
+	int host_pcie;
 	struct list_head non_repr_priv;
 	unsigned int active_mem_unit;
 	unsigned int total_mem_units;
@@ -745,6 +757,10 @@ void nfp_flower_stats_meter_request_all(struct nfp_flower_priv *fl_priv);
 void nfp_act_stats_reply(struct nfp_app *app, void *pmsg);
 int nfp_flower_offload_one_police(struct nfp_app *app, bool ingress,
 				  bool pps, u32 id, u32 rate, u32 burst);
+int nfp_flower_spawn_remote_vnic_reprs(struct nfp_app *app,
+				       enum nfp_flower_cmsg_port_vnic_type vnic_type,
+			               enum nfp_repr_type repr_type, unsigned int cnt,
+				       int nfp_remote_pcie);
 #if VER_KERN_GE(5, 17) && !COMPAT_BCLINUX
 int nfp_flower_setup_meter_entry(struct nfp_app *app,
 				 const struct flow_action_entry *action,

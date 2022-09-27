@@ -11,6 +11,8 @@
 #include "../nfp_net.h"
 #include "../nfp_net_repr.h"
 #include "./cmsg.h"
+#include "../nfp_main.h"
+#include "../nfpcore/nfp_nffw.h"
 
 static struct nfp_flower_cmsg_hdr *
 nfp_flower_cmsg_get_hdr(struct sk_buff *skb)
@@ -248,6 +250,54 @@ err_rtnl_unlock:
 	rtnl_unlock();
 }
 
+static void nfp_flower_cmsg_remote_sriov_num(struct nfp_app *app, struct sk_buff *skb)
+{
+	struct devlink *devlink;
+	struct nfp_reprs *reprs;
+	u16 pcie_num, sriov_num;
+	const struct nfp_rtsym *sym;
+	struct nfp_flower_cmsg_remote_sriov *msg;
+	struct nfp_flower_priv *priv = app->priv;
+
+	msg = nfp_flower_cmsg_get_data(skb);
+	pcie_num = be16_to_cpu(msg->pcie_num);
+	sriov_num = be16_to_cpu(msg->sriov_num);
+
+	if (pcie_num != priv->host_pcie) {
+		nfp_flower_cmsg_warn(app, "remote sriov ctrl msg for wrong pcie num:%d\n",
+				     pcie_num);
+		return;
+	}
+
+	sym = nfp_rtsym_lookup(app->pf->rtbl, "_pf1_net_vf_bar");
+	if(!sym)
+		return;
+
+	if (sriov_num > (sym->size/NFP_PF_CSR_SLICE_SIZE)) {
+		nfp_flower_cmsg_warn(app, "remote sriov ctrl msg for wrong sriov num:%d\n",
+				     sriov_num);
+		return;
+	}
+
+	devlink = priv_to_devlink(app->pf);
+	devl_lock(devlink);
+	reprs = nfp_reprs_get_locked(app, NFP_REPR_TYPE_VF_REMOTE);
+
+	if (reprs && reprs->num_reprs == sriov_num)
+	{
+		devl_unlock(devlink);
+		return;
+	}
+	nfp_reprs_clean_and_free_by_type(app, NFP_REPR_TYPE_VF_REMOTE);
+	if (sriov_num)
+		nfp_flower_spawn_remote_vnic_reprs(app,
+						   NFP_FLOWER_CMSG_PORT_VNIC_TYPE_VF,
+						   NFP_REPR_TYPE_VF_REMOTE,
+						   sriov_num,
+						   pcie_num);
+	devl_unlock(devlink);
+}
+
 static void
 nfp_flower_cmsg_process_one_rx(struct nfp_app *app, struct sk_buff *skb)
 {
@@ -283,6 +333,9 @@ nfp_flower_cmsg_process_one_rx(struct nfp_app *app, struct sk_buff *skb)
 		break;
 	case NFP_FLOWER_CMSG_TYPE_QOS_STATS:
 		nfp_flower_stats_rlim_reply(app, skb);
+		break;
+	case NFP_FLOWER_CMSG_TYPE_REMOTE_SRIOV:
+		nfp_flower_cmsg_remote_sriov_num(app, skb);
 		break;
 	case NFP_FLOWER_CMSG_TYPE_LAG_CONFIG:
 		if (app_priv->flower_en_feats & NFP_FL_ENABLE_LAG) {

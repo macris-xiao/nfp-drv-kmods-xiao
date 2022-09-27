@@ -50,6 +50,8 @@ struct nfp_dumpspec {
 	u8 data[];
 };
 
+#define NFP_PF_CSR_SLICE_SIZE	(32 * 1024)
+
 /**
  * struct nfp_pf - NFP PF-specific device structure
  * @pdev:		Backpointer to PCI device
@@ -165,6 +167,7 @@ struct nfp_pf {
 #endif
 };
 
+extern int nfp_pf_mgmt_netdev;
 extern int nfp_dev_cpp;
 extern bool nfp_net_vnic;
 extern bool force_40b_dma;
