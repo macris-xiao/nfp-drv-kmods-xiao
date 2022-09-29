@@ -765,3 +765,19 @@ class DrvSystem(LinuxSystem):
 
     def cmd_fis(self, cmd='', fail=True):
         return self.bsp_cmd('fis', cmd, fail=fail)
+
+    def netns_cmd(self, cmd, ns, fail=True):
+        nscmd = "ip netns exec {} {}".format(ns, cmd)
+        return self.cmd(nscmd, fail=fail)
+
+    def netns_add(self, ns, fail=True):
+        nscmd = "ip netns add {}".format(ns)
+        return self.cmd(nscmd, fail=fail)
+
+    def netns_del(self, ns, fail=True):
+        nscmd = "ip netns del {}".format(ns)
+        return self.cmd(nscmd, fail=fail)
+
+    def netns_add_iface(self, ns, iface, fail=True):
+        nscmd = "ip link set {} netns {}".format(iface, ns)
+        return self.cmd(nscmd, fail=fail)
