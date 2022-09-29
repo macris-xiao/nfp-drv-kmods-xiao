@@ -77,18 +77,6 @@ class coalescePF(CommonTest):
 
         return True
 
-    def check_prereq(self, check, description, on_src=False):
-        if on_src:
-            res, _ = self.src.cmd(check, fail=False)
-        else:
-            res, _ = self.dut.cmd(check, fail=False)
-
-        if res == 1:
-            if on_src:
-                raise NtiSkip('SRC does not support feature:%s' % description)
-            else:
-                raise NtiSkip('DUT does not support feature:%s' % description)
-
     def execute(self):
 
         for ifc in self.dut.nfp_netdevs:
