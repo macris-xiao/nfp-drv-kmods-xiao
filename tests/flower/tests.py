@@ -280,18 +280,6 @@ class FlowerBase(CommonTest):
         M.cmd('tc qdisc add dev %s handle ffff: ingress' % iface)
         M.refresh()
 
-    def check_prereq(self, check, description, on_src=False):
-        if on_src:
-            res, _ = self.src.cmd(check, fail=False)
-        else:
-            res, _ = self.dut.cmd(check, fail=False)
-
-        if res == 1:
-            if on_src:
-                raise NtiSkip('SRC does not support feature: %s' % description)
-            else:
-                raise NtiSkip('DUT does not support feature: %s' % description)
-
     def install_filter(self, iface, match, action, in_hw=True):
         M = self.dut
         M.cmd('tc filter add dev %s parent ffff: protocol %s action %s' % (iface, match, action))
