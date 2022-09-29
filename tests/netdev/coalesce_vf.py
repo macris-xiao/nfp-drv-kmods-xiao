@@ -24,24 +24,20 @@ class CoalesceVF(CommonTest):
         self.result_off_latency = []
         self.result_off_throughput = []
 
-    def netns_cmd(self, cmd, ns):
-        nscmd = "ip netns exec {} {}".format(ns, cmd)
-        return self.dut.cmd(nscmd)
-
     def check_coalesce(self, vstatus='off', vport='vf1', ns='ns1', d_usecs='50', d_frames='64'):
         if vstatus == 'off':
             cmd = 'ethtool --show-coalesce %s | grep rx-usecs:' % vport
-            ret, out = self.netns_cmd(cmd, ns)
+            ret, out = self.dut.netns_cmd(cmd, ns)
             rx_usecs = out.strip().split()[-1]
             cmd = 'ethtool --show-coalesce %s | grep rx-frames:' % vport
-            ret, out = self.netns_cmd(cmd, ns)
+            ret, out = self.dut.netns_cmd(cmd, ns)
             rx_frames = out.strip().split()[-1]
             if((rx_usecs != d_usecs) | (rx_frames != d_frames)):
                 raise NtiError("Failed to set coalesce:rx-usecs(s/d)=(%s:%s), \
                 rx-frames(s/d)=(%s/%s)" % (rx_usecs, d_usecs, rx_frames, d_frames))
         else:
             cmd = 'ethtool --show-coalesce %s | grep Adaptive' % vport
-            ret, out = self.netns_cmd(cmd, ns)
+            ret, out = self.dut.netns_cmd(cmd, ns)
             adaptive_rx = out.strip().split()[2]
             adaptive_tx = out.strip().split()[-1]
             if((adaptive_rx != 'on') | (adaptive_tx != 'on')):
@@ -70,75 +66,75 @@ class CoalesceVF(CommonTest):
 
         self.dut.cmd('ip link set dev %s up' % (iface), fail=False)
         # Create namespaces
-        self.dut.cmd('ip netns add ns1')
-        self.dut.cmd('ip link set %s netns ns1' % vf1)
-        self.dut.cmd('ip netns add ns2')
-        self.dut.cmd('ip link set %s netns ns2' % vf2)
+        self.dut.netns_add('ns1')
+        self.dut.netns_add_iface('ns1', vf1)
+        self.dut.netns_add('ns2')
+        self.dut.netns_add_iface('ns2', vf2)
         # Prepare namespace for coalesce test
         cmd = "ip addr add %s/24 dev %s" % (netperf_ip_1, vf1)
-        self.netns_cmd(cmd, 'ns1')
+        self.dut.netns_cmd(cmd, 'ns1')
         cmd = "ip link set dev %s up" % vf1
-        self.netns_cmd(cmd, 'ns1')
+        self.dut.netns_cmd(cmd, 'ns1')
         cmd = 'ip addr add %s/24 dev %s' % (netperf_ip_2, vf2)
-        self.netns_cmd(cmd, 'ns2')
+        self.dut.netns_cmd(cmd, 'ns2')
         cmd = 'ip link set dev %s up' % vf2
-        self.netns_cmd(cmd, 'ns2')
+        self.dut.netns_cmd(cmd, 'ns2')
         # Disable coalesce , set rx-usecs/rx-frames is default
         cmd = 'ethtool -C %s adaptive-rx off adaptive-tx off rx-usecs 50 rx-frames 64' % vf1
-        self.netns_cmd(cmd, 'ns1')
+        self.dut.netns_cmd(cmd, 'ns1')
         cmd = 'ethtool -C %s adaptive-rx off adaptive-tx off rx-usecs 50 rx-frames 64' % vf2
-        self.netns_cmd(cmd, 'ns2')
+        self.dut.netns_cmd(cmd, 'ns2')
         self.check_coalesce(vport=vf1, ns='ns1')
         self.check_coalesce(vport=vf2, ns='ns2')
 
         # Start netserver in ns2
-        self.netns_cmd('netserver', 'ns2')
+        self.dut.netns_cmd('netserver', 'ns2')
         # Start netperf , test latency and throughput of coalesce(off-50/64)
         cmd = 'netperf -H %s -l 60  -t omni -- -d rr -O "THROUGHPUT, THROUGHPUT_UNITS, \
         MIN_LATENCY, MAX_LATENCY, MEAN_LATENCY"' % netperf_ip_2
-        ret, out = self.netns_cmd(cmd, 'ns1')
+        ret, out = self.dut.netns_cmd(cmd, 'ns1')
         line = "".join(out).split('\n')[-2].strip()
         self.result_off_latency.append(float(line.split()[-1]))
         cmd = 'netperf -H %s -l 60' % netperf_ip_2
-        ret, out = self.netns_cmd(cmd, 'ns1')
+        ret, out = self.dut.netns_cmd(cmd, 'ns1')
         line = "".join(out).split('\n')[-2].strip()
         self.result_off_throughput.append(float(line.split()[-1]))
 
         # Start netperf , test latency and throughput of coalesce(off-0/1)
         time.sleep(5)
         cmd = 'ethtool -C %s adaptive-rx off adaptive-tx off rx-usecs 1 rx-frames 0' % vf1
-        ret, out = self.netns_cmd(cmd, 'ns1')
+        ret, out = self.dut.netns_cmd(cmd, 'ns1')
         cmd = 'ethtool -C %s adaptive-rx off adaptive-tx off rx-usecs 1 rx-frames 0' % vf2
-        ret, out = self.netns_cmd(cmd, 'ns2')
+        ret, out = self.dut.netns_cmd(cmd, 'ns2')
         self.check_coalesce(vport=vf1, ns='ns1', d_usecs='1', d_frames='0')
         self.check_coalesce(vport=vf2, ns='ns2', d_usecs='1', d_frames='0')
         cmd = 'netperf -H %s -l 60' % netperf_ip_2
-        ret, out = self.netns_cmd(cmd, 'ns1')
+        ret, out = self.dut.netns_cmd(cmd, 'ns1')
         line = "".join(out).split('\n')[-2].strip()
         self.result_off_throughput.append(float(line.split()[-1]))
         cmd = 'netperf -H %s -l 60  -t omni -- -d rr -O "THROUGHPUT, THROUGHPUT_UNITS, \
         MIN_LATENCY, MAX_LATENCY, MEAN_LATENCY"' % netperf_ip_2
-        ret, out = self.netns_cmd(cmd, 'ns1')
+        ret, out = self.dut.netns_cmd(cmd, 'ns1')
         line = "".join(out).split('\n')[-2].strip()
         self.result_off_latency.append(float(line.split()[-1]))
 
         # Enable coalesce
         time.sleep(5)
         cmd = 'ethtool -C %s adaptive-rx on adaptive-tx on' % vf1
-        self.netns_cmd(cmd, 'ns1')
+        self.dut.netns_cmd(cmd, 'ns1')
         cmd = 'ethtool -C %s adaptive-rx on adaptive-tx on' % vf2
-        self.netns_cmd(cmd, 'ns2')
+        self.dut.netns_cmd(cmd, 'ns2')
         self.check_coalesce(vstatus='on', vport=vf1, ns='ns1')
         self.check_coalesce(vstatus='on', vport=vf2, ns='ns2')
 
         # Start netperf , test latency and throughput of coalesce(on)
         cmd = 'netperf -H %s -l 60  -t omni -- -d rr -O "THROUGHPUT, THROUGHPUT_UNITS, \
         MIN_LATENCY, MAX_LATENCY, MEAN_LATENCY"' % netperf_ip_2
-        ret, out = self.netns_cmd(cmd, 'ns1')
+        ret, out = self.dut.netns_cmd(cmd, 'ns1')
         result_o = "".join(out).split('\n')[-2].strip()
         result_on_latency = float(result_o.split()[-1])
         cmd = 'netperf -H %s -l 60' % netperf_ip_2
-        ret, out = self.netns_cmd(cmd, 'ns1')
+        ret, out = self.dut.netns_cmd(cmd, 'ns1')
         result_o = "".join(out).split('\n')[-2].strip()
         result_on_throughput = float(result_o.split()[-1])
 
@@ -153,8 +149,8 @@ class CoalesceVF(CommonTest):
             raise NtiError("Latency is not reasonable,off_latency of 1/0 setting is big !")
 
     def cleanup(self):
-        self.dut.cmd('ip netns exec ns1 pkill netserver', fail=False)
-        self.dut.cmd('ip netns del ns1', fail=False)
-        self.dut.cmd('ip netns del ns2', fail=False)
+        self.dut.netns_cmd('pkill netserver', 'ns1', fail=False)
+        self.dut.netns_del('ns1', fail=False)
+        self.dut.netns_del('ns2', fail=False)
         self.dut.cmd('echo 0 > /sys/bus/pci/devices/%s/sriov_numvfs' %
                      self.group.pci_dbdf)
