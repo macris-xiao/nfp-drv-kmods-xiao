@@ -4362,24 +4362,24 @@ class FlowerActionIngressRateLimit(FlowerBase):
         self.install_filter(self.vf_repr2, match, action, False)
 
         # Create namespaces
-        self.dut.cmd('ip netns add ns1')
-        self.dut.cmd('ip link set %s netns ns1' % vf1)
-        self.dut.cmd('ip netns add ns2')
-        self.dut.cmd('ip link set %s netns ns2' % vf2)
+        self.dut.netns_add('ns1')
+        self.dut.netns_add_iface('ns1', vf1)
+        self.dut.netns_add('ns2')
+        self.dut.netns_add_iface('ns2', vf2)
 
         # Prepare namespace for netperf
-        self.dut.cmd('ip netns exec ns1 ip addr add %s/24 dev %s' % (netperf_ip_1, vf1))
-        self.dut.cmd('ip netns exec ns1 ip link set dev %s up' % vf1)
-        self.dut.cmd('ip netns exec ns2 ip addr add %s/24 dev %s' % (netperf_ip_2, vf2))
-        self.dut.cmd('ip netns exec ns2 ip link set dev %s up' % vf2)
+        self.dut.netns_cmd('ip addr add %s/24 dev %s' % (netperf_ip_1, vf1), 'ns1')
+        self.dut.netns_cmd('ip link set dev %s up' % vf1, 'ns1')
+        self.dut.netns_cmd('ip addr add %s/24 dev %s' % (netperf_ip_2, vf2), 'ns2')
+        self.dut.netns_cmd('ip link set dev %s up' % vf2, 'ns2')
 
         # Wait for VFs to up
         sleep(2)
 
         # Start netperf - 1 mbps
-        self.dut.cmd('ip netns exec ns2 netserver')
+        self.dut.netns_cmd('netserver', 'ns2')
         sleep(1)
-        ret, out = self.dut.cmd('ip netns exec ns1 netperf -t UDP_STREAM -H %s -l 60 -- -M 1024 -m 1024' % netperf_ip_2)
+        ret, out = self.dut.netns_cmd('netperf -t UDP_STREAM -H %s -l 60 -- -M 1024 -m 1024' % netperf_ip_2, 'ns1')
         rate_line = out.split('\n')[-3].strip()
         rate = float(rate_line.split()[-1])
         if rate > 1.15:
@@ -4391,7 +4391,7 @@ class FlowerActionIngressRateLimit(FlowerBase):
         sleep(1)
         # Check stats - vf1 - 1 mbps
         stats = self.dut.netifs[self.vf_repr1].stats(get_tc_ing=True)
-        ret, out = self.dut.cmd('ip netns exec ns1 cat /proc/net/dev | grep %s' % vf1)
+        ret, out = self.dut.netns_cmd('cat /proc/net/dev | grep %s' % vf1, 'ns1')
         # Packet stats
         matchall_pkt_stats = stats.tc_ing['tc_1_pkts']
         actual_sent_pkt = float(out.split()[10])
@@ -4408,9 +4408,9 @@ class FlowerActionIngressRateLimit(FlowerBase):
             raise NtiError("Byte stats differ by more than 1%%: %.2f" % abs_diff_stats)
 
         # Start netperf - 10 mbps
-        self.dut.cmd('ip netns exec ns1 netserver')
+        self.dut.netns_cmd('netserver','ns1')
         sleep(1)
-        ret, out = self.dut.cmd('ip netns exec ns2 netperf -t UDP_STREAM -H %s -l 60 -- -M 1024 -m 1024' % netperf_ip_1)
+        ret, out = self.dut.netns_cmd('netperf -t UDP_STREAM -H %s -l 60 -- -M 1024 -m 1024' % netperf_ip_1, 'ns2')
         rate_line = out.split('\n')[-3].strip()
         rate = float(rate_line.split()[-1])
         if rate > 11.5:
@@ -4422,7 +4422,7 @@ class FlowerActionIngressRateLimit(FlowerBase):
         sleep(1)
         # Check stats - vf2 - 10 mbps
         stats = self.dut.netifs[self.vf_repr2].stats(get_tc_ing=True)
-        ret, out = self.dut.cmd('ip netns exec ns2 cat /proc/net/dev | grep %s' % vf2)
+        ret, out = self.dut.netns_cmd('cat /proc/net/dev | grep %s' % vf2, 'ns2')
         # Packet stats
         matchall_pkt_stats = stats.tc_ing['tc_1_pkts']
         actual_sent_pkt = float(out.split()[10])
@@ -4442,8 +4442,8 @@ class FlowerActionIngressRateLimit(FlowerBase):
         self.cleanup_filter(self.vf_repr2)
 
     def cleanup(self):
-        self.dut.cmd('ip netns del ns1', fail=False)
-        self.dut.cmd('ip netns del ns2', fail=False)
+        self.dut.netns_del('ns1', fail=False)
+        self.dut.netns_del('ns2', fail=False)
         self.dut.cmd('echo 0 > /sys/bus/pci/devices/%s/sriov_numvfs' %
                      self.group.pci_dbdf)
         return super(FlowerActionIngressRateLimit, self).cleanup()
