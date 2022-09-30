@@ -1459,7 +1459,7 @@ class FlowerMatchGRE(FlowerTunnel):
     def cleanup(self):
         self.cleanup_flower('gre1')
         self.del_tun_dev('gre1')
-        return super(FlowerTunnel, self).cleanup()
+        return super(FlowerMatchGRE, self).cleanup()
 
 class FlowerMatchGREInVLAN(FlowerTunnel):
     def prepare(self):
