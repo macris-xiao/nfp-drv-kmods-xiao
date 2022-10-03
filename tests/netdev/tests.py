@@ -14,6 +14,7 @@ from repr_caps import ReprCaps
 from stats_ethtool import StatsEthtool
 from coalesce_pf import coalescePF
 from coalesce_vf import CoalesceVF
+from test_ethtool import TestEthtool
 
 class NFPKmodNetdev(NFPKmodAppGrp):
     """Basic FW-independent NIC tests for the NFP Linux drivers"""
@@ -49,6 +50,7 @@ class NFPKmodNetdev(NFPKmodAppGrp):
             ('multi_ethtool_mac_stats', MacStatsEthtool, "Ethtool MAC stats"),
             ('multi_ethtool_get_mod_eeprom', ModuleEepromEthtool,
              "Ethtool get module EEPROM"),
+            ('multi_test_ethtool', TestEthtool, "Ethtool --test"),
             ('multi_devlink_port_show', DevlinkPortsShow,
              "Check basic devlink port output"),
             ('multi_netconsole', NetconsoleTest, 'Test netconsole over the NFP'),
