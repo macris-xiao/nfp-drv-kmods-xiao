@@ -533,21 +533,8 @@ class FlowerTunnel(FlowerBase):
         self.dut.cmd('ip %s neigh del %s dev %s' % (v6, addr, dev), fail=False)
         self.dut.cmd('ip %s neigh flush dev %s' % (v6, dev), fail=False)
 
-    def execute_tun_match(self, iface, ingress, dut_mac, tun_port, tun_dev,
-                          vlan_id=0, fail=False, ipv6=False):
-        src_ip, dut_ip = self.get_ip_addresses(ipv6)
-        src_mac = self.get_src_mac(ingress)
-        self.add_egress_qdisc(tun_dev)
-
-        # Hit test - match all tunnel fields and decap
-        port_match = ''
-        if tun_port:
-            port_match = 'enc_dst_port %s' % tun_port
-        match = 'ip flower enc_src_ip %s enc_dst_ip %s %s enc_key_id 123' \
-                % (src_ip, dut_ip, port_match)
-        action = 'mirred egress redirect dev %s' % iface
-        self.install_filter(tun_dev, match, action)
-
+    def construct_packet(self, src_ip, dut_ip, src_mac, dut_mac,
+                         tun_port, vlan_id=0, ipv6=False):
         enc_pkt = Ether(src=self.group.hwaddr_x[0],dst=self.ipv4_mc_mac[0])/\
                   IP()/TCP()/Raw('\x00'*64)
         pkt_diff = len(Ether())
@@ -584,106 +571,160 @@ class FlowerTunnel(FlowerBase):
         else:
             raise NtiError('Unsupported UDP tunnel port number')
 
+        return pkt, pkt_diff, enc_pkt
+
+    def install_tun_filter(self, iface, tun_port, tun_dev, src_ip, dut_ip,
+                           enc_key=123, enc_tos=30, enc_ttl=99):
+        port_match = ''
+        if tun_port:
+            port_match = 'enc_dst_port %s' % tun_port
+
+        if self.dut.kernel_ver_ge(4, 19):
+            match = 'ip flower enc_src_ip %s enc_dst_ip %s %s enc_key_id %s ' \
+                    'enc_tos %s enc_ttl %s' \
+                    % (src_ip, dut_ip, port_match, enc_key, enc_tos, enc_ttl)
+        else:
+            match = 'ip flower enc_src_ip %s enc_dst_ip %s %s enc_key_id %s' \
+                    % (src_ip, dut_ip, port_match, enc_key)
+
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(tun_dev, match, action)
+
+    def test_tun_filter(self, ingress, tun_dev, pkt, pkt_diff, enc_pkt,
+                        fail=False):
         if fail:
             self.test_filter(tun_dev, ingress, pkt, None, 0)
         else:
             self.test_filter(tun_dev, ingress, pkt, enc_pkt, 100, -pkt_diff)
 
+    def execute_tun_match(self, iface, ingress, dut_mac, tun_port, tun_dev,
+                          vlan_id=0, fail=False):
+        src_ip, dut_ip = self.get_ip_addresses(ipv6=False)
+        src_ipv6, dut_ipv6 = self.get_ip_addresses(ipv6=True)
+        src_mac = self.get_src_mac(ingress)
+        self.add_egress_qdisc(tun_dev)
+
+        # Packet Construction
+        pkt, pkt_diff, enc_pkt = self.construct_packet(src_ip, dut_ip,
+                                                       src_mac, dut_mac,
+                                                       tun_port, vlan_id,
+                                                       ipv6=False)
+        pktv6, pkt_diffv6, enc_pktv6 = self.construct_packet(src_ipv6,
+                                                             dut_ipv6,
+                                                             src_mac,
+                                                             dut_mac,
+                                                             tun_port,
+                                                             vlan_id,
+                                                             ipv6=True)
+
+        # Hit test - match all tunnel fields and decap
+        self.install_tun_filter(iface, tun_port, tun_dev, src_ip, dut_ip)
+        self.install_tun_filter(iface, tun_port, tun_dev, src_ipv6, dut_ipv6)
+        self.test_tun_filter(ingress, tun_dev, pkt, pkt_diff, enc_pkt,
+                             fail=fail)
+        self.test_tun_filter(ingress, tun_dev, pktv6, pkt_diffv6, enc_pktv6,
+                             fail=fail)
         self.cleanup_filter(tun_dev)
 
+        # Dummy addresses for match failure testing
         false_ip = '1.1.1.1'
-        if ipv6:
-            false_ip = 'ff::ff'
+        false_ipv6 = 'ff::ff'
 
         # Miss test - incorrect enc ip src
-        match = 'ip flower enc_src_ip %s enc_dst_ip %s %s enc_key_id 321' \
-                % (false_ip, dut_ip, port_match)
-        action = 'mirred egress redirect dev %s' % iface
-        self.install_filter(tun_dev, match, action)
-
-        self.test_filter(tun_dev, ingress, pkt, None, 0)
-
+        self.install_tun_filter(iface, tun_port, tun_dev, false_ip, dut_ip)
+        self.install_tun_filter(iface, tun_port, tun_dev, false_ipv6, dut_ipv6)
+        self.test_tun_filter(ingress, tun_dev, pkt, pkt_diff, enc_pkt,
+                             fail=True)
+        self.test_tun_filter(ingress, tun_dev, pktv6, pkt_diffv6, enc_pktv6,
+                             fail=True)
         self.cleanup_filter(tun_dev)
 
         # Miss test - incorrect enc ip dst
-        match = 'ip flower enc_src_ip %s enc_dst_ip %s %s enc_key_id 321' \
-                % (src_ip, false_ip, port_match)
-        action = 'mirred egress redirect dev %s' % iface
-        self.install_filter(tun_dev, match, action)
-
-        self.test_filter(tun_dev, ingress, pkt, None, 0)
-
+        self.install_tun_filter(iface, tun_port, tun_dev, src_ip, false_ip)
+        self.install_tun_filter(iface, tun_port, tun_dev, src_ipv6, false_ipv6)
+        self.test_tun_filter(ingress, tun_dev, pkt, pkt_diff, enc_pkt,
+                             fail=True)
+        self.test_tun_filter(ingress, tun_dev, pktv6, pkt_diffv6, enc_pktv6,
+                             fail=True)
         self.cleanup_filter(tun_dev)
 
         # Miss test - incorrect tunnel key
-        match = 'ip flower enc_src_ip %s enc_dst_ip %s %s enc_key_id 322' \
-                % (src_ip, dut_ip, port_match)
-        action = 'mirred egress redirect dev %s' % iface
-        self.install_filter(tun_dev, match, action)
-
-        self.test_filter(tun_dev, ingress, pkt, None, 0)
-
+        self.install_tun_filter(iface, tun_port, tun_dev, src_ip, dut_ip,
+                                enc_key=322)
+        self.install_tun_filter(iface, tun_port, tun_dev, src_ipv6, dut_ipv6,
+                                enc_key=322)
+        self.test_tun_filter(ingress, tun_dev, pkt, pkt_diff, enc_pkt,
+                             fail=True)
+        self.test_tun_filter(ingress, tun_dev, pktv6, pkt_diffv6, enc_pktv6,
+                             fail=True)
         self.cleanup_filter(tun_dev)
 
         # Tunnel ToS and TTL matching are added in kernel 4.19
         if self.dut.kernel_ver_ge(4, 19):
-            # Match on correct tunnel ToS and TTL
-            match = 'ip flower enc_src_ip %s enc_dst_ip %s %s enc_tos 30 ' \
-                    'enc_ttl 99' % (src_ip, dut_ip, port_match)
-            action = 'mirred egress redirect dev %s' % iface
-            self.install_filter(tun_dev, match, action)
-
-            if fail:
-                self.test_filter(tun_dev, ingress, pkt, None, 0)
-            else:
-                self.test_filter(tun_dev, ingress, pkt, enc_pkt, 100, -pkt_diff)
-            self.cleanup_filter(tun_dev)
-
             # Miss test - incorrect ToS
-            match = 'ip flower enc_src_ip %s enc_dst_ip %s %s enc_tos 50 ' \
-                    'enc_ttl 99' % (src_ip, dut_ip, port_match)
-            action = 'mirred egress redirect dev %s' % iface
-            self.install_filter(tun_dev, match, action)
-
-            self.test_filter(tun_dev, ingress, pkt, None, 0)
+            self.install_tun_filter(iface, tun_port, tun_dev,
+                                    src_ip, dut_ip,
+                                    enc_tos=50)
+            self.install_tun_filter(iface, tun_port, tun_dev,
+                                    src_ipv6, dut_ipv6,
+                                    enc_tos=50)
+            self.test_tun_filter(ingress, tun_dev, pkt, pkt_diff, enc_pkt,
+                                 fail=True)
+            self.test_tun_filter(ingress, tun_dev,
+                                 pktv6, pkt_diffv6, enc_pktv6,
+                                 fail=True)
             self.cleanup_filter(tun_dev)
 
             # Miss test - incorrect TTL
-            match = 'ip flower enc_src_ip %s enc_dst_ip %s %s enc_tos 30 ' \
-                    'enc_ttl 100' % (src_ip, dut_ip, port_match)
-            action = 'mirred egress redirect dev %s' % iface
-            self.install_filter(tun_dev, match, action)
-
-            self.test_filter(tun_dev, ingress, pkt, None, 0)
+            self.install_tun_filter(iface, tun_port, tun_dev,
+                                    src_ip, dut_ip,
+                                    enc_ttl=100)
+            self.install_tun_filter(iface, tun_port, tun_dev,
+                                    src_ipv6, dut_ipv6,
+                                    enc_ttl=100)
+            self.test_tun_filter(ingress, tun_dev, pkt, pkt_diff, enc_pkt,
+                                 fail=True)
+            self.test_tun_filter(ingress, tun_dev,
+                                 pktv6, pkt_diffv6, enc_pktv6,
+                                 fail=True)
             self.cleanup_filter(tun_dev)
 
     def execute_tun_vlan_match(self, iface, ingress, dut_mac, tun_port, tun_dev,
-                               int_dev, ipv6=False):
+                               int_dev):
         src_mac = self.get_src_mac(ingress)
-        self.add_pre_tunnel_rule(iface, dut_mac, src_mac, int_dev, ipv6=ipv6)
-        self.execute_tun_match(iface, ingress, dut_mac, tun_port, tun_dev,
-                               ipv6=ipv6)
+        self.add_pre_tunnel_rule(iface, dut_mac, src_mac, int_dev, ipv6=False)
+        self.add_pre_tunnel_rule(iface, dut_mac, src_mac, int_dev, ipv6=True)
+        self.execute_tun_match(iface, ingress, dut_mac, tun_port, tun_dev)
+
         # verify all packets sent are matching on the pre-tunnel rule
         if self.dut.kernel_ver_ge(4, 19):
-           self.check_pre_tun_stats(iface, 700)
+            self.check_pre_tun_stats(iface, 600)
         else:
-           self.check_pre_tun_stats(iface, 400)
+            self.check_pre_tun_stats(iface, 400)
 
         # add vlan to the tunnel
         self.cleanup_filter(iface)
-        self.add_pre_tunnel_rule_vlan(iface, dut_mac, src_mac, int_dev, 20, ipv6)
+        self.add_pre_tunnel_rule_vlan(iface, dut_mac, src_mac, int_dev,
+                                      vlan_id=20, ipv6=False)
+        self.add_pre_tunnel_rule_vlan(iface, dut_mac, src_mac, int_dev,
+                                      vlan_id=20, ipv6=True)
         self.execute_tun_match(iface, ingress, dut_mac, tun_port, tun_dev,
-                               vlan_id=20, ipv6=ipv6)
+                               vlan_id=20)
+
         if self.dut.kernel_ver_ge(4, 19):
-           self.check_pre_tun_stats(iface, 700)
+            self.check_pre_tun_stats(iface, 600)
         else:
-           self.check_pre_tun_stats(iface, 400)
+            self.check_pre_tun_stats(iface, 400)
 
         # test for failure with the wrong vlan_id
         self.cleanup_filter(iface)
-        self.add_pre_tunnel_rule_vlan(iface, dut_mac, src_mac, int_dev, 20, ipv6)
+        self.add_pre_tunnel_rule_vlan(iface, dut_mac, src_mac, int_dev,
+                                      vlan_id=20, ipv6=False)
+        self.add_pre_tunnel_rule_vlan(iface, dut_mac, src_mac, int_dev,
+                                      vlan_id=20, ipv6=True)
         self.execute_tun_match(iface, ingress, dut_mac, tun_port, tun_dev,
-                               vlan_id=21, fail=True, ipv6=ipv6)
+                               vlan_id=21, fail=True)
+
         self.check_pre_tun_stats(iface, 0)
         self.cleanup_filter(iface)
 
@@ -1442,7 +1483,6 @@ class FlowerMatchGRE(FlowerTunnel):
         self.add_gre_dev('gre1')
         dut_mac = self.get_dut_mac(iface)
         self.execute_tun_match(iface, ingress, dut_mac, 0, 'gre1')
-        self.execute_tun_match(iface, ingress, dut_mac, 0, 'gre1', ipv6=True)
 
     def cleanup(self):
         self.cleanup_flower('gre1')
@@ -1460,17 +1500,18 @@ class FlowerMatchGREInVLAN(FlowerTunnel):
         iface, ingress = self.configure_flower()
         self.add_gre_dev('gre1')
         self.add_ovs_internal_port('int-port')
+        dut_mac = self.get_dut_mac('int-port')
+
         self.move_ip_address(self.dut_addr[0], iface, 'int-port')
         src_ip, _ = self.get_ip_addresses()
         self.setup_dut_neighbour(src_ip, 'int-port')
-        dut_mac = self.get_dut_mac('int-port')
+
+        self.move_ip_address(self.dut_addr_v6[0], iface, 'int-port', ipv6=True)
+        src_ipv6, _ = self.get_ip_addresses(ipv6=True)
+        self.setup_dut_neighbour(src_ipv6, 'int-port', ipv6=True)
+
         self.execute_tun_vlan_match(iface, ingress, dut_mac, 0, 'gre1',
                                     'int-port')
-        self.move_ip_address(self.dut_addr_v6[0], iface, 'int-port', ipv6=True)
-        src_ip, _ = self.get_ip_addresses(ipv6=True)
-        self.setup_dut_neighbour(src_ip, 'int-port', ipv6=True)
-        self.execute_tun_vlan_match(iface, ingress, dut_mac, 0, 'gre1',
-                                    'int-port', ipv6=True)
 
     def cleanup(self):
         self.cleanup_flower(self.dut_ifn[0])
@@ -1488,8 +1529,6 @@ class FlowerMatchVXLAN(FlowerTunnel):
         self.add_vxlan_dev('vxlan0')
         dut_mac = self.get_dut_mac(iface)
         self.execute_tun_match(iface, ingress, dut_mac, 4789, 'vxlan0')
-        self.execute_tun_match(iface, ingress, dut_mac, 4789, 'vxlan0',
-                               ipv6=True)
 
     def cleanup(self):
         self.cleanup_flower('vxlan0')
@@ -1507,17 +1546,18 @@ class FlowerMatchVXLANInVLAN(FlowerTunnel):
         iface, ingress = self.configure_flower()
         self.add_vxlan_dev('vxlan0')
         self.add_ovs_internal_port('int-port')
+        dut_mac = self.get_dut_mac('int-port')
+
         self.move_ip_address(self.dut_addr[0], iface, 'int-port')
         src_ip, _ = self.get_ip_addresses()
         self.setup_dut_neighbour(src_ip, 'int-port')
-        dut_mac = self.get_dut_mac('int-port')
+
+        self.move_ip_address(self.dut_addr_v6[0], iface, 'int-port', ipv6=True)
+        src_ipv6, _ = self.get_ip_addresses(ipv6=True)
+        self.setup_dut_neighbour(src_ipv6, 'int-port', ipv6=True)
+
         self.execute_tun_vlan_match(iface, ingress, dut_mac, 4789, 'vxlan0',
                                     'int-port')
-        self.move_ip_address(self.dut_addr_v6[0], iface, 'int-port', ipv6=True)
-        src_ip, _ = self.get_ip_addresses(ipv6=True)
-        self.setup_dut_neighbour(src_ip, 'int-port', ipv6=True)
-        self.execute_tun_vlan_match(iface, ingress, dut_mac, 4789, 'vxlan0',
-                                    'int-port', ipv6=True)
 
     def cleanup(self):
         self.cleanup_flower(self.dut_ifn[0])
@@ -1535,8 +1575,6 @@ class FlowerMatchGeneve(FlowerTunnel):
         self.add_geneve_dev('gene0')
         dut_mac = self.get_dut_mac(iface)
         self.execute_tun_match(iface, ingress, dut_mac, 6081, 'gene0')
-        self.execute_tun_match(iface, ingress, dut_mac, 6081, 'gene0',
-                               ipv6=True)
 
     def cleanup(self):
         self.cleanup_flower('gene0')
@@ -1554,17 +1592,18 @@ class FlowerMatchGeneveInVLAN(FlowerTunnel):
         iface, ingress = self.configure_flower()
         self.add_geneve_dev('gene0')
         self.add_ovs_internal_port('int-port')
+        dut_mac = self.get_dut_mac('int-port')
+
         self.move_ip_address(self.dut_addr[0], iface, 'int-port')
         src_ip, _ = self.get_ip_addresses()
         self.setup_dut_neighbour(src_ip, 'int-port')
-        dut_mac = self.get_dut_mac('int-port')
+
+        self.move_ip_address(self.dut_addr_v6[0], iface, 'int-port', ipv6=True)
+        src_ipv6, _ = self.get_ip_addresses(ipv6=True)
+        self.setup_dut_neighbour(src_ipv6, 'int-port', ipv6=True)
+
         self.execute_tun_vlan_match(iface, ingress, dut_mac, 6081, 'gene0',
                                     'int-port')
-        self.move_ip_address(self.dut_addr_v6[0], iface, 'int-port', ipv6=True)
-        src_ip, _ = self.get_ip_addresses(ipv6=True)
-        self.setup_dut_neighbour(src_ip, 'int-port', ipv6=True)
-        self.execute_tun_vlan_match(iface, ingress, dut_mac, 6081, 'gene0',
-                                    'int-port', ipv6=True)
 
     def cleanup(self):
         self.cleanup_flower(self.dut_ifn[0])
