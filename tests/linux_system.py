@@ -715,6 +715,43 @@ TX:		(\d+)"""
 
         return ret
 
+    def ethtool_get_test(self, ifc, fail=True):
+        """
+        ethtool -t sample output:
+        The test result is FAIL
+        The test extra info:
+        Link Test        1
+        NSP Test         0
+        Firmware Test    0
+        Register Test    0
+
+        This output is converted into a dictionary. The
+        PASS/FAIL result is stored using the key "result".
+        The "outcome" key stores the number of tests that
+        return a fail. "1" is considered a FAIL and "0" is
+        considered a PASS.
+        """
+        _, out = self.cmd('ethtool -t %s' % (ifc), fail=fail)
+
+        ret = {}
+
+        lines = out.split('\n')
+        outcome_count = 0
+        for line in lines:
+            if line.startswith('The test result'):
+                result = line.split(' ')
+                ret['result'] = result[4].strip()
+            elif line and not line.startswith('The test'):
+                k = line.split(' ')
+                key = k[0].strip()
+                ret[key] = int(k[2].strip())
+                if k[2].strip() == '1':
+                    outcome_count += 1
+
+        ret['outcome'] = outcome_count
+
+        return ret
+
     ###############################
     # devlink
     ###############################
