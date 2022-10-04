@@ -34,32 +34,32 @@ RTSYM_FILES := rts_0.list rts_1.list rts_2.list rts_3.list rts_17.list \
 
 # Build the firmwares with MIP and RT-SYM but also one without MIP or
 # a specific version of it
-FWS = $(patsubst %.list,rm_%.nffw,${RTSYM_FILES}) \
-	rts_100.nffw rm1_rts_100.nffw \
-	rts_dump.nffw rts_vals.nffw dummy_nfd.nffw
+FWS = $(patsubst %.list,rm_%_$(CHIP).nffw,${RTSYM_FILES}) \
+	rts_100_$(CHIP).nffw rm1_rts_100_$(CHIP).nffw \
+	rts_dump_$(CHIP).nffw rts_vals_$(CHIP).nffw dummy_nfd_$(CHIP).nffw
 
 # nfp-3800 cannot use -mip_v2
 ifneq ($(CHIP),nfp-38xxc)
-FWS += rm2_rts_100.nffw
+FWS += rm2_rts_100_$(CHIP).nffw
 endif
 
 all: $(FWS) clean
 
-%.nffw: %.list
+%_$(CHIP).nffw: %.list
 	$(NFLD) $(LDFLAGS) -o $@ -u $(TARGET_MES) $<
-rm_%.nffw: %.list
+rm_%_$(CHIP).nffw: %.list
 	$(NFLD) -rtsyms -mip $(LDFLAGS) -o $@ -u $(TARGET_MES) $<
-rm1_%.nffw: %.list
+rm1_%_$(CHIP).nffw: %.list
 	$(NFLD) -rtsyms -mip_v1 $(LDFLAGS) -o $@ -u $(TARGET_MES) $<
-rm2_%.nffw: %.list
+rm2_%_$(CHIP).nffw: %.list
 	$(NFLD_OLD) -rtsyms -mip_v2 $(LDFLAGS) -o $@ -u $(TARGET_MES) $<
-rts_dump.nffw: rts_17.list abs_rtsym.list
+rts_dump_$(CHIP).nffw: rts_17.list abs_rtsym.list
 	$(NFLD) -L abs_rtsym.list -rtsyms -fw_name $(FWNAME) -mip $(LDFLAGS) \
 	-o $@ -u $(TARGET_MES) $<
-rts_vals.nffw: rts_vals.list abs_rtsym.list
+rts_vals_$(CHIP).nffw: rts_vals.list abs_rtsym.list
 	$(NFLD) -L abs_rtsym.list -rtsyms -fw_name $(FWNAME) -mip $(LDFLAGS) \
 	-o $@ -u $(TARGET_MES) $<
-dummy_nfd.nffw: dummy_nfd.list
+dummy_nfd_$(CHIP).nffw: dummy_nfd.list
 	$(NFLD) -rtsyms -fw_name $(FWNAME) -mip $(LDFLAGS) \
 	-o $@ -u $(TARGET_MES) $<
 

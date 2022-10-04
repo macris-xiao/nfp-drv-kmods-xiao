@@ -68,7 +68,8 @@ uninstall:
 
 test_prepare:
 	$(MAKE) -C tests/samples/c
-	$(MAKE) -C tests/samples/mefw -j1
+	$(MAKE) -C tests/samples/mefw -j1 CHIP=nfp-38xxc
+	$(MAKE) -C tests/samples/mefw -j1 CHIP=nfp-4xxx-b0
 	$(MAKE) -C tests/samples/bpf
 	$(MAKE) -C tests/samples/xdp
 	$(MAKE) -C tests/samples/xdp_performance

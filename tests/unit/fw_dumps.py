@@ -24,7 +24,11 @@ class FwDumpTest(CommonTest):
         self.dut.insmod(module='nth')
         fwdir_base = os.path.basename(self.group.mefw)
         fwdir = os.path.join('/lib/firmware/netronome/', fwdir_base)
-        self.dut.nffw_load('%s.nffw' % os.path.join(fwdir, 'rts_dump'))
+        if self.dut.get_pci_device_id() == '3800':
+            fw = 'rts_dump_nfp-38xxc'
+        else:
+            fw = 'rts_dump_nfp-4xxx-b0'
+        self.dut.nffw_load('%s.nffw' % os.path.join(fwdir, fw))
 
     def load_spec_bytes(self, spec_bytes):
         self.dut.dfs_write_bytes('nth/fw_dump_spec', spec_bytes)
