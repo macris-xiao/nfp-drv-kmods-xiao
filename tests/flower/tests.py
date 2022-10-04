@@ -598,7 +598,7 @@ class FlowerTunnel(FlowerBase):
             self.test_filter(tun_dev, ingress, pkt, enc_pkt, 100, -pkt_diff)
 
     def execute_tun_match(self, iface, ingress, dut_mac, tun_port, tun_dev,
-                          vlan_id=0, fail=False):
+                          vlan_id=0, vlan_idv6=0, fail=False):
         src_ip, dut_ip = self.get_ip_addresses(ipv6=False)
         src_ipv6, dut_ipv6 = self.get_ip_addresses(ipv6=True)
         src_mac = self.get_src_mac(ingress)
@@ -614,7 +614,7 @@ class FlowerTunnel(FlowerBase):
                                                              src_mac,
                                                              dut_mac,
                                                              tun_port,
-                                                             vlan_id,
+                                                             vlan_idv6,
                                                              ipv6=True)
 
         # Hit test - match all tunnel fields and decap
@@ -709,7 +709,33 @@ class FlowerTunnel(FlowerBase):
         self.add_pre_tunnel_rule_vlan(iface, dut_mac, src_mac, int_dev,
                                       vlan_id=20, ipv6=True)
         self.execute_tun_match(iface, ingress, dut_mac, tun_port, tun_dev,
-                               vlan_id=20)
+                               vlan_id=20, vlan_idv6=20)
+
+        if self.dut.kernel_ver_ge(4, 19):
+            self.check_pre_tun_stats(iface, 600)
+        else:
+            self.check_pre_tun_stats(iface, 400)
+
+        # add vlan to the ipv4 tunnel
+        self.cleanup_filter(iface)
+        self.add_pre_tunnel_rule_vlan(iface, dut_mac, src_mac, int_dev,
+                                      vlan_id=20, ipv6=False)
+        self.add_pre_tunnel_rule(iface, dut_mac, src_mac, int_dev, ipv6=True)
+        self.execute_tun_match(iface, ingress, dut_mac, tun_port, tun_dev,
+                               vlan_id=20, vlan_idv6=0)
+
+        if self.dut.kernel_ver_ge(4, 19):
+            self.check_pre_tun_stats(iface, 600)
+        else:
+            self.check_pre_tun_stats(iface, 400)
+
+        # add vlan to the ipv6 tunnel
+        self.cleanup_filter(iface)
+        self.add_pre_tunnel_rule(iface, dut_mac, src_mac, int_dev, ipv6=False)
+        self.add_pre_tunnel_rule_vlan(iface, dut_mac, src_mac, int_dev,
+                                      vlan_id=20, ipv6=True)
+        self.execute_tun_match(iface, ingress, dut_mac, tun_port, tun_dev,
+                               vlan_id=0, vlan_idv6=20)
 
         if self.dut.kernel_ver_ge(4, 19):
             self.check_pre_tun_stats(iface, 600)
@@ -723,7 +749,7 @@ class FlowerTunnel(FlowerBase):
         self.add_pre_tunnel_rule_vlan(iface, dut_mac, src_mac, int_dev,
                                       vlan_id=20, ipv6=True)
         self.execute_tun_match(iface, ingress, dut_mac, tun_port, tun_dev,
-                               vlan_id=21, fail=True)
+                               vlan_id=21, vlan_idv6=21, fail=True)
 
         self.check_pre_tun_stats(iface, 0)
         self.cleanup_filter(iface)
