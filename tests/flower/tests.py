@@ -754,57 +754,30 @@ class FlowerTunnel(FlowerBase):
         self.check_pre_tun_stats(iface, 0)
         self.cleanup_filter(iface)
 
-    def execute_tun_action(self, iface, ingress, dut_mac, tun_port, tun_dev,
-                           vlan_id=0, ipv6=False):
-        M = self.dut
-        A = self.src
+    def install_tun_action_filter(self, proto, iface, port, tun_port, tun_dev,
+                                  src_ip, dut_ip,
+                                  enc_key=123, enc_tos=30, enc_ttl=99,
+                                  no_csum=False, ipv6=False):
 
-        src_ip, dut_ip = self.get_ip_addresses(ipv6)
-        src_mac = self.get_src_mac(ingress)
-
-        # Hit test - match all tcp packets and encap in vxlan
-        match = 'ip flower skip_sw ip_proto tcp'
+        match = '%s flower skip_sw ip_proto tcp dst_port %s' % (proto, port)
+        csum = ''
+        if no_csum:
+            csum = 'nocsum'
         if self.dut.kernel_ver_ge(4, 19):
-            action = 'tunnel_key set id 123 src_ip %s dst_ip %s dst_port %s ' \
-                     'tos 30 ttl 99 action mirred egress redirect dev %s' \
-                     % (dut_ip, src_ip, tun_port, tun_dev)
+            action = 'tunnel_key set id %s src_ip %s dst_ip %s dst_port %s ' \
+                     'tos %s ttl %s %s action mirred egress redirect dev %s' \
+                     % (enc_key, dut_ip, src_ip, tun_port, enc_tos, enc_ttl,
+                        csum, tun_dev)
             self.install_filter(iface, match, action)
         else:
-            action = 'tunnel_key set id 123 src_ip %s dst_ip %s dst_port %s ' \
-                     'action mirred egress redirect dev %s' \
-                     % (dut_ip, src_ip, tun_port, tun_dev)
+            action = 'tunnel_key set id %s src_ip %s dst_ip %s dst_port %s ' \
+                     '%s action mirred egress redirect dev %s' \
+                     % (enc_key, dut_ip, src_ip, tun_port, csum, tun_dev)
             self.install_filter(iface, match, action)
 
-        exp_pkt_cnt = 100
-        pkt = Ether(src=self.group.hwaddr_x[0],dst=self.ipv4_mc_mac[0])/\
-              IP()/TCP()/Raw('\x00'*64)
-
-        sleep(2)
-        self.send_packs(iface, ingress, pkt)
-        sleep(2)
-
-        dump_file = os.path.join('/tmp/', 'dump.pcap')
-        if tun_port:
-            self.capture_packs(iface, ingress, pkt, dump_file,
-                               'udp dst port %s' % tun_port)
-        else:
-            self.capture_packs(iface, ingress, pkt, dump_file, 'proto 47')
-        pack_cap = rdpcap(dump_file)
-        cmd_log("rm %s" % dump_file)
-        pkt_diff = len(Ether())
-        if vlan_id:
-            pkt_diff+=len(Dot1Q())
-        if ipv6:
-            pkt_diff+=len(IPv6())
-        else:
-            pkt_diff+=len(IP())
-        if tun_port:
-            pkt_diff+=len(UDP())
-        # tun header
-        pkt_diff+=8
-
-        self.pcap_check_bytes(exp_pkt_cnt, pack_cap, pkt, pkt_diff)
-
+    def tun_action_extract_fields(self, dut_mac, src_mac, tun_port,
+                                  dut_ip, src_ip, pack_cap,
+                                  vlan_id=0, ipv6=False):
         # build the expected packet to extract match fields
         exp_pkt = Ether(src=dut_mac,dst=src_mac)
         if vlan_id:
@@ -881,63 +854,210 @@ class FlowerTunnel(FlowerBase):
             tun_header = str(exp_pkt).encode("hex")[l3_offset*2 : len(GRE())*2]
             enc_pkt_offset = l4_offset + 8
 
-        # check tunnel header
+        tun_action_fields = {'exp_pkt': exp_pkt,
+                             'mac_header': mac_header,
+                             'vlan_header': vlan_header,
+                             'ip_addresses': ip_addresses,
+                             'ip_proto': ip_proto,
+                             'ttl': ttl,
+                             'no_ttl': no_ttl,
+                             'tos': tos,
+                             'dest_port': dest_port,
+                             'udp_csum': udp_csum,
+                             'tun_header': tun_header,
+                             'l4_offset': l4_offset,
+                             'l3_offset': l3_offset,
+                             'enc_pkt_offset': enc_pkt_offset}
+
+        return tun_action_fields
+
+    def tun_action_match_fields(self, pkt, pack_cap, pkt_fields, ipv6=False):
+        # Unpack fields
+        mac_header = pkt_fields['mac_header']
+        vlan_header = pkt_fields['vlan_header']
+        ip_addresses = pkt_fields['ip_addresses']
+        ip_proto = pkt_fields['ip_proto']
+        ttl = pkt_fields['ttl']
+        no_ttl = pkt_fields['no_ttl']
+        tos = pkt_fields['tos']
+        dest_port = pkt_fields['dest_port']
+        udp_csum = pkt_fields['udp_csum']
+        tun_header = pkt_fields['tun_header']
+        l4_offset = pkt_fields['l4_offset']
+        l3_offset = pkt_fields['l3_offset']
+        enc_pkt_offset = pkt_fields['enc_pkt_offset']
+
+        # Check tunnel header
         self.pcap_cmp_pkt_bytes(pack_cap, tun_header, l4_offset + len(UDP()))
-        # check tunnel ethernet header
+        # Check tunnel ethernet header
         self.pcap_cmp_pkt_bytes(pack_cap, mac_header, 0)
-        # check VLAN header
+        # Check VLAN header
         self.pcap_cmp_pkt_bytes(pack_cap, vlan_header, len(Ether()))
         if ipv6:
-            # check tunnel IP addresses
+            # Check tunnel IP addresses
             self.pcap_cmp_pkt_bytes(pack_cap, ip_addresses, l3_offset + 8)
-            # check tunnel TTL is non zero
+            # Check tunnel TTL is non zero
             self.pcap_cmp_pkt_bytes(pack_cap, no_ttl, l3_offset + 7, fail=True)
-            # check tunnel IP proto
+            # Check tunnel IP proto
             self.pcap_cmp_pkt_bytes(pack_cap, ip_proto, l3_offset + 6)
         else:
-            # check tunnel IP addresses
+            # Check tunnel IP addresses
             self.pcap_cmp_pkt_bytes(pack_cap, ip_addresses, l3_offset + 12)
-            # check tunnel TTL is non zero
+            # Check tunnel TTL is non zero
             self.pcap_cmp_pkt_bytes(pack_cap, no_ttl, l3_offset + 8, fail=True)
-            # check tunnel IP proto
+            # Check tunnel IP proto
             self.pcap_cmp_pkt_bytes(pack_cap, ip_proto, l3_offset + 9)
-        # check tunnel destination UDP port - empty string for GRE
+        # Check tunnel destination UDP port - empty string for GRE
         self.pcap_cmp_pkt_bytes(pack_cap, dest_port, l4_offset + 2)
-        # check udp checksum
+        # Check udp checksum
         self.pcap_cmp_pkt_bytes(pack_cap, udp_csum, l4_offset + 6)
-        # check encapsulated packet
+        # Check encapsulated packet
         self.pcap_cmp_pkt_bytes(pack_cap, str(pkt).encode("hex"),
                                 enc_pkt_offset)
 
         # Setting of tunnel ToS and TTL are added in kernel 4.19
         if self.dut.kernel_ver_ge(4, 19):
             if ipv6:
-                # check tunnel TTL
+                # Check tunnel TTL
                 self.pcap_cmp_pkt_bytes(pack_cap, ttl, l3_offset + 7)
-                # check tunnel ToS
+                # Check tunnel ToS
                 self.pcap_cmp_pkt_bytes(pack_cap, tos, l3_offset)
             else:
-                # check tunnel TTL
+                # Check tunnel TTL
                 self.pcap_cmp_pkt_bytes(pack_cap, ttl, l3_offset + 8)
-                # check tunnel ToS
+                # Check tunnel ToS
                 self.pcap_cmp_pkt_bytes(pack_cap, tos, l3_offset + 1)
+
+    def tun_action_pkt_diff(self, tun_port, vlan_id, ipv6=False):
+        pkt_diff = len(Ether())
+        if vlan_id:
+            pkt_diff += len(Dot1Q())
+        if ipv6:
+            pkt_diff += len(IPv6())
+        else:
+            pkt_diff += len(IP())
+        if tun_port:
+            pkt_diff += len(UDP())
+        # Tun header
+        pkt_diff += 8
+
+        return pkt_diff
+
+    def execute_tun_action(self, iface, ingress, dut_mac, tun_port, tun_dev,
+                           vlan_id=0, vlan_idv6=0, eth_type_v6=False):
+        src_ip, dut_ip = self.get_ip_addresses(ipv6=False)
+        src_ipv6, dut_ipv6 = self.get_ip_addresses(ipv6=True)
+        src_mac = self.get_src_mac(ingress)
+
+        exp_pkt_cnt = 100
+        # Inner packet IPv4
+        if not eth_type_v6:
+            proto = 'ip'
+            pkt = Ether(src=self.group.hwaddr_x[0],
+                        dst=self.ipv4_mc_mac[0]) /\
+                IP()/TCP(sport=2456, dport=2456)/Raw('\x00'*64)
+            pktv6 = Ether(src=self.group.hwaddr_x[0],
+                          dst=self.ipv4_mc_mac[0]) /\
+                IP()/TCP(sport=3456, dport=3456)/Raw('\x00'*64)
+        # Inner packet IPv6
+        else:
+            proto = 'ipv6'
+            pkt = Ether(src=self.group.hwaddr_x[0], dst=self.ipv6_mc_mac[0]) /\
+                IPv6()/TCP(sport=2456, dport=2456)/Raw('\x00'*64)
+            pktv6 = Ether(src=self.group.hwaddr_x[0],
+                          dst=self.ipv6_mc_mac[0]) /\
+                IPv6()/TCP(sport=3456, dport=3456)/Raw('\x00'*64)
+
+        # Hit test - match all tcp packets and encap in vxlan
+        self.install_tun_action_filter(proto, iface, 2456, tun_port, tun_dev,
+                                       src_ip, dut_ip)
+        self.install_tun_action_filter(proto, iface, 3456, tun_port, tun_dev,
+                                       src_ipv6, dut_ipv6, ipv6=True)
+
+        # Packet capture test IPv4
+        sleep(2)
+        self.send_packs(iface, ingress, pkt)
+        sleep(2)
+
+        dump_file = os.path.join('/tmp/', 'dump.pcap')
+        if tun_port:
+            self.capture_packs(iface, ingress, pkt, dump_file,
+                               'udp dst port %s' % tun_port)
+        else:
+            self.capture_packs(iface, ingress, pkt, dump_file, 'proto 47')
+        pack_cap = rdpcap(dump_file)
+        cmd_log("rm %s" % dump_file)
+
+        pkt_diff = self.tun_action_pkt_diff(tun_port, vlan_id, ipv6=False)
+        self.pcap_check_bytes(exp_pkt_cnt, pack_cap, pkt, pkt_diff)
+
+        # Packet capture test IPv6
+        sleep(2)
+        self.send_packs(iface, ingress, pktv6)
+        sleep(2)
+
+        dump_filev6 = os.path.join('/tmp/', 'dumpv6.pcap')
+        if tun_port:
+            self.capture_packs(iface, ingress, pktv6, dump_filev6,
+                               'udp dst port %s' % tun_port)
+        else:
+            self.capture_packs(iface, ingress, pktv6, dump_filev6, 'proto 47')
+        pack_capv6 = rdpcap(dump_filev6)
+        cmd_log("rm %s" % dump_filev6)
+
+        pkt_diffv6 = self.tun_action_pkt_diff(tun_port, vlan_idv6, ipv6=True)
+        self.pcap_check_bytes(exp_pkt_cnt, pack_capv6, pktv6, pkt_diffv6)
+
+        # Contruct expected packets + extract fields
+        pkt_fields = self.tun_action_extract_fields(dut_mac, src_mac,
+                                                    tun_port,
+                                                    dut_ip, src_ip,
+                                                    pack_cap, vlan_id,
+                                                    ipv6=False)
+
+        pkt_fieldsv6 = self.tun_action_extract_fields(dut_mac, src_mac,
+                                                      tun_port,
+                                                      dut_ipv6, src_ipv6,
+                                                      pack_capv6,
+                                                      vlan_idv6,
+                                                      ipv6=True)
+
+        # Match fields
+        self.tun_action_match_fields(pkt, pack_cap, pkt_fields, ipv6=False)
+        self.tun_action_match_fields(pktv6, pack_capv6, pkt_fieldsv6,
+                                     ipv6=True)
 
         self.cleanup_filter(iface)
 
         if tun_port:
-            # modify action to uncheck the udp checksum flag
-            action = 'tunnel_key set id 123 src_ip %s dst_ip %s dst_port %s ' \
-                     'nocsum action mirred egress redirect dev %s' \
-                     % (dut_ip, src_ip, tun_port, tun_dev)
-            self.install_filter(iface, match, action)
+            # Modify action to uncheck the udp checksum flag
+            self.install_tun_action_filter(proto, iface, 2456, tun_port,
+                                           tun_dev,
+                                           src_ip, dut_ip, no_csum=True)
+            self.install_tun_action_filter(proto, iface, 3456, tun_port,
+                                           tun_dev,
+                                           src_ipv6, dut_ipv6, no_csum=True,
+                                           ipv6=True)
 
+            # Packet capture test IPv4
             self.capture_packs(iface, ingress, pkt, dump_file,
                                'udp dst port %s' % tun_port)
             pack_cap = rdpcap(dump_file)
 
             no_csum = '0000'
-            # verify checksum is 0
+            # Verify checksum is 0
+            l4_offset = pkt_fields['l4_offset']
             self.pcap_cmp_pkt_bytes(pack_cap, no_csum, l4_offset + 6)
+
+            # Packet capture test IPv6
+            self.capture_packs(iface, ingress, pktv6, dump_filev6,
+                               'udp dst port %s' % tun_port)
+            pack_capv6 = rdpcap(dump_filev6)
+
+            no_csum = '0000'
+            # Verify checksum is 0
+            l4_offsetv6 = pkt_fieldsv6['l4_offset']
+            self.pcap_cmp_pkt_bytes(pack_capv6, no_csum, l4_offsetv6 + 6)
 
             self.cleanup_filter(iface)
 
@@ -2822,11 +2942,13 @@ class FlowerActionGRE(FlowerTunnel):
         self.add_gre_dev('gre1')
         src_ip, _ = self.get_ip_addresses()
         self.setup_dut_neighbour(src_ip, iface)
+        src_ipv6, _ = self.get_ip_addresses(ipv6=True)
+        self.setup_dut_neighbour(src_ipv6, iface, ipv6=True)
+
         dut_mac = self.get_dut_mac(iface)
         self.execute_tun_action(iface, ingress, dut_mac, 0, 'gre1')
-        src_ip, _ = self.get_ip_addresses(ipv6=True)
-        self.setup_dut_neighbour(src_ip, iface, ipv6=True)
-        self.execute_tun_action(iface, ingress, dut_mac, 0, 'gre1', ipv6=True)
+        self.execute_tun_action(iface, ingress, dut_mac, 0, 'gre1',
+                                eth_type_v6=True)
 
     def cleanup(self):
         self.cleanup_flower(self.dut_ifn[0])
@@ -2848,13 +2970,16 @@ class FlowerActionMergeGRE(FlowerTunnel):
         src_ip, _ = self.get_ip_addresses()
         self.setup_dut_neighbour(src_ip, 'int-port')
         self.add_tun_redirect_rule('int-port', iface)
+
+        self.move_ip_address(self.dut_addr_v6[0], iface, 'int-port', ipv6=True)
+        src_ipv6, _ = self.get_ip_addresses(ipv6=True)
+        self.setup_dut_neighbour(src_ipv6, 'int-port', ipv6=True)
+        self.add_tun_redirect_rule('int-port', iface, ipv6=True)
+
         dut_mac = self.get_dut_mac('int-port')
         self.execute_tun_action(iface, ingress, dut_mac, 0, 'gre1')
-        self.move_ip_address(self.dut_addr_v6[0], iface, 'int-port', ipv6=True)
-        src_ip, _ = self.get_ip_addresses(ipv6=True)
-        self.setup_dut_neighbour(src_ip, 'int-port', ipv6=True)
-        self.add_tun_redirect_rule('int-port', iface, ipv6=True)
-        self.execute_tun_action(iface, ingress, dut_mac, 0, 'gre1', ipv6=True)
+        self.execute_tun_action(iface, ingress, dut_mac, 0, 'gre1',
+                                eth_type_v6=True)
 
     def cleanup(self):
         self.cleanup_flower(self.dut_ifn[0])
@@ -2869,14 +2994,16 @@ class FlowerActionVXLAN(FlowerTunnel):
     def execute(self):
         iface, ingress = self.configure_flower()
         self.add_vxlan_dev('vxlan0')
+
         src_ip, _ = self.get_ip_addresses()
         self.setup_dut_neighbour(src_ip, iface)
+        src_ipv6, _ = self.get_ip_addresses(ipv6=True)
+        self.setup_dut_neighbour(src_ipv6, iface, ipv6=True)
+
         dut_mac = self.get_dut_mac(iface)
         self.execute_tun_action(iface, ingress, dut_mac, 4789, 'vxlan0')
-        src_ip, _ = self.get_ip_addresses(ipv6=True)
-        self.setup_dut_neighbour(src_ip, iface, ipv6=True)
         self.execute_tun_action(iface, ingress, dut_mac, 4789, 'vxlan0',
-                                ipv6=True)
+                                eth_type_v6=True)
 
     def cleanup(self):
         self.cleanup_flower(self.dut_ifn[0])
@@ -2898,14 +3025,16 @@ class FlowerActionMergeVXLAN(FlowerTunnel):
         src_ip, _ = self.get_ip_addresses()
         self.setup_dut_neighbour(src_ip, 'int-port')
         self.add_tun_redirect_rule('int-port', iface)
+
+        self.move_ip_address(self.dut_addr_v6[0], iface, 'int-port', ipv6=True)
+        src_ipv6, _ = self.get_ip_addresses(ipv6=True)
+        self.setup_dut_neighbour(src_ipv6, 'int-port', ipv6=True)
+        self.add_tun_redirect_rule('int-port', iface, ipv6=True)
+
         dut_mac = self.get_dut_mac('int-port')
         self.execute_tun_action(iface, ingress, dut_mac, 4789, 'vxlan0')
-        self.move_ip_address(self.dut_addr_v6[0], iface, 'int-port', ipv6=True)
-        src_ip, _ = self.get_ip_addresses(ipv6=True)
-        self.setup_dut_neighbour(src_ip, 'int-port', ipv6=True)
-        self.add_tun_redirect_rule('int-port', iface, ipv6=True)
         self.execute_tun_action(iface, ingress, dut_mac, 4789, 'vxlan0',
-                                ipv6=True)
+                                eth_type_v6=True)
 
     def cleanup(self):
         self.cleanup_flower(self.dut_ifn[0])
@@ -2933,15 +3062,17 @@ class FlowerActionMergeVXLANInVLAN(FlowerTunnel):
         src_ip, _ = self.get_ip_addresses()
         self.setup_dut_neighbour(src_ip, 'int-port')
         self.add_tun_redirect_rule_vlan('int-port', iface, 20)
+
+        self.move_ip_address(self.dut_addr_v6[0], iface, 'int-port', ipv6=True)
+        src_ipv6, _ = self.get_ip_addresses(ipv6=True)
+        self.setup_dut_neighbour(src_ipv6, 'int-port', ipv6=True)
+        self.add_tun_redirect_rule_vlan('int-port', iface, 20, ipv6=True)
+
         dut_mac = self.get_dut_mac('int-port')
         self.execute_tun_action(iface, ingress, dut_mac, 4789, 'vxlan0',
-                                vlan_id=20)
-        self.move_ip_address(self.dut_addr_v6[0], iface, 'int-port', ipv6=True)
-        src_ip, _ = self.get_ip_addresses(ipv6=True)
-        self.setup_dut_neighbour(src_ip, 'int-port', ipv6=True)
-        self.add_tun_redirect_rule_vlan('int-port', iface, 20, ipv6=True)
+                                vlan_id=20, vlan_idv6=20)
         self.execute_tun_action(iface, ingress, dut_mac, 4789, 'vxlan0',
-                                vlan_id=20, ipv6=True)
+                                vlan_id=20, vlan_idv6=20, eth_type_v6=True)
 
     def cleanup(self):
         self.cleanup_flower(self.dut_ifn[0])
@@ -2958,12 +3089,13 @@ class FlowerActionGENEVE(FlowerTunnel):
         self.add_geneve_dev('gene0')
         src_ip, _ = self.get_ip_addresses()
         self.setup_dut_neighbour(src_ip, iface)
+        src_ipv6, _ = self.get_ip_addresses(ipv6=True)
+        self.setup_dut_neighbour(src_ipv6, iface, ipv6=True)
+
         dut_mac = self.get_dut_mac(iface)
         self.execute_tun_action(iface, ingress, dut_mac, 6081, 'gene0')
-        src_ip, _ = self.get_ip_addresses(ipv6=True)
-        self.setup_dut_neighbour(src_ip, iface, ipv6=True)
         self.execute_tun_action(iface, ingress, dut_mac, 6081, 'gene0',
-                                ipv6=True)
+                                eth_type_v6=True)
 
     def cleanup(self):
         self.cleanup_flower(self.dut_ifn[0])
@@ -2985,14 +3117,16 @@ class FlowerActionMergeGENEVE(FlowerTunnel):
         src_ip, _ = self.get_ip_addresses()
         self.setup_dut_neighbour(src_ip, 'int-port')
         self.add_tun_redirect_rule('int-port', iface)
+
+        self.move_ip_address(self.dut_addr_v6[0], iface, 'int-port', ipv6=True)
+        src_ipv6, _ = self.get_ip_addresses(ipv6=True)
+        self.setup_dut_neighbour(src_ipv6, 'int-port', ipv6=True)
+        self.add_tun_redirect_rule('int-port', iface, ipv6=True)
+
         dut_mac = self.get_dut_mac('int-port')
         self.execute_tun_action(iface, ingress, dut_mac, 6081, 'gene0')
-        self.move_ip_address(self.dut_addr_v6[0], iface, 'int-port', ipv6=True)
-        src_ip, _ = self.get_ip_addresses(ipv6=True)
-        self.setup_dut_neighbour(src_ip, 'int-port', ipv6=True)
-        self.add_tun_redirect_rule('int-port', iface, ipv6=True)
         self.execute_tun_action(iface, ingress, dut_mac, 6081, 'gene0',
-                                ipv6=True)
+                                eth_type_v6=True)
 
     def cleanup(self):
         self.cleanup_flower(self.dut_ifn[0])
@@ -3020,15 +3154,17 @@ class FlowerActionMergeGENEVEInVLAN(FlowerTunnel):
         src_ip, _ = self.get_ip_addresses()
         self.setup_dut_neighbour(src_ip, 'int-port')
         self.add_tun_redirect_rule_vlan('int-port', iface, 20)
-        dut_mac = self.get_dut_mac('int-port')
-        self.execute_tun_action(iface, ingress, dut_mac, 6081, 'gene0',
-                                vlan_id=20)
+
         self.move_ip_address(self.dut_addr_v6[0], iface, 'int-port', ipv6=True)
         src_ip, _ = self.get_ip_addresses(ipv6=True)
         self.setup_dut_neighbour(src_ip, 'int-port', ipv6=True)
         self.add_tun_redirect_rule_vlan('int-port', iface, 20, ipv6=True)
+
+        dut_mac = self.get_dut_mac('int-port')
         self.execute_tun_action(iface, ingress, dut_mac, 6081, 'gene0',
-                                vlan_id=20, ipv6=True)
+                                vlan_id=20, vlan_idv6=20)
+        self.execute_tun_action(iface, ingress, dut_mac, 6081, 'gene0',
+                                vlan_id=20, vlan_idv6=20, eth_type_v6=True)
 
     def cleanup(self):
         self.cleanup_flower(self.dut_ifn[0])
