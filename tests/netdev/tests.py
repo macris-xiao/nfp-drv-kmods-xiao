@@ -51,6 +51,7 @@ class NFPKmodNetdev(NFPKmodAppGrp):
             ('multi_ethtool_get_mod_eeprom', ModuleEepromEthtool,
              "Ethtool get module EEPROM"),
             ('multi_test_ethtool', TestEthtool, "Ethtool --test"),
+            ('multi_ethtool_identify', IdentifyEthtool, "Ethtool -p test"),
             ('multi_devlink_port_show', DevlinkPortsShow,
              "Check basic devlink port output"),
             ('multi_netconsole', NetconsoleTest, 'Test netconsole over the NFP'),
@@ -444,3 +445,74 @@ class HugeRings(CommonTest):
             self.dut.ethtool_rings_set(self.dut.vnics[self.port], defaults)
 
         return super(HugeRings, self).cleanup()
+
+class IdentifyEthtool(CommonTest):
+    info = """
+    Test functionality of the `ethtool -p` command by checking the value
+    of the cpld register using the nfp-cpld BSP tool.
+
+    The test will pass if the value of the register is correct when running
+    the `ethtool -p` command.
+
+    The test will fail if there is no change to the cpld register or if
+    the value of the cpld register is incorrect.
+    """
+    def execute(self):
+        # Check the bsp version as a minimum
+        self.check_bsp_min("22.09-0")
+        self.ifc_all_down()
+
+        if self.get_hwinfo("chip.model") == 'NFP3800':
+                raise NtiSkip("Test does not support Kestrel cards")
+
+        for iface in self.dut_ifn:
+
+            # Test whether ethtool -p can execute at all
+            cmd = "ethtool -p %s 1" % (iface)
+            ret = self.dut.cmd(cmd, fail=False)
+
+            if ret[0] != 0:
+                raise NtiError("Non-zero return value, %s, for ethtool -p on interface %s" % (ret, iface))
+
+            # Get the physical port number associated with iface
+            # e.g.:
+            # 'cat /sys/class/net/enp1s0np0/phys_port_name' will return 'p0'
+            # the '0' is the important character here so it is isolated with [-1]
+            cmd = "cat /sys/class/net/%s/phys_port_name"
+            phy = self.dut.cmd(cmd)[-1]
+
+            # Get the addr and position of the idmode bit for the physical
+            # port associated with the interface.
+            # Using the port number obtained above, e.g.:
+            # 'self.dut.get_hwinfo('phy0.pin.idmode')' would return
+            # 'phy0.pin.idmode=-cpld:2:2:0xd.3' which is then manipulated to return
+            # the address and bit number with `split(':')[-1].split('.')`.
+            # the address and bit position are returned as tuple '('0xd','3')'
+            addr, bit = self.dut.get_hwinfo('phy%s.pin.idmode' % (phy)).split(':')[-1].split('.')
+            bit = int(bit) + 1
+
+            # Get initial value of register
+            # For both reg_normal and reg_blink, the process is as follows:
+            # The command to read the CPLD register at the specified address
+            # will return something along the lines of '2.2.0x0d: 0x003fc0ff'
+            # we are only interested in the Hex value here, so that is isolated
+            # using the split() method.
+            # The Hex value is then converted into binary first converting the
+            # Hex value, in string form, into and integer by casting it to an int()
+            # and specifying base 16, before then formatting it to a 24 bit binary
+            # number in the form of a string. Thereafter the idmode bit is isolated,
+            # counting right to left.
+            _, reg_normal = self.dut.bsp_cmd('cpld', addr, fail=True)
+            reg_normal = reg_normal.split()[-1]
+            reg_normal_bin = format(int(reg_normal, 16), '0>24b')[-bit]
+
+            # Get value of register while identify running
+            cmd = "(ethtool -p %s 10 & sleep 5; " % (iface)
+            cmd += "/opt/netronome/bin/nfp-cpld -Z 0000:%s %s)" % (self.group.pci_id,addr)
+            _, reg_blink = self.dut.cmd(cmd)
+            reg_blink = reg_blink.split()[-1]
+            reg_blink_bin = format(int(reg_blink, 16), '0>24b')[-bit]
+
+            if reg_blink_bin == reg_normal_bin:
+                raise NtiError("idmode bit for %s not set" % (iface))
+        self.ifc_all_up()
