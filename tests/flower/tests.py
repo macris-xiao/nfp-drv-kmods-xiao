@@ -1689,6 +1689,7 @@ class FlowerMatchUnsupported(FlowerTunnel):
     - Incorrect destination MAC address
     - No vlan eth_type specified in match field
     - Unsupported layer 2 (extended layer) matches
+    - MPLS traffic redirection from physical to internal port
 
     In each case the unsupported rules are expected not to be offloaded
     (not in hardware). If any of the unsupported rules are offloaded the test
@@ -1756,6 +1757,12 @@ class FlowerMatchUnsupported(FlowerTunnel):
         self.add_pre_tunnel_rule_qinq('gre1', dut_mac, src_mac, 'int-port',
                                       vlan_id=20, ipv6=True, fail=True)
         self.cleanup_filter('gre1')
+
+        # Test failure - MPLS not allowed on phy-to-internal matches
+        match = '0x8847 flower mpls_label 1111'
+        action = 'mirred egress redirect dev %s' % 'int-port'
+        self.install_filter(iface, match, action, in_hw=False)
+        self.cleanup_filter(iface)
 
     def cleanup(self):
         self.cleanup_flower(self.dut_ifn[0])
