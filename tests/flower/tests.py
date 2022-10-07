@@ -282,17 +282,48 @@ class FlowerBase(CommonTest):
         M.cmd('tc qdisc add dev %s handle ffff: ingress' % iface)
         M.refresh()
 
-    def install_filter(self, iface, match, action, in_hw=True):
+    def install_filter(self, iface, match, action, in_hw=True, fail=False):
         M = self.dut
-        M.cmd('tc filter add dev %s parent ffff: protocol %s action %s' % (iface, match, action))
-
-        _, ret_str = M.cmd('tc filter show dev %s parent ffff: | grep not_in_hw' % iface, fail=False)
-        if 'not_in_hw' in ret_str:
-            if in_hw:
-                raise NtiError('match: %s; action: %s. Not installed in hardware.' % (match, action))
+        # Attempt filter rule install
+        ret_i, ret_str = M.cmd('tc filter add dev %s parent ffff: protocol %s \
+                               action %s' %
+                               (iface, match, action), fail=False)
+        # Rule expected to install
+        if not fail:
+            # Return code successful - check offload
+            if ret_i == 0:
+                _, ret_str = M.cmd('tc filter show dev %s parent ffff: | \
+                                   grep not_in_hw' % iface, fail=False)
+                if 'not_in_hw' in ret_str:
+                    # Expected to offload, is not offloaded.
+                    if in_hw:
+                        raise NtiError('match: %s; action: %s. \
+                                       Not installed in hardware. \
+                                       Was expected to offload.' %
+                                       (match, action))
+                else:
+                    # Not expected to offload, is offloaded.
+                    if not in_hw:
+                        raise NtiError('match: %s; action: %s. \
+                                       Installed in hardware. \
+                                       Was not expected to offload.' %
+                                       (match, action))
+            # Return code failure
+            else:
+                raise NtiError('match: %s; action: %s. \
+                               Filter install failed. \
+                               Non-zero return code.' % (match, action))
+        # Rule expected not to install
         else:
-            if not in_hw:
-                raise NtiError('match: %s; action: %s. Installed in hardware.' % (match, action))
+            # Return code failure - exit
+            if ret_i != 0:
+                return
+            # Return code successful - raise unexpected behaviour
+            else:
+                raise NtiError('match: %s; action: %s. \
+                               Invalid filter rule installed. \
+                               Non-zero return code expected.' %
+                               (match, action))
 
     def cleanup_filter(self, iface):
         M = self.dut
