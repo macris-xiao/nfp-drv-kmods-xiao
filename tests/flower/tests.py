@@ -58,6 +58,8 @@ class NFPKmodFlower(NFPKmodAppGrp):
              ('flower_match_tos', FlowerMatchTOS, "Checks basic flower tos match capabilities"),
              ('flower_match_frag_ipv4', FlowerMatchFragIPv4, "Checks basic flower fragmentation for IPv4 match capabilities"),
              ('flower_match_frag_ipv6', FlowerMatchFragIPv6, "Checks basic flower fragmentation for IPv6 match capabilities"),
+             ('flower_match_unsupported', FlowerMatchUnsupported,
+              "Checks driver validation of unsupported offloads"),
              ('flower_match_gre', FlowerMatchGRE, "Checks basic flower gre match capabilities"),
              ('flower_match_gre_in_vlan', FlowerMatchGREInVLAN, "Checks basic flower gre in vlan match capabilities"),
              ('flower_match_vxlan', FlowerMatchVXLAN, "Checks basic flower vxlan match capabilities"),
@@ -450,23 +452,28 @@ class FlowerTunnel(FlowerBase):
         self.dut.cmd('ovs-dpctl del-dp %s' % dev_name, fail=False)
         self.dut.cmd('modprobe -r openvswitch', fail=False)
 
-    def add_pre_tunnel_rule(self, dev_name, int_mac, src_mac, int_dev, ipv6=False):
+    def add_pre_tunnel_rule(self, dev_name, int_mac, src_mac, int_dev,
+                            match_args='', ipv6=False, in_hw=True):
         proto = 'ipv6' if ipv6 else 'ip'
-        match = '%s flower dst_mac %s src_mac %s' % (proto, int_mac, src_mac)
+        match = '%s flower dst_mac %s src_mac %s ' % (proto, int_mac, src_mac)
+        match += match_args
         action = 'skbedit ptype host pipe mirred egress redirect dev %s' \
                  % int_dev
-        self.install_filter(dev_name, match, action)
+        self.install_filter(dev_name, match, action, in_hw=in_hw)
 
-    def add_pre_tunnel_rule_vlan(self, dev_name, int_mac, src_mac, int_dev, vlan_id,
-                                 ipv6 = False):
-        ip_proto = "ipv6" if ipv6 else "ipv4"
+    def add_pre_tunnel_rule_vlan(self, dev_name, int_mac, src_mac, int_dev,
+                                 vlan_id, match_args='',
+                                 ipv6=False, eth_type=True, in_hw=True):
         match = '802.1Q flower vlan_id %s ' % vlan_id
-        match += 'vlan_ethtype %s ' % ip_proto
+        if eth_type:
+            ip_proto = "ipv6" if ipv6 else "ipv4"
+            match += 'vlan_ethtype %s ' % ip_proto
         match += 'dst_mac %s ' % int_mac
-        match += 'src_mac %s' % src_mac
+        match += 'src_mac %s ' % src_mac
+        match += match_args
         action = 'vlan pop pipe skbedit ptype host pipe ' \
                  'mirred egress redirect dev %s' % int_dev
-        self.install_filter(dev_name, match, action)
+        self.install_filter(dev_name, match, action, in_hw=in_hw)
 
     def check_pre_tun_stats(self, iface, exp_packets):
         stats = self.dut.netifs[iface].stats(get_tc_ing=True)
@@ -758,7 +765,6 @@ class FlowerTunnel(FlowerBase):
                                   src_ip, dut_ip,
                                   enc_key=123, enc_tos=30, enc_ttl=99,
                                   no_csum=False, ipv6=False):
-
         match = '%s flower skip_sw ip_proto tcp dst_port %s' % (proto, port)
         csum = ''
         if no_csum:
@@ -1622,6 +1628,84 @@ class FlowerMatchUDP(FlowerBase):
     def cleanup(self):
         self.cleanup_flower(self.dut_ifn[0])
         return super(FlowerMatchUDP, self).cleanup()
+
+
+class FlowerMatchUnsupported(FlowerTunnel):
+    info = """
+    Test unsupported pre-tunnel and tc filter rule combinations to ensure
+    they are not offloaded.
+
+    An OVS internal port is configured for tunnelling before various pre-tunnel
+    rule combinations are tested. The tested combinations include:
+    - Too many match fields in pre-tunnel rule
+    - Incorrect destination MAC address
+    - No vlan eth_type specified in match field
+
+    In each case the unsupported rules are expected not to be offloaded
+    (not in hardware). If any of the unsupported rules are offloaded the test
+    will fail.
+    """
+
+    def prepare(self):
+        if self.dut.kernel_ver_lt(5, 4):
+            return NrtResult(name=self.name, testtype=self.__class__.__name__,
+                             passed=None,
+                             comment='kernel 5.4 or above is required')
+
+    def execute(self):
+        iface, ingress = self.configure_flower()
+        self.add_gre_dev('gre1')
+        self.add_ovs_internal_port('int-port')
+        dut_mac = self.get_dut_mac('int-port')
+
+        self.move_ip_address(self.dut_addr[0], iface, 'int-port')
+        src_ip, _ = self.get_ip_addresses()
+        self.setup_dut_neighbour(src_ip, 'int-port')
+
+        self.move_ip_address(self.dut_addr_v6[0], iface, 'int-port', ipv6=True)
+        src_ipv6, _ = self.get_ip_addresses(ipv6=True)
+        self.setup_dut_neighbour(src_ipv6, 'int-port', ipv6=True)
+
+        src_mac = self.get_src_mac(ingress)
+
+        # Test failure - too many match fields
+        self.add_pre_tunnel_rule(iface, dut_mac, src_mac, 'int-port',
+                                 match_args='ip_proto tcp ',
+                                 ipv6=False, in_hw=False)
+        self.cleanup_filter(iface)
+        self.add_pre_tunnel_rule(iface, dut_mac, src_mac, 'int-port',
+                                 match_args='ip_proto tcp ',
+                                 ipv6=True, in_hw=False)
+        self.cleanup_filter(iface)
+
+        # Test failure - incorrect dst mac
+        false_dut_mac = 'ff:ff:00:00:ff:ff'
+        self.add_pre_tunnel_rule(iface, false_dut_mac, src_mac, 'int-port',
+                                 ipv6=False, in_hw=False)
+        self.cleanup_filter(iface)
+        self.add_pre_tunnel_rule(iface, false_dut_mac, src_mac, 'int-port',
+                                 ipv6=True, in_hw=False)
+        self.cleanup_filter(iface)
+
+        # Test failure - no vlan eth_type match
+        self.add_pre_tunnel_rule_vlan(iface, dut_mac, src_mac, 'int-port',
+                                      vlan_id=20, ipv6=False,
+                                      eth_type=False, in_hw=False)
+        self.cleanup_filter(iface)
+        self.add_pre_tunnel_rule_vlan(iface, dut_mac, src_mac, 'int-port',
+                                      vlan_id=20, ipv6=True,
+                                      eth_type=False, in_hw=False)
+        self.cleanup_filter(iface)
+
+    def cleanup(self):
+        self.cleanup_flower(self.dut_ifn[0])
+        self.cleanup_flower('gre1')
+        self.del_tun_dev('gre1')
+        self.move_ip_address(self.dut_addr[0], 'int-port', self.dut_ifn[0])
+        self.move_ip_address(self.dut_addr_v6[0], 'int-port', self.dut_ifn[0],
+                             ipv6=True)
+        self.del_ovs_internal_port('int-port')
+        return super(FlowerMatchUnsupported, self).cleanup()
 
 class FlowerMatchGRE(FlowerTunnel):
     def execute(self):
