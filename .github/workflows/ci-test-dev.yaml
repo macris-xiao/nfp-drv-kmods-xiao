@@ -661,6 +661,3 @@ jobs:
             kernel_uninstaller_ver_reset=${{ env.KERNEL_RESET }}
             github_token=${{ secrets.GHUB_TOKEN }}
           sudo: yes
-
-      - name: Cleanup environment
-        run: sudo git clean -ffdx || sudo find -delete
