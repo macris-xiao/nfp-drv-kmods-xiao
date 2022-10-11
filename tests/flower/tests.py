@@ -330,24 +330,46 @@ class FlowerBase(CommonTest):
         M.cmd('tc filter del dev %s parent ffff:' % iface)
 
     def test_filter(self, interface, ingress, pkt, exp_pkt, exp_cnt,
-                    pkt_len_diff=0, fltr='', new_port=0):
+                    pkt_len_diff=0, fltr='', new_port=0, fback_check=False):
         pcap_src = self.prep_pcap_simple_to_list(pkt)
 
         if exp_pkt != None:
             exp_pkt = str(exp_pkt)
 
+        # Verify traffic on fallback path (PF)
+        if fback_check:
+            # Initial fallback statistics, no packets on interface
+            stats_init = self.dut.ethtool_stats(self.dut.vnics[0])
+            exp_pkt = None
+
+        # Test filter with traffic
         self.test_with_traffic(pcap_src, exp_pkt,
                                (self.src, ingress, self.src),
                                port=new_port, filter_overwrite=fltr)
 
+        # Define traffic statistic thresholds
         exp_bytes = (len(pkt) + len(Ether()) + pkt_len_diff) * exp_cnt
         lo_exp_cnt = exp_cnt - 10
         lo_exp_exp_bytes = (len(pkt) + len(Ether()) + pkt_len_diff) * (exp_cnt - 10)
-        stats = self.dut.netifs[interface].stats(get_tc_ing=True)
-        if int(stats.tc_ing['tc_49152_pkts']) < lo_exp_cnt or int(stats.tc_ing['tc_49152_pkts']) > exp_cnt:
-            raise NtiError('Counter missmatch. Expected: %s, Got: %s' % (exp_cnt, stats.tc_ing['tc_49152_pkts']))
-        if int(stats.tc_ing['tc_49152_bytes']) < lo_exp_exp_bytes or int(stats.tc_ing['tc_49152_bytes']) > exp_bytes:
-            raise NtiError('Counter missmatch. Expected: %s, Got: %s' % (exp_bytes, stats.tc_ing['tc_49152_bytes']))
+
+        if not fback_check:
+            # Validate interface statistics
+            stats = self.dut.netifs[interface].stats(get_tc_ing=True)
+            if int(stats.tc_ing['tc_49152_pkts']) < lo_exp_cnt or \
+               int(stats.tc_ing['tc_49152_pkts']) > exp_cnt:
+                raise NtiError('Counter missmatch. Expected: %s, Got: %s'
+                               % (exp_cnt, stats.tc_ing['tc_49152_pkts']))
+            if int(stats.tc_ing['tc_49152_bytes']) < lo_exp_exp_bytes or \
+               int(stats.tc_ing['tc_49152_bytes']) > exp_bytes:
+                raise NtiError('Counter missmatch. Expected: %s, Got: %s'
+                               % (exp_bytes, stats.tc_ing['tc_49152_bytes']))
+        else:
+            # Validate fallback path (PF) statistics
+            stats = self.dut.ethtool_stats_diff(self.dut.vnics[0], stats_init)
+            if int(stats['rvec_0_rx_pkts']) < lo_exp_cnt or \
+               int(stats['rvec_0_rx_pkts']) > exp_cnt:
+                raise NtiError('Counter missmatch. Expected: %s, Got: %s'
+                               % (exp_cnt, stats['rvec_0_rx_pkts']))
 
     def send_packs(self, iface, ingress, pkt, loop=100):
         M = self.dut
@@ -1690,6 +1712,7 @@ class FlowerMatchUnsupported(FlowerTunnel):
     - No vlan eth_type specified in match field
     - Unsupported layer 2 (extended layer) matches
     - MPLS traffic redirection from physical to internal port
+    - MPLS traffic on fallback path with no matching offloaded rule
 
     In each case the unsupported rules are expected not to be offloaded
     (not in hardware). If any of the unsupported rules are offloaded the test
@@ -1762,6 +1785,34 @@ class FlowerMatchUnsupported(FlowerTunnel):
         match = '0x8847 flower mpls_label 1111'
         action = 'mirred egress redirect dev %s' % 'int-port'
         self.install_filter(iface, match, action, in_hw=False)
+        self.cleanup_filter(iface)
+
+        # Test failure - verify MPLS traffic on fallback with no offload
+        # Set IP and up netdevs
+        self.move_ip_address(self.dut_addr[0], 'int-port', iface)
+        self.move_ip_address(self.dut_addr_v6[0], 'int-port', iface, ipv6=True)
+        self.dut.cmd('ip link set dev %s up' % self.dut.vnics[0])
+
+        # Hit test - MPLS traffic with tc filter offloading
+        # Offloaded tc filter rule outputs to port 0
+        self.add_egress_qdisc(iface)
+        match = '0x8847 flower'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+
+        pkt = Ether(src=self.group.hwaddr_x[0], dst=self.ipv4_mc_mac[0]) /\
+            MPLS(label=3333) / Raw('\x00'*64)
+        self.test_filter(self.dut_ifn[0], self.src_ifn[0], pkt, pkt, 100,
+                         fback_check=False)
+
+        # Miss test - MPLS traffic on fallback
+        self.cleanup_filter(iface)
+        self.add_egress_qdisc(iface)
+        match = 'ip flower'
+        action = 'mirred egress redirect dev %s' % iface
+        self.install_filter(iface, match, action)
+        self.test_filter(self.dut_ifn[0], self.src_ifn[0], pkt, pkt, 100,
+                         fback_check=True)
         self.cleanup_filter(iface)
 
     def cleanup(self):
