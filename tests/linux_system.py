@@ -469,12 +469,12 @@ class LinuxSystem(System):
 
         return ret
 
-    def ethtool_pause_get(self, ifc):
+    def ethtool_pause_get(self, ifc, fail=True, return_code=False):
         ret = None
-
+        ret_code = 0
         LOG_sec("GET PAUSE %s for %s" % (self.host, ifc))
         try:
-            _, out = self.cmd("ethtool -a " + ifc)
+            ret_code, out = self.cmd("ethtool -a " + ifc, fail=fail)
             m = re.search("Autonegotiate:\s+(\w+)\s+RX:\s+(\w+)\s+TX:\s+(\w+)",
                           out, flags=re.M)
 
@@ -487,6 +487,9 @@ class LinuxSystem(System):
             pass
         finally:
             LOG_endsec()
+
+        if return_code:
+            return int(ret_code), ret
 
         return ret
 
