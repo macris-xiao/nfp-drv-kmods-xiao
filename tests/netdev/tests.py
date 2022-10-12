@@ -61,6 +61,8 @@ class NFPKmodNetdev(NFPKmodAppGrp):
             ('flower_repr_caps', ReprCaps, "Representor capabilities"),
             ('sriov_coalesce_pf', coalescePF, "Test coalesce function on PF"),
             ('sriov_coalesce_vf', CoalesceVF, "Test coalesce function on VF"),
+            ('sriov_ethtool_pause', PauseEthtool,
+             "Reports pause parameters for a physical device"),
         )
 
         for t in tests:
@@ -516,3 +518,49 @@ class IdentifyEthtool(CommonTest):
             if reg_blink_bin == reg_normal_bin:
                 raise NtiError("idmode bit for %s not set" % (iface))
         self.ifc_all_up()
+
+class PauseEthtool(CommonTest):
+    info = """
+            This test confirms if Ethtool -a works as expected.
+            Ethtool -a can only report the pause parameters of a
+            physical device.
+           """
+    def execute(self):
+        self.port = 0
+
+        # ethtool -a test on physical device
+        ret, pause = self.dut.ethtool_pause_get(self.dut_ifn[self.port],
+                                                return_code=True)
+        if ret != 0:
+            NtiError("Ethtool failed to get pause parameters on a physical device")
+
+        # check if ethtool -a returns correct autoneg output
+        autoneg = self.dut.ethtool_get_autoneg(self.dut_ifn[self.port])
+        if (pause['autoneg'] == 'off' and autoneg):
+            NtiError("autoneg expected to be ON, but got OFF")
+        elif (pause['autoneg'] == 'on' and not autoneg):
+            NtiError("autoneg expected to be OFF, but got ON")
+
+        # check for sriov firmware
+        for ifc in self.dut.nfp_netdevs:
+            info = self.dut.ethtool_drvinfo(ifc)
+
+            fw = info['firmware-version']
+            if "sriov" in fw:
+                # create a vf
+                vfs = self.spawn_vf_netdev(1)
+                vf1 = vfs[0]["name"]
+
+                # ethool -a test on a vf
+                ret, pause = self.src.ethtool_pause_get(vf1, fail=False,
+                                                        return_code=True)
+                if ret == 0:
+                    NtiError("Expected ethtool -a to fail on virtual \
+                             functions, but got a pass")
+
+        return 0
+
+    def cleanup(self):
+        # delete all vfs
+        self.dut.cmd('echo 0 > /sys/bus/pci/devices/%s/sriov_numvfs' %
+                     self.group.pci_dbdf)
