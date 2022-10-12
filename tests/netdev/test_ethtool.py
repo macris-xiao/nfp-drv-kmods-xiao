@@ -3,10 +3,10 @@
 #
 import re
 from netro.testinfra.nti_exceptions import NtiError
-from ..common_test import CommonNetdevTest
+from ..common_test import CommonTest
 
 
-class TestEthtool(CommonNetdevTest):
+class TestEthtool(CommonTest):
     def link_test(self, ifc):
         """
         Changes the link state and matches the output
@@ -128,9 +128,15 @@ class TestEthtool(CommonNetdevTest):
 
         return 0
 
-    def netdev_execute(self):
+    def execute(self):
         for ifc in self.dut.nfp_netdevs:
             self.link_test(ifc)
             self.fw_test(ifc)
             self.nsp_test(ifc)
             self.reg_test(ifc)
+
+    def cleanup(self):
+        # set the ports back up for tests that follow
+        for ifc in self.dut.nfp_netdevs:
+            self.dut.cmd('ip link set dev %s up' % ifc)
+            self.dut.link_wait(ifc)
