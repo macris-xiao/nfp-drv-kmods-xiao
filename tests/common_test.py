@@ -360,7 +360,8 @@ class CommonTest(Test):
             if ret or not re.search('p\d+(s\d+)*$', name):
                 raise NtiSkip('Interface %s is not a physical ifc' % ifc)
 
-    def kill_pidfile(self, host, pidfile, sig="-SIGTERM", max_fail=0):
+    def kill_pidfile(self, host, pidfile, sig="-SIGTERM", max_retry=10,
+                     retry_period=1, max_fail=0):
         """
         Note: the default -SIGTERM signal is used to terminate a process.
         """
@@ -375,8 +376,22 @@ class CommonTest(Test):
         for p in $PID; do
             kill {sig} $p || ((fail++))
         done
+
         for p in $PID; do
-            while [ -d /proc/$p ]; do true; done
+            i=0
+            while [[ -d /proc/$p || $i -lt {max_retry} ]]; do
+                let i++; sleep {retry_period};
+            done
+            if [i == 10]; then
+                kill SIGKILL $p || ((fail++))
+            fi
+            i=0
+            while [[ -d /proc/$p || $i -lt {max_retry} ]]; do
+                let i++; sleep {retry_period};
+            done
+            if [i == 10]; then
+                exit 1
+            fi
         done
 
         if [ $fail -gt {max_fail} ]; then
@@ -384,7 +399,8 @@ class CommonTest(Test):
         fi
         '''
 
-        return host.cmd(cmd.format(pid=pidfile, sig=sig, max_fail=max_fail))
+        return host.cmd(cmd.format(pid=pidfile, sig=sig, max_retry=max_retry,
+                        retry_period=retry_period, max_fail=max_fail))
 
     def nfp_ifc_is_vnic(self, ethtool_info):
         return ethtool_info["firmware-version"][0] == "0" or \
