@@ -15,6 +15,7 @@ from stats_ethtool import StatsEthtool
 from coalesce_pf import coalescePF
 from coalesce_vf import CoalesceVF
 from test_ethtool import TestEthtool
+from vf_qos import VfQoS
 
 class NFPKmodNetdev(NFPKmodAppGrp):
     """Basic FW-independent NIC tests for the NFP Linux drivers"""
@@ -63,6 +64,7 @@ class NFPKmodNetdev(NFPKmodAppGrp):
             ('sriov_coalesce_vf', CoalesceVF, "Test coalesce function on VF"),
             ('sriov_ethtool_pause', PauseEthtool,
              "Reports pause parameters for a physical device"),
+            ('sriov_vf_qos', VfQoS, "Test VF rate limiting"),
         )
 
         for t in tests:
