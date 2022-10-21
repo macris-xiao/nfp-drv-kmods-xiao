@@ -57,8 +57,10 @@ class CoalesceVF(CommonTest):
         self.check_prereq("netperf -h 2>&1 | grep Usage:", 'netperf missing')
         netperf_ip_1 = '20.0.0.10'
         netperf_ip_2 = '20.0.0.20'
-        vf1 = "".join(self.spawn_vf_netdev()[0])
-        vf2 = "".join(self.spawn_vf_netdev()[0])
+
+        vfs = self.spawn_vf_netdev(2)
+        vf1 = vfs[0]["name"]
+        vf2 = vfs[1]["name"]
 
         iface = self.dut_ifn[0]
         if not iface[:-1].endswith('np') or not iface.startswith('en'):

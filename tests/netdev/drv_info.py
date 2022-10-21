@@ -96,10 +96,10 @@ class DrvInfoEthtool(CommonTest):
         self.check_common_vnic(info)
 
     def execute(self):
-        new_ifcs = self.spawn_vf_netdev()
+        new_ifcs = self.spawn_vf_netdev(1)
 
         for ifc in new_ifcs:
-            info = self.dut.ethtool_drvinfo(ifc)
+            info = self.dut.ethtool_drvinfo(ifc["name"])
             if info["driver"] == "nfp":
                 self.check_info_repr(info)
             elif info["driver"] == "nfp_netvf":

@@ -36,12 +36,15 @@ class StatsEthtool(CommonTest):
 
     def execute(self):
         # Spawn VFs so that we test the entire gamut
-        vf_ifcs = self.spawn_vf_netdev()
+        vf_ifcs = self.spawn_vf_netdev(1)
+        vf_list = []
+        for vfs in vf_ifcs:
+            vf_list.append(vfs["name"])
 
         # Check if FW supports MAC stats
         self.mac_stats = self.read_sym_nffw('_mac_stats') is not None
 
-        all_netdevs = vf_ifcs + self.dut.nfp_netdevs
+        all_netdevs = vf_list + self.dut.nfp_netdevs
         names = {}
         stats = {}
         infos = {}

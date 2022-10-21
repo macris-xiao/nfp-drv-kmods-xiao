@@ -793,26 +793,58 @@ class CommonTest(Test):
 
         return value
 
-    def spawn_vf_netdev(self):
-        # Enable VFs if supported
+    def spawn_vf_netdev(self, num):
+        """
+        Generates vfs. Returns a list containing the vf names
+        and vf numbers.
+        """
         max_vfs = self.read_scalar_nffw('nfd_vf_cfg_max_vfs')
-        ret, num = self.dut.cmd('cat /sys/bus/pci/devices/%s/sriov_numvfs' %
-                                self.group.pci_dbdf)
-        num_vfs = int(num) + 1
-        if max_vfs > 0:
-            if num_vfs != 1:
-                self.dut.cmd('echo 0 > /sys/bus/pci/devices/%s/sriov_numvfs' %
-                             self.group.pci_dbdf)
-            if not self.dut.kernel_ver_ge(4, 12):
-                self.dut.cmd('modprobe -r pci_stub')
-            ret, _ = self.dut.cmd('echo %d > /sys/bus/pci/devices/%s/sriov_numvfs' %
-                                  (num_vfs, self.group.pci_dbdf))
+        num_vfs = int(num)
+        if num_vfs > max_vfs:
+            raise NtiError('num_vfs must less than max_vfs')
 
-        netifs_old = self.dut._netifs
+        # Clear old vfs
+        self.dut.cmd('echo 0 > /sys/bus/pci/devices/%s/sriov_numvfs' %
+                     self.group.pci_dbdf)
         self.dut.cmd("udevadm settle")
         self.dut._get_netifs()
+        netifs_old = self.dut._netifs
 
-        return list(set(self.dut._netifs) - set(netifs_old))
+        # Generate the new vfs
+        if not self.dut.kernel_ver_ge(4, 12):
+            self.dut.cmd('modprobe -r pci_stub')
+        ret, _ = self.dut.cmd('echo %d > /sys/bus/pci/devices/%s/sriov_numvfs' %
+                              (num_vfs, self.group.pci_dbdf))
+
+        # Generate the list containing vf names
+        self.dut.cmd("udevadm settle")
+        self.dut._get_netifs()
+        vfs = list(set(self.dut._netifs) - set(netifs_old))
+        vf_list = []
+
+        # A separate list is created to add the vf names
+        # and corresponding vf numbers
+        for vf in vfs:
+            vf_out = {}
+            vf_out["name"] = vf
+            # Get the pci of the vf
+            _, vf_pci = self.dut.cmd("readlink /sys/class/net/%s/device | \
+                                  sed 's|.*/||g'" % vf)
+            # Get the pci of the pf
+            _, pf_pci = self.dut.cmd("readlink /sys/class/net/%s/device/physfn | \
+                                  sed 's|.*/||g'" % vf)
+            # Extract virtfn, it is returned as a list with other details
+            _, virtfn = self.dut.cmd("ls -l /sys/bus/pci/devices/%s/virtfn* | \
+                                     grep %s" % (pf_pci.strip('\n'),
+                                     vf_pci.strip('\n')))
+            virtfn = virtfn.split(' ')[8].split('/')
+            v_num = int(virtfn[6].replace("virtfn", ""))
+            vf_out["vf_number"] = v_num
+            vf_list.append(vf_out)
+
+        # vf_list contains the vf details in the following format:
+        # [ {"name": "ens4v0", "vf_number": 0}, {"name": "ens4v1", "vf_number": 1} ]
+        return vf_list
 
     def spawn_tc_vf_netdev(self, num):
         # Enable TC VFs if supported
