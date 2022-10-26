@@ -53,6 +53,14 @@ on:
         description: >-
           Which kernel to install on the DUT, if blank the latest build
           available will be used
+      kernel_source:
+        type: choice
+        required: true
+        options:
+          - linux_stable
+          - net_next
+        description: >-
+          Which flavour of kernel to use
       platform:
         type: choice
         required: true
@@ -103,7 +111,7 @@ jobs:
         id: artifact-centos
         with:
           connection-string: ${{ secrets.AZ_SAS_TOK }}
-          src: tmp/linux_stable_builds/CentOS-8/
+          src: tmp/misc/kernels/${{ inputs.kernel_source }}_builds/CentOS-8/
           pattern: '.*'
 
       - name: Get available kernels - Ubuntu-20.04
@@ -111,7 +119,7 @@ jobs:
         id: artifact-ubuntu
         with:
           connection-string: ${{ secrets.AZ_SAS_TOK }}
-          src: tmp/linux_stable_builds/Ubuntu-20.04/
+          src: tmp/misc/kernels/${{ inputs.kernel_source }}_builds/Ubuntu-20.04/
           pattern: '.*'
 
       - name: Set kernel to use
@@ -534,7 +542,7 @@ jobs:
         uses: ./ci-libs/github_actions/azure/azcopy_download_sync
         with:
           connection-string: ${{ secrets.AZ_SAS_TOK }}
-          src: tmp/linux_stable_builds/${{ matrix.os }}/${{ matrix.kernel }}
+          src: tmp/misc/kernels/${{ inputs.kernel_source }}_builds/${{ matrix.os }}/${{ matrix.kernel }}
           dst: ci-libs/ansible/roles/kernel_installer/files/${{ matrix.kernel }}
 
       - name: Find llvm
