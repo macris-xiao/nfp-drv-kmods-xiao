@@ -74,6 +74,7 @@ on:
         type: choice
         required: false
         options:
+          - any
           - CentOS-8
           - Ubuntu-20.04
           - all
@@ -130,7 +131,7 @@ jobs:
           if [[ '${{ github.event_name }}' = 'workflow_dispatch' ]]; then
             if [[ '${{ inputs.kernel }}' = '' ]]; then
               # No kernel specified, use the latest available
-              if [[ '${{ inputs.os }}' = 'all' ]]; then
+              if [[ '${{ inputs.os }}' = 'all' || '${{ inputs.os }}' = 'any' ]]; then
               # Need to select the latest kernel that is available for both operating systems
                 KERNEL_TAR=
                 for i in {1..$(echo $FILES_CENTOS | awk --field-separator=" " "{ print NF }")}; do
@@ -246,7 +247,7 @@ jobs:
           testMatrix = {'platform':[
                           'osprey'],
                         'os':[
-                          'CentOS-8'],
+                          'ci-CentOS-8'],
                         'kernel':[
                           '${{ env.KERNEL_TAR }}']
                         }
@@ -358,8 +359,10 @@ jobs:
           include = []
 
           if ( '${{ inputs.os }}' == 'all' ):
-            os.append('CentOS-8')
-            os.append('Ubuntu-20.04')
+            os.append('ci-CentOS-8')
+            os.append('ci-Ubuntu-20.04')
+          elif ( '${{ inputs.os }}' == 'any' ):
+            os.append('ci-cluster')
           else:
             os.append('${{ inputs.os }}')
 
@@ -500,7 +503,7 @@ jobs:
     runs-on:
       - self-hosted
       - ${{ matrix.platform }}
-      - ci-${{ matrix.os }}
+      - ${{ matrix.os }}
       - ci-cluster-vm
       - DUT-DUT
       - two-port
@@ -537,13 +540,25 @@ jobs:
           mkdir ci-libs/ansible/roles/kernel_installer/files
           mkdir ci-libs/ansible/roles/llvm/files
 
+      - name: Get DUT OS
+        if: always()
+        id: OS
+        uses: ./ci-libs/github_actions/utilities/remote_command
+        with:
+          host: ${{ env.DUT }}
+          cmd: |
+            DISTRO=$(sed -n "s@^NAME=\"\(.*\)\"@\1@p" /etc/os-release)
+            VERSION=$(sed -n "s@^VERSION_ID=\"\(.*\)\"@\1@p" /etc/os-release)
+            echo ${DISTRO%% *}-$VERSION
+
       - name: Download kernel
-        if: contains(${{ matrix }}, 'os')
         uses: ./ci-libs/github_actions/azure/azcopy_download_sync
         with:
           connection-string: ${{ secrets.AZ_SAS_TOK }}
-          src: tmp/misc/kernels/${{ inputs.kernel_source }}_builds/${{ matrix.os }}/${{ matrix.kernel }}
+          src: tmp/misc/kernels/${{ inputs.kernel_source }}_builds/${OS//\\n/}/${{ matrix.kernel }}
           dst: ci-libs/ansible/roles/kernel_installer/files/${{ matrix.kernel }}
+        env:
+          OS: ${{ steps.OS.outputs.stdout }}
 
       - name: Find llvm
         uses: ./ci-libs/github_actions/azure/azcopy_list
@@ -572,6 +587,7 @@ jobs:
             kernel_file_tar=${{ matrix.kernel }}
             ci_dev_drv_iproute_version=${{ matrix.iproute_version }}
             ci_dev_drv_install=false
+            ci_dev_drv_nfp_source_dir=/root/nfp-drv-kmods-private
             ci_dev_drv_nfp_source_dir_orch=${{ github.workspace }}
             drv_llvm_install_src='custom_package'
             ci_dev_drv_nti_version='main'
@@ -592,10 +608,10 @@ jobs:
         if: always()
         shell: bash
         run: |
-          KERNEL_RESET=$(echo ${{ steps.KERNEL_RESET.outputs.stdout }} | tr --delete '\n')
-          echo "KERNEL_RESET=$KERNEL_RESET" >> $GITHUB_ENV
-          KERNEL_REMOVE=$(echo ${{ steps.KERNEL_REMOVE.outputs.stdout }} | tr --delete '\n')
-          echo "KERNEL_REMOVE=$KERNEL_REMOVE" >> $GITHUB_ENV
+          KERNEL_RESET=${{ steps.KERNEL_RESET.outputs.stdout }}
+          echo "KERNEL_RESET=${KERNEL_RESET//\\n/}" >> $GITHUB_ENV
+          KERNEL_REMOVE=${{ steps.KERNEL_REMOVE.outputs.stdout }}
+          echo "KERNEL_REMOVE=${KERNEL_REMOVE//\\n/}" >> $GITHUB_ENV
 
       - name: Create firmware directories for tests
         shell: bash
