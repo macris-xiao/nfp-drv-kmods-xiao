@@ -35,11 +35,17 @@ class StatsEthtool(CommonTest):
                            (expected, len(keys)))
 
     def execute(self):
-        # Spawn VFs so that we test the entire gamut
-        vf_ifcs = self.spawn_vf_netdev(1)
-        vf_list = []
-        for vfs in vf_ifcs:
-            vf_list.append(vfs["name"])
+        for ifc in self.dut.nfp_netdevs:
+            info = self.dut.ethtool_drvinfo(ifc)
+            fw = info['firmware-version']
+            vf_list = []
+            # If this is sriov firmware then create a VF so those stats can be
+            # included in the check as well
+            if "sri" in fw:
+                # create a vf
+                vf_ifcs = self.spawn_vf_netdev(1)
+                for vfs in vf_ifcs:
+                    vf_list.append(vfs["name"])
 
         # Check if FW supports MAC stats
         self.mac_stats = self.read_sym_nffw('_mac_stats') is not None
