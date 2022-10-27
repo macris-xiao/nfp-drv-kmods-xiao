@@ -566,6 +566,7 @@ jobs:
             ci_dev_drv_install=false
             ci_dev_drv_nfp_source_dir_orch=${{ github.workspace }}
             drv_llvm_install_src='custom_package'
+            ci_dev_drv_nti_version='main'
             nti_dir=${{ github.workspace }}/nti-private
             dut_drv_version=${{ github.head_ref || github.ref_name }}
             github_token=${{ secrets.GHUB_TOKEN }}
