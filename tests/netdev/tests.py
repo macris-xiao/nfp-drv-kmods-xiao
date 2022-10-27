@@ -466,7 +466,7 @@ class IdentifyEthtool(CommonTest):
         self.check_bsp_min("22.09-0")
         self.ifc_all_down()
 
-        if self.get_hwinfo("chip.model") == 'NFP3800':
+        if self.dut.get_hwinfo("chip.model") == 'NFP3800':
                 raise NtiSkip("Test does not support Kestrel cards")
 
         for iface in self.dut_ifn:
