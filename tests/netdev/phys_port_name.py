@@ -74,14 +74,16 @@ class PhysPortName(CommonTest):
             # VF or flower PF vNIC without a port
             if port_name == '/no_name/' and \
                pci_info.count(pci_netdev_id) == 0 and \
-               drvinfo["firmware-version"].count("AOTC") == 0:
+               "AOTC" not in drvinfo["firmware-version"] and \
+               "tc-" not in drvinfo["firmware-version"]:
                 raise NtiError("Only VFs and Flower FW uses no-name vNICs")
 
             # VF or flower vNIC with a name
             if port_name != '/no_name/' and \
-                self.nfp_ifc_is_vnic(drvinfo) and \
-                (pci_info.count(pci_netdev_id) != 0 or
-                drvinfo["firmware-version"].count("AOTC") != 0):
+               self.nfp_ifc_is_vnic(drvinfo) and \
+               (pci_info.count(pci_netdev_id) != 0 or \
+               "AOTC" in drvinfo["firmware-version"] or \
+               "tc-" in drvinfo["firmware-version"]):
                 raise NtiError("VFs and Flower FW must use no-name vNICs")
 
             # Non-vNIC netdev on a VF
