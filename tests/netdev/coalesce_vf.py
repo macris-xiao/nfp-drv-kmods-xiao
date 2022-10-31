@@ -160,7 +160,7 @@ class CoalesceVF(CommonTest):
         result_on_throughput = float(result_o.split()[-1])
 
         # Result compare
-        default_off_latency = 0.5 * self.result_off_latency[0]
+        default_off_latency = 0.65 * self.result_off_latency[0]
         default_off_throughput = 0.9 * self.result_off_throughput[1]
         if result_on_latency >= default_off_latency:
             raise NtiError("Latency is not reasonable,Failed to test coalesce !")

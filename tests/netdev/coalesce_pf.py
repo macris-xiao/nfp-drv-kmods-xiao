@@ -174,7 +174,7 @@ class coalescePF(CommonTest):
             self.latency_on.append(float(line.split()[-1]))
 
         for i in range(len(self.dut_ifn)):
-            default_off_latency = 0.5 * self.latency_off[i]
+            default_off_latency = 0.65 * self.latency_off[i]
             result_on_latency = self.latency_on[i]
             default_off_throughput = 0.9 * self.throughput_off[i]
             result_on_throughput = self.throughput_on[i]
