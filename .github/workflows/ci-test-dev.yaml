@@ -205,21 +205,21 @@ jobs:
           fi
 
           if [ ${FW_TYPE%:*} = 'BPF' ]; then
-            if [ '$RELEASE' = 'temporary' ]; then
+            if [ "$RELEASE" = "temporary" ]; then
               echo "FW_PATH=tmp/bpf_builds/tgz" >> $GITHUB_ENV
             else
               echo "FW_PATH=binaries/nic/bpf/tgz" >> $GITHUB_ENV
             fi
           elif [ ${FW_TYPE%:*} = 'DISA' ]; then
-            if [ '$RELEASE' = 'temporary' ]; then
+            if [ "$RELEASE" = "temporary" ]; then
               echo "FW_PATH=tmp/disa_builds/tgz" >> $GITHUB_ENV
-            elif [ '$RELEASE' = 'release' ]; then
+            elif [ "$RELEASE" = "releases" ]; then
               echo "FW_PATH=binaries/disa/$RELEASE/tgz" >> $GITHUB_ENV
             else
               echo "FW_PATH=binaries/disa/$RELEASE/agilio-tc-firmware/tgz" >> $GITHUB_ENV
             fi
           else
-            if [ '$RELEASE' = 'temporary' ]; then
+            if [ "$RELEASE" = "temporary" ]; then
               echo "FW_PATH=tmp/nic_builds/tgz" >> $GITHUB_ENV
             else
               echo "FW_PATH=binaries/nic/$RELEASE/tgz" >> $GITHUB_ENV
