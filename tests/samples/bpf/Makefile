@@ -9,7 +9,7 @@ KERNEL_HEADERS ?= $(KSRC)/usr/include
 # If llc-$(LLVM_VERSION) is in the PATH then use that path, otherwise just
 # use llc
 llvm_13_path = $(shell which llc-$(LLVM_VERSION))
-ifeq ($(llvm_13_path), "/usr/bin/llc-13")
+ifeq ($(llvm_13_path), /usr/bin/llc-13)
     llc_command = llc-$(LLVM_VERSION)
 else
     llc_command = llc
