@@ -506,6 +506,23 @@ class FlowerTunnel(FlowerBase):
                  'mirred egress redirect dev %s' % int_dev
         self.install_filter(dev_name, match, action, in_hw=in_hw)
 
+    def add_pre_tunnel_rule_qinq(self, dev_name, int_mac, src_mac, int_dev,
+                                 vlan_id=170, match_args='',
+                                 ipv6=False, in_hw=True, fail=True):
+        ip_proto = "ipv6" if ipv6 else "ipv4"
+        match = '802.1AD flower skip_sw vlan_id %s ' % vlan_id
+        match += 'vlan_prio 6 '
+        match += 'vlan_ethtype 802.1Q '
+        match += 'cvlan_id 182 '
+        match += 'cvlan_prio 1 '
+        match += 'cvlan_ethtype %s ' % ip_proto
+        match += 'dst_mac %s ' % int_mac
+        match += 'src_mac %s ' % src_mac
+        match += match_args
+        action = 'vlan pop pipe skbedit ptype host pipe ' \
+                 'mirred egress redirect dev %s' % int_dev
+        self.install_filter(dev_name, match, action, in_hw=in_hw, fail=fail)
+
     def check_pre_tun_stats(self, iface, exp_packets):
         stats = self.dut.netifs[iface].stats(get_tc_ing=True)
         if int(stats.tc_ing['tc_49152_pkts']) != exp_packets:
@@ -1671,6 +1688,7 @@ class FlowerMatchUnsupported(FlowerTunnel):
     - Too many match fields in pre-tunnel rule
     - Incorrect destination MAC address
     - No vlan eth_type specified in match field
+    - Unsupported layer 2 (extended layer) matches
 
     In each case the unsupported rules are expected not to be offloaded
     (not in hardware). If any of the unsupported rules are offloaded the test
@@ -1698,6 +1716,8 @@ class FlowerMatchUnsupported(FlowerTunnel):
         self.setup_dut_neighbour(src_ipv6, 'int-port', ipv6=True)
 
         src_mac = self.get_src_mac(ingress)
+
+        self.add_egress_qdisc('gre1')
 
         # Test failure - too many match fields
         self.add_pre_tunnel_rule(iface, dut_mac, src_mac, 'int-port',
@@ -1727,6 +1747,15 @@ class FlowerMatchUnsupported(FlowerTunnel):
                                       vlan_id=20, ipv6=True,
                                       eth_type=False, in_hw=False)
         self.cleanup_filter(iface)
+
+        # Test failure - unsupported extended layer matches
+        # This test case results in rule install failure (not in hw or sw)
+        self.add_pre_tunnel_rule_qinq('gre1', dut_mac, src_mac, 'int-port',
+                                      vlan_id=20, ipv6=False, fail=True)
+        self.cleanup_filter(iface)
+        self.add_pre_tunnel_rule_qinq('gre1', dut_mac, src_mac, 'int-port',
+                                      vlan_id=20, ipv6=True, fail=True)
+        self.cleanup_filter('gre1')
 
     def cleanup(self):
         self.cleanup_flower(self.dut_ifn[0])
