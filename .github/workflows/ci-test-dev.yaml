@@ -58,7 +58,7 @@ on:
         required: true
         options:
           - linux_stable
-          - net_next
+          - linux_net_next
         description: >-
           Which flavour of kernel to use
       platform:
