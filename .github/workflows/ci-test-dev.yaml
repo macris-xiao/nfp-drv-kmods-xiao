@@ -243,6 +243,7 @@ jobs:
         shell: python3 {0}
         run: |
           import json
+          import os as operating_sys
 
           testMatrix = {'platform':[
                           'osprey'],
@@ -339,9 +340,8 @@ jobs:
 
           testMatrix["name"] = names
           testMatrix["include"] = include
-          print(json.dumps(testMatrix, indent=2))
-
-          print("::set-output name=matrix::" + str(testMatrix))
+          with open(operating_sys.environ['GITHUB_OUTPUT'], 'a') as github_output:
+            github_output.write(f"matrix={testMatrix}")
 
       - name: Populate test matrix on dispatch
         if: github.event_name == 'workflow_dispatch'
@@ -349,6 +349,7 @@ jobs:
         shell: python3 {0}
         run: |
           import json
+          import os as operating_sys
 
           testMatrix = {'kernel':[
                           '${{ env.KERNEL_TAR }}']
@@ -479,20 +480,23 @@ jobs:
           testMatrix["platform"] = platform
           testMatrix["name"] = names
           testMatrix["include"] = include
-          print(json.dumps(testMatrix, indent=2))
-
-          print("::set-output name=matrix::" + str(testMatrix))
+          with open(operating_sys.environ['GITHUB_OUTPUT'], 'a') as github_output:
+            github_output.write(f"matrix={testMatrix}")
 
       - name: Print test matrix
         id: matrix
         shell: python3 {0}
         run: |
           import json
+          import os as operating_sys
+
           if '${{ github.event_name }}' == 'push':
-            print("::set-output name=matrix::" + str(${{ steps.matrix_push.outputs.matrix }}))
+            with open(operating_sys.environ['GITHUB_OUTPUT'], 'a') as github_output:
+              github_output.write(f"matrix={str(${{ steps.matrix_push.outputs.matrix }})}")
 
           if '${{ github.event_name }}' == 'workflow_dispatch':
-            print("::set-output name=matrix::" + str(${{ steps.matrix_dispatch.outputs.matrix }}))
+            with open(operating_sys.environ['GITHUB_OUTPUT'], 'a') as github_output:
+              github_output.write(f"matrix={str(${{ steps.matrix_dispatch.outputs.matrix }})}")
 
   regression-tests:
     name: '${{ matrix.name }} - ${{ matrix.os }}/${{ matrix.platform }}'
