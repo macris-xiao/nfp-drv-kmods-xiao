@@ -89,8 +89,10 @@ class KernelLoadTest(CommonTest):
 
         if self.dut.get_pci_device_id() != '3800':
             self.spi_bus = 0
+            fw_suffix = '_nfp-4xxx-b0'
         else:
             self.spi_bus = 1
+            fw_suffix = '_nfp-38xxc'
 
         tests = [
             # HWinfo keys, expect dummy FW, expect explicit soft reset
@@ -108,7 +110,7 @@ class KernelLoadTest(CommonTest):
         M.cmd('mkdir -p /lib/firmware/netronome')
         M.cp_to(self.group.netdevfw,
                 '/lib/firmware/netronome/%s' % M.get_fw_name_any())
-        M.cp_to(os.path.join(self.group.mefw, 'dummy_nfd.nffw'),
+        M.cp_to(os.path.join(self.group.mefw, 'dummy_nfd%s.nffw' % fw_suffix),
                 self.dut.tmpdir)
 
         # Base case, executable on both upstream and oot drivers
@@ -130,7 +132,7 @@ class KernelLoadTest(CommonTest):
         if len(phy) != 2:
             raise NtiSkip('Sample FW only supports 2 port cards')
 
-        fw_path = os.path.join(self.dut.tmpdir, 'dummy_nfd.nffw')
+        fw_path = os.path.join(self.dut.tmpdir, 'dummy_nfd%s.nffw' % fw_suffix)
         M.cmd_fis('-b %d delete nti.fw' % self.spi_bus, fail=False)
         M.cmd_fis('-b %d -b0 init' % self.spi_bus)
         M.cmd_fis('-b %d create -b %s nti.fw' % (self.spi_bus, fw_path))
