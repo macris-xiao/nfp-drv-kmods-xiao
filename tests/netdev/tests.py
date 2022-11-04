@@ -16,6 +16,7 @@ from coalesce_pf import coalescePF
 from coalesce_vf import CoalesceVF
 from test_ethtool import TestEthtool
 from vf_qos import VfQoS
+from vlan_qinq import VlanQinq
 
 class NFPKmodNetdev(NFPKmodAppGrp):
     """Basic FW-independent NIC tests for the NFP Linux drivers"""
@@ -55,6 +56,8 @@ class NFPKmodNetdev(NFPKmodAppGrp):
             ('multi_ethtool_identify', IdentifyEthtool, "Ethtool -p test"),
             ('multi_devlink_port_show', DevlinkPortsShow,
              "Check basic devlink port output"),
+            ('multi_vlan_qinq', VlanQinq,
+             "Test VLAN (rx & tx) and QinQ (rx only) offloading"),
             ('multi_netconsole', NetconsoleTest, 'Test netconsole over the NFP'),
             ('bpf_mtu_flbufsz_check', MtuFlbufCheck,
              "Check if driver sets correct fl_bufsz and mtu"),
