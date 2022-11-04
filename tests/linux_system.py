@@ -312,6 +312,32 @@ class LinuxSystem(System):
                                                                  mtu=mtu),
                         fail=fail)
 
+    def is_legal_interface_name(self, if_name):
+        error = ""
+        name_suggestion = if_name
+
+        # Ensure interface name length does not exceed IFNAMSIZ.
+        if len(if_name) > 15:
+            error = "Invalid interface name '%s': Exceeds IFNAMSIZ" % if_name
+
+        # Ensure interface name is not in use already
+        _, out = self.cmd('ls /sys/class/net/')
+        used_interface_names = out.split()
+        if if_name in used_interface_names:
+            error = ("Invalid interface name '%s': Name in use already"
+                     % if_name)
+
+        # Generate a valid name if the provided one is invalid
+        is_legal = (len(error) == 0)
+        if not is_legal:
+            temp = 0
+            name_suggestion = 'testintf%s' % temp
+            while name_suggestion in used_interface_names:
+                temp = temp + 1
+                name_suggestion = 'testintf%s' % temp
+
+        return is_legal, error, name_suggestion
+
     ###############################
     # bpftool
     ###############################

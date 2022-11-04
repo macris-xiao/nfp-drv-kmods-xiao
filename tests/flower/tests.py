@@ -139,10 +139,9 @@ class FlowerBase(CommonTest):
             raise NtiError('interface %s is not a valid port' % iface)
 
         vlan_iface = '%s.%s' % (iface, vlan_id)
-        # The length of the interface name will increase, we need to be
-        # sure it does not increase beyond IFNAMSIZ.
-        if len(vlan_iface) > 15:
-            raise NtiSkip('Creating %s as a vlan interface exceeds IFNAMSIZ' % vlan_iface)
+        legal, error, _ = self.dut.is_legal_interface_name(vlan_iface)
+        if not legal:
+            raise NtiSkip(error)
 
         self.dut.cmd('ip link add link %s name %s type vlan id %s' % (iface, vlan_iface, vlan_id), fail=False)
         self.dut.cmd('ip link set dev %s up' % (vlan_iface), fail=False)
