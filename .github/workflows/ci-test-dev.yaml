@@ -1,4 +1,6 @@
 name: Driver Regression Tests
+run-name: >-
+  Driver Regressions: ${{ inputs.test }}-${{ inputs.fw_type }}
 
 on:
   workflow_dispatch:
