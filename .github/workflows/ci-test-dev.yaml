@@ -83,6 +83,11 @@ on:
         description: >-
           Which operating system the cluster DUT should be
           running.
+      default_branch:
+        description: Override default branch definition
+        type: string
+        required: true
+        default: 'main'
 jobs:
   # ===================================================
   # PREPARE - derive test parameters, determine workflow skipping
@@ -665,19 +670,70 @@ jobs:
           done
 
       - name: Run tests
+        id: tests
         shell: bash
         working-directory: ${{ github.workspace }}/nfp-drv-kmods-private
         run: |
+          OS=${OS//\\n/}
+          OS=${OS//\'/}
+          if [[ '${{ matrix.name }}' = 'user_specified_tests' ]]; then
+            TESTNAME=$(echo ${TESTS//&/_} | sed 's/\.\*//g')
+          else
+            TESTNAME=${{ matrix.name }}_
+          fi
+          HASH=$(git rev-parse --short=10 HEAD)
+          RUN_NAME=$(date -u +%Y.%m.%d-%H.%M)_${TESTNAME}$OS.${{matrix.platform}}.${HASH:0:10}
+          LOG_PATH=/tmp/logs/ci-dev-drv/$RUN_NAME
           FAIL=false
-          for test in $(echo '${{ matrix.test_cases }}' | tr '&' ' '); do
+
+          for test in $(echo $TESTS | tr '&' ' '); do
             ../nti-private/ti/ticmd \
             -c ../ci-libs/ci-config/$HOSTNAME/ci-dev-drv/${{ env.CONFIG_FILE }} \
-            -l /tmp/logs/ci-dev-drv/$test run tests.$test | \
+            -l $LOG_PATH/$test run tests.$test | \
             sed --unbuffered 's/.*FAILED/\0\n::error::\0/' || FAIL=true
           done
+
+          cd $LOG_PATH/../
+          tar -zcf $RUN_NAME.tgz $RUN_NAME
+          echo "LOG_PATH=$LOG_PATH" >> $GITHUB_ENV
+
+          if [ ! "$DEFAULT_BRANCH" = "main" ]; then
+            DST_SUFFIX=".${DEFAULT_BRANCH#wip-}"
+          fi
+          case "$GITHUB_REF" in
+            "refs/heads/release-"*)
+              OUT_PATH="binaries/nfp-drv-dkms/releases$DST_SUFFIX"
+              ;;
+            "refs/heads/prerelease-"*)
+              OUT_PATH="binaries/nfp-drv-dkms/prereleases$DST_SUFFIX"
+              ;;
+            "refs/heads/${DEFAULT_BRANCH}")
+              OUT_PATH="binaries/nfp-drv-dkms/interim$DST_SUFFIX"
+              ;;
+            *)
+              OUT_PATH="tmp/nfp_drv_dkms_builds$DST_SUFFIX"
+              ;;
+          esac
+          echo "OUT_PATH=$OUT_PATH" >> $GITHUB_ENV
+
           if ${FAIL}; then
             exit 1
           fi
+        env:
+          OS: ${{ steps.OS.outputs.stdout }}
+          TESTS: ${{ matrix.test_cases }}
+          DEFAULT_BRANCH: ${{ inputs.default_branch }}
+
+      - name: Upload test logs to Azure
+        if: >-
+          success() && steps.tests.conclusion == 'success' ||
+          failure() && steps.tests.conclusion == 'failure'
+        uses: ./ci-libs/github_actions/azure/azcopy_upload_sync
+        with:
+          connection-string: ${{ secrets.AZ_SAS_TOK }}
+          src: ${{ env.LOG_PATH }}.tgz
+          dst: ${{ env.OUT_PATH }}/test_logs/ci-test-dev
+
 
       - name: Uninstall kernel from test machines
         if: always() && ( env.KERNEL_RESET != env.KERNEL_REMOVE )
