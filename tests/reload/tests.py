@@ -64,8 +64,13 @@ class SpeedSet(CommonNetdevTest):
 
     def reload_fw_to_2x10G(self, ifc_list):
         self.dut.cmd('mkdir -p /lib/firmware/netronome')
-        self.netdevfw_2x10G = os.path.join(os.path.dirname(self.group.netdevfw),
-                                           'nic_AMDA0099-0001_2x10.nffw')
+        partno = self.dut.get_part_no()
+        nffw_file = "nic_" + partno + "_2x10.nffw"
+        self.netdevfw_2x10G = os.path.dirname(self.group.netdevfw)
+        self.netdevfw_2x10G = self.netdevfw_2x10G + "/" + nffw_file
+        # netdevfw_2x10G: Path to 2x10 fw example:
+        # /root/firmware/agilio-nic-firmware-22.07-1/nfdk/nic_AMDA0144-0002_2x10.nffw
+
         self.dut.cp_to(self.netdevfw_2x10G, '/lib/firmware/netronome/')
         self.dut.nffw_unload()
         self.dut.reset_mods()
