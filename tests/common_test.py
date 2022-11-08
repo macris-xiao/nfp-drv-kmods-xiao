@@ -837,7 +837,7 @@ class CommonTest(Test):
             _, virtfn = self.dut.cmd("ls -l /sys/bus/pci/devices/%s/virtfn* | \
                                      grep %s" % (pf_pci.strip('\n'),
                                      vf_pci.strip('\n')))
-            virtfn = virtfn.split(' ')[8].split('/')
+            virtfn = virtfn.split()[8].split('/')
             v_num = int(virtfn[6].replace("virtfn", ""))
             vf_out["vf_number"] = v_num
             vf_list.append(vf_out)
