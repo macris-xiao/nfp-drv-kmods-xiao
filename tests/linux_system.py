@@ -981,6 +981,30 @@ TX:		(\d+)"""
 
         return ret
 
+    def ethtool_set_mac(self, ifc, magic_num, mac_addr, offset=0, fail=True):
+        # Check for valid MAC address
+        if len(mac_addr) != 17 or mac_addr.count(':') != 5:
+            msg = 'The specified MAC address is invalid!'
+            raise NtiGeneralError(msg)
+
+        # Modify the MAC address of the interface one byte at a time
+        offset_val = offset
+        for byte in mac_addr.split(':'):
+            if len(byte) != 2:
+                msg = 'Byte values in the specified MAC address have an ' \
+                      'incorrect length!'
+                raise NtiGeneralError(msg)
+
+        # A second loop to avoid partial mac address changes
+        for byte in mac_addr.split(':'):
+            # Set the MAC address of dst interface
+            out = self.cmd('ethtool -E %s magic %s offset %s length 1 '
+                           'value 0x%s' % (ifc, magic_num, offset_val, byte),
+                           fail=fail)
+            offset_val += 1
+
+        return out
+
     ###############################
     # devlink
     ###############################
