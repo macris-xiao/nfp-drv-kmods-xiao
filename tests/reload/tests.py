@@ -20,6 +20,7 @@ from ..common_test import CommonNetdevTest, NtiSkip
 from ..common_test import AMDA_10G_CARDS, AMDA_25G_CARDS, AMDA_40G_CARDS, \
     AMDA_100G_CARDS
 from ..drv_system import DrvSystem
+from mac_ethtool import EthtoolMac
 
 ###########################################################################
 # Unit Tests
@@ -45,6 +46,7 @@ class NFPKmodReload(NFPKmodGrp):
              ('port_split', DevlinkSplit,
               "Split/unsplit port and reload driver in between"),
              ('kernel_fw_load', KernelLoadTest, "Test kernel firmware loader"),
+             ('mac_ethtool', EthtoolMac, "Test ethtool -E functionality"),
              )
 
         for t in T:
