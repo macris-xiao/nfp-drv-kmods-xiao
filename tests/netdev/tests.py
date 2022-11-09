@@ -5,6 +5,8 @@
 ABM NIC test group for the NFP Linux drivers.
 """
 
+import re
+
 from ..drv_grp import NFPKmodAppGrp
 from drv_info import DrvInfoEthtool
 from mac_stats import MacStatsEthtool
@@ -87,69 +89,62 @@ from ..nfd import NfdBarOff
 
 class BspVerTest(CommonTest):
     info = """
-    Verify that the function 'nfp_nsp_identify' is working correctly,
-    i.e. that the function is receiving information that could be the BSP version.
-    The test also checks that the BSP version is in the correct format, e.g. 22.07-0,
-    indicating that the installed BSP is not outdated or a non-release version.
-    If it is a non-release version then the test will skip, if it is outdated,
-    the test will fail.
+    Verify that the function 'nfp_nsp_identify' is working correctly, i.e. that
+    the function is receiving information that could be the BSP version. The
+    test also checks that the BSP version is in the correct format, e.g.
+    22.07-0, indicating that the installed BSP is not outdated or a WIP
+    version. If the version is recognised as an old or a WIP format, then the
+    test will skip, if it is unrecognised, the test will fail.
     """
     def execute(self):
-        # This test verifies if the function nfp_nsp_identify is working
-        # correctly, thus, if that function is receiving information that seems
-        # like it could be the BSP version. It also checks that the BSP
-        # version is in the correct format.
         self.check_nsp_min(16)
-
         cmd  = 'dmesg | tac | sed -n "1,/nfp: NFP PCIe Driver/p"'
         cmd += ' | grep "nfp 0000:%s"' % (self.group.pci_id)
         cmd += ' | grep -o "BSP: .*" | cut -c 6- | tr -d "\n"'
         _, ver = self.dut.cmd(cmd)
-        # Split version into two with the second part possibly containing the
-        # revision number as well:
-        comp = ver.split('.')
-        revision = None
-        # Well formed version example: 22.07-0
-        # with comp[0] = 22; comp[1] = 07-0
+        # Well formed versions: "YY.MM" or "YY.MM-R" or "YY.MM.R-rcC"
+        # Where YY = last two digits of the year
+        #       MM = Month (including leading zero)
+        #       R  = Revision number
+        #       C  = Release candidate number
 
-        # Check if there is only two parts (e.g. 22 and 07-0) after the split:
-        if len(comp) != 2:
-            # if the following is true, then it is a non-release build:
-            if '~' in comp[1] and 'main' in comp[2]:
-                raise NtiSkip('Non-release version of BSP: version: %s which '
-                              'could cause failure of other tests '
-                              % (ver))
-            else:
-                raise NtiError('bad BSP version format: version: %s and number '
-                               'of components: %d. Expecting number of '
-                               'components to be 2' % (ver, len(comp)))
+        version_pattern_old = re.compile(r'\d{6}\.\d{6}\.\d{6}$')
+        # Matching example: 010217.010217.010325
 
-        # Check if all the components of the version is the correct length:
-        if len(comp[0]) != 2: # expecting comp[0] = "22" or similar
-            raise NtiError('bad BSP version format: version: %s with length of '
-                           'first part: %d, but expecting length: 2.'
-                           % (ver, len(comp[0])))
-        if len(comp[1]) == 2: # expecting "07"
-            decimal = comp[1]
-        elif (len(comp[1]) == 4 and comp[1][2] == '-'):
-            # or expecting "07-0" with "-" or similar
-            decimal = comp[1].split("-")[0]
-            revision = comp[1].split("-")[1]
-        else:
-            raise NtiError('bad BSP version format: version: %s with length of '
-                           'second part: %d, but expecting length: 2 or 4.'
-                           % (ver, len(comp[1])))
+        version_pattern_wip = re.compile(r'\d\d\.\d\d~\d{5}\.'
+                                         r'[a-zA-Z0-9]+\.[a-f\d]{7}-\d{1,2}$')
+        # Matching example:  22.03~00072.main.8dac5bd-0
 
-        # Check if certain parts of the version are numbers:
-        if (comp[0].isdigit() == False or decimal.isdigit() == False):
-            if revision is not None:
-                if revision.isdigit() == False:
-                    raise NtiError('bad BSP version format: version: %s with '
-                            'non-numerical values. BSP version, including the'
-                            'revision number should be numerical' % (ver))
-            else:
-                raise NtiError('bad BSP version format: version: %s with '
-                            'non-numerical values' % (ver))
+        version_pattern_rc = re.compile(r'\d\d\.\d\d\.\d{1,2}-rc\d{1,2}$')
+        # Matching example:  22.08.1-rc2
+
+        version_pattern_rev0 = re.compile(r'\d\d\.\d\d$')
+        # Matching example:  22.08
+
+        version_pattern_rev = re.compile(r'\d\d\.\d\d-\d{1,2}$')
+        # Matching example:  22.08-0
+
+        version_match_old = version_pattern_old.match(ver)
+        if version_match_old:
+            raise NtiSkip("Old BSP version: Reported version: '%s'. "
+                          "This could cause failure of other tests."
+                          % ver)
+
+        version_match_wip = version_pattern_wip.match(ver)
+        if version_match_wip:
+            raise NtiSkip("WIP BSP version: Reported version: '%s'. "
+                          "This could cause failure of other tests."
+                          % ver)
+
+        version_match_rc = version_pattern_rc.match(ver)
+        version_match_rev0 = version_pattern_rev0.match(ver)
+        version_match_rev = version_pattern_rev.match(ver)
+        if (not version_match_rc and
+                not version_match_rev0 and
+                not version_match_rev):
+            raise NtiError("Bad BSP version: Reported version: '%s', "
+                           "Expected format 'YY.MM' or 'YY.MM-R' or "
+                           "'YY.MM.R-rcC'" % ver)
 
 class BSPDiag(CommonTest):
     info = """
