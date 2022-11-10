@@ -263,17 +263,14 @@ class DrvSystem(LinuxSystem):
         This function returns the BSP Version as a string format,
         e.g. 22.07-1
         """
-        _, out = self.cmd('dmesg | awk -F ":" "/BSP/ {print \$5}"'
-                          ' | tail -n1 | tr -d "* "')
+        cmd = 'dmesg | tac | sed -n "1,/nfp: NFP PCIe Driver/p"'
+        cmd += ' | grep "nfp 0000:%s"' % (self.group.pci_id)
+        cmd += ' | grep -o "BSP: .*" | cut -c 6- | tr -d "\n"'
+        _, ver = self.cmd(cmd)
+        if ver == "":
+            raise NtiSkip("No reported BSP version.")
 
-        # Check for old BSP version e.g. BSP version is
-        # 010217.010217.010325, therefore out = 010325
-        oldBSP = re.compile(r"[0-9]{6}")
-        if out == oldBSP or out == "":
-            raise NtiSkip("The BSP version is either outdated for "
-                          "these tests or BSP tools is not installed.")
-
-        return out
+        return ver
 
     # Reimplement cp_to with -r parameter
     def cp_to(self, src, dst):

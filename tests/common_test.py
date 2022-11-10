@@ -106,42 +106,99 @@ class NtiFail(DrvTestResultException):
 
 def bsp_string_to_num(version):
     """
-    Converts BSP version to a new number and returns it
-    """
-    # Split digits at non-numerical characters,
-    # e.g. 22.07-0 => ["22","07","0"]
-    version = version.strip()
-    version = re.split(r'\D+', version)
+    Parse BSP version string into an integer. The returned value carries very
+    little meaning and should exclusively be used to compare release date
+    recency. Earlier releases will return a lower number.
 
-    # Check for if there is a version revision
-    if len(version) == 3:
-        revision = int(version[2])
+    The different supported version formats are listed in the table below:
+    | Priority  | Name                | Example                       |
+    |-----------|---------------------|-------------------------------|
+    | Lowest    | Old release version | 010217.010217.010325          |
+    | Low       | WIP version         | 22.10~00117.CICD832.af3a07f-0 |
+    | Medium    | Release candidate   | 22.10.0-rc1                   |
+    | High      | Release version     | 22.10                         |
+    | Highest   | Revised release     | 22.10-1                       |
+    but one format does not simply outweigh any other, their respective
+    fields (year, month, revision, release candidate, and commits) are
+    considered.
+
+    Ranking of some example version strings (newest to oldest):
+    | Input version                 |              Return |
+    |-------------------------------|---------------------|
+    | "23.01"                       |       2301009900000 |
+    | "22.10-1"                     |       2210019900000 |
+    | "22.10.1-rc3"                 |       2210010300000 |
+    | "22.10~98765.XXXXX.dabad00-0" |       2210009998765 |
+    | "22.10~00001.XXXXX.dedbeaf-0" |       2210009900001 |
+    | "22.10"                       |       2210009900000 |
+    | "22.10.0-rc3"                 |       2210000300000 |
+    | "22.09-3"                     |       2209039900000 |
+    | "999999.999999.999999"        |                  -1 |
+    | "000000.100000.100000"        | -999999899999900000 |
+    """
+
+    pattern_old_v = re.compile(r'(\d{6})\.(\d{6})\.(\d{6})$')
+    # Matching example: 010217.010217.010325
+    pattern_wip = re.compile(r'(\d\d)\.(\d\d)~(\d{5})\.'
+                             r'([a-zA-Z0-9]+)\.([a-z\d]{7})-(\d+)$')
+    # Matching example: 22.10~00117.CICD832.af3a07f-0
+    pattern_version_rc = re.compile(r'(\d\d)\.(\d\d)\.(\d{1,2})-rc(\d{1,2})?$')
+    # Matching example: 22.10.0-rc1
+    pattern_version_rev0 = re.compile(r'(\d\d)\.(\d\d)$')
+    # Matching example: 22.10
+    pattern_version_rev = re.compile(r'(\d\d)\.(\d\d)-(\d+)$')
+    # Matching example: 22.10-1
+
+    match_old_v = pattern_old_v.match(version)
+    match_wip = pattern_wip.match(version)
+    match_version_rc = pattern_version_rc.match(version)
+    match_version_rev0 = pattern_version_rev0.match(version)
+    match_version_rev = pattern_version_rev.match(version)
+
+    ret = 0
+    if match_old_v:
+        ret = (int(match_old_v.group(1)) * 10**12
+               + int(match_old_v.group(2)) * 10**6
+               + int(match_old_v.group(3))
+               - 10**18)  # Lower priority than all other formats
     else:
-        revision = 0
+        if match_wip:
+            year = int(match_wip.group(1))
+            month = int(match_wip.group(2))
+            revision = int(match_wip.group(6))
+            candidate = 10**2 - 1
+            commits = int(match_wip.group(3))
+            LOG("WARNING: Evaluating WIP version '%s' with bsp_string_to_num "
+                "could lead to inaccurate version comparisons within the same "
+                "month." % version)
+        elif match_version_rc:
+            year = int(match_version_rc.group(1))
+            month = int(match_version_rc.group(2))
+            revision = int(match_version_rc.group(3))
+            candidate = int(match_version_rc.group(4))
+            commits = 0
+        elif match_version_rev0:
+            year = int(match_version_rev0.group(1))
+            month = int(match_version_rev0.group(2))
+            revision = 0
+            candidate = 10**2 - 1
+            commits = 0
+        elif match_version_rev:
+            year = int(match_version_rev.group(1))
+            month = int(match_version_rev.group(2))
+            revision = int(match_version_rev.group(3))
+            candidate = 10**2 - 1
+            commits = 0
+        else:
+            raise NtiSkip("Unrecognised BSP version: '%s'" % version)
 
-    # Create new number by shifting their bits.
-    # This is used to compare BSP versions
-    # but as a new encoded number.
-    # 22.07-0 will be 1443584 as follows:
-    # 0x160000 + 0x700 + 0x0 = 0x160700 => 1443584
-    bsp_ver = (int(version[0]) << 16) + (int(version[1]) << 8) + revision
+        ret = (year * 10**11
+               + month * 10**9
+               + revision * 10**7
+               + candidate * 10**5
+               + commits)
 
-    return bsp_ver
-
-
-def bsp_num_to_string(number):
-    """
-    Returns BSP version as follows: 22.07-0
-    """
-    # 22   07   0
-    # |    |    |
-    # maj  min  ref
-    maj = (number >> 16) & 0xff
-    min = (number >> 8) & 0xff
-    ref = number & 0xff
-    version = "%s.0%s-%s" % (maj, min, ref)
-
-    return version
+    return ret
 
 def drv_load_record_ifcs(obj, group, fwname=None):
     # Load the driver and remember which interfaces got spawned
@@ -338,8 +395,8 @@ class CommonTest(Test):
         exp_bsp_num = bsp_string_to_num(exp_ver)
 
         if bsp_num < exp_bsp_num:
-            raise NtiSkip("BSP version \"%s\" is outdated, the tests"
-                          " requires \"%s\"" % (nsp_flash_ver, exp_ver))
+            raise NtiSkip("BSP version \"%s\" is outdated, the tests "
+                          "requires \"%s\"" % (nsp_flash_ver, exp_ver))
 
     def check_nsp_min(self, exp_ver):
         """
