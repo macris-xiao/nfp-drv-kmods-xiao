@@ -9,6 +9,7 @@ from netro.testinfra.test import *
 from netro.testinfra.nti_exceptions import NtiGeneralError
 from ..common_test import CommonTest, NtiSkip
 
+
 class KernelLoadTest(CommonTest):
     def load_test(self, expect_dummy, expect_reset):
         M = self.dut
@@ -122,7 +123,8 @@ class KernelLoadTest(CommonTest):
 
         # Need at least hwinfo string lookup and FW loaded commands
         if self.group.upstream_drv:
-            raise NtiSkip('Cannot test more complex FW loading scenarios upstream')
+            raise NtiSkip('Cannot test more complex FW loading scenarios '
+                          'upstream')
 
         M.insmod(netdev=False, userspace=True)
         self.check_nsp_min(26)
