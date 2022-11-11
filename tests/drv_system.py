@@ -339,6 +339,16 @@ class DrvSystem(LinuxSystem):
         if self.grp.installed_drv:
             ret, out = self.cmd('modprobe %s %s' % (module, params), fail=fail)
         else:
+            # As this uses insmod, first find the dependencies and load them too
+            # The desired line in the module info is:
+            # depends:        tls
+            # It is preferred to search for the depends field and find all dependecies
+            # rather than simply load the tls module in case in the future the nfp
+            # module is dependent on more than just tls.
+            ret, out = self.cmd('modinfo %s | sed -n "s@depends:[ ]*\([a-z0-9\_,]*\)@\\1@p"'
+                                % (module), fail=fail)
+            for x in out.split(","):
+                ret, out = self.cmd('modprobe %s' % (x), fail=fail)
             ret, out = self.cmd('insmod %s %s' % (module, params), fail=fail)
         if ret == 0:
             # Store the module name for cleanup
