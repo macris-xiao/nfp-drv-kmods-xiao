@@ -358,7 +358,7 @@ jobs:
                             'test_cases':'reload&'\
                                         'reboot&'\
                                         'netdev.(multi|sriov|nic).*&'\
-                                        'unit.(multi|sriov|nic)&'})
+                                        'unit.(multi|sriov|nic).*&'})
 
           testMatrix["name"] = names
           testMatrix["include"] = include
@@ -454,7 +454,7 @@ jobs:
                             'test_cases':'reload&'\
                                         'reboot&'\
                                         'netdev.(multi|nic).*&'\
-                                        'unit.(multi|nic)&'})
+                                        'unit.(multi|nic).*&'})
             search_key = '${{ env.SEARCH_KEY }}'
             fw_path = '${{ env.FW_PATH }}'
 
@@ -475,7 +475,7 @@ jobs:
                             'test_cases':'reload&'\
                                         'reboot&'\
                                         'netdev.(multi|sriov).*&'\
-                                        'unit.(multi|sriov)&'})
+                                        'unit.(multi|sriov).*&'})
             search_key = '${{ env.SEARCH_KEY }}'
             fw_path = '${{ env.FW_PATH }}'
 
