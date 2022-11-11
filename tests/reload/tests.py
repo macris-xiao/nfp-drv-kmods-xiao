@@ -227,6 +227,15 @@ class SpeedSet(CommonNetdevTest):
                 return
             speeds = speeds[1:] + speeds[:1]
 
+    def cleanup(self):
+        # Reset the speed with BSP media command.
+        # nfp-media -C should output the default speed
+        # eg. phy0=25G+ (default)
+
+        _, out = self.dut.cmd_media('-C') # /opt/netronome/bin/nfp-media
+        if 'default' not in out:
+            raise NtiError("Speed could not be reset to default with"
+                           " nfp-media -C")
 ###########################################################################
 class DevlinkSplit(CommonNetdevTest):
     def check_fails_split(self, idx, bad_counts):
