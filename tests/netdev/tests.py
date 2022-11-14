@@ -98,10 +98,7 @@ class BspVerTest(CommonTest):
     """
     def execute(self):
         self.check_nsp_min(16)
-        cmd  = 'dmesg | tac | sed -n "1,/nfp: NFP PCIe Driver/p"'
-        cmd += ' | grep "nfp 0000:%s"' % (self.group.pci_id)
-        cmd += ' | grep -o "BSP: .*" | cut -c 6- | tr -d "\n"'
-        _, ver = self.dut.cmd(cmd)
+        ver = self.dut.get_bsp_ver()
         # Well formed versions: "YY.MM" or "YY.MM-R" or "YY.MM.R-rcC"
         # Where YY = last two digits of the year
         #       MM = Month (including leading zero)
