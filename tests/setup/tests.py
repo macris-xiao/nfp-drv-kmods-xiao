@@ -105,17 +105,23 @@ class Mefw(CommonTest):
         def prep_path(s):
             return os.path.join(self.group.mefw, s)
 
-        mefws = ('rts_100.nffw',
-                 'rm_rts_0.nffw',
-                 'rm_rts_1.nffw',
-                 'rm_rts_2.nffw',
-                 'rm_rts_3.nffw',
-                 'rm_rts_17.nffw',
-                 'rm_rts_100.nffw',
-                 'rm1_rts_100.nffw')
+        mefws = ['rts_100',
+                 'rm_rts_0',
+                 'rm_rts_1',
+                 'rm_rts_2',
+                 'rm_rts_3',
+                 'rm_rts_17',
+                 'rm_rts_100',
+                 'rm1_rts_100']
 
         if self.dut.get_pci_device_id() != '3800':
-            mefws += ('rm2_rts_100.nffw',)
+            mefws += ['rm2_rts_100']
+            for i in range(len(mefws)):
+                mefws[i] += "_nfp-4xxx-b0.nffw"
+        else:
+            for i in range(len(mefws)):
+                mefws[i] += "_nfp-38xxc.nffw"
+
         mefws = " ".join(map(prep_path, mefws))
 
         ret, _ = cmd_log('ls %s %s' % (self.group.netdevfw, mefws))
