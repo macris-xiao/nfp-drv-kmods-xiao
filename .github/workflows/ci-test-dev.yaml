@@ -148,19 +148,26 @@ jobs:
       - name: Set kernel to use
         shell: bash
         run: |
-          FILES_CENTOS=$(echo "${{ steps.artifact-centos.outputs.file-list }}" | sed -E 's/^.*?kernel/kernel/')
-          FILES_UBUNTU=$(echo "${{ steps.artifact-ubuntu.outputs.file-list }}" | sed -E 's/^.*?kernel/kernel/')
+          FILES_CENTOS=$(echo "${{ steps.artifact-centos.outputs.file-list }}" | sed -E 's/^[a-zA-Z ]*kernel/kernel/')
+          FILES_UBUNTU=$(echo "${{ steps.artifact-ubuntu.outputs.file-list }}" | sed -E 's/^[a-zA-Z ]*kernel/kernel/')
           if [[ '${{ github.event_name }}' = 'workflow_dispatch' ]]; then
             if [[ '${{ inputs.kernel }}' = '' ]]; then
               # No kernel specified, use the latest available
               if [[ '${{ inputs.os }}' = 'all' || '${{ inputs.os }}' = 'any' ]]; then
               # Need to select the latest kernel that is available for both operating systems
                 KERNEL_TAR=
-                for i in {1..$(echo $FILES_CENTOS | awk --field-separator=" " "{ print NF }")}; do
+                NUM_CENTOS=$(echo $FILES_CENTOS | awk --field-separator=" " "{ print NF }")
+                NUM_UBUNTU=$(echo $FILES_UBUNTU | awk --field-separator=" " "{ print NF }")
+                for i in $(seq $NUM_CENTOS -1 1); do
                   CENTOS_KERNEL=$(echo $FILES_CENTOS | awk -v index_var=$i '{ print $index_var }')
-                  UBUNTU_KERNEL=$(echo $FILES_UBUNTU | awk -v index_var=$i '{ print $index_var }')
-                  if [[ $CENTOS_KERNEL = $UBUNTU_KERNEL ]]; then
-                    KERNEL_TAR=$CENTOS_KERNEL
+                  for j in $(seq $NUM_UBUNTU -1 1); do
+                    UBUNTU_KERNEL=$(echo $FILES_UBUNTU | awk -v index_var=$j '{ print $index_var }')
+                    if [[ $CENTOS_KERNEL = $UBUNTU_KERNEL ]]; then
+                      KERNEL_TAR=$CENTOS_KERNEL
+                      break
+                    fi
+                  done
+                  if [[ $KERNEL_TAR != '' ]]; then
                     break
                   fi
                 done
