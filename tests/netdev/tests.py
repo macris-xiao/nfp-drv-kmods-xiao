@@ -352,7 +352,7 @@ class MtuFlbufCheck(CommonTest):
     the bar MTU and the fl_bufsz is not equal to the bar fl_bufsz.
     """
     def get_vnic_reg(self, offset):
-        return self.dut.nfd_reg_read_le32(self.dut.vnics[0], offset)
+        return self.dut.nfd_reg_read_le32(self.dut_ifn[0], offset)
 
     def get_bar_rx_offset(self):
         return self.get_vnic_reg(NfdBarOff.RX_OFFSET)
@@ -367,7 +367,7 @@ class MtuFlbufCheck(CommonTest):
         check_mtus = [1500, 1024, 2049, 2047, 2048 - 32, 2048 - 64]
 
         for mtu in check_mtus:
-            self.dut.ip_link_set_mtu(self.dut.vnics[0], mtu)
+            self.dut.ip_link_set_mtu(self.dut_ifn[0], mtu)
             bmtu = self.get_bar_mtu()
             bflbufsz = self.get_bar_flbufsz()
             rxoffset = self.get_bar_rx_offset()
@@ -395,7 +395,7 @@ class MtuFlbufCheck(CommonTest):
 
     def execute(self):
         # For flower vNIC 0 is actually a repr..
-        info = self.dut.ethtool_drvinfo(self.dut.vnics[0])
+        info = self.dut.ethtool_drvinfo(self.dut_ifn[0])
         nfd_abi = info["firmware-version"].strip().split(' ')[0]
         if nfd_abi == "*":
             raise NtiSkip('Not a vNIC')
@@ -412,17 +412,17 @@ class MtuFlbufCheck(CommonTest):
 
         self.dut.copy_xdp_samples()
 
-        self.dut.cmd('ethtool -L %s rx 0 tx 0 combined 1' % (self.dut.vnics[0]))
-        self.xdp_start('pass.o')
+        self.dut.cmd('ethtool -L %s rx 0 tx 0 combined 1' % (self.dut_ifn[0]))
+        self.xdp_start('pass.o', ifc=self.dut_ifn[0])
 
         self.check(True)
 
-        self.xdp_stop()
+        self.xdp_stop(ifc=self.dut_ifn[0])
 
     def cleanup(self):
-        vnic = self.dut.vnics[0]
-        self.dut.ip_link_set_mtu(vnic, 1500)
-        self.dut.ethtool_channels_set(vnic, self.dut.defaults[vnic]["chan"])
+        ifc = self.dut_ifn[0]
+        self.dut.ip_link_set_mtu(ifc, 1500)
+        self.dut.ethtool_channels_set(ifc, self.dut.defaults[ifc]["chan"])
 
         return super(MtuFlbufCheck, self).cleanup()
 
