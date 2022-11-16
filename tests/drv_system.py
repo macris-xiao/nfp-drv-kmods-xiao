@@ -427,6 +427,10 @@ class DrvSystem(LinuxSystem):
         self.insmod(netdev=True, userspace=True)
         ret, _ = self.cmd_rtsym('_pf0_net_bar0', fail=False)
         if ret != 0:
+            # Make sure the driver is not actively using any firmware by
+            # reloading with `nfp_pf_netdev=0` by setting netdev=False
+            self.rmmod()
+            self.insmod(netdev=False, userspace=True)
             self.nffw_unload()
             self.nffw_load('%s' % fwpath)
             self.rmmod()
