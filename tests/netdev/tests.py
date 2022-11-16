@@ -557,8 +557,8 @@ class IdentifyEthtool(CommonTest):
             # e.g.:
             # 'cat /sys/class/net/enp1s0np0/phys_port_name' will return 'p0'
             # the '0' is the important character here so it is isolated with [-1]
-            cmd = "cat /sys/class/net/%s/phys_port_name"
-            phy = self.dut.cmd(cmd)[-1]
+            cmd = "cat /sys/class/net/%s/phys_port_name" % (iface)
+            phy = self.dut.cmd(cmd)[1].strip()[-1]
 
             # Get the addr and position of the idmode bit for the physical
             # port associated with the interface.
