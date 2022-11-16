@@ -55,13 +55,13 @@ class NetconsoleRandTest(NetconsoleTest):
         if self.dut_netperf:
             f = self.dut_netperf
             self.dut_netperf = None
-            # DUT netperfs may have already died because we call this after
-            # taking link down or unloading the driver, so max_fail=num_started.
-            self.kill_pidfile(self.dut, f, max_fail=self.netperf_num)
+            # Some DUT netperfs may have already died because we call this
+            # after taking link down or unloading the driver.
+            self.kill_pidfile(self.dut, f)
         if self.src_netperf:
             f = self.src_netperf
             self.src_netperf = None
-            self.kill_pidfile(self.src, f, max_fail=self.netperf_num)
+            self.kill_pidfile(self.src, f)
 
     def flip_xdp(self):
         if self.xdp == None:

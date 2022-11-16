@@ -417,47 +417,89 @@ class CommonTest(Test):
             if ret or not re.search('p\d+(s\d+)*$', name):
                 raise NtiSkip('Interface %s is not a physical ifc' % ifc)
 
-    def kill_pidfile(self, host, pidfile, sig="-SIGTERM", max_retry=10,
-                     retry_period=1, max_fail=0):
+    def kill_pidfile(self, host, pidfile, max_retry=10, retry_period=1):
         """
-        Note: the default -SIGTERM signal is used to terminate a process.
+        Terminate all processes specified in pidfile using the SIGTERM signal.
+
+        If no PIDs are specified, the function will fail with exit code 1.
+
+        If a kill command fails, the function will fail with exit code 2.
+
+        If any process fails to terminate within
+        {max_retry * retry_period} seconds, a SIGKILL signal will be issued.
+        If any of the processes are still alive after another
+        {max_retry * retry_period} seconds, the function will fail with
+        exit code 3.
         """
-        cmd = ''' # kill_pidfile
-        fail=0
+        script = '''
+# kill_pidfile: This script kills all processes specified
+#               in {pid}.
 
-        PID=$(cat {pid}) &&
-        echo $PID &&
-        rm {pid} ||
-        exit 1
+fail() {{
+    echo "$2" 1>&2;
+    exit $1
+}}
 
-        for p in $PID; do
-            kill {sig} $p || ((fail++))
-        done
+# Ensure that at least one PID is specified
+if [[ ! -e {pid} || -z "$(cat {pid})" ]]; then
+    fail 1 "No PIDs specified in {pid}"
+fi
 
-        for p in $PID; do
-            i=0
-            while [[ -d /proc/$p || $i -lt {max_retry} ]]; do
-                let i++; sleep {retry_period};
-            done
-            if [i == 10]; then
-                kill SIGKILL $p || ((fail++))
-            fi
-            i=0
-            while [[ -d /proc/$p || $i -lt {max_retry} ]]; do
-                let i++; sleep {retry_period};
-            done
-            if [i == 10]; then
-                exit 1
-            fi
-        done
+PID=$(cat {pid}) &&
+echo "PIDs to kill:" $PID &&
+rm {pid} ||
+fail 1 "Could not read/remove {pid}"
 
-        if [ $fail -gt {max_fail} ]; then
-            exit 1
+num_alive () {{
+count=0
+for p in $PID; do
+    if [ -d /proc/$p ]; then
+        let count++
+    fi
+done
+return $count
+}}
+
+wait_for_all_killed () {{
+i=0
+while [[ ! num_alive && $i -lt $2 ]]; do
+    let i++; sleep $1;
+done
+}}
+
+# Issue SIGTERM to all running processes
+for p in $PID; do
+    if [ -d /proc/$p ]; then
+        if ! kill -s TERM $p; then
+            fail 2 "kill command failed to issue SIGTERM to '$p'"
         fi
-        '''
+    fi
+done
+wait_for_all_killed {retry_period} {max_retry}
 
-        return host.cmd(cmd.format(pid=pidfile, sig=sig, max_retry=max_retry,
-                        retry_period=retry_period, max_fail=max_fail))
+# At this point, all processes should have terminated cleanly.
+# Issue SIGKILL to all remaining running processes to forcefully
+# stop them.
+for p in $PID; do
+    if [ -d /proc/$p ]; then
+        if ! kill -s KILL $p; then
+            fail 2 "kill command failed to issue SIGKILL to '$p'"
+        fi
+    fi
+done
+wait_for_all_killed {retry_period} {max_retry}
+
+if [ ! num_alive ]; then
+    fail 3 "Timeout. Some processes still alive."
+fi
+exit 0
+'''
+        script = script.format(pid=pidfile, max_retry=max_retry,
+                               retry_period=retry_period)
+        script = script.replace('"', '\\"')  # Escape all quotes
+        script = script.replace('$', '\\$')  # Escape all $
+        # because the script will be passed as a string to bash
+        return host.cmd('bash -c "%s"' % script)
 
     def nfp_ifc_is_vnic(self, ethtool_info):
         return ethtool_info["firmware-version"][0] == "0" or \

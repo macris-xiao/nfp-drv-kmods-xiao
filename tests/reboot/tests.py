@@ -177,7 +177,7 @@ class KexecWithTraffic(CommonNetdevTest):
         self.ping(0, should_fail=True)
 
         # Many of the netperf's may have died already
-        self.kill_pidfile(self.src, pidfile, max_fail=16)
+        self.kill_pidfile(self.src, pidfile)
 
         self.dut.wait_online()
         self.reinit_test()
