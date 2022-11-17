@@ -108,30 +108,34 @@ class CoalesceVF(CommonTest):
         # Start netserver in ns2
         self.dut.netns_cmd('netserver', 'ns2')
         # Start netperf , test latency and throughput of coalesce(off-50/64)
-        cmd = 'netperf -H %s -l 60  -t omni -- -d rr -O "THROUGHPUT, THROUGHPUT_UNITS, \
-        MIN_LATENCY, MAX_LATENCY, MEAN_LATENCY"' % netperf_ip_2
+        cmd = 'netperf -H %s -l 30 -t omni -- -d rr -O "THROUGHPUT"' % \
+            netperf_ip_2
+        ret, out = self.dut.netns_cmd(cmd, 'ns1')
+        line = "".join(out).split('\n')[-2].strip()
+        self.result_off_throughput.append(float(line.split()[-1]))
+        cmd = 'netperf -H %s -l 30 -t omni -- -d rr -O "MEAN_LATENCY"' % \
+            netperf_ip_2
         ret, out = self.dut.netns_cmd(cmd, 'ns1')
         line = "".join(out).split('\n')[-2].strip()
         self.result_off_latency.append(float(line.split()[-1]))
-        cmd = 'netperf -H %s -l 60' % netperf_ip_2
-        ret, out = self.dut.netns_cmd(cmd, 'ns1')
-        line = "".join(out).split('\n')[-2].strip()
-        self.result_off_throughput.append(float(line.split()[-1]))
 
         # Start netperf , test latency and throughput of coalesce(off-0/1)
         time.sleep(5)
-        cmd = 'ethtool -C %s adaptive-rx off adaptive-tx off rx-usecs 1 rx-frames 0' % vf1
+        cmd = 'ethtool -C %s adaptive-rx off adaptive-tx off rx-usecs 1 \
+            rx-frames 0' % vf1
         ret, out = self.dut.netns_cmd(cmd, 'ns1')
-        cmd = 'ethtool -C %s adaptive-rx off adaptive-tx off rx-usecs 1 rx-frames 0' % vf2
+        cmd = 'ethtool -C %s adaptive-rx off adaptive-tx off rx-usecs 1 \
+            rx-frames 0' % vf2
         ret, out = self.dut.netns_cmd(cmd, 'ns2')
         self.check_coalesce(vport=vf1, ns='ns1', d_usecs='1', d_frames='0')
         self.check_coalesce(vport=vf2, ns='ns2', d_usecs='1', d_frames='0')
-        cmd = 'netperf -H %s -l 60' % netperf_ip_2
+        cmd = 'netperf -H %s -l 30 -t omni -- -d rr -O "THROUGHPUT"' % \
+            netperf_ip_2
         ret, out = self.dut.netns_cmd(cmd, 'ns1')
         line = "".join(out).split('\n')[-2].strip()
         self.result_off_throughput.append(float(line.split()[-1]))
-        cmd = 'netperf -H %s -l 60  -t omni -- -d rr -O "THROUGHPUT, THROUGHPUT_UNITS, \
-        MIN_LATENCY, MAX_LATENCY, MEAN_LATENCY"' % netperf_ip_2
+        cmd = 'netperf -H %s -l 30 -t omni -- -d rr -O "MEAN_LATENCY"' % \
+            netperf_ip_2
         ret, out = self.dut.netns_cmd(cmd, 'ns1')
         line = "".join(out).split('\n')[-2].strip()
         self.result_off_latency.append(float(line.split()[-1]))
@@ -146,25 +150,32 @@ class CoalesceVF(CommonTest):
         self.check_coalesce(vstatus='on', vport=vf2, ns='ns2')
 
         # Start netperf , test latency and throughput of coalesce(on)
-        cmd = 'netperf -H %s -l 60  -t omni -- -d rr -O "THROUGHPUT, THROUGHPUT_UNITS, \
-        MIN_LATENCY, MAX_LATENCY, MEAN_LATENCY"' % netperf_ip_2
-        ret, out = self.dut.netns_cmd(cmd, 'ns1')
-        result_o = "".join(out).split('\n')[-2].strip()
-        result_on_latency = float(result_o.split()[-1])
-        cmd = 'netperf -H %s -l 60' % netperf_ip_2
+        cmd = 'netperf -H %s -l 30 -t omni -- -d rr -O "THROUGHPUT"' % \
+            netperf_ip_2
         ret, out = self.dut.netns_cmd(cmd, 'ns1')
         result_o = "".join(out).split('\n')[-2].strip()
         result_on_throughput = float(result_o.split()[-1])
+        cmd = 'netperf -H %s -l 30 -t omni -- -d rr -O "MEAN_LATENCY"' % \
+            netperf_ip_2
+        ret, out = self.dut.netns_cmd(cmd, 'ns1')
+        result_o = "".join(out).split('\n')[-2].strip()
+        result_on_latency = float(result_o.split()[-1])
 
         # Result compare
         default_off_latency = 0.65 * self.result_off_latency[0]
         default_off_throughput = 0.9 * self.result_off_throughput[1]
-        if result_on_latency >= default_off_latency:
-            raise NtiError("Latency is not reasonable,Failed to test coalesce !")
+        if default_off_latency <= result_on_latency:
+            raise NtiError("Latency default: %f , Latency adaptive: %f" %
+                           (default_off_latency,
+                            result_on_latency))
         if result_on_throughput < default_off_throughput:
-            raise NtiError("Throughout is not reasonable,Failed to test coalesce !")
+            raise NtiError("Throughput default: %f , Throughput adaptive: \
+                           %f" % (default_off_throughput,
+                                  result_on_throughput))
         if default_off_latency < self.result_off_latency[1]:
-            raise NtiError("Latency is not reasonable,off_latency of 1/0 setting is big !")
+            raise NtiError("Latency default: %f , Latency 0/1: %f" %
+                           (default_off_latency,
+                            self.result_off_latency[1]))
 
     def cleanup(self):
         self.dut.netns_cmd('pkill netserver', 'ns1', fail=False)
