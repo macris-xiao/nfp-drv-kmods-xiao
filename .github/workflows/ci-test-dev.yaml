@@ -691,6 +691,11 @@ jobs:
             fi
           done
 
+      - name: Add copied driver to git safe directory list
+        run: |
+          cd nfp-drv-kmods-private
+          git config --global --add safe.directory `pwd`
+
       - name: Run tests
         id: tests
         shell: bash
