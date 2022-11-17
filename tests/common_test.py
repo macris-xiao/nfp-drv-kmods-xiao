@@ -24,8 +24,12 @@ from netro.tests.tcpdump import TCPDump
 # Assorted Cards
 ###############################################################################
 
-# List of AMDA numbers related to 25G cards
-AMDA_25G_CARDS = ['AMDA0099', 'AMDA0161', 'AMDA0144', 'AMDA2000']
+# This list contains all AMDA numbers related to cards with specific speeds
+AMDA_10G_CARDS = ['AMDA0096', 'AMDA0119', 'AMDA0145', 'AMDA2001', 'AMDA3000']
+AMDA_25G_CARDS = ['AMDA0099', 'AMDA0131', 'AMDA0138', 'AMDA0144', 'AMDA0151',
+                  'AMDA0161', 'AMDA2000']
+AMDA_40G_CARDS = ['AMDA0058', 'AMDA0081', 'AMDA0097', 'AMDA0156']
+AMDA_100G_CARDS = ['AMDA0078', 'AMDA0157']
 
 ###############################################################################
 # Assert-style helper functions
