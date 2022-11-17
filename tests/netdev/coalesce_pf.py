@@ -128,11 +128,13 @@ class coalescePF(CommonTest):
                                  req_rx_usecs='50', req_rx_frames='64')
             self.check_coalesce(self.dut_ifn[i], status='off',
                                 req_rx_usecs='50', req_rx_frames='64')
-            ret, out = self.dut.cmd('netperf -H %s -l 60' % self.src_addr[i][:-3])
+            cmd = 'netperf -H %s -l 30 -t omni -- -d rr -O "THROUGHPUT"' % \
+                self.src_addr[i][:-3]
+            ret, out = self.dut.cmd(cmd)
             line = "".join(out).split('\n')[-2].strip()
             self.throughput_off.append(float(line.split()[-1]))
-            cmd = 'netperf -H %s -l 60  -t omni -- -d rr -O "THROUGHPUT, THROUGHPUT_UNITS, \
-            MIN_LATENCY, MAX_LATENCY, MEAN_LATENCY"' % self.src_addr[i][:-3]
+            cmd = 'netperf -H %s -l 30 -t omni -- -d rr -O "MEAN_LATENCY"' % \
+                self.src_addr[i][:-3]
             ret, out = self.dut.cmd(cmd)
             line = "".join(out).split('\n')[-2].strip()
             self.latency_off.append(float(line.split()[-1]))
@@ -148,11 +150,13 @@ class coalescePF(CommonTest):
                                  req_rx_usecs='1', req_rx_frames='0')
             self.check_coalesce(self.dut_ifn[i], status='off',
                                 req_rx_usecs='1', req_rx_frames='0')
-            ret, out = self.dut.cmd('netperf -H %s -l 60' % self.src_addr[i][:-3])
+            cmd = 'netperf -H %s -l 30 -t omni -- -d rr -O "THROUGHPUT"' % \
+                self.src_addr[i][:-3]
+            ret, out = self.dut.cmd(cmd)
             line = "".join(out).split('\n')[-2].strip()
             self.throughput_off.append(float(line.split()[-1]))
-            cmd = 'netperf -H %s -l 60  -t omni -- -d rr -O "THROUGHPUT, THROUGHPUT_UNITS, \
-            MIN_LATENCY, MAX_LATENCY, MEAN_LATENCY"'% self.src_addr[i][:-3]
+            cmd = 'netperf -H %s -l 30 -t omni -- -d rr -O "MEAN_LATENCY"' % \
+                self.src_addr[i][:-3]
             ret, out = self.dut.cmd(cmd)
             line = "".join(out).split('\n')[-2].strip()
             self.latency_off.append(float(line.split()[-1]))
@@ -164,11 +168,13 @@ class coalescePF(CommonTest):
         for i in range(len(self.dut_ifn)):
             self.config_coalesce(self.dut_ifn[i], status='on')
             self.check_coalesce(self.dut_ifn[i], status='on')
-            ret, out = self.dut.cmd('netperf -H %s -l 60' % self.src_addr[i][:-3])
+            cmd = 'netperf -H %s -l 30 -t omni -- -d rr -O "THROUGHPUT"' % \
+                self.src_addr[i][:-3]
+            ret, out = self.dut.cmd(cmd)
             line = "".join(out).split('\n')[-2].strip()
             self.throughput_on.append(float(line.split()[-1]))
-            cmd = 'netperf -H %s -l 60  -t omni -- -d rr -O "THROUGHPUT, THROUGHPUT_UNITS, \
-            MIN_LATENCY, MAX_LATENCY, MEAN_LATENCY"' % self.src_addr[i][:-3]
+            cmd = 'netperf -H %s -l 30 -t omni -- -d rr -O "MEAN_LATENCY"' % \
+                self.src_addr[i][:-3]
             ret, out = self.dut.cmd(cmd)
             line = "".join(out).split('\n')[-2].strip()
             self.latency_on.append(float(line.split()[-1]))
@@ -179,11 +185,17 @@ class coalescePF(CommonTest):
             default_off_throughput = 0.9 * self.throughput_off[i]
             result_on_throughput = self.throughput_on[i]
             if default_off_latency <= result_on_latency:
-                raise NtiError("Latency is not reasonable,Failed to test coalesce !")
+                raise NtiError("Latency default: %f , Latency adaptive: %f" %
+                               (default_off_latency,
+                                result_on_latency))
             if result_on_throughput < default_off_throughput:
-                raise NtiError("Throughout is not reasonable,Failed to test coalesce !")
+                raise NtiError("Throughput default: %f , Throughput adaptive: \
+                               %f" % (default_off_throughput,
+                                      result_on_throughput))
             if default_off_latency < self.latency_off[len(self.dut_ifn)+i]:
-                raise NtiError("Latency is not reasonable,latency of 1/0 setting is big !")
+                raise NtiError("Latency default: %f , Latency 0/1: %f" %
+                               (default_off_latency,
+                                self.latency_off[len(self.dut_ifn)+i]))
 
     def cleanup(self):
         self.src.cmd('pkill netserver', fail=False)
