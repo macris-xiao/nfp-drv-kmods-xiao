@@ -342,35 +342,37 @@ class MtuFlbufCheck(CommonTest):
     The purpose of this test is to ensure that the driver sets the correct
     mtu and flbufsz.
 
-    The test will skip if the dev is not a vNIC or if the XDP samples are not found.
+    The test will skip if the dev is not a vNIC or if the XDP samples are not
+    found.
 
-    The tx and rx channels are set, using `ethtool -L` and the xdp `pass.o` is loaded
-    using `ip link`.
+    The tx and rx channels are set, using `ethtool -L` and the xdp `pass.o` is
+    loaded using `ip link`.
 
-    The xdp is checked by, for each of a set of MTU values, the MTU is set and the bar
-    values are retrieved. The test will then fail if the MTU is not equal to
-    the bar MTU and the fl_bufsz is not equal to the bar fl_bufsz.
+    The xdp is checked by, for each of the MTU values, setting the MTU and
+    retrieving the bar values. The test will then fail if the MTU is not equal
+    to the bar MTU or the fl_bufsz is not equal to the bar fl_bufsz.
     """
-    def get_vnic_reg(self, offset):
-        return self.dut.nfd_reg_read_le32(self.dut_ifn[0], offset)
 
-    def get_bar_rx_offset(self):
-        return self.get_vnic_reg(NfdBarOff.RX_OFFSET)
+    def get_vnic_reg(self, ifc, offset):
+        return self.dut.nfd_reg_read_le32(ifc, offset)
 
-    def get_bar_mtu(self):
-        return self.get_vnic_reg(NfdBarOff.MTU)
+    def get_bar_rx_offset(self, ifc):
+        return self.get_vnic_reg(ifc, NfdBarOff.RX_OFFSET)
 
-    def get_bar_flbufsz(self):
-        return self.get_vnic_reg(NfdBarOff.FLBUFSZ)
+    def get_bar_mtu(self, ifc):
+        return self.get_vnic_reg(ifc, NfdBarOff.MTU)
 
-    def check(self, has_xdp):
+    def get_bar_flbufsz(self, ifc):
+        return self.get_vnic_reg(ifc, NfdBarOff.FLBUFSZ)
+
+    def check(self, ifc, has_xdp):
         check_mtus = [1500, 1024, 2049, 2047, 2048 - 32, 2048 - 64]
 
         for mtu in check_mtus:
-            self.dut.ip_link_set_mtu(self.dut_ifn[0], mtu)
-            bmtu = self.get_bar_mtu()
-            bflbufsz = self.get_bar_flbufsz()
-            rxoffset = self.get_bar_rx_offset()
+            self.dut.ip_link_set_mtu(ifc, mtu)
+            bmtu = self.get_bar_mtu(ifc)
+            bflbufsz = self.get_bar_flbufsz(ifc)
+            rxoffset = self.get_bar_rx_offset(ifc)
 
             if has_xdp:
                 xdp_off = 256 - rxoffset
@@ -387,11 +389,11 @@ class MtuFlbufCheck(CommonTest):
             self.log("vals", [mtu, bmtu, rxoffset, bflbufsz, fl_bufsz])
 
             if mtu != bmtu:
-                raise NtiError("MTU doesn't match BAR (was:%d expect:%d)" %
-                               (mtu, bmtu))
+                raise NtiError("MTU doesn't match BAR (was:%d expect:%d)"
+                               % (mtu, bmtu))
             if fl_bufsz != bflbufsz:
-                raise NtiError("FL_BUFSZ doesn't match BAR (was:%d expect:%d)" %
-                               (fl_bufsz, bflbufsz))
+                raise NtiError("FL_BUFSZ doesn't match BAR (was:%d expect:%d)"
+                               % (fl_bufsz, bflbufsz))
 
     def execute(self):
         # For flower vNIC 0 is actually a repr..
@@ -400,29 +402,31 @@ class MtuFlbufCheck(CommonTest):
         if nfd_abi == "*":
             raise NtiSkip('Not a vNIC')
 
-        self.check(False)
+        if not self.dut.kernel_ver_ge(4, 8):
+            raise NtiSkip("Kernel version %s is less than 4.8"
+                          % (self.dut.kernel_ver()))
 
-        if self.kernel_min(4, 8):
-            return
         ret, _ = cmd_log('ls %s' % (os.path.join(self.group.samples_xdp,
                                                  'pass.o')),
                          fail=False)
         if ret != 0:
             raise NtiSkip('XDP samples not found')
-
         self.dut.copy_xdp_samples()
 
-        self.dut.cmd('ethtool -L %s rx 0 tx 0 combined 1' % (self.dut_ifn[0]))
-        self.xdp_start('pass.o', ifc=self.dut_ifn[0])
-
-        self.check(True)
-
-        self.xdp_stop(ifc=self.dut_ifn[0])
+        for ifc in self.dut_ifn:
+            self.check(ifc, False)
+            self.dut.cmd('ethtool -L %s rx 0 tx 0 combined 1'
+                         % ifc)
+            try:
+                self.xdp_start('pass.o', ifc=ifc)
+                self.check(ifc, True)
+            finally:
+                self.xdp_stop(ifc=ifc)
 
     def cleanup(self):
-        ifc = self.dut_ifn[0]
-        self.dut.ip_link_set_mtu(ifc, 1500)
-        self.dut.ethtool_channels_set(ifc, self.dut.defaults[ifc]["chan"])
+        for ifc in self.dut_ifn:
+            self.dut.ip_link_set_mtu(ifc, 1500)
+            self.dut.ethtool_channels_set(ifc, self.dut.defaults[ifc]["chan"])
 
         return super(MtuFlbufCheck, self).cleanup()
 
