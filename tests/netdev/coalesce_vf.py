@@ -44,21 +44,18 @@ class CoalesceVF(CommonTest):
         self.result_off_throughput = []
 
     def check_coalesce(self, vstatus='off', vport='vf1', ns='ns1', d_usecs='50', d_frames='64'):
+        M = self.dut
+        c_settings = M.ethtool_get_coalesce(vport, ns)
+
         if vstatus == 'off':
-            cmd = 'ethtool --show-coalesce %s | grep rx-usecs:' % vport
-            ret, out = self.dut.netns_cmd(cmd, ns)
-            rx_usecs = out.strip().split()[-1]
-            cmd = 'ethtool --show-coalesce %s | grep rx-frames:' % vport
-            ret, out = self.dut.netns_cmd(cmd, ns)
-            rx_frames = out.strip().split()[-1]
+            rx_usecs = c_settings['rx-usecs']
+            rx_frames = c_settings['rx-frames']
             if((rx_usecs != d_usecs) | (rx_frames != d_frames)):
                 raise NtiError("Failed to set coalesce:rx-usecs(s/d)=(%s:%s), \
                 rx-frames(s/d)=(%s/%s)" % (rx_usecs, d_usecs, rx_frames, d_frames))
         else:
-            cmd = 'ethtool --show-coalesce %s | grep Adaptive' % vport
-            ret, out = self.dut.netns_cmd(cmd, ns)
-            adaptive_rx = out.strip().split()[2]
-            adaptive_tx = out.strip().split()[-1]
+            adaptive_rx = c_settings['Adaptive RX']
+            adaptive_tx = c_settings['Adaptive TX']
             if((adaptive_rx != 'on') | (adaptive_tx != 'on')):
                 raise NtiError("Failed to enable coalesce !")
 
