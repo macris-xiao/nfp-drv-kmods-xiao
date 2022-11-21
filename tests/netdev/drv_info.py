@@ -112,25 +112,23 @@ class DrvInfoEthtool(CommonTest):
         self.check_common_vnic(info)
 
     def execute(self):
-        # check for sriov firmware
         for ifc in self.dut.nfp_netdevs:
             info = self.dut.ethtool_drvinfo(ifc)
             fw = info['firmware-version']
+            # for virtual interfaces:
             if "sri" in fw:
                 new_ifcs = self.spawn_vf_netdev(1)
 
                 for vf_ifc in new_ifcs:
-                    info = self.dut.ethtool_drvinfo(vf_ifc["name"])
-                    if info["driver"] == "nfp":
-                        self.check_info_repr(info)
-                    elif info["driver"] == "nfp_netvf":
-                        self.check_info_vf(info)
+                    vf_info = self.dut.ethtool_drvinfo(vf_ifc["name"])
+                    if vf_info["driver"] == "nfp":
+                        self.check_info_repr(vf_info)
+                    elif vf_info["driver"] == "nfp_netvf":
+                        self.check_info_vf(vf_info)
                     else:
                         raise NtiError("Driver not reported")
-
-        for ifc in self.dut.nfp_netdevs:
-            info = self.dut.ethtool_drvinfo(ifc)
-            if info["firmware-version"][0] != "*":
+            # for all physical interfaces:
+            if fw[0] != "*":
                 self.check_info_pf(info)
             else:
                 self.check_info_repr(info)
