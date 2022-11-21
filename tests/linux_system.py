@@ -460,8 +460,11 @@ class LinuxSystem(System):
     ###############################
     # ethtool
     ###############################
-    def ethtool_drvinfo(self, ifc):
-        _, out = self.cmd('ethtool -i %s' % (ifc))
+    def ethtool_drvinfo(self, ifc, ns=None):
+        if ns:
+            _, out = self.netns_cmd('ethtool -i %s' % (ifc), ns)
+        else:
+            _, out = self.cmd('ethtool -i %s' % (ifc))
 
         ret = {}
 
@@ -472,8 +475,11 @@ class LinuxSystem(System):
 
         return ret
 
-    def ethtool_stats(self, ifc):
-        _, out = self.cmd('ethtool -S %s' % (ifc))
+    def ethtool_stats(self, ifc, ns=None):
+        if ns:
+            _, out = self.netns_cmd('ethtool -S %s' % (ifc), ns)
+        else:
+            _, out = self.cmd('ethtool -S %s' % (ifc))
 
         return _parse_ethtool(out)
 
@@ -481,8 +487,11 @@ class LinuxSystem(System):
         new_stats = self.ethtool_stats(ifc)
         return self.stats_diff(old_stats, new_stats)
 
-    def ethtool_features_get(self, ifc):
-        _, out = self.cmd('ethtool -k %s' % (ifc))
+    def ethtool_features_get(self, ifc, ns=None):
+        if ns:
+            _, out = self.netns_cmd('ethtool -k %s' % (ifc), ns)
+        else:
+            _, out = self.cmd('ethtool -k %s' % (ifc))
 
         ret = {}
 
@@ -495,12 +504,15 @@ class LinuxSystem(System):
 
         return ret
 
-    def ethtool_pause_get(self, ifc, fail=True, return_code=False):
+    def ethtool_pause_get(self, ifc, fail=True, return_code=False, ns=None):
         ret = None
         ret_code = 0
         LOG_sec("GET PAUSE %s for %s" % (self.host, ifc))
         try:
-            ret_code, out = self.cmd("ethtool -a " + ifc, fail=fail)
+            if ns:
+                ret_code, out = self.netns_cmd("ethtool -a " + ifc, ns, fail=fail)
+            else:
+                ret_code, out = self.cmd("ethtool -a " + ifc, fail=fail)
             m = re.search("Autonegotiate:\s+(\w+)\s+RX:\s+(\w+)\s+TX:\s+(\w+)",
                           out, flags=re.M)
 
@@ -519,7 +531,7 @@ class LinuxSystem(System):
 
         return ret
 
-    def ethtool_pause_set(self, ifc, settings, force=False, fail=True):
+    def ethtool_pause_set(self, ifc, settings, force=False, fail=True, ns=None):
         ret = None
 
         LOG_sec("SET PAUSE %s for %s to %s" % (self.host, ifc, str(settings)))
@@ -535,13 +547,16 @@ class LinuxSystem(System):
                 for k in settings.keys():
                     cmd += ' %s %s' % (k, "on" if settings[k] else "off")
 
-                ret = self.cmd(cmd)
+                if ns:
+                    ret = self.netns_cmd(cmd, ns)
+                else:
+                    ret = self.cmd(cmd)
         finally:
             LOG_endsec()
 
         return ret
 
-    def ethtool_channels_get(self, ifc):
+    def ethtool_channels_get(self, ifc, ns=None):
         ret = {}
 
         LOG_sec("GET CHAN %s for %s" % (self.host, ifc))
@@ -559,7 +574,10 @@ TX:		(\d+)
 Other:		(\d+)
 Combined:	(\d+)"""
 
-            _, out = self.cmd("ethtool -l " + ifc)
+            if ns:
+                _, out = self.netns_cmd("ethtool -l " + ifc, ns)
+            else:
+                _, out = self.cmd("ethtool -l " + ifc)
             m = re.search(r, out, flags=re.M)
 
             ret = {
@@ -582,20 +600,23 @@ Combined:	(\d+)"""
 
         return ret
 
-    def ethtool_channels_set(self, ifc, settings):
+    def ethtool_channels_set(self, ifc, settings, ns=None):
         LOG_sec("SET CHAN %s for %s to %s" % (self.host, ifc, str(settings)))
         try:
                 cmd = 'ethtool -L ' + ifc
                 for k in settings.keys():
                     cmd += ' %s %s' % (k, settings[k])
 
-                ret = self.cmd(cmd)
+                if ns:
+                    ret = self.netns_cmd(cmd, ns)
+                else:
+                    ret = self.cmd(cmd)
         finally:
             LOG_endsec()
 
         return ret
 
-    def ethtool_rings_get(self, ifc):
+    def ethtool_rings_get(self, ifc, ns=None):
         ret = {}
 
         LOG_sec("SET RING %s for %s" % (self.host, ifc))
@@ -613,7 +634,10 @@ RX Mini:	(\d+|n\/a)
 RX Jumbo:	(\d+|n\/a)
 TX:		(\d+)"""
 
-            _, out = self.cmd("ethtool -g " + ifc)
+            if ns:
+                _, out = self.netns_cmd("ethtool -g " + ifc, ns)
+            else:
+                _, out = self.cmd("ethtool -g " + ifc)
             m = re.search(r, out, flags=re.M)
 
             ret = {
@@ -640,7 +664,7 @@ TX:		(\d+)"""
 
         return ret
 
-    def ethtool_rings_set(self, ifc, settings, fail=True):
+    def ethtool_rings_set(self, ifc, settings, fail=True, ns=None):
         LOG_sec("GET RING %s for %s to %s" % (self.host, ifc, str(settings)))
         try:
                 cmd = 'ethtool -G ' + ifc
@@ -648,7 +672,10 @@ TX:		(\d+)"""
                     if settings[k] is not None:
                         cmd += ' %s %s' % (k, settings[k])
 
-                ret = self.cmd(cmd, fail=fail)
+                if ns:
+                    ret = self.netns_cmd(cmd, ns, fail=fail)
+                else:
+                    ret = self.cmd(cmd, fail=fail)
         finally:
             LOG_endsec()
 
@@ -664,8 +691,11 @@ TX:		(\d+)"""
                         (ifc, mode),
                         include_stderr=True, fail=fail)
 
-    def ethtool_get_autoneg(self, ifc):
-        _, out = self.cmd('ethtool %s | grep Auto-negotiation' % (ifc))
+    def ethtool_get_autoneg(self, ifc, ns=None):
+        if ns:
+            _, out = self.netns_cmd('ethtool %s | grep Auto-negotiation' % (ifc), ns)
+        else:
+            _, out = self.cmd('ethtool %s | grep Auto-negotiation' % (ifc))
 
         if out.find(': on') != -1:
             return True
@@ -673,8 +703,11 @@ TX:		(\d+)"""
             return False
         raise NtiError('Invalid ethtool response: %s' % (out))
 
-    def ethtool_get_speed(self, ifc):
-        _, out = self.cmd('ethtool %s' % (ifc))
+    def ethtool_get_speed(self, ifc, ns=None):
+        if ns:
+            _, out = self.netns_cmd('ethtool %s' % (ifc), ns)
+        else:
+            _, out = self.cmd('ethtool %s' % (ifc))
 
         speed = re.search('Speed: (\d*)Mb/s', out)
 
@@ -690,9 +723,13 @@ TX:		(\d+)"""
                         (ifc, fec),
                         include_stderr=True, fail=fail)
 
-    def ethtool_get_fec(self, ifc, fail=True):
-        return self.cmd('ethtool --show-fec %s' %
-                        (ifc), fail=fail)
+    def ethtool_get_fec(self, ifc, fail=True, ns=None):
+        if ns:
+            return self.netns_cmd('ethtool --show-fec %s' %
+                                  (ifc), ns, fail=fail)
+        else:
+            return self.cmd('ethtool --show-fec %s' %
+                            (ifc), fail=fail)
 
     def ethtool_get_fwdump(self, ifc, level, fail=True):
         self.cmd('ethtool -W %s %d' % (ifc, level), fail=fail)
@@ -709,8 +746,11 @@ TX:		(\d+)"""
         file_name = os.path.join(self.grp.tmpdir, os.path.basename(out))
         return 0, file_name
 
-    def ethtool_get_module_eeprom(self, ifc):
-        _, out = self.cmd('ethtool -m %s' % (ifc))
+    def ethtool_get_module_eeprom(self, ifc, ns=None):
+        if ns:
+            _, out = self.netns_cmd('ethtool -m %s' % (ifc), ns)
+        else:
+            _, out = self.cmd('ethtool -m %s' % (ifc))
         return _parse_ethtool(out)
 
     def ethtool_get_coalesce(self, ifc):
@@ -744,7 +784,7 @@ TX:		(\d+)"""
 
         return ret
 
-    def ethtool_get_test(self, ifc, fail=True):
+    def ethtool_get_test(self, ifc, fail=True, ns=None):
         """
         ethtool -t sample output:
         The test result is FAIL
@@ -760,7 +800,10 @@ TX:		(\d+)"""
         return a fail. "1" is considered a FAIL and "0" is
         considered a PASS.
         """
-        _, out = self.cmd('ethtool -t %s' % (ifc), fail=fail)
+        if ns:
+            _, out = self.netns_cmd('ethtool -t %s' % (ifc), ns, fail=fail)
+        else:
+            _, out = self.cmd('ethtool -t %s' % (ifc), fail=fail)
 
         ret = {}
 
