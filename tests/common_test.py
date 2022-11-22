@@ -509,6 +509,12 @@ exit 0
         return ethtool_info["firmware-version"][0] == "*"
 
     def ifc_all_up(self):
+        """
+        This function assigns IPv4 addresses to all interfaces specified
+        in the test's config file. If the interface already has an address,
+        it is assigned a secondary address without removing the original.
+        Thereafter, the link state of all interfaces are brought up.
+        """
         for i in range(0, len(self.dut_ifn)):
             self.dut.cmd(
                 'ip addr replace %s dev %s && ip link set dev %s up' %
@@ -996,6 +1002,8 @@ exit 0
             self.dut_addr_v6 = [0] * len(self.vnics)
 
         for ifc in self.nfp_netdevs:
+            # Bring up the link state of all netdevs (including the VNIC for
+            # flower firmware, e.g. ens6)
             self.dut.cmd('ip link set %s up' % (ifc))
         self.ifc_all_up()
 
