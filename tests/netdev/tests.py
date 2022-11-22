@@ -623,7 +623,7 @@ class PauseEthtool(CommonTest):
             info = self.dut.ethtool_drvinfo(ifc)
 
             fw = info['firmware-version']
-            if "sriov" in fw:
+            if "sri" in fw:
                 # create a vf
                 vfs = self.spawn_vf_netdev(1)
                 vf1 = vfs[0]["name"]

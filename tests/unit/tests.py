@@ -673,17 +673,22 @@ class SriovNDOs(CommonNetdevTest):
         # We have no way to read the cap upstream right now,
         # hardcode the project capabilities
         _, out = self.dut.nffw_status()
-        loaded_fw_version = re.search('Firmware version: (.*)\n', out).groups()[0]
+        loaded_fw_version = re.search('Firmware version: (.*)\n', out).group(1)
         if loaded_fw_version == '2.1.16':
             sriov_caps = (
-                { "name" : "corenic", "caps" : 0x0f, "reprs" : False, "keyword" : "nic-"},
-                { "name" : "sriov", "caps" : 0x0f, "reprs" : False, "keyword" : "sriov-" },
+                {"name": "corenic", "caps": 0x0f, "reprs": False,
+                 "keyword": "nic-"},
+                {"name": "sriov", "caps": 0x0f, "reprs": False,
+                 "keyword": "sri"},
             )
         else:
             sriov_caps = (
-                { "name" : "flower", "caps" : 0x0b, "reprs" : True, "keyword" : "flo" },
-                { "name" : "corenic", "caps" : 0x1f, "reprs" : False, "keyword" : "nic-"},
-                { "name" : "sriov", "caps" : 0x1f, "reprs" : False, "keyword" : "sriov-" },
+                {"name": "flower", "caps": 0x0b, "reprs": True,
+                 "keyword": "flo"},
+                {"name": "corenic", "caps": 0x1f, "reprs": False,
+                 "keyword": "nic-"},
+                {"name": "sriov", "caps": 0x1f, "reprs": False,
+                 "keyword": "sri"},
             )
 
         info = self.dut.ethtool_drvinfo(self.nfp_netdevs[0])

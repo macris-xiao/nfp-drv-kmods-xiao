@@ -102,7 +102,7 @@ class coalescePF(CommonTest):
             info = self.dut.ethtool_drvinfo(ifc)
 
             ver_m = info['firmware-version']
-            if not "sriov" in ver_m and not "nic" in ver_m:
+            if "sri" not in ver_m and "nic" not in ver_m:
                 raise NtiSkip("Change to SRIOV or NIC firmware")
 
         self.check_prereq("netserver -h 2>&1 | grep Usage:",

@@ -56,7 +56,7 @@ class VfQoS(CommonTest):
             info = self.dut.ethtool_drvinfo(ifc)
 
             ver_m = info['firmware-version']
-            if "sriov" not in ver_m:
+            if "sri" not in ver_m:
                 raise NtiSkip("Change to SRIOV firmware")
 
         self.check_prereq("netserver -h 2>&1 | grep Usage:",
