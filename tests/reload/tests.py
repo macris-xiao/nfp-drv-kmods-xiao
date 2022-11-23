@@ -43,7 +43,7 @@ class NFPKmodReload(NFPKmodGrp):
 
         T = (('set_speed', SpeedSet, "Flip speed and reload driver"),
              ('port_split', DevlinkSplit,
-              "Split/unspliet port and reload driver in between"),
+              "Split/unsplit port and reload driver in between"),
              ('kernel_fw_load', KernelLoadTest, "Test kernel firmware loader"),
              )
 
