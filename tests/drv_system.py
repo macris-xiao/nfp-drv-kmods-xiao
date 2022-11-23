@@ -721,7 +721,7 @@ class DrvSystem(LinuxSystem):
         return value
 
     def nfp_phymod_get_speed(self, idx):
-        _, out = self.cmd_phymod('-E | grep -C1 eth%d | tail -1' % (idx))
+        _, out = self.cmd_phymod('-E | grep eth%d | head -1' % (idx))
 
         speed = re.search(' *(\d*)G', out)
 
