@@ -5,6 +5,8 @@
 Unit test group for the NFP Linux driver tests which require a driver reload.
 """
 
+import os
+import re
 import random
 import netro.testinfra
 from netro.testinfra.test import *
@@ -45,7 +47,8 @@ import time
 from netro.testinfra.nti_exceptions import NtiGeneralError
 from netro.testinfra.nrt_result import NrtResult
 from netro.testinfra.system import cmd_log
-from ..common_test import *
+from ..common_test import CommonNetdevTest, NtiSkip
+from ..common_test import AMDA_10G_CARDS, AMDA_25G_CARDS, AMDA_40G_CARDS, AMDA_100G_CARDS
 from ..drv_system import DrvSystem
 
 ###########################################################################
@@ -74,6 +77,9 @@ class SpeedSet(CommonNetdevTest):
         for ifc in ifc_list:
             self.src.cmd('ip link set dev %s down; ethtool -s %s speed %d' %
                          (ifc, ifc, speed))
+        # Reload the driver on the EP (src) using modprobe as self.src
+        # is of type LinuxSystem and rmmod helper function self.src.rmmod()
+        # doesn't exist for LinuxSystem
         self.src.cmd('rmmod nfp && modprobe nfp')
         for ifc in ifc_list:
             self.src.cmd('ip link set dev %s up' % ifc)
