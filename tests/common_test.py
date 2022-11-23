@@ -1012,6 +1012,12 @@ exit 0
             self.dut.ip_link_set_up(ifc)
         self.ifc_all_up()
 
+        # See if links are up to make debugging easier
+        # This gets logged in the details.log file at the specified test's
+        # log location
+        self.dut.cmd('ip link', fail=False)
+        self.src.cmd('ip link', fail=False)
+
         LOG_endsec() # NFP netdev test prep
 
         LOG_sec("NFP netdevs")
