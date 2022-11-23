@@ -95,7 +95,12 @@ class SpeedSet(CommonNetdevTest):
                 continue
 
             ret, out = self.dut.ethtool_set_speed(ifc, speed, fail=False)
-            if out[1].find('link settings update failed') == -1:
+
+            correct_fail_output1 = out[1].find('link settings update failed')
+            correct_fail_output2 = out[1].find('Cannot set new settings')
+
+            # if neither failing outputs are seen, it must mean that the speed was set
+            if correct_fail_output1 == -1 and correct_fail_output2 == -1:
                 raise NtiError('Set %s speed to %d did not fail' %
                                (ifc, speed))
 
@@ -116,16 +121,32 @@ class SpeedSet(CommonNetdevTest):
             self.check_fails_all(all_speeds)
             return
 
-        supported_speeds = {
-            "AMDA0099-0001"	:	( 25000, 10000 ),
-        }
+        # Get AMDAXXXX number
+        AMDA_no = self.dut.get_amda_only()
 
-        partno = self.dut.get_hwinfo('assembly.partno')
+        str_def_speed = None
+
+        # Get the default speed depending on card type
+        if AMDA_no in AMDA_10G_CARDS:
+            default_speed = 10000
+            str_def_speed = "10G"
+        elif AMDA_no in AMDA_25G_CARDS:
+            default_speed = 25000
+            str_def_speed = "25G"
+
+        # Note that 40G and 100G cards cannot change their speed setting, but
+        # can be split into ports with slower speeds. See port_split test. 40G
+        # and 100G cards are still checked in this test if it fails where
+        # expected.
+        supported_speeds = {
+            "10G": (10000, 1000),
+            "25G": (25000, 10000),
+        }
 
         self.ifc_skip_if_not_all_up()
 
         # All cards not in supported_speeds can't do ethtool speed setting
-        if not partno in supported_speeds:
+        if str_def_speed not in supported_speeds:
             for ifc in self.dut_ifn:
                 cur_speed = self.dut.ethtool_get_speed(ifc)
                 self.check_fails(ifc, all_speeds, [cur_speed])
@@ -136,8 +157,7 @@ class SpeedSet(CommonNetdevTest):
         for ifc in self.dut_ifn[1:]:
             if cur_speed != self.dut.ethtool_get_speed(ifc):
                 raise NtiError("Ports don't all have the same speed")
-
-        speeds = supported_speeds[partno]
+        speeds = supported_speeds[str_def_speed]
         if cur_speed not in speeds:
             raise NtiError("Speed %d is not on the supported list" % cur_speed)
 
@@ -163,7 +183,7 @@ class SpeedSet(CommonNetdevTest):
             # try to keep the last port in default mode when mixed config
             ifc_list = self.dut_ifn
             src_ifc_list = self.src_ifn
-            if speeds[0] == supported_speeds[partno][0]:
+            if speeds[0] == supported_speeds[str_def_speed][0]:
                 ifc_list = list(reversed(ifc_list))
                 src_ifc_list = list(reversed(src_ifc_list))
 
@@ -179,7 +199,7 @@ class SpeedSet(CommonNetdevTest):
                 if ret == 0:
                     raise NtiError("Netdev didn't disappear")
 
-            if speeds[0] == supported_speeds[partno][0]:
+            if speeds[0] == supported_speeds[str_def_speed][0]:
                 self.reload_driver()
             else:
                 self.reload_fw_to_2x10G(ifc_list)
