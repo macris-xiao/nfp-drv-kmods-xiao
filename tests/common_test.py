@@ -521,12 +521,13 @@ exit 0
         """
         for i in range(0, len(self.dut_ifn)):
             self.dut.cmd(
-                'ip addr replace %s dev %s && ip link set dev %s up' %
-                        (self.dut_addr[i], self.dut_ifn[i], self.dut_ifn[i]))
+                'ip addr replace %s dev %s' %
+                        (self.dut_addr[i], self.dut_ifn[i]))
+            self.dut.ip_link_set_up(self.dut_ifn[i])
 
     def ifc_all_down(self):
         for i in range(0, len(self.dut_ifn)):
-            self.dut.cmd('ip link set %s down' % (self.dut_ifn[i]))
+            self.dut.ip_link_set_down(self.dut_ifn[i])
 
     def ifc_skip_if_not_all_up(self):
         for i in range(0, len(self.dut_ifn)):
@@ -1008,7 +1009,7 @@ exit 0
         for ifc in self.nfp_netdevs:
             # Bring up the link state of all netdevs (including the VNIC for
             # flower firmware, e.g. ens6)
-            self.dut.cmd('ip link set %s up' % (ifc))
+            self.dut.ip_link_set_up(ifc)
         self.ifc_all_up()
 
         LOG_endsec() # NFP netdev test prep

@@ -71,18 +71,18 @@ class SpeedSet(CommonNetdevTest):
         self.dut.reset_mods()
         self.dut.insmod(netdev=True, userspace=True)
         for ifc in ifc_list:
-            self.dut.cmd('ip link set dev %s up' % (ifc))
+            self.dut.ip_link_set_up(ifc)
 
     def set_src_speed(self, speed, ifc_list):
         for ifc in ifc_list:
-            self.src.cmd('ip link set dev %s down; ethtool -s %s speed %d' %
-                         (ifc, ifc, speed))
+            self.src.ip_link_set_down(ifc)
+            self.src.cmd('ethtool -s %s speed %d' % (ifc, speed))
         # Reload the driver on the EP (src) using modprobe as self.src
         # is of type LinuxSystem and rmmod helper function self.src.rmmod()
         # doesn't exist for LinuxSystem
         self.src.cmd('rmmod nfp && modprobe nfp')
         for ifc in ifc_list:
-            self.src.cmd('ip link set dev %s up' % ifc)
+            self.src.ip_link_set_up(ifc)
 
         self.src.cmd('ip addr add dev %s %s' % (self.src_ifn[0], self.src_addr[0]))
         self.src.cmd('ip addr add dev %s %s' % (self.src_ifn[0], self.src_addr_v6[0]))

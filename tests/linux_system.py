@@ -260,11 +260,11 @@ class LinuxSystem(System):
             return ret, json.loads(out)[0]
         return ret, json.loads(out)
 
-    def ip_link_set_up(self, ifc):
-        self.cmd('ip link set dev {ifc} up'.format(ifc=ifc))
+    def ip_link_set_up(self, ifc, fail=True):
+        self.cmd('ip link set dev {ifc} up'.format(ifc=ifc), fail=fail)
 
-    def ip_link_set_down(self, ifc):
-        self.cmd('ip link set dev {ifc} down'.format(ifc=ifc))
+    def ip_link_set_down(self, ifc, fail=True):
+        self.cmd('ip link set dev {ifc} down'.format(ifc=ifc), fail=fail)
 
     def ip_link_stats(self, ifc=None):
         cmd = '-s link show'
@@ -714,8 +714,8 @@ TX:		(\d+)"""
         return int(speed.groups()[0])
 
     def ethtool_set_speed(self, ifc, speed, fail=True):
-        return self.cmd('ip link set dev %s down; ethtool -s %s speed %d' %
-                        (ifc, ifc, speed),
+        self.ip_link_set_down(ifc, fail=fail)
+        return self.cmd('ethtool -s %s speed %d' % (ifc, speed),
                         include_stderr=True, fail=fail)
 
     def ethtool_set_fec(self, ifc, fec, fail=True):

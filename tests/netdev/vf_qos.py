@@ -76,7 +76,7 @@ class VfQoS(CommonTest):
 
         iface = self.dut_ifn[0]
 
-        self.dut.cmd('ip link set dev %s up' % (iface), fail=False)
+        self.dut.ip_link_set_up(iface, fail=False)
 
         # Create namespaces
         self.dut.netns_add('ns1')

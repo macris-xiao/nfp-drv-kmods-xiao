@@ -82,7 +82,7 @@ class CoalesceVF(CommonTest):
         if not iface[:-1].endswith('np') or not iface.startswith('en'):
             raise NtiSkip('Cannot determine PF interface name')
 
-        self.dut.cmd('ip link set dev %s up' % (iface), fail=False)
+        self.dut.ip_link_set_up(iface, fail=False)
         # Create namespaces
         self.dut.netns_add('ns1')
         self.dut.netns_add_iface('ns1', vf1)

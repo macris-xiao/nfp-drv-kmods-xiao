@@ -939,7 +939,7 @@ class IfConfigDownTest(CommonNonUpstreamTest):
         mac_addr = port_tuple[1]
         port = port_tuple[2]
 
-        self.dut.cmd('ip link set dev %s up' % iface)
+        self.dut.ip_link_set_up(iface)
         self.do_check_port(iface, mac_addr, "\+Configured")
         self.wait_for_link(iface, mac_addr)
         self.ping(port)
@@ -948,7 +948,7 @@ class IfConfigDownTest(CommonNonUpstreamTest):
         iface = port_tuple[0]
         mac_addr = port_tuple[1]
 
-        self.dut.cmd('ip link set dev %s down' % iface)
+        self.dut.ip_link_set_down(iface)
         self.do_check_port(iface, mac_addr, "\-Configured")
 
     def netdev_execute(self):

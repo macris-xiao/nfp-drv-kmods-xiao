@@ -144,7 +144,7 @@ class FlowerBase(CommonTest):
             raise NtiSkip(error)
 
         self.dut.cmd('ip link add link %s name %s type vlan id %s' % (iface, vlan_iface, vlan_id), fail=False)
-        self.dut.cmd('ip link set dev %s up' % (vlan_iface), fail=False)
+        self.dut.ip_link_set_up(vlan_iface, fail=False)
 
         M.cmd('tc qdisc del dev %s handle ffff: ingress' % vlan_iface, fail=False)
         M.cmd('tc qdisc add dev %s handle ffff: ingress' % vlan_iface)
@@ -257,7 +257,7 @@ class FlowerBase(CommonTest):
             M.cmd("nmcli device set %s managed no" % dut_pf_iface)
             # The tests expect the interface to be down, make sure to
             # set it down in case NetworkManager already put in the up state
-            M.cmd('ip link set dev %s down' % (dut_pf_iface), fail=False)
+            M.ip_link_set_down(dut_pf_iface, fail=False)
 
         M.cmd('tc qdisc del dev %s handle ffff: ingress' % iface, fail=False)
         M.cmd('tc qdisc add dev %s handle ffff: ingress' % iface)
@@ -265,7 +265,7 @@ class FlowerBase(CommonTest):
         ingress = self.src_ifn[0]
         if self.check_src_flower_fw(ingress):
             pf_ifname = self._get_pf_netdev(self.src, ingress)
-            self.src.cmd('ip link set dev %s up' % (pf_ifname), fail=False)
+            self.src.ip_link_set_up(pf_ifname, fail=False)
 
         M.refresh()
         return iface, ingress
@@ -476,16 +476,16 @@ class FlowerTunnel(FlowerBase):
     def add_vxlan_dev(self, dev_name):
         self.dut.cmd('ip link add name %s type vxlan dstport 0 external' \
                      % dev_name)
-        self.dut.cmd('ip link set dev %s up' % dev_name)
+        self.dut.ip_link_set_up(dev_name)
 
     def add_geneve_dev(self, dev_name):
         self.dut.cmd('ip link add name %s type geneve dstport 0 external' \
                      % dev_name)
-        self.dut.cmd('ip link set dev %s up' % dev_name)
+        self.dut.ip_link_set_up(dev_name)
 
     def add_gre_dev(self, dev_name):
         self.dut.cmd('ip link add %s type gretap external' % dev_name)
-        self.dut.cmd('ip link set dev %s up' % dev_name)
+        self.dut.ip_link_set_up(dev_name)
 
     def del_tun_dev(self, dev_name):
         self.dut.cmd('ip link delete %s' % dev_name, fail=False)
@@ -594,7 +594,7 @@ class FlowerTunnel(FlowerBase):
                      % (v6, addr, src_dev), fail=False)
         self.dut.cmd('ip %s addr add %s dev %s'
                      % (v6, addr, dst_dev), fail=False)
-        self.dut.cmd('ip link set dev %s up' % dst_dev)
+        self.dut.ip_link_set_up(dst_dev)
         sleep(2)
 
     def setup_dut_neighbour(self, addr, dev, ipv6=False):
@@ -2034,7 +2034,7 @@ class FlowerMatchGeneveOpt(FlowerBase):
 
         M.cmd('ip link delete gene0', fail=False)
         M.cmd('ip link add gene0 type geneve dstport 6081 external')
-        M.cmd('ip link set dev gene0 up')
+        M.ip_link_set_up('gene0')
 
         self.add_egress_qdisc('gene0')
 
@@ -2160,7 +2160,7 @@ class FlowerMatchGeneveMultiOpt(FlowerBase):
 
         M.cmd('ip link delete gene0', fail=False)
         M.cmd('ip link add gene0 type geneve dstport 6081 external')
-        M.cmd('ip link set dev gene0 up')
+        M.ip_link_set_up('gene0')
 
         self.add_egress_qdisc('gene0')
 
@@ -2282,12 +2282,12 @@ class FlowerMatchTunnelToSharedMAC(FlowerBase):
         _, dut_mac2 = M.cmd('cat /sys/class/net/%s/address | tr -d "\n"' % self.dut_ifn[1])
 
         # Set the 2nd interface to the same MAC address as the first
-        M.cmd('ip link set dev %s down' % self.dut_ifn[1])
+        M.ip_link_set_down(self.dut_ifn[1])
         M.cmd('ip link set %s address %s' % (self.dut_ifn[1], dut_mac1))
-        M.cmd('ip link set dev %s up' % self.dut_ifn[1])
+        M.ip_link_set_up(self.dut_ifn[1])
 
         M.cmd('ip link add name vxlan0 type vxlan dstport 0 external')
-        M.cmd('ip link set dev vxlan0 up')
+        M.ip_link_set_up('vxlan0')
 
         self.add_egress_qdisc('vxlan0')
 
@@ -2312,9 +2312,9 @@ class FlowerMatchTunnelToSharedMAC(FlowerBase):
                          -pkt_diff, new_port=1)
 
         # Reset the 2nd interface to its original MAC
-        M.cmd('ip link set dev %s down' % self.dut_ifn[1])
+        M.ip_link_set_down(self.dut_ifn[1])
         M.cmd('ip link set %s address %s' % (self.dut_ifn[1], dut_mac2))
-        M.cmd('ip link set dev %s up' % self.dut_ifn[1])
+        M.ip_link_set_up(self.dut_ifn[1])
 
         # Counts should now only increment when ingressing one interface
         self.test_filter('vxlan0', self.src_ifn[0], pkt, enc_pkt, 300,
@@ -2780,7 +2780,7 @@ class FlowerMatchWhitelist(FlowerBase):
 
         # Check match offloaded to non repr is rejected even with repr  egress dev
         M.cmd('ip link add dummy1 type dummy')
-        M.cmd('ip link set dev dummy1 up')
+        M.ip_link_set_up('dummy1')
 
         self.add_egress_qdisc('dummy1')
         match = 'ip flower dst_mac 02:12:23:34:45:56'
@@ -2806,7 +2806,7 @@ class FlowerVxlanWhitelist(FlowerBase):
 
         M.cmd('ip link delete vxlan0', fail=False)
         M.cmd('ip link add vxlan0 type vxlan dstport 4789 dev %s external' % self.dut_ifn[0])
-        M.cmd('ip link set dev vxlan0 up')
+        M.ip_link_set_up('vxlan0')
 
         self.add_egress_qdisc('vxlan0')
 
@@ -2860,10 +2860,10 @@ class FlowerVxlanWhitelist(FlowerBase):
         # Check that multiple vxlan tunnel output is installed in software only (not_in_hw)
         M.cmd('ip link delete vxlan1', fail=False)
         M.cmd('ip link add vxlan1 type vxlan id 0 dstport 4790')
-        M.cmd('ip link set dev vxlan1 up')
+        M.ip_link_set_up('vxlan1')
         M.cmd('ip link delete vxlan2', fail=False)
         M.cmd('ip link add vxlan2 type vxlan id 0 dstport 4791')
-        M.cmd('ip link set dev vxlan2 up')
+        M.ip_link_set_up('vxlan2')
         match = 'ip flower ip_proto tcp'
         action = 'tunnel_key set id 123 src_ip 10.0.0.1 dst_ip 10.0.0.2 dst_port 4789 action mirred egress mirror dev vxlan1 action mirred egress redirect dev vxlan2'
         self.install_filter('vxlan0', match, action, False)
@@ -2903,7 +2903,7 @@ class FlowerGREWhitelist(FlowerBase):
 
         M.cmd('ip link del dev gre1', fail=False)
         M.cmd('ip link add gre1 type gretap remote %s local %s dev %s external' % (src_ip, dut_ip, self.dut_ifn[0]))
-        M.cmd('ip link set dev gre1 up')
+        M.ip_link_set_up('gre1')
 
         self.add_egress_qdisc('gre1')
 
@@ -3442,8 +3442,8 @@ class FlowerActionGENEVEOpt(FlowerBase):
 
         # the destination port is defined by the tc rule - confirmed in both skip_sw and skip_hw
         M.cmd('ip link add name gene0 type geneve dstport 0 external')
-        M.cmd('ip link set dev gene0 down')
-        M.cmd('ip link set dev gene0 up')
+        M.ip_link_set_down('gene0')
+        M.ip_link_set_up('gene0')
         M.cmd("ip neigh add %s lladdr %s dev %s" % (
             src_ip, src_mac, self.dut_ifn[0]))
 
@@ -3564,8 +3564,8 @@ class FlowerActionGENEVEMultiOpt(FlowerBase):
 
         # the destination port is defined by the tc rule - confirmed in both skip_sw and skip_hw
         M.cmd('ip link add name gene0 type geneve dstport 0 external')
-        M.cmd('ip link set dev gene0 down')
-        M.cmd('ip link set dev gene0 up')
+        M.ip_link_set_down('gene0')
+        M.ip_link_set_up('gene0')
         M.cmd("ip neigh add %s lladdr %s dev %s" % (
             src_ip, src_mac, self.dut_ifn[0]))
 
@@ -4498,24 +4498,24 @@ class FlowerReprLinkstate(CommonTest):
         self.dmesg_check()
 
         # Set initial link state to down
-        self.dut.cmd('ip link set %s down' % (repr))
-        self.dut.cmd('ip link set %s down' % (vf))
+        self.dut.ip_link_set_down(repr)
+        self.dut.ip_link_set_down(vf)
         self.dut.link_wait(repr, state=False)
         self.dut.link_wait(vf, state=False)
 
         # Verify both vf and repr down if only repr link up
-        self.dut.cmd('ip link set %s up' % (repr))
+        self.dut.ip_link_set_up(repr)
         self.dut.link_wait(repr, state=False)
         self.dut.link_wait(vf, state=False)
 
         # Verify both vf and repr down if only vf link up
-        self.dut.cmd('ip link set %s down' % (repr))
-        self.dut.cmd('ip link set %s up' % (vf))
+        self.dut.ip_link_set_down(repr)
+        self.dut.ip_link_set_up(vf)
         self.dut.link_wait(repr, state=False)
         self.dut.link_wait(vf, state=False)
 
         # Verify both vf and repr link up
-        self.dut.cmd('ip link set %s up' % (repr))
+        self.dut.ip_link_set_up(repr)
         self.dut.link_wait(repr, state=True)
         self.dut.link_wait(vf, state=True)
 
@@ -4544,12 +4544,12 @@ class FlowerActionBondEgress(FlowerBase):
         M.cmd('ip link add name bond0 type bond', fail=False)
 
         # Enslave port to bond0
-        M.cmd('ip link set dev bond0 down')
-        M.cmd('ip link set dev %s down' % iface)
+        M.ip_link_set_down('bond0')
+        M.ip_link_set_down(iface)
         self.dut.link_wait(iface, state=False)
         M.cmd('ip link set dev %s master bond0'  % iface)
-        M.cmd('ip link set dev bond0 up')
-        M.cmd('ip link set dev %s up' % iface)
+        M.ip_link_set_up('bond0')
+        M.ip_link_set_up( iface)
         self.dut.link_wait(iface, state=True)
 
         # Cleanup previous tc rules for interface 0
@@ -4576,12 +4576,12 @@ class FlowerActionBondEgress(FlowerBase):
         ingress2 = self.src_ifn[1]
 
         # Enslave second port to bond0
-        M.cmd('ip link set dev bond0 down')
-        M.cmd('ip link set dev %s down' % iface2)
+        M.ip_link_set_down('bond0')
+        M.ip_link_set_down(iface2)
         self.dut.link_wait(iface2, state=False)
         M.cmd('ip link set dev %s master bond0'  % iface2)
-        M.cmd('ip link set dev bond0 up')
-        M.cmd('ip link set dev %s up' % iface2)
+        M.ip_link_set_up('bond0')
+        M.ip_link_set_up(iface2)
         self.dut.link_wait(iface2, state=True)
 
         # Remove all tc rules for interface 1
@@ -4611,20 +4611,20 @@ class FlowerActionBondEgress(FlowerBase):
         self.pcap_check_count_multiple_ifaces(100, [pack_cap, pack_cap2], spread=True)
 
         # Test active/backup mode
-        M.cmd('ip link set dev bond0 down')
-        M.cmd('ip link set dev %s down' % iface)
+        M.ip_link_set_down('bond0')
+        M.ip_link_set_down(iface)
         self.dut.link_wait(iface, state=False)
-        M.cmd('ip link set dev %s down' % iface2)
+        M.ip_link_set_down(iface2)
         self.dut.link_wait(iface2, state=False)
         M.cmd('ip link set %s nomaster' % iface)
         M.cmd('ip link set %s nomaster' % iface2)
         ret=M.cmd('echo 1 >/sys/class/net/bond0/bonding/mode', fail=False)
         M.cmd('ip link set dev %s master bond0'  % iface)
         M.cmd('ip link set dev %s master bond0'  % iface2)
-        M.cmd('ip link set dev bond0 up')
-        M.cmd('ip link set dev %s up' % iface)
+        M.ip_link_set_up('bond0')
+        M.ip_link_set_up(iface)
         self.dut.link_wait(iface, state=True)
-        M.cmd('ip link set dev %s up' % iface2)
+        M.ip_link_set_up(iface2)
         self.dut.link_wait(iface2, state=True)
 
         # Re-add interface 0 qdisc, if removed by bonding mode configuration
@@ -4661,17 +4661,17 @@ class FlowerActionBondEgress(FlowerBase):
         M.cmd('teamnl team0 setoption mode loadbalance')
 
         # Enslave ports to team0
-        M.cmd('ip link set dev team0 down')
-        M.cmd('ip link set dev %s down' % iface)
+        M.ip_link_set_down('team0')
+        M.ip_link_set_down(iface)
         self.dut.link_wait(iface, state=False)
-        M.cmd('ip link set dev %s down' % iface2)
+        M.ip_link_set_down(iface2)
         self.dut.link_wait(iface2, state=False)
         M.cmd('ip link set dev %s master team0'  % iface)
         M.cmd('ip link set dev %s master team0'  % iface2)
-        M.cmd('ip link set dev team0 up')
-        M.cmd('ip link set dev %s up' % iface)
+        M.ip_link_set_up('team0')
+        M.ip_link_set_up(iface)
         self.dut.link_wait(iface, state=True)
-        M.cmd('ip link set dev %s up' % iface2)
+        M.ip_link_set_up(iface2)
         self.dut.link_wait(iface2, state=True)
 
         # Cleanup previous tc rules for interface 0
@@ -4726,13 +4726,13 @@ class FlowerActionIngressRateLimit(FlowerBase):
             raise NtiSkip('Cannot determine PF interface name')
 
         pf_ifname = iface[:-3]
-        self.dut.cmd('ip link set dev %s up' % (pf_ifname), fail=False)
+        self.dut.ip_link_set_up(pf_ifname, fail=False)
 
-        self.dut.cmd('ip link set dev %s up' % self.vf_repr1)
+        self.dut.ip_link_set_up(self.vf_repr1)
         self.dut.cmd('tc qdisc del dev %s handle ffff: ingress' % self.vf_repr1, fail=False)
         self.dut.cmd('tc qdisc add dev %s handle ffff: ingress' % self.vf_repr1)
 
-        self.dut.cmd('ip link set dev %s up' % self.vf_repr2)
+        self.dut.ip_link_set_up(self.vf_repr2)
         self.dut.cmd('tc qdisc del dev %s handle ffff: ingress' % self.vf_repr2, fail=False)
         self.dut.cmd('tc qdisc add dev %s handle ffff: ingress' % self.vf_repr2)
 

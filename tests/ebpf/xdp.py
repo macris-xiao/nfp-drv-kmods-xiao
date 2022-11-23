@@ -1222,7 +1222,7 @@ class XDPadjHeadDecIpIp(XDPtunBase):
                       self.dut_addr[0][:-3], self.src_ifn[0]))
         self.src.cmd('ip addr add %s2/24 dev %s' %
                      (self.tun_ip_sub, self.tun_name))
-        self.src.cmd('ip link set dev %s up' % (self.tun_name))
+        self.src.ip_link_set_up(self.tun_name)
 
         self.dut.cmd('ip link del dev %s' % (self.tun_name), fail=False)
         self.dut.cmd('ip addr replace %s1/24 dev %s' %
@@ -1273,7 +1273,7 @@ class XDPadjHeadEncIpIp(XDPtunBase):
                       self.src_addr[0][:-3], self.dut_ifn[0]))
         self.dut.cmd('ip addr add %s1/24 dev %s' %
                      (self.tun_ip_sub, self.tun_name))
-        self.dut.cmd('ip link set dev %s up' %(self.tun_name))
+        self.dut.ip_link_set_up(self.tun_name)
 
         self.src.cmd('ip link del dev %s' % (self.tun_name), fail=False)
         self.src.cmd('ip addr replace %s2/24 dev %s' %

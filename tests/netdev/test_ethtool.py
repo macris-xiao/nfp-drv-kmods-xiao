@@ -32,7 +32,7 @@ class TestEthtool(CommonTest):
         M = self.dut
 
         # Turn port up and check link test output
-        M.cmd('ip link set dev %s up' % ifc)
+        M.ip_link_set_up(ifc)
 
         M.link_wait(ifc)
 
@@ -52,7 +52,7 @@ class TestEthtool(CommonTest):
 
         # Turn port down and check link test output
         overall_outcome = 0
-        M.cmd('ip link set dev %s down' % ifc)
+        M.ip_link_set_down(ifc)
 
         test_out = M.ethtool_get_test(ifc, fail=False)
         if test_out['Link'] == 0:
