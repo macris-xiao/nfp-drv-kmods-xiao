@@ -117,7 +117,8 @@ jobs:
                     "kernel" : "${{ inputs.kernel }}",
                     "kernel_source" : "${{ inputs.kernel_source }}",
                     "platform" : "${{ inputs.platform }}",
-                    "os" : "${{ inputs.os }}"
+                    "os" : "${{ inputs.os }}",
+                    "base_branch" : "${{ inputs.base_branch }}"
                     }
           print(json.dumps(inputs, indent=1))
 
