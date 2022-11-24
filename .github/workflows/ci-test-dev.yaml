@@ -122,6 +122,12 @@ jobs:
                     }
           print(json.dumps(inputs, indent=1))
 
+      - name: Fail if test specified but not fw_type
+        if: inputs.test != 'all' && inputs.fw_type == 'AUTO:all'
+        run: |
+          echo "::error::Test specified but not firmware type"
+          exit 1
+
       - name: Checkout provisioning repo
         uses: actions/checkout@v3
         with:
