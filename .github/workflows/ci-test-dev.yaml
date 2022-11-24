@@ -83,8 +83,14 @@ on:
         description: >-
           Which operating system the cluster DUT should be
           running.
-      default_branch:
-        description: Override default branch definition
+      base_branch:
+        description: >-
+          Override default branch definition. This refers to the branch
+          that the testing branch is based on. Only requires changing if
+          branch being tested is a part of a specific project. E.g. if
+          the changes in the branch being tested are a part of a project
+          to provide a specific feature for client01, which has its own branch,
+          wip-client01, one should specify wip-client01 as the base branch.
         type: string
         required: true
         default: 'main'
