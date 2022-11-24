@@ -237,7 +237,7 @@ jobs:
           FW_VER: ${{ inputs.fw_version }}
 
       - name: Set firmware path
-        if: inputs.fw_type != 'AUTO:all' && github.event_name != 'push'
+        if: github.event_name != 'push'
         shell: bash
         run: |
           if [ '${{ inputs.fw_release_type }}' == 'release' ]; then
@@ -246,27 +246,20 @@ jobs:
             RELEASE=${{ inputs.fw_release_type }}
           fi
 
-          if [ ${FW_TYPE%:*} = 'BPF' ]; then
-            if [ "$RELEASE" = "temporary" ]; then
-              echo "FW_PATH=tmp/bpf_builds/tgz" >> $GITHUB_ENV
-            else
-              echo "FW_PATH=binaries/nic/bpf/tgz" >> $GITHUB_ENV
-            fi
-          elif [ ${FW_TYPE%:*} = 'DISA' ]; then
-            if [ "$RELEASE" = "temporary" ]; then
-              echo "FW_PATH=tmp/disa_builds/tgz" >> $GITHUB_ENV
-            elif [ "$RELEASE" = "releases" ]; then
-              echo "FW_PATH=binaries/disa/$RELEASE/tgz" >> $GITHUB_ENV
-            else
-              echo "FW_PATH=binaries/disa/$RELEASE/agilio-tc-firmware/tgz" >> $GITHUB_ENV
-            fi
+          if [ "$RELEASE" = "releases" ]; then
+            echo "BPF_FW_PATH=binaries/nic/bpf/tgz" >> $GITHUB_ENV
+            echo "DISA_FW_PATH=binaries/disa/$RELEASE/tgz" >> $GITHUB_ENV
+            echo "NIC_FW_PATH=binaries/nic/$RELEASE/tgz" >> $GITHUB_ENV
+          elif [ "$RELEASE" = "interim" ]; then
+            echo "BPF_FW_PATH=binaries/nic/bpf/tgz" >> $GITHUB_ENV
+            echo "DISA_FW_PATH=binaries/disa/$RELEASE/agilio-tc-firmware/tgz" >> $GITHUB_ENV
+            echo "NIC_FW_PATH=binaries/nic/$RELEASE/tgz" >> $GITHUB_ENV
           else
-            if [ "$RELEASE" = "temporary" ]; then
-              echo "FW_PATH=tmp/nic_builds/tgz" >> $GITHUB_ENV
-            else
-              echo "FW_PATH=binaries/nic/$RELEASE/tgz" >> $GITHUB_ENV
-            fi
+            echo "BPF_FW_PATH=tmp/bpf_builds/tgz" >> $GITHUB_ENV
+            echo "DISA_FW_PATH=tmp/disa_builds/tgz" >> $GITHUB_ENV
+            echo "NIC_FW_PATH=tmp/corenic_builds/tgz" >> $GITHUB_ENV
           fi
+
         env:
           FW_TYPE: ${{ inputs.fw_type }}
 
@@ -416,14 +409,13 @@ jobs:
             platform.append('${{ inputs.platform }}')
 
           search_key = '${{ env.SEARCH_KEY }}'
-          fw_path = '${{ env.FW_PATH }}'
+          fw_path = '${{ env.BPF_FW_PATH }}'
 
           if ( '${{ inputs.test }}' == 'all' and
               ( '${{ inputs.fw_type }}' == 'BPF:agilio-bpf-firmware' ) ):
 
             if ( search_key == '' ):
               search_key = 'agilio-bpf-firmware-.*${{ inputs.fw_version }}.*'
-              fw_path = 'binaries/nic/bpf/tgz'
 
             names.append('BPF_tests')
             include.append({'name':'BPF_tests',
@@ -436,8 +428,9 @@ jobs:
                                         'ebpf_perf&'\
                                         'ebpf_perf_drv&'\
                                         'netdev.bpf.*&'})
-            search_key = '${{ env.SEARCH_KEY }}'
-            fw_path = '${{ env.FW_PATH }}'
+
+          search_key = '${{ env.SEARCH_KEY }}'
+          fw_path = '${{ env.DISA_FW_PATH }}'
 
           if ( '${{ inputs.test }}' == 'all' and
               ( '${{ inputs.fw_type }}' == 'AUTO:all' or
@@ -445,7 +438,6 @@ jobs:
 
             if ( search_key == '' ):
               search_key = 'agilio-flower-app-firmware-.*${{ inputs.fw_version }}.*'
-              fw_path = 'binaries/disa/releases/tgz'
 
             names.append('DISA_tests')
             include.append({'name':'DISA_tests',
@@ -455,15 +447,15 @@ jobs:
                             'config_file':'flower',
                             'test_cases':'flower&'\
                                          'netdev.flower.*&'})
-            search_key = '${{ env.SEARCH_KEY }}'
-            fw_path = '${{ env.FW_PATH }}'
+
+          search_key = '${{ env.SEARCH_KEY }}'
+          fw_path = '${{ env.NIC_FW_PATH }}'
 
           if ( '${{ inputs.test }}' == 'all' and
               '${{ inputs.fw_type }}' == 'NIC:agilio-nic-firmware' ):
 
             if ( search_key == '' ):
               search_key = 'agilio-nic-firmware-.*${{ inputs.fw_version }}.*'
-              fw_path = 'binaries/nic/releases/tgz'
 
             names.append('CoreNIC_tests')
             include.append({'name':'CoreNIC_tests',
@@ -475,8 +467,9 @@ jobs:
                                         'reboot&'\
                                         'netdev.(multi|nic).*&'\
                                         'unit.(multi|nic).*&'})
-            search_key = '${{ env.SEARCH_KEY }}'
-            fw_path = '${{ env.FW_PATH }}'
+
+          search_key = '${{ env.SEARCH_KEY }}'
+          fw_path = '${{ env.NIC_FW_PATH }}'
 
           if ( '${{ inputs.test }}' == 'all' and
               ( '${{ inputs.fw_type }}' == 'AUTO:all' or
@@ -484,7 +477,6 @@ jobs:
 
             if ( search_key == '' ):
               search_key = 'agilio-sriov-firmware-.*${{ inputs.fw_version }}.*'
-              fw_path = 'binaries/nic/releases/tgz'
 
             names.append('SRIOV_tests')
             include.append({'name':'SRIOV_tests',
@@ -496,18 +488,21 @@ jobs:
                                         'reboot&'\
                                         'netdev.(multi|sriov).*&'\
                                         'unit.(multi|sriov).*&'})
-            search_key = '${{ env.SEARCH_KEY }}'
-            fw_path = '${{ env.FW_PATH }}'
+
+          search_key = '${{ env.SEARCH_KEY }}'
 
           if ( '${{ inputs.test }}' != 'all' ):
             if ( 'BPF' in '${{ inputs.fw_type}}' ):
+              fw_path = '${{ env.BPF_FW_PATH }}'
               iproute = '5.12.0'
-            else:
+              config = 'generic'
+            elif ( 'DISA' in '${{ inputs.fw_type}}' ):
+              fw_path = '${{ env.DISA_FW_PATH }}'
               iproute = '5.15.0'
-
-            if ( 'DISA' in '${{ inputs.fw_type}}' ):
               config = 'flower'
             else:
+              fw_path = '${{ env.NIC_FW_PATH }}'
+              iproute = '5.15.0'
               config = 'generic'
 
             names.append('user_specified_tests')
