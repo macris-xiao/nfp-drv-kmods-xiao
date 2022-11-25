@@ -42,7 +42,8 @@ on:
         type: choice
         required: false
         options:
-          - release
+          - releases
+          - prereleases
           - interim
           - temporary
         description: >-
@@ -240,13 +241,7 @@ jobs:
         if: github.event_name != 'push'
         shell: bash
         run: |
-          if [ '${{ inputs.fw_release_type }}' == 'release' ]; then
-            RELEASE=releases
-          else
-            RELEASE=${{ inputs.fw_release_type }}
-          fi
-
-          if [ "$RELEASE" = "releases" ]; then
+          if [ "$RELEASE" = "releases" ] || [ "$RELEASE" = "prereleases" ]; then
             echo "BPF_FW_PATH=binaries/nic/bpf/tgz" >> $GITHUB_ENV
             echo "DISA_FW_PATH=binaries/disa/$RELEASE/tgz" >> $GITHUB_ENV
             echo "NIC_FW_PATH=binaries/nic/$RELEASE/tgz" >> $GITHUB_ENV
@@ -259,9 +254,8 @@ jobs:
             echo "DISA_FW_PATH=tmp/disa_builds/tgz" >> $GITHUB_ENV
             echo "NIC_FW_PATH=tmp/corenic_builds/tgz" >> $GITHUB_ENV
           fi
-
         env:
-          FW_TYPE: ${{ inputs.fw_type }}
+          RELEASE: ${{ inputs.fw_release_type }}
 
       - name: Extract tags name from branch
         if: github.event_name == 'push'
