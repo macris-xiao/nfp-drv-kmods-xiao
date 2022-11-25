@@ -394,7 +394,7 @@ jobs:
           elif ( '${{ inputs.os }}' == 'any' ):
             os.append('ci-cluster')
           else:
-            os.append('${{ inputs.os }}')
+            os.append('ci-${{ inputs.os }}')
 
           if ( '${{ inputs.platform }}' == 'all' ):
             platform.append('osprey')
