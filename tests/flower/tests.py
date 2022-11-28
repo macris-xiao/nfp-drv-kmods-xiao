@@ -1260,6 +1260,18 @@ class FlowerTunnel(FlowerBase):
 
 
 class FlowerMatchMAC(FlowerBase):
+    info = """
+    Test the matching of traffic on tc rules with the destination MAC address
+    field.
+
+    The tested combinations include:
+    - Correct DUT MAC address
+    - Invalid destination MAC address
+
+    In the hit case, traffic is expected to be received at the EP. In the miss
+    case, traffic is not expected to be received at the EP.
+    """
+
     def execute(self):
         iface, ingress = self.configure_flower()
 
@@ -1291,6 +1303,20 @@ class FlowerMatchMAC(FlowerBase):
 
 
 class FlowerMatchVLAN(FlowerBase):
+    info = """
+    Test the matching of traffic on tc rules with VLAN and VLAN priority
+    fields.
+
+    The tested combinations include:
+    - VLAN and priority
+    - Mismatched VLAN != 0
+    - VLAN 0, no priority
+    - Mismatched VLAN == 0
+
+    In the hit cases, traffic is expected to be received at the EP. In the miss
+    cases, traffic is not expected to be received at the EP.
+    """
+
     def execute(self):
         iface, ingress = self.configure_flower()
 
@@ -1344,16 +1370,20 @@ class FlowerMatchVLAN(FlowerBase):
 
 
 class FlowerMatchQinQ(FlowerBase):
-    """ Checking if all the vlan ether types for inner/outer headers work as
-        expected. For this test we keep the rest of the vlan/cvlan fields
-        constant.
+    info = """
+    Test if all the VLAN ether types for inner/outer headers work as expected.
+    For this test we keep the rest of the VLAN/CVLAN fields constant.
 
-        Hit patterns:
-            0x8100, 0x8100
-            0x88A8, 0x8100
-            0x88A8, 0x88A8
-            0x8100, 0x88A8
+    The tested combinations include:
+    - 0x8100, 0x8100
+    - 0x88A8, 0x8100
+    - 0x88A8, 0x88A8
+    - 0x8100, 0x88A8
+
+    In the hit cases, traffic is expected to be received at the EP. In the miss
+    cases, traffic is not expected to be received at the EP.
     """
+
     def _check_prereqs(self):
         check = "man tc-flower | grep cvlan"
         description = "tc matching on cvlan, please upgrade iproute2"
@@ -1508,6 +1538,20 @@ class FlowerMatchQinQ(FlowerBase):
 
 
 class FlowerMatchVLANCFI(FlowerBase):
+    info = """
+    Test the matching of traffic on tc rules with VLAN and VLAN priority
+    fields, with the addition of the CFI/DEI bit.
+
+    The tested combinations include:
+    - VLAN and priority
+    - Mismatched VLAN != 0
+    - VLAN 0, no priority
+    - Mismatched VLAN == 0
+
+    In the hit cases, traffic is expected to be received at the EP. In the miss
+    cases, traffic is not expected to be received at the EP.
+    """
+
     def execute(self):
         iface, ingress = self.configure_flower()
 
@@ -1562,6 +1606,17 @@ class FlowerMatchVLANCFI(FlowerBase):
 
 
 class FlowerMatchVLANID(FlowerBase):
+    info = """
+    Test the matching of traffic on tc rules with VLAN ID field.
+
+    The tested combinations include:
+    - Correct VLAN ID
+    - Mismatched VLAN ID
+
+    In the hit case, traffic is expected to be received at the EP. In the miss
+    case, traffic is not expected to be received at the EP.
+    """
+
     def execute(self):
         iface, ingress = self.configure_flower()
 
@@ -1593,6 +1648,20 @@ class FlowerMatchVLANID(FlowerBase):
 
 
 class FlowerMatchVLANPCP(FlowerBase):
+    info = """
+    Test the matching of traffic on tc rules with VLAN priority field.
+
+    The tested combinations include:
+    - Correct VLAN priority
+    - Mismatched VLAN priority
+
+    In the hit case traffic is expected to be received at the EP. In the miss
+    case traffic is not expected to be received at the EP.
+
+    The tc filter rule is expected to match traffic in any VLAN as long as the
+    traffic VLAN priority matches the tc filter rule.
+    """
+
     def execute(self):
         iface, ingress = self.configure_flower()
 
@@ -1624,6 +1693,18 @@ class FlowerMatchVLANPCP(FlowerBase):
 
 
 class FlowerMatchIPv4(FlowerBase):
+    info = """
+    Test the matching of traffic on tc rules with destination IP address field.
+    Only IPv4 destination IP addresses are handled in this test.
+
+    The tested combinations include:
+    - Correct destination IP address
+    - Mismatched destination IP address
+
+    In the hit case, traffic is expected to be received at the EP. In the miss
+    case, traffic is not expected to be received at the EP.
+    """
+
     def execute(self):
         iface, ingress = self.configure_flower()
 
@@ -1655,6 +1736,18 @@ class FlowerMatchIPv4(FlowerBase):
 
 
 class FlowerMatchIPv6(FlowerBase):
+    info = """
+    Test the matching of traffic on tc rules with destination IP address field.
+    Only IPv6 destination IP addresses are handled in this test.
+
+    The tested combinations include:
+    - Correct destination IPv6 address
+    - Mismatched destination IPv6 address
+
+    In the hit case, traffic is expected to be received at the EP. In the miss
+    case, traffic is not expected to be received at the EP.
+    """
+
     def execute(self):
         iface, ingress = self.configure_flower()
         new_filter = '"not arp and' \
@@ -1690,6 +1783,18 @@ class FlowerMatchIPv6(FlowerBase):
 
 
 class FlowerMatchTCP(FlowerBase):
+    info = """
+    Test the matching of traffic on tc rules with IP TCP fields.
+
+    The tested combinations include:
+    - TCP with correct port number
+    - TCP with mismatched port number
+    - Mismatched protocol (UDP) field
+
+    In the hit case, traffic is expected to be received at the EP. In the miss
+    cases, traffic is not expected to be received at the EP.
+    """
+
     def execute(self):
         iface, ingress = self.configure_flower()
 
@@ -1735,6 +1840,18 @@ class FlowerMatchTCP(FlowerBase):
 
 
 class FlowerMatchIPv4TCPFlag(FlowerBase):
+    info = """
+    Test the offloading of supported and non-offloading of unsupported IPv4
+    TCP flags.
+
+    The offloading or non-offloading of each flag is tested independently. The
+    test will fail if an unsupported flag is offloaded, or if a supported flag
+    is not offloaded.
+
+    Additionally supported flags are verified to match on corresponding tc
+    filter rules.
+    """
+
     def test(self, flags, offload):
         iface, ingress = self.configure_flower()
 
@@ -1766,6 +1883,18 @@ class FlowerMatchIPv4TCPFlag(FlowerBase):
 
 
 class FlowerMatchIPv6TCPFlag(FlowerBase):
+    info = """
+    Test the offloading of supported and non-offloading of unsupported IPv6
+    TCP flags.
+
+    The offloading or non-offloading of each flag is tested independently. The
+    test will fail if an unsupported flag is offloaded, or if a supported flag
+    is not offloaded.
+
+    Additionally supported flags are verified to match on corresponding tc
+    filter rules.
+    """
+
     def test(self, flags, offload):
         iface, ingress = self.configure_flower()
         new_filter = '"not arp and' \
@@ -1801,6 +1930,18 @@ class FlowerMatchIPv6TCPFlag(FlowerBase):
 
 
 class FlowerMatchUDP(FlowerBase):
+    info = """
+    Test the matching of traffic on tc rules with IP UDP fields.
+
+    The tested combinations include:
+    - UDP with correct port number
+    - UDP with mismatched port number
+    - Mismatched protocol (TCP) field
+
+    In the hit case, traffic is expected to be received at the EP. In the miss
+    cases, traffic is not expected to be received at the EP.
+    """
+
     def execute(self):
         iface, ingress = self.configure_flower()
 
@@ -2535,6 +2676,14 @@ class FlowerMatchTunnelToSharedMAC(FlowerBase):
 
 
 class FlowerMatchBlock(FlowerBase):
+    info = """
+    Test the matching of flower tunnel traffic on tc filter blocks.
+
+    Both interfaces are added to a tc ingress block. A tc filter rule is added
+    to the block, and it is verified that the filter is applied to all
+    interfaces in the block.
+    """
+
     def prepare(self):
         if len(self.dut_ifn) < 2 or len(self.src_ifn) < 2:
             return NrtResult(name=self.name, testtype=self.__class__.__name__,
@@ -2855,6 +3004,22 @@ class FlowerMatchFragIPv6(FlowerMatchFrag):
 
 
 class FlowerModifyMTU(FlowerBase):
+    info = """
+    Test the setting of, as well as the minimum and maximum allowable, MTU
+    values.
+
+    The tested combinations include:
+    - > maximum (9532)
+    - < minimum (68)
+    - With jumbo (9216) packets:
+        - MTU at 9216
+        - MTU above 9216 at 9532
+        - MTU below 9216 at 9000
+
+    In the hit cases, traffic is expected to be received at the EP. In the miss
+    cases, traffic is not expected to be received at the EP.
+    """
+
     def set_sending_source_mtu(self, ingress, mtu):
         ret = self.src.ip_link_set_mtu(ingress, mtu, fail=False)
         if ret[0]:
@@ -2933,6 +3098,21 @@ class FlowerModifyMTU(FlowerBase):
 
 
 class FlowerMatchWhitelist(FlowerBase):
+    info = """
+    Test that unsupported tc rule combinations are not offloaded (installed
+    in hardware).
+
+    The tested combinations include:
+    - ARP TIP, SIP, op, SHA, THA
+    - Entunnel source IP address, destination IP address, key
+    - ICMP type, code
+    - Non representor netdev
+
+    In each case the unsupported rules are expected not to be offloaded
+    (not in hardware). If any of the unsupported rules are offloaded, the test
+    will fail.
+    """
+
     def execute(self):
         iface, _ = self.configure_flower()
         M = self.dut
@@ -3026,6 +3206,25 @@ class FlowerMatchWhitelist(FlowerBase):
 
 
 class FlowerVxlanWhitelist(FlowerBase):
+    info = """
+    Test that unsupported VXLAN tc rule combinations are not offloaded
+    (installed in hardware).
+
+    The tested combinations include:
+    - No destination IP address
+    - Masked destination IP address
+    - No destination port
+    - Destination port != 4789
+    - Representor netdev
+    - IPv6 VXLAN header (firmware dependent)
+    - Multiple output on tc tunnel action
+    - IPv6 source IP address, destination IP address (firmware dependent)
+
+    In each case the unsupported rules are expected not to be offloaded
+    (not in hardware). If any of the unsupported rules are offloaded, the test
+    will fail.
+    """
+
     def execute(self):
         iface, _ = self.configure_flower()
         M = self.dut
@@ -3139,6 +3338,19 @@ class FlowerVxlanWhitelist(FlowerBase):
 
 
 class FlowerGREWhitelist(FlowerBase):
+    info = """
+    Test that unsupported GRE tc rule combinations are not offloaded
+    (installed in hardware).
+
+    The tested combinations include:
+    - Destination port != 4789
+    - No mirred action
+
+    In each case the unsupported rules are expected not to be offloaded
+    (not in hardware). If any of the unsupported rules are offloaded, the test
+    will fail.
+    """
+
     def execute(self):
         iface, _ = self.configure_flower()
         M = self.dut
@@ -3180,6 +3392,24 @@ class FlowerGREWhitelist(FlowerBase):
 
 
 class FlowerCsumWhitelist(FlowerBase):
+    info = """
+    Test that unsupported checksum tc rule action combinations are not
+    offloaded (installed in hardware).
+
+    The tested combinations include:
+    - Set IPv4 without checksum update
+    - Set IPv6 without checksum update
+    - Set TCP without checksum update
+    - Set UDP without checksum update
+    - Set TCP with UDP checksum update
+    - Set UDP with TCP checksum update
+    - Set TCP with TCP checksum update, no TCP in match field
+
+    In each case the unsupported rules are expected not to be offloaded
+    (not in hardware). If any of the unsupported rules are offloaded, the test
+    will fail.
+    """
+
     def execute(self):
         iface, _ = self.configure_flower()
 
