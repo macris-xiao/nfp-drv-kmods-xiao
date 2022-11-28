@@ -2704,12 +2704,19 @@ class FlowerMatchGeneveMultiOpt(FlowerBase):
 
 
 class FlowerMaxEntries(FlowerBase):
-    """ Test tries to install 500K entries. We do this using TCs batch
-        command. The alternative of calling 'tc filter add' 500K times
-        is not feasible as this takes too long. Creating the batch file
-        on the orchestrator and copying it over is also not feasible as
-        this file can become very large.
+    info = """
+    Test the maximum flow entry support of the NFP.
+
+    The test determines the maximum number of supported entries by reading
+    CONFIG_FC_HOST_CTX_COUNT rtsym. The tc batch command is used to populate
+    the tc rules, as individually adding each rule is too time consuming.
+    Creating the batch file on the orchestrator and copying it over is also
+    not feasible as this file can become very large.
+
+    The test will fail if the number of tc filter rules specified by the rtsym
+    cannot be installed.
     """
+
     def execute(self):
         setup_local = os.path.join(self.group.tmpdir, 'generate_entries.py')
         setup_dut = os.path.join(self.dut.tmpdir, 'generate_entries.py')
@@ -2752,6 +2759,15 @@ class FlowerMaxEntries(FlowerBase):
 
 
 class FlowerMatchTunnelToSharedMAC(FlowerBase):
+    info = """
+    Test the matching of flower tunnel traffic on interfaces with shared MAC
+    addresses.
+
+    The second interface MAC address is set to the MAC address of the first
+    port. Flower traffic should match on both ports. The secondary port MAC
+    address is reset. Traffic should no longer match on both ports.
+    """
+
     def prepare(self):
         if len(self.dut_ifn) < 2 or len(self.src_ifn) < 2:
             return NrtResult(name=self.name, testtype=self.__class__.__name__,
@@ -2886,6 +2902,20 @@ class FlowerMatchBlock(FlowerBase):
 
 
 class FlowerMatchMPLS(FlowerBase):
+    info = """
+    Test the matching of traffic on tc rules with MPLS and MPLS label
+    fields.
+
+    The tested combinations include:
+    - MPLS traffic
+    - Non-MPLS traffic
+    - MPLS traffic with correct label
+    - MPLS traffic with mismatched label
+
+    In the hit cases, traffic is expected to be received at the EP. In the miss
+    cases, traffic is not expected to be received at the EP.
+    """
+
     def execute(self):
         self.check_prereq('tc filter add flower help 2>&1 | grep mpls',
                           'MPLS Flower classification')
@@ -2941,6 +2971,19 @@ class FlowerMatchMPLS(FlowerBase):
 
 
 class FlowerMatchTTL(FlowerBase):
+    info = """
+    Test the matching of traffic on tc rules with TTL field.
+
+    The tested combinations include:
+    - Correct TTL IPv4
+    - Mismatched TTL IPv4
+    - Correct TTL IPv6
+    - Mismatched TTL IPv6
+
+    In the hit cases, traffic is expected to be received at the EP. In the miss
+    cases, traffic is not expected to be received at the EP.
+    """
+
     def execute(self):
         iface, ingress = self.configure_flower()
 
@@ -2999,6 +3042,19 @@ class FlowerMatchTTL(FlowerBase):
 
 
 class FlowerMatchTOS(FlowerBase):
+    info = """
+    Test the matching of traffic on tc rules with TOS field.
+
+    The tested combinations include:
+    - Correct TOS IPv4
+    - Mismatched TOS IPv4
+    - Correct TOS IPv6
+    - Mismatched TOS IPv6
+
+    In the hit cases, traffic is expected to be received at the EP. In the miss
+    cases, traffic is not expected to be received at the EP.
+    """
+
     def execute(self):
         iface, ingress = self.configure_flower()
 
@@ -3057,6 +3113,28 @@ class FlowerMatchTOS(FlowerBase):
 
 
 class FlowerMatchFrag(FlowerBase):
+    info = """
+    Base class for testing the matching of fragmented traffic on tc rules
+    with various fragmentation flags.
+
+    The tested combinations include:
+    - No fragmentation flag
+        - Fragmented traffic
+        - Non-fragmented traffic
+    - Fragmentation flag
+        - Fragmented traffic
+        - Non-fragmented traffic
+    - No first fragment flag
+        - First traffic fragment
+        - Second traffic fragment
+    - Only first fragment flag
+        - First traffic fragment
+        - Second traffic fragment
+
+    In the hit cases, traffic is expected to be received at the EP. In the miss
+    cases, traffic is not expected to be received at the EP.
+    """
+
     def install_test(self, flag, iface, ingress):
         match = self.ip_ver + ' flower ip_flags ' + flag
         action = 'mirred egress redirect dev %s' % iface
@@ -3103,6 +3181,28 @@ class FlowerMatchFrag(FlowerBase):
 
 
 class FlowerMatchFragIPv4(FlowerMatchFrag):
+    info = """
+    Test the matching of fragmented IPv4 traffic on tc rules with various
+    fragmentation flags. Test implementation in base class - FlowerMatchFrag.
+
+    The tested combinations include:
+    - No fragmentation flag
+        - Fragmented traffic
+        - Non-fragmented traffic
+    - Fragmentation flag
+        - Fragmented traffic
+        - Non-fragmented traffic
+    - No first fragment flag
+        - First traffic fragment
+        - Second traffic fragment
+    - Only first fragment flag
+        - First traffic fragment
+        - Second traffic fragment
+
+    In the hit cases, traffic is expected to be received at the EP. In the miss
+    cases, traffic is not expected to be received at the EP.
+    """
+
     def __init__(self, *args, **kwargs):
         super(FlowerMatchFragIPv4, self).__init__(*args, **kwargs)
         self.ip_ver = 'ip'
@@ -3115,6 +3215,28 @@ class FlowerMatchFragIPv4(FlowerMatchFrag):
 
 
 class FlowerMatchFragIPv6(FlowerMatchFrag):
+    info = """
+    Test the matching of fragmented IPv6 traffic on tc rules with various
+    fragmentation flags. Test implementation in base class - FlowerMatchFrag.
+
+    The tested combinations include:
+    - No fragmentation flag
+        - Fragmented traffic
+        - Non-fragmented traffic
+    - Fragmentation flag
+        - Fragmented traffic
+        - Non-fragmented traffic
+    - No first fragment flag
+        - First traffic fragment
+        - Second traffic fragment
+    - Only first fragment flag
+        - First traffic fragment
+        - Second traffic fragment
+
+    In the hit cases, traffic is expected to be received at the EP. In the miss
+    cases, traffic is not expected to be received at the EP.
+    """
+
     def __init__(self, *args, **kwargs):
         super(FlowerMatchFragIPv6, self).__init__(*args, **kwargs)
         # Default setting for ipv6 Router Solicitation setting
@@ -5766,6 +5888,18 @@ class FlowerActionBondEgress(FlowerBase):
 
 
 class FlowerActionIngressRateLimit(FlowerBase):
+    info = """
+    Test the QoS rate-limiting of matched packets using tc filter rules. Both
+    packet and burst rates are defined, and it is verified that the observed
+    packet rates are within a 15% tolerance of the defined rate-limit.
+
+    The combinations tested include:
+    - 1 Mbps
+    - 10 Mbps
+
+    Testing is facilitated using netperf UDP streams.
+    """
+
     def execute(self):
         self.check_prereq("netserver -h 2>&1 | grep Usage:",
                           'netserver missing', on_src=True)
