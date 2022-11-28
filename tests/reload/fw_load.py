@@ -164,3 +164,4 @@ class KernelLoadTest(CommonTest):
             self.src.cmd('ip a flush %s ' % ifc)
 
         self.dut.reset_mods()
+        return super(KernelLoadTest, self).cleanup()

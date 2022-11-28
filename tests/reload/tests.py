@@ -241,6 +241,8 @@ class SpeedSet(CommonNetdevTest):
         if 'default' not in out:
             raise NtiError("Speed could not be reset to default with"
                            " nfp-media -C")
+        return super(SpeedSet, self).cleanup()
+
 ###########################################################################
 class DevlinkSplit(CommonNetdevTest):
     def check_fails_split(self, idx, bad_counts):
