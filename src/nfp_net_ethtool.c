@@ -351,16 +351,17 @@ static void nfp_add_media_link_mode(struct nfp_port *port,
 		.eth_index = eth_port->eth_index,
 	};
 	struct nfp_cpp *cpp = port->app->cpp;
+	unsigned i;
 
 	if (nfp_eth_read_media(cpp, &ethm))
 		return;
 
-	for (u32 i = 0; i < 2; i++) {
+	for (i = 0; i < 2; i++) {
 		supported_modes[i] = le64_to_cpu(ethm.supported_modes[i]);
 		advertised_modes[i] = le64_to_cpu(ethm.advertised_modes[i]);
 	}
 
-	for (u32 i = 0; i < NFP_MEDIA_LINK_MODES_NUMBER; i++) {
+	for (i = 0; i < NFP_MEDIA_LINK_MODES_NUMBER; i++) {
 		if (i < 64) {
 			if (supported_modes[0] & BIT_ULL(i))
 				__set_bit(nfp_eth_media_table[i],
