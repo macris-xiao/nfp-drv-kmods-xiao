@@ -3812,6 +3812,15 @@ class FlowerActionPopVLAN(FlowerBase):
 
 
 class FlowerActionGRE(FlowerTunnel):
+    info = """
+    Test the GRE tunnel encapsulation of IPv4 & IPv6 traffic using tc filter
+    rules.
+
+    Both IPv4 & IPv6 inner packets across both IPv4 & IPv6 tunnels are tested.
+    The expected packet size and expected header fields of the entunnelled
+    packets are verified.
+    """
+
     def execute(self):
         iface, ingress = self.configure_flower()
         self.add_gre_dev('gre1')
@@ -3836,6 +3845,15 @@ class FlowerActionGRE(FlowerTunnel):
 
 
 class FlowerActionMergeGRE(FlowerTunnel):
+    info = """
+    Test the GRE tunnel encapsulation of IPv4 & IPv6 traffic using tc filter
+    rules on an OVS internal port.
+
+    Both IPv4 & IPv6 inner packets across both IPv4 & IPv6 tunnels are tested.
+    The expected packet size and expected header fields of the entunnelled
+    packets are verified.
+    """
+
     def execute(self):
         iface, ingress = self.configure_flower()
         self.add_gre_dev('gre1')
@@ -3868,6 +3886,15 @@ class FlowerActionMergeGRE(FlowerTunnel):
 
 
 class FlowerActionVXLAN(FlowerTunnel):
+    info = """
+    Test the VXLAN tunnel encapsulation of IPv4 & IPv6 traffic using tc filter
+    rules.
+
+    Both IPv4 & IPv6 inner packets across both IPv4 & IPv6 tunnels are tested.
+    The expected packet size and expected header fields of the entunnelled
+    packets are verified.
+    """
+
     def execute(self):
         iface, ingress = self.configure_flower()
         self.add_vxlan_dev('vxlan0')
@@ -3893,6 +3920,15 @@ class FlowerActionVXLAN(FlowerTunnel):
 
 
 class FlowerActionMergeVXLAN(FlowerTunnel):
+    info = """
+    Test the VXLAN tunnel encapsulation of IPv4 & IPv6 traffic using tc filter
+    rules on an OVS internal port.
+
+    Both IPv4 & IPv6 inner packets across both IPv4 & IPv6 tunnels are tested.
+    The expected packet size and expected header fields of the entunnelled
+    packets are verified.
+    """
+
     def execute(self):
         iface, ingress = self.configure_flower()
         self.add_vxlan_dev('vxlan0')
@@ -3925,6 +3961,15 @@ class FlowerActionMergeVXLAN(FlowerTunnel):
 
 
 class FlowerActionMergeVXLANInVLAN(FlowerTunnel):
+    info = """
+    Test the VXLAN tunnel encapsulation of IPv4 & IPv6 traffic using tc filter
+    rules on an OVS internal port with the addition of VLAN.
+
+    Both IPv4 & IPv6 inner packets across both IPv4 & IPv6 tunnels are tested.
+    The expected packet size and expected header fields of the entunnelled
+    packets are verified.
+    """
+
     def prepare(self):
         if self.dut.kernel_ver_lt(5, 4):
             return NrtResult(name=self.name, testtype=self.__class__.__name__,
@@ -3964,6 +4009,15 @@ class FlowerActionMergeVXLANInVLAN(FlowerTunnel):
 
 
 class FlowerActionGENEVE(FlowerTunnel):
+    info = """
+    Test the Geneve tunnel encapsulation of IPv4 & IPv6 traffic using tc filter
+    rules.
+
+    Both IPv4 & IPv6 inner packets across both IPv4 & IPv6 tunnels are tested.
+    The expected packet size and expected header fields of the entunnelled
+    packets are verified.
+    """
+
     def execute(self):
         iface, ingress = self.configure_flower()
         self.add_geneve_dev('gene0')
@@ -3988,6 +4042,15 @@ class FlowerActionGENEVE(FlowerTunnel):
 
 
 class FlowerActionMergeGENEVE(FlowerTunnel):
+    info = """
+    Test the Geneve tunnel encapsulation of IPv4 & IPv6 traffic using tc filter
+    rules on an OVS internal port.
+
+    Both IPv4 & IPv6 inner packets across both IPv4 & IPv6 tunnels are tested.
+    The expected packet size and expected header fields of the entunnelled
+    packets are verified.
+    """
+
     def execute(self):
         iface, ingress = self.configure_flower()
         self.add_geneve_dev('gene0')
@@ -4020,6 +4083,15 @@ class FlowerActionMergeGENEVE(FlowerTunnel):
 
 
 class FlowerActionMergeGENEVEInVLAN(FlowerTunnel):
+    info = """
+    Test the Geneve tunnel encapsulation of IPv4 & IPv6 traffic using tc filter
+    rules on an OVS internal port with the addition of VLAN.
+
+    Both IPv4 & IPv6 inner packets across both IPv4 & IPv6 tunnels are tested.
+    The expected packet size and expected header fields of the entunnelled
+    packets are verified.
+    """
+
     def prepare(self):
         if self.dut.kernel_ver_lt(5, 4):
             return NrtResult(name=self.name, testtype=self.__class__.__name__,
@@ -4059,6 +4131,14 @@ class FlowerActionMergeGENEVEInVLAN(FlowerTunnel):
 
 
 class FlowerActionGENEVEOpt(FlowerBase):
+    info = """
+    Test the Geneve tunnel encapsulation of traffic using tc filter
+    rules. Genene tunnel encapsulation is performed with options.
+
+    Each set of Geneve options is tested by validating the header fields of
+    the entunnelled packets received at the EP.
+    """
+
     def install_geneve_opt(self, iface, ingress, dut_ip, src_ip, dut_mac,
                            src_mac, geneve_opt):
         match = 'ip flower skip_sw ip_proto tcp'
@@ -4200,6 +4280,14 @@ class FlowerActionGENEVEOpt(FlowerBase):
 
 
 class FlowerActionGENEVEMultiOpt(FlowerBase):
+    info = """
+    Test the Geneve tunnel encapsulation of traffic using tc filter
+    rules. Genene tunnel encapsulation is performed with multiple options.
+
+    Each set of Geneve option pairs is tested by validating the header fields
+    of the entunnelled packets received at the EP.
+    """
+
     def install_geneve_opt(self, iface, ingress, dut_ip, src_ip, dut_mac,
                            src_mac, geneve_opt1, geneve_opt2):
         match = 'ip flower skip_sw ip_proto tcp'
@@ -5158,6 +5246,15 @@ class FlowerActionSetMulti(FlowerBase):
 
 
 class FlowerActionPushMPLS(FlowerBase):
+    info = """
+    Test the pushing of traffic to MPLS using tc filter rules. Inner packets
+    are transmitted and packets in MPLS are expected to be received.
+
+    The tested combinations include:
+    - MPLS
+    - MPLS in MPLS
+    """
+
     def execute(self):
         iface, ingress = self.configure_flower()
 
@@ -5201,6 +5298,15 @@ class FlowerActionPushMPLS(FlowerBase):
 
 
 class FlowerActionPopMPLS(FlowerBase):
+    info = """
+    Test the popping of traffic from MPLS using tc filter rules. Packets in
+    MPLS are transmitted and inner packets are expected to be received.
+
+    The tested combinations include:
+    - MPLS
+    - MPLS in MPLS
+    """
+
     def execute(self):
         iface, ingress = self.configure_flower()
 
@@ -5245,6 +5351,19 @@ class FlowerActionPopMPLS(FlowerBase):
 
 
 class FlowerVlanRepr(FlowerBase):
+    info = """
+    Test unsupported tc filter rule action redirects to upper netdevs to ensure
+    they are not offloaded.
+
+    The test cases include:
+    - VLAN netdev 50
+    - VLAN netdev 100
+
+    In each case the unsupported rules are expected not to be offloaded
+    (not in hardware). If any of the unsupported rules are offloaded the test
+    will fail.
+    """
+
     def execute(self):
         iface, _ = self.configure_vlan_flower(50)
 
@@ -5273,6 +5392,20 @@ class FlowerVlanRepr(FlowerBase):
 
 
 class FlowerActionSetMPLS(FlowerBase):
+    info = """
+    Test the modification of packet header fields. In this case MPLS header
+    fields of the packets are modified.
+
+    The combinations tested include:
+    - MPLS label
+    - MPLS traffic class
+    - MPLS time-to-live
+    - MPLS label, traffic class & time-to-live
+
+    The header field modification is tested by validating the header fields of
+    the packets received at the EP.
+    """
+
     def execute(self):
         iface, ingress = self.configure_flower()
 
@@ -5348,6 +5481,20 @@ class FlowerActionSetMPLS(FlowerBase):
 
 
 class FlowerReprLinkstate(CommonTest):
+    info = """
+    Test the linkstate interdependency of flower VFs and representors. Verify
+    that the netdev linkstates adhere to the boolean logic: (A AND B).
+
+    The combinations tested include:
+    - Both VF and representor set down
+    - Only VF set up
+    - Only representor set up
+    - Both VF and representor set up
+
+    The linkstate of both the VF and representor are only expected to be up if
+    both VF and representor netdevs are set up.
+    """
+
     def dmesg_check(self):
         _, out = self.dut.cmd('dmesg -c | grep %s' % (self.group.pci_dbdf))
         failures = re.search('ctrl msg for unknown port', out)
@@ -5413,6 +5560,20 @@ class FlowerReprLinkstate(CommonTest):
 
 
 class FlowerActionBondEgress(FlowerBase):
+    info = """
+    Test the bonding of NFP interfaces using Linux bonds and TeamNL.
+
+    The combinations tested include:
+    - Load-balancing using Linux bonds
+    - Active/backup mode boding using Linux bonds
+    - Load-balancing using TeamNL
+
+    In the load-balancing cases, traffic is expected to be distributed among
+    the two bonded interfaces. In the active/backupo mode case, traffic is
+    expected on the primary interface if it is active. Traffic is expected on
+    the secondary interface if the primary interface is down.
+    """
+
     def execute(self):
         self.check_prereq('teamnl --help 2>&1 | grep setoption',
                           'OPT_NAME OPT_VALUE')
