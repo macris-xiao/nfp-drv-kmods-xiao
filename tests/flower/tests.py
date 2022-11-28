@@ -2113,6 +2113,23 @@ class FlowerMatchUnsupported(FlowerTunnel):
 
 
 class FlowerMatchGRE(FlowerTunnel):
+    info = """
+    Test the decapsulation of GRE tunnel traffic using tc filter rules. GRE
+    tunnel encapsulated packets are sent to the DUT for decap using tc filter
+    rules.
+
+    The tested combinations include:
+    - Match all tunnel fields and decap
+    - Mismatched encapsulation source IP address
+    - Mismatched encapsulation destination IP address
+    - Mismatched tunnel key
+    - Mismatched TTL
+    - Mismatched TOS
+
+    In the hit case, traffic is expected to be received at the EP. In the miss
+    cases, traffic is not expected to be received at the EP.
+    """
+
     def execute(self):
         iface, ingress = self.configure_flower()
         self.add_gre_dev('gre1')
@@ -2126,6 +2143,31 @@ class FlowerMatchGRE(FlowerTunnel):
 
 
 class FlowerMatchGREInVLAN(FlowerTunnel):
+    info = """
+    Test the decapsulation of GRE tunnel traffic using tc filter rules. GRE
+    tunnel encapsulated packets are sent to the DUT where tc filter rules pop
+    from VLAN, before redirecting to OVS internal port, where tunnel decap
+    occurs.
+
+    The tested combinations include:
+    - No VLAN
+    - VLAN on both IPv4 & IPv6
+    - VLAN on IPv4 only
+    - VLAN on IPv6 only
+    - Mismatched VLAN ID
+
+    Each of the test combinations above, test the following field combinations:
+    - Match all tunnel fields and decap
+    - Mismatched encapsulation source IP address
+    - Mismatched encapsulation destination IP address
+    - Mismatched tunnel key
+    - Mismatched TTL
+    - Mismatched TOS
+
+    In the hit cases, traffic is expected to be received at the EP. In the miss
+    cases, traffic is not expected to be received at the EP.
+    """
+
     def prepare(self):
         if self.dut.kernel_ver_lt(5, 4):
             return NrtResult(name=self.name, testtype=self.__class__.__name__,
@@ -2161,6 +2203,23 @@ class FlowerMatchGREInVLAN(FlowerTunnel):
 
 
 class FlowerMatchVXLAN(FlowerTunnel):
+    info = """
+    Test the decapsulation of VXLAN tunnel traffic using tc filter rules.
+    VXLAN tunnel encapsulated packets are sent to the DUT for decap using tc
+    filter rules.
+
+    The tested combinations include:
+    - Match all tunnel fields and decap
+    - Mismatched encapsulation source IP address
+    - Mismatched encapsulation destination IP address
+    - Mismatched tunnel key
+    - Mismatched TTL
+    - Mismatched TOS
+
+    In the hit case, traffic is expected to be received at the EP. In the miss
+    cases, traffic is not expected to be received at the EP.
+    """
+
     def execute(self):
         iface, ingress = self.configure_flower()
         self.add_vxlan_dev('vxlan0')
@@ -2174,6 +2233,31 @@ class FlowerMatchVXLAN(FlowerTunnel):
 
 
 class FlowerMatchVXLANInVLAN(FlowerTunnel):
+    info = """
+    Test the decapsulation of VXLAN tunnel traffic using tc filter rules.
+    VXLAN tunnel encapsulated packets are sent to the DUT where tc filter
+    rules pop from VLAN, before redirecting to OVS internal port, where tunnel
+    decap occurs.
+
+    The tested combinations include:
+    - No VLAN
+    - VLAN on both IPv4 & IPv6
+    - VLAN on IPv4 only
+    - VLAN on IPv6 only
+    - Mismatched VLAN ID
+
+    Each of the test combinations above, test the following field combinations:
+    - Match all tunnel fields and decap
+    - Mismatched encapsulation source IP address
+    - Mismatched encapsulation destination IP address
+    - Mismatched tunnel key
+    - Mismatched TTL
+    - Mismatched TOS
+
+    In the hit cases, traffic is expected to be received at the EP. In the miss
+    cases, traffic is not expected to be received at the EP.
+    """
+
     def prepare(self):
         if self.dut.kernel_ver_lt(5, 4):
             return NrtResult(name=self.name, testtype=self.__class__.__name__,
@@ -2209,6 +2293,23 @@ class FlowerMatchVXLANInVLAN(FlowerTunnel):
 
 
 class FlowerMatchGeneve(FlowerTunnel):
+    info = """
+    Test the decapsulation of Geneve tunnel traffic using tc filter rules.
+    Geneve tunnel encapsulated packets are sent to the DUT for decap using tc
+    filter rules.
+
+    The tested combinations include:
+    - Match all tunnel fields and decap
+    - Mismatched encapsulation source IP address
+    - Mismatched encapsulation destination IP address
+    - Mismatched tunnel key
+    - Mismatched TTL
+    - Mismatched TOS
+
+    In the hit case, traffic is expected to be received at the EP. In the miss
+    cases, traffic is not expected to be received at the EP.
+    """
+
     def execute(self):
         iface, ingress = self.configure_flower()
         self.add_geneve_dev('gene0')
@@ -2222,6 +2323,31 @@ class FlowerMatchGeneve(FlowerTunnel):
 
 
 class FlowerMatchGeneveInVLAN(FlowerTunnel):
+    info = """
+    Test the decapsulation of Geneve tunnel traffic using tc filter rules.
+    Geneve tunnel encapsulated packets are sent to the DUT where tc filter
+    rules pop from VLAN, before redirecting to OVS internal port, where tunnel
+    decap occurs.
+
+    The tested combinations include:
+    - No VLAN
+    - VLAN on both IPv4 & IPv6
+    - VLAN on IPv4 only
+    - VLAN on IPv6 only
+    - Mismatched VLAN ID
+
+    Each of the test combinations above, test the following field combinations:
+    - Match all tunnel fields and decap
+    - Mismatched encapsulation source IP address
+    - Mismatched encapsulation destination IP address
+    - Mismatched tunnel key
+    - Mismatched TTL
+    - Mismatched TOS
+
+    In the hit cases, traffic is expected to be received at the EP. In the miss
+    cases, traffic is not expected to be received at the EP.
+    """
+
     def prepare(self):
         if self.dut.kernel_ver_lt(5, 4):
             return NrtResult(name=self.name, testtype=self.__class__.__name__,
@@ -2257,6 +2383,18 @@ class FlowerMatchGeneveInVLAN(FlowerTunnel):
 
 
 class FlowerMatchGeneveOpt(FlowerBase):
+    info = """
+    Test the matching of Geneve traffic on tc filter rules with different
+    Geneve option combinations.
+
+    The tested combinations include various Geneve option structs. For
+    each case the valid options data is tested to match traffic, while a miss
+    case is also tested where the options data is invalid.
+
+    In the hit cases traffic is expected to be received at the EP. In the miss
+    cases traffic is not expected to be received at the EP.
+    """
+
     def hit_geneve_opt(self, iface, ingress, dut_ip, src_ip, dut_mac, src_mac,
                        geneve_opt):
         tun_id = unpack('>hh', '\x00' + geneve_opt['vni_field'])[1]
@@ -2388,6 +2526,18 @@ class FlowerMatchGeneveOpt(FlowerBase):
 
 
 class FlowerMatchGeneveMultiOpt(FlowerBase):
+    info = """
+    Test the matching of Geneve traffic on tc filter rules with multiple (2)
+    different Geneve option combinations.
+
+    The tested combinations include pairs of various Geneve option structs. For
+    each case the valid options data is tested to match traffic, while a miss
+    case is also tested where the options data is invalid.
+
+    In the hit cases traffic is expected to be received at the EP. In the miss
+    cases traffic is not expected to be received at the EP.
+    """
+
     def geneve_opt_to_str(self, geneve_opt):
         opt_class = unpack('>h', geneve_opt['opt_class'])[0]
         opt_type = unpack('>h', '\x00' + geneve_opt['opt_type'])[0]
@@ -3478,6 +3628,18 @@ class FlowerCsumWhitelist(FlowerBase):
 
 
 class FlowerActionPushVLAN(FlowerBase):
+    info = """
+    Test the pushing of traffic to VLAN using tc filter rules. Inner packets
+    are transmitted and packets in VLAN are expected to be received.
+
+    The tested combinations include:
+    - No VLAN
+    - VLAN ID & priority
+    - VLAN ID
+    - VLAN priority
+    - VLAN 0 & priority
+    """
+
     def execute(self):
         iface, ingress = self.configure_flower()
 
@@ -3568,6 +3730,17 @@ class FlowerActionPushVLAN(FlowerBase):
 
 
 class FlowerActionPopVLAN(FlowerBase):
+    info = """
+    Test the popping of traffic from VLAN using tc filter rules. Packets in
+    VLAN are transmitted and inner packets are expected to be received.
+
+    The tested combinations include:
+    - No VLAN
+    - VLAN ID & priority
+    - VLAN ID
+    - VLAN with CFI/DEI bit
+    """
+
     def execute(self):
         iface, ingress = self.configure_flower()
 
@@ -4174,6 +4347,19 @@ class FlowerActionGENEVEMultiOpt(FlowerBase):
 
 
 class FlowerActionSetEth(FlowerBase):
+    info = """
+    Test the modification of packet header fields. In this case the source and
+    destination MAC address fields of the packets are modified.
+
+    The combinations tested include:
+    - Source & destination MAC addresses
+    - Destination MAC address
+    - Source MAC address
+
+    The header field modification is tested by validating the header fields of
+    the packets received at the EP.
+    """
+
     def execute(self):
         iface, ingress = self.configure_flower()
 
@@ -4245,6 +4431,19 @@ class FlowerActionSetEth(FlowerBase):
 
 
 class FlowerActionSetIPv4TTLTOS(FlowerBase):
+    info = """
+    Test the modification of packet header fields. In this case the TTL and TOS
+    of the packets are modified.
+
+    The combinations tested include:
+    - TTL & TOS
+    - TTL
+    - TOS
+
+    The header field modification is tested by validating the header fields of
+    the packets received at the EP.
+    """
+
     def execute(self):
         iface, ingress = self.configure_flower()
 
@@ -4315,6 +4514,21 @@ class FlowerActionSetIPv4TTLTOS(FlowerBase):
 
 
 class FlowerActionSetIPv4(FlowerBase):
+    info = """
+    Test the modification of packet header fields. In this case the source and
+    destination IPv4 addresses of the packets are modified.
+
+    The combinations tested include:
+    - Source & destination IP addresses
+    - Destination IP address
+    - Source IP address
+    - Multiple destination IP addresses with partial masks
+    - Multiple source IP addresses with partial masks
+
+    The header field modification is tested by validating the header fields of
+    the packets received at the EP.
+    """
+
     def execute(self):
         iface, ingress = self.configure_flower()
 
@@ -4411,6 +4625,20 @@ class FlowerActionSetIPv4(FlowerBase):
 
 
 class FlowerActionSetIPv6HopLimitFlowLabel(FlowerBase):
+    info = """
+    Test the modification of packet header fields. In this case the hop limit
+    and flow label of IPv6 packets are modified.
+
+    The combinations tested include:
+    - No modification
+    - Hop limit and flow label
+    - Hop limit
+    - Flow limit
+
+    The header field modification is tested by validating the header fields of
+    the packets received at the EP.
+    """
+
     def execute(self):
         iface, ingress = self.configure_flower()
         new_filter = '"not arp and' \
@@ -4480,6 +4708,19 @@ class FlowerActionSetIPv6HopLimitFlowLabel(FlowerBase):
 
 
 class FlowerActionSetIPv6(FlowerBase):
+    info = """
+    Test the modification of packet header fields. In this case the source and
+    destination IPv6 addresses of the packets are modified.
+
+    The combinations tested include:
+    - Source & destination IP addresses
+    - Destination IP address
+    - Source IP address
+
+    The header field modification is tested by validating the header fields of
+    the packets received at the EP.
+    """
+
     def execute(self):
         iface, ingress = self.configure_flower()
         new_filter = '"not arp and' \
@@ -4555,6 +4796,21 @@ class FlowerActionSetIPv6(FlowerBase):
 
 
 class FlowerActionSetUDP(FlowerBase):
+    info = """
+    Test the modification of packet header fields. In this case the source and
+    destination UDP ports of the packets are modified.
+
+    The combinations tested include:
+    - Source & destination ports
+    - Destination port
+    - Source port
+    - Destination port with multiple masks
+    - Source port with multiple masks
+
+    The header field modification is tested by validating the header fields of
+    the packets received at the EP.
+    """
+
     def execute(self):
         iface, ingress = self.configure_flower()
 
@@ -4659,6 +4915,21 @@ class FlowerActionSetUDP(FlowerBase):
 
 
 class FlowerActionSetTCP(FlowerBase):
+    info = """
+    Test the modification of packet header fields. In this case the source and
+    destination TCP ports of the packets are modified.
+
+    The combinations tested include:
+    - Source & destination ports
+    - Destination port
+    - Source port
+    - Destination port with multiple masks
+    - Source port with multiple masks
+
+    The header field modification is tested by validating the header fields of
+    the packets received at the EP.
+    """
+
     def execute(self):
         iface, ingress = self.configure_flower()
 
@@ -4763,6 +5034,20 @@ class FlowerActionSetTCP(FlowerBase):
 
 
 class FlowerActionSetMulti(FlowerBase):
+    info = """
+    Test the modification of packet header fields. In this case multiple
+    header fields of the packets are modified.
+
+    The combinations tested include:
+    - Source MAC address, IPv4 address, TCP port
+    - Destination MAC address, IPv4 address, TCP port
+    - Source MAC address, IPv6 address, TCP port
+    - Destination MAC address, IPv6 address, TCP port
+
+    The header field modification is tested by validating the header fields of
+    the packets received at the EP.
+    """
+
     def execute(self):
         iface, ingress = self.configure_flower()
         new_filter = '"not arp and' \
