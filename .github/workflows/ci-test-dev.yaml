@@ -123,12 +123,6 @@ jobs:
                     }
           print(json.dumps(inputs, indent=1))
 
-      - name: Fail if test specified but not fw_type
-        if: inputs.test != 'all' && inputs.fw_type == 'AUTO:all'
-        run: |
-          echo "::error::Test specified but not firmware type"
-          exit 1
-
       - name: Checkout provisioning repo
         uses: actions/checkout@v3
         with:
@@ -353,8 +347,8 @@ jobs:
                             'firmware_name':'agilio-flower-app-firmware-',
                             'firmware_path':'binaries/disa/releases/tgz',
                             'config_file':'flower',
-                            'test_cases':'flower&'\
-                                        'netdev.flower.*&'})
+                            'test_cases':'flower&'
+                                         'netdev.flower.*&'})
 
             names.append('sriov_tests')
             include.append({'name':'sriov_tests',
@@ -362,10 +356,10 @@ jobs:
                             'firmware_name':'agilio-sriov-firmware-',
                             'firmware_path':'binaries/nic/releases/tgz',
                             'config_file':'generic',
-                            'test_cases':'reload&'\
-                                        'reboot&'\
-                                        'netdev.(multi|sriov|nic).*&'\
-                                        'unit.(multi|sriov|nic).*&'})
+                            'test_cases':'reload&'
+                                         'reboot&'
+                                         'netdev.(multi|sriov|nic).*&'
+                                         'unit.(multi|sriov|nic).*&'})
 
           testMatrix["name"] = names
           testMatrix["include"] = include
@@ -377,7 +371,9 @@ jobs:
         id: matrix_dispatch
         shell: python3 {0}
         run: |
+          import sys
           import json
+          import re
           import os as operating_sys
 
           testMatrix = {'kernel':[
@@ -402,110 +398,177 @@ jobs:
           else:
             platform.append('${{ inputs.platform }}')
 
-          search_key = '${{ env.SEARCH_KEY }}'
-          fw_path = '${{ env.BPF_FW_PATH }}'
+          if ( '${{ inputs.test }}' == 'all' ):
 
-          if ( '${{ inputs.test }}' == 'all' and
-              ( '${{ inputs.fw_type }}' == 'BPF:agilio-bpf-firmware' ) ):
-
-            if ( search_key == '' ):
-              search_key = 'agilio-bpf-firmware-.*${{ inputs.fw_version }}.*'
-
-            names.append('BPF_tests')
-            include.append({'name':'BPF_tests',
-                            'iproute_version':'5.12.0',
-                            'firmware_name':search_key,
-                            'firmware_path':fw_path,
-                            'config_file':'generic',
-                            'test_cases':'ebpf&'\
-                                        'ebpfdrv&'\
-                                        'ebpf_perf&'\
-                                        'ebpf_perf_drv&'\
-                                        'netdev.bpf.*&'})
-
-          search_key = '${{ env.SEARCH_KEY }}'
-          fw_path = '${{ env.DISA_FW_PATH }}'
-
-          if ( '${{ inputs.test }}' == 'all' and
-              ( '${{ inputs.fw_type }}' == 'AUTO:all' or
-              '${{ inputs.fw_type }}' == 'DISA:agilio-flower-app-firmware' ) ):
-
-            if ( search_key == '' ):
-              search_key = 'agilio-flower-app-firmware-.*${{ inputs.fw_version }}.*'
-
-            names.append('DISA_tests')
-            include.append({'name':'DISA_tests',
-                            'iproute_version':'5.15.0',
-                            'firmware_name':search_key,
-                            'firmware_path':fw_path,
-                            'config_file':'flower',
-                            'test_cases':'flower&'\
-                                         'netdev.flower.*&'})
-
-          search_key = '${{ env.SEARCH_KEY }}'
-          fw_path = '${{ env.NIC_FW_PATH }}'
-
-          if ( '${{ inputs.test }}' == 'all' and
-              '${{ inputs.fw_type }}' == 'NIC:agilio-nic-firmware' ):
-
-            if ( search_key == '' ):
-              search_key = 'agilio-nic-firmware-.*${{ inputs.fw_version }}.*'
-
-            names.append('CoreNIC_tests')
-            include.append({'name':'CoreNIC_tests',
-                            'iproute_version':'5.15.0',
-                            'firmware_name':search_key,
-                            'firmware_path':fw_path,
-                            'config_file':'generic',
-                            'test_cases':'reload&'\
-                                        'reboot&'\
-                                        'netdev.(multi|nic).*&'\
-                                        'unit.(multi|nic).*&'})
-
-          search_key = '${{ env.SEARCH_KEY }}'
-          fw_path = '${{ env.NIC_FW_PATH }}'
-
-          if ( '${{ inputs.test }}' == 'all' and
-              ( '${{ inputs.fw_type }}' == 'AUTO:all' or
-              '${{ inputs.fw_type }}' == 'SRIOV:agilio-sriov-firmware') ):
-
-            if ( search_key == '' ):
-              search_key = 'agilio-sriov-firmware-.*${{ inputs.fw_version }}.*'
-
-            names.append('SRIOV_tests')
-            include.append({'name':'SRIOV_tests',
-                            'iproute_version':'5.15.0',
-                            'firmware_name':search_key,
-                            'firmware_path':fw_path,
-                            'config_file':'generic',
-                            'test_cases':'reload&'\
-                                        'reboot&'\
-                                        'netdev.(multi|sriov).*&'\
-                                        'unit.(multi|sriov).*&'})
-
-          search_key = '${{ env.SEARCH_KEY }}'
-
-          if ( '${{ inputs.test }}' != 'all' ):
-            if ( 'BPF' in '${{ inputs.fw_type}}' ):
+            if ( '${{ inputs.fw_type }}' == 'BPF:agilio-bpf-firmware' ):
+              search_key = '${{ env.SEARCH_KEY }}'
               fw_path = '${{ env.BPF_FW_PATH }}'
-              iproute = '5.12.0'
-              config = 'generic'
-            elif ( 'DISA' in '${{ inputs.fw_type}}' ):
-              fw_path = '${{ env.DISA_FW_PATH }}'
-              iproute = '5.15.0'
-              config = 'flower'
-            else:
-              fw_path = '${{ env.NIC_FW_PATH }}'
-              iproute = '5.15.0'
-              config = 'generic'
+              if ( search_key == '' ):
+                search_key = 'agilio-bpf-firmware-.*${{ inputs.fw_version }}.*'
 
-            names.append('user_specified_tests')
-            include.append({'name':'user_specified_tests',
-              'iproute_version':iproute,
-              'firmware_name':search_key,
-              'firmware_path':fw_path,
-              'config_file':config,
-              'test_cases':'${{ inputs.test }}&'})
+              names.append('BPF_tests')
+              include.append({'name':'BPF_tests',
+                              'iproute_version':'5.12.0',
+                              'firmware_name':search_key,
+                              'firmware_path':fw_path,
+                              'config_file':'generic',
+                              'test_cases':'ebpf&'
+                                           'ebpfdrv&'
+                                           'ebpf_perf&'
+                                           'ebpf_perf_drv&'
+                                           'netdev.bpf.*&'})
+
+            if ( '${{ inputs.fw_type }}' == 'AUTO:all' or
+              '${{ inputs.fw_type }}' == 'DISA:agilio-flower-app-firmware' ):
+              search_key = '${{ env.SEARCH_KEY }}'
+              fw_path = '${{ env.DISA_FW_PATH }}'
+              if ( search_key == '' ):
+                search_key = 'agilio-flower-app-firmware-.*${{ inputs.fw_version }}.*'
+
+              names.append('DISA_tests')
+              include.append({'name':'DISA_tests',
+                              'iproute_version':'5.15.0',
+                              'firmware_name':search_key,
+                              'firmware_path':fw_path,
+                              'config_file':'flower',
+                              'test_cases':'flower&'
+                                           'netdev.flower.*&'})
+
+            if ( '${{ inputs.fw_type }}' == 'NIC:agilio-nic-firmware' ):
+              search_key = '${{ env.SEARCH_KEY }}'
+              fw_path = '${{ env.NIC_FW_PATH }}'
+
+              if ( search_key == '' ):
+                search_key = 'agilio-nic-firmware-.*${{ inputs.fw_version }}.*'
+
+              names.append('CoreNIC_tests')
+              include.append({'name':'CoreNIC_tests',
+                              'iproute_version':'5.15.0',
+                              'firmware_name':search_key,
+                              'firmware_path':fw_path,
+                              'config_file':'generic',
+                              'test_cases':'reload&'
+                                           'reboot&'
+                                           'netdev.(multi|nic).*&'
+                                           'unit.(multi|nic).*&'})
+
+            if ( '${{ inputs.fw_type }}' == 'AUTO:all' or
+                '${{ inputs.fw_type }}' == 'SRIOV:agilio-sriov-firmware' ):
+              search_key = '${{ env.SEARCH_KEY }}'
+              fw_path = '${{ env.NIC_FW_PATH }}'
+
+              if ( search_key == '' ):
+                search_key = 'agilio-sriov-firmware-.*${{ inputs.fw_version }}.*'
+
+              names.append('SRIOV_tests')
+              include.append({'name':'SRIOV_tests',
+                              'iproute_version':'5.15.0',
+                              'firmware_name':search_key,
+                              'firmware_path':fw_path,
+                              'config_file':'generic',
+                              'test_cases':'reload&'
+                                           'reboot&'
+                                           'netdev.(multi|sriov).*&'
+                                           'unit.(multi|sriov).*&'})
+
+          else:
+            if ( '${{ inputs.fw_type }}' == 'AUTO:all' ):
+
+              fw_dict = {'setup':'multi',
+                         'ebpf':'bpf',
+                         'ebpfdrv':'bpf',
+                         'ebpf_perf':'bpf',
+                         'ebpf_perf_drv':'bpf',
+                         'flower':'flower',
+                         'rand':'multi',
+                         'rand_err':'multi',
+                         'reboot':'multi',
+                         'reload':'multi'
+                        }
+              include_tests = {}
+              user_tests = '${{ inputs.test }}'
+
+              for x in user_tests.split('&'):
+                if (x.split('.')[0] == 'abm' or x.split('.')[0] == 'ktls'):
+                  print("::error::ktls and abm test groups are not supported at this time")
+                  sys.exit(1)
+                else:
+                  group = x.split('.')[0]
+                  test = x[(len(group)+1):]
+
+                  if ( group in fw_dict ):
+                    fw = fw_dict[group]
+                  else:
+                    fw = re.split("\.|_", test)[0]
+
+                  if ( fw == 'multi' ):
+                    fw = 'SRIOV'
+                  else:
+                    fw = fw.upper()
+
+                  if ( fw == 'BPF'):
+                    search_key = 'agilio-bpf-firmware-.*${{ inputs.fw_version }}.*'
+                    fw_path = '${{ env.BPF_FW_PATH }}'
+                    config = 'generic'
+                    iproute_version = '5.12.0'
+                  elif ( fw == 'FLOWER'):
+                    search_key = 'agilio-flower-app-firmware-.*${{ inputs.fw_version }}.*'
+                    fw_path = '${{ env.DISA_FW_PATH }}'
+                    config = 'flower'
+                    iproute_version = '5.15.0'
+                  elif ( fw == 'NIC'):
+                    search_key = 'agilio-nic-firmware-.*${{ inputs.fw_version }}.*'
+                    fw_path = '${{ env.NIC_FW_PATH }}'
+                    config = 'generic'
+                    iproute_version = '5.15.0'
+                  else:
+                    search_key = 'agilio-sriov-firmware-.*${{ inputs.fw_version }}.*'
+                    fw_path = '${{ env.NIC_FW_PATH }}'
+                    config = 'generic'
+                    iproute_version = '5.15.0'
+
+
+                  name = 'user_specified_tests_' + fw
+                  if ( name in include_tests ):
+                    include_tests[name]["test_cases"] += x + '&'
+                  else:
+                    include_tests[name] = {'name': name,
+                                           'iproute_version': iproute_version,
+                                           'firmware_name':search_key,
+                                           'firmware_path':fw_path,
+                                           'config_file':config,
+                                           'test_cases': x + '&'}
+
+              for job in include_tests.keys():
+                names.append(job)
+                include.append(include_tests[job])
+
+            else:
+              search_key = '${{ env.SEARCH_KEY }}'
+              if ( 'BPF' in '${{ inputs.fw_type}}'):
+                fw_path = '${{ env.BPF_FW_PATH }}'
+                config = 'generic'
+                iproute_version = '5.12.0'
+              elif ( 'DISA' in '${{ inputs.fw_type}}'):
+                fw_path = '${{ env.DISA_FW_PATH }}'
+                config = 'flower'
+                iproute_version = '5.15.0'
+              elif ( 'NIC' in '${{ inputs.fw_type}}'):
+                fw_path = '${{ env.NIC_FW_PATH }}'
+                config = 'generic'
+                iproute_version = '5.15.0'
+              else:
+                fw_path = '${{ env.NIC_FW_PATH }}'
+                config = 'generic'
+                iproute_version = '5.15.0'
+
+              names.append('user_specified_tests')
+              include.append({'name':'user_specified_tests',
+                'iproute_version':iproute_version,
+                'firmware_name':search_key,
+                'firmware_path':fw_path,
+                'config_file':config,
+                'test_cases':'${{ inputs.test }}&'})
 
           testMatrix["os"] = os
           testMatrix["platform"] = platform
