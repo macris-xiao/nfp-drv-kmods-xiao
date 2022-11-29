@@ -753,7 +753,7 @@ TX:		(\d+)"""
             _, out = self.cmd('ethtool -m %s' % (ifc))
         return _parse_ethtool(out)
 
-    def ethtool_get_coalesce(self, ifc):
+    def ethtool_get_coalesce(self, ifc, ns=None):
         """
         ethtool -c sample output:
         Coalesce parameters for <netdev>:
@@ -767,7 +767,10 @@ TX:		(\d+)"""
         the rest of the parameters. Therefore, an extra check
         is required.
         """
-        _, out = self.cmd('ethtool -c %s' % (ifc))
+        if ns:
+            _, out = self.netns_cmd('ethtool -c %s' % (ifc), ns)
+        else:
+            _, out = self.cmd('ethtool -c %s' % (ifc))
 
         ret = {}
 
