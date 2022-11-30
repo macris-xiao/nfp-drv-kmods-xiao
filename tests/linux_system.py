@@ -786,13 +786,28 @@ TX:		(\d+)"""
 
     def ethtool_get_autoneg(self, ifc, ns=None):
         if ns:
-            _, out = self.netns_cmd('ethtool %s | grep Auto-negotiation' % (ifc), ns)
+            _, out = self.netns_cmd('ethtool %s | grep Auto-negotiation'
+                                    % (ifc), ns)
         else:
             _, out = self.cmd('ethtool %s | grep Auto-negotiation' % (ifc))
 
         if out.find(': on') != -1:
             return True
         if out.find(': off') != -1:
+            return False
+        raise NtiError('Invalid ethtool response: %s' % (out))
+
+    def ethtool_get_autoneg_support(self, ifc, ns=None):
+        if ns:
+            _, out = self.netns_cmd("ethtool %s | grep " +
+                                    "'Supports auto-negotiation'" % (ifc), ns)
+        else:
+            _, out = self.cmd("ethtool %s | grep 'Supports auto-negotiation'"
+                              % (ifc))
+
+        if out.find(': Yes') != -1:
+            return True
+        if out.find(': No') != -1:
             return False
         raise NtiError('Invalid ethtool response: %s' % (out))
 
@@ -823,6 +838,32 @@ TX:		(\d+)"""
         else:
             return self.cmd('ethtool --show-fec %s' %
                             (ifc), fail=fail)
+
+    def ethtool_get_module_speed(self, ifc):
+        speeds_dict = {'1': (1000),
+                       '10': (10000),
+                       '25': (25000),
+                       '40': (40000),
+                       '50': (50000),
+                       '100': (100000),
+                       '400': (400000), }
+
+        # Extract transceiver speed modes
+        _, out = self.cmd('ethtool -m %s | grep Transceiver | grep -o '
+                          '"\w*G\w*"' % (ifc), fail=False)  # noqa: W605
+        if not out or 'Cannot get Module EEPROM data' in out:
+            return [0]
+
+        # Map to dictionary in Mbps
+        try:
+            raw_speeds = out.split()
+            module_speeds = list()
+            for speed in raw_speeds:
+                module_speeds.append(
+                    speeds_dict[((speed.strip()).rsplit('G', 1))[0]])
+        except KeyError:
+            return [0]
+        return list(set(module_speeds))
 
     def ethtool_get_fwdump(self, ifc, level, fail=True):
         self.cmd('ethtool -W %s %d' % (ifc, level), fail=fail)

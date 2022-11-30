@@ -537,6 +537,47 @@ exit 0
             if out.find('Link detected: yes') == -1:
                 raise NtiSkip("Interface %s is not up" % (self.dut_ifn[i]))
 
+    def ethtool_compare_module_speeds(self, dut_ifc, src_ifc):
+        # Get peer SFP speeds
+        speeds_dut = self.dut.ethtool_get_module_speed(dut_ifc)
+        speeds_src = self.src.ethtool_get_module_speed(src_ifc)
+
+        # Supported SFP modes
+        supported_speeds = [1000, 10000, 25000, 40000]
+
+        # Find peer speed match
+        for speed_dut in sorted(speeds_dut, reverse=True):
+            for speed_src in sorted(speeds_src, reverse=True):
+                # Match found and supported
+                if speed_dut == speed_src and speed_dut in supported_speeds:
+                    return speed_dut
+                # Peer speed cannot be determined or not supported
+                if (speed_dut == 0) or (speed_src == 0):
+                    return 0
+        raise NtiError('SFP module speed mismatch between DUT & EP.')
+
+    def ethtool_set_stable_media(self, dev, ifc, speed=None, fail=False):
+        dev.ip_link_set_down(ifc, fail=False)
+        dev.ethtool_set_autoneg(ifc, 'off', fail=fail)
+
+        if speed is None:
+            speed = dev.ethtool_get_module_speed(ifc).sort(reverse=True)[0]
+        if speed != 0:
+            dev.ethtool_set_speed(ifc, speed, fail=fail)
+
+        dev.ethtool_set_fec(ifc, 'off', fail=fail)
+        dev.ip_link_set_up(ifc, fail=False)
+        time.sleep(3)
+        return 0
+
+    def ethtool_set_stable_media_modes(self):
+        for ifcn in range(len(self.dut_ifn)):
+            dut_ifc = self.dut_ifn[ifcn]
+            src_ifc = self.src_ifn[ifcn]
+            speed = self.ethtool_compare_module_speeds(dut_ifc, src_ifc)
+            self.ethtool_set_stable_media(self.dut, dut_ifc, speed)
+            self.ethtool_set_stable_media(self.src, src_ifc, speed)
+
     def tc_bpf_load(self, obj, flags="", act="", verifier_log="", extack="",
                     needle_noextack="", skip_sw=False, skip_hw=False,
                     da=False):
