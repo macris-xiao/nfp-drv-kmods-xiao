@@ -671,7 +671,7 @@ class DrvSystem(LinuxSystem):
             self.vf_id = '3803'
         return self.vf_id
 
-    def get_fw_name(self):
+    def get_fw_name(self, load_drv=True):
         if self.fw_name:
             return self.fw_name
 
@@ -681,9 +681,12 @@ class DrvSystem(LinuxSystem):
                   '40G' : [ 40 ] }
         amda = self.get_part_no()
 
-        self.insmod()
-        _, media = self.cmd_media()
-        self.rmmod()
+        if load_drv:
+            self.insmod()
+            _, media = self.cmd_media()
+            self.rmmod()
+        else:
+            _, media = self.cmd_media()
 
         links = []
         for phy in media.split('\n'):
