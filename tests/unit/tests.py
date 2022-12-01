@@ -11,11 +11,12 @@ from fw_dumps import FwDumpTest
 from rtsym import RTSymTest, RTSymDataTest
 from versions import VersionsTest
 from netro.testinfra.test import *
+from netro.testinfra.nti_exceptions import NtiError
 from ..drv_grp import NFPKmodGrp
 from ..ebpf.xdp import XDPTest
 from ifstats import IFstats
 from tlv_stats import TLVstatsTest
-from ..common_test import AMDA_25G_CARDS
+from ..common_test import AMDA_25G_CARDS, NtiSkip
 
 ###########################################################################
 # Unit Tests
@@ -876,6 +877,14 @@ class AutonegEthtool(CommonNonUpstreamTest):
         self.check_nsp_min(15)
         self.skip_not_ifc_phys()
 
+        for ifc in self.dut_ifn:
+            aneg_support = self.dut.ethtool_get_autoneg_support(ifc)
+            if not aneg_support:
+                raise NtiSkip('Card does not support Auto-negotiation.')
+
+        # Set stable media modes
+        self.ethtool_set_stable_media_modes()
+
         self.state = {}
 
         for ifc in self.dut_ifn:
@@ -895,6 +904,12 @@ class AutonegEthtool(CommonNonUpstreamTest):
             self.flip_autoneg_status(ifc)
 
         self.state_check()
+
+    def cleanup(self):
+        # Set stable media modes
+        self.ethtool_set_stable_media_modes()
+
+        return super(AutonegEthtool, self).cleanup()
 
 class IfConfigDownTest(CommonNonUpstreamTest):
     def wait_for_link_netdev(self, iface):
