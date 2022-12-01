@@ -19,6 +19,7 @@ from coalesce_vf import CoalesceVF
 from test_ethtool import TestEthtool
 from vf_qos import VfQoS
 from vlan_qinq import VlanQinq
+import time
 
 class NFPKmodNetdev(NFPKmodAppGrp):
     """Basic FW-independent NIC tests for the NFP Linux drivers"""
@@ -553,6 +554,9 @@ class IdentifyEthtool(CommonTest):
             # Test whether ethtool -p can execute at all
             cmd = "ethtool -p %s 1" % (iface)
             ret = self.dut.cmd(cmd, fail=False)
+            # Wait to ensure that the ethtool -p command has finished executing
+            # and the pin.idmode/ledblink bit is not in the blink state.
+            time.sleep(2)
 
             if ret[0] != 0:
                 raise NtiError("Non-zero return value, %s, for ethtool -p on interface %s" % (ret, iface))
@@ -571,7 +575,17 @@ class IdentifyEthtool(CommonTest):
             # 'phy0.pin.idmode=-cpld:2:2:0xd.3' which is then manipulated to return
             # the address and bit number with `split(':')[-1].split('.')`.
             # the address and bit position are returned as tuple '('0xd','3')'
-            addr, bit = self.dut.get_hwinfo('phy%s.pin.idmode' % (phy)).split(':')[-1].split('.')
+
+            hwinfo = self.dut.get_hwinfo('phy%s.pin.idmode' % (phy)).strip()
+            if (hwinfo == ''):
+                hwinfo = self.dut.get_hwinfo('phy%s.ledblink' % (phy)).strip()
+                if (hwinfo == ''):
+                    raise NtiError("Neither phy%s.pin.idmode nor "
+                                   "phy%s.ledblink are present in hwinfo, "
+                                   "feature not supported on card."
+                                   % (ret, iface))
+
+            addr, bit = hwinfo.split(':')[-1].split('.')
             bit = int(bit) + 1
 
             # Get initial value of register
