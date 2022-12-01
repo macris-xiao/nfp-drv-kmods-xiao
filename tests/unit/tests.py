@@ -1060,48 +1060,28 @@ class FECModesTest(CommonNonUpstreamTest):
     def check_mode_on_other_ports(self, entry_to_exclude, list):
         for entry in list:
             if entry[0] != entry_to_exclude[0]:
-                self.check_fec_mode(entry[0], entry[1], "Fec0", "auto")
+                self.check_fec_mode(entry[0], entry[1], "Fec3", "off")
 
     def set_and_check_fec_mode(self, port_tuple, fec, nsp_fec_mode):
         iface = port_tuple[0]
         mac_addr = port_tuple[1]
         port = port_tuple[2]
 
+        self.dut.ip_link_set_down(iface, fail=False)
         self.dut.ethtool_set_fec(iface, fec)
+        self.dut.ip_link_set_up(iface, fail=False)
         self.check_fec_mode(iface, mac_addr, nsp_fec_mode, fec)
 
-        # First we ping with a case that will fail, then we align the
-        # endpoint and expect it to pass.
-        # However, if the DUT is configured for auto FEC detection, the first
-        # ping should succeed.
-        if fec == "off":
-            for port in range(0, len(self.src_ifn)):
-                iface = self.src_ifn[port]
-                self.src.ethtool_set_fec(iface, "baser")
-        else:
-            for port in range(0, len(self.src_ifn)):
-                iface = self.src_ifn[port]
-                self.src.ethtool_set_fec(iface, "off")
-
-        # TODO: Add ping tests back once NO CARRIER issue has been resolved
-
-        # Takes time for ethtool to take action on previous command
-        # time.sleep(3)
-        # if fec != "auto":
-        #     self.ping(port, should_fail=True)
-        # else:
-        #     self.ping(port)
-        for port in range(0, len(self.src_ifn)):
+        if fec != "auto":
             iface = self.src_ifn[port]
+            self.src.ip_link_set_down(iface, fail=False)
             self.src.ethtool_set_fec(iface, fec)
-
-        # Takes time for ethtool to take action on previous command
-        # time.sleep(3)
-        # self.ping(port)
+            self.src.ip_link_set_up(iface, fail=True)
+            time.sleep(5)
+            self.ping(port)
 
     def set_fec_and_expect_to_fail(self, port_tuple, fec):
         iface = port_tuple[0]
-        mac_addr = port_tuple[1]
 
         ret, _ = self.dut.ethtool_set_fec(iface, fec, fail=False)
         if ret == 0:
@@ -1112,21 +1092,10 @@ class FECModesTest(CommonNonUpstreamTest):
         self.is_fec_capable = False
 
     def cleanup(self):
-        if self.is_fec_capable:
-            for port in range(0, len(self.dut_ifn)):
-                iface = self.dut_ifn[port]
-                self.dut.ip_link_set_down(iface)
-                self.dut.ethtool_set_autoneg(iface, "on")
-                self.dut.ip_link_set_up(iface)
-                self.dut.ethtool_set_fec(iface, "auto")
-            for port in range(0, len(self.src_ifn)):
-                iface = self.src_ifn[port]
-                self.src.ip_link_set_down(iface)
-                self.src.ethtool_set_autoneg(iface, "on")
-                self.src.ip_link_set_up(iface)
-                self.src.ethtool_set_fec(iface, "auto")
+        # Set stable media modes
+        self.ethtool_set_stable_media_modes()
 
-        return super(CommonNonUpstreamTest, self).cleanup()
+        return super(FECModesTest, self).cleanup()
 
     def netdev_execute(self):
         self.check_nsp_min(22)
@@ -1142,92 +1111,113 @@ class FECModesTest(CommonNonUpstreamTest):
         # Get AMDAXXXX number
         part_no = self.dut.get_amda_only()
 
+        # Set stable media modes
+        self.ethtool_set_stable_media_modes()
+
+        # Get supported DUT-EP SFP speeds
+        link_speed = self.ethtool_compare_module_speeds(self.dut_ifn[0],
+                                                        self.src_ifn[0])
+
         # This checks for our 25G cards
         if part_no in AMDA_25G_CARDS:
             self.is_fec_capable = True
 
-            # Reset the current FEC mode to default, i.e. auto and switch off
-            # autoneg
+            # Reset the DUT FEC mode to off and switch off autoneg
             for port in range(0, len(self.dut_ifn)):
                 iface = self.dut_ifn[port]
                 self.dut.ip_link_set_down(iface)
-                self.dut.ethtool_set_autoneg(iface, "off")
+                self.dut.ethtool_set_autoneg(iface, "off", fail=False)
                 self.dut.ip_link_set_up(iface)
-                self.dut.ethtool_set_fec(iface, "auto")
+                self.dut.ethtool_set_fec(iface, "off")
 
-            # We always disable autoneg on the endpoint.
-            # Since 25G isn't prevalent at the moment, and no other NIC vendor we
-            # use have this feature, assume that the endpoint will be another Carbon.
+            # Reset the DUT FEC mode to off and switch off autoneg
+            # Assume that EP will be another 25G card
             for port in range(0, len(self.src_ifn)):
                 iface = self.src_ifn[port]
                 self.src.ip_link_set_down(iface)
-                self.src.ethtool_set_autoneg(iface, "off")
+                self.src.ethtool_set_autoneg(iface, "off", fail=False)
                 self.src.ip_link_set_up(iface)
-                self.src.ethtool_set_fec(iface, "auto")
+                self.src.ethtool_set_fec(iface, "off")
 
         for entry in port_mac_tuple_list:
             iface = entry[0]
             mac_addr = entry[1]
 
-            # FEC configuration only available on Carbon
+            # FEC configuration only available on 25G cards
             if self.is_fec_capable:
-                _, supported = self.dut.cmd('ethtool %s | grep -iA2 "Supported FEC"' % iface)
+                self.check_fec_mode(iface, mac_addr, "Fec3", "off")
+                self.check_mode_on_other_ports(entry, port_mac_tuple_list)
+
+                _, supported = self.dut.cmd(('ethtool %s | grep -iA2 ' +
+                                            '"Supported FEC"') % iface)
+                _, advertised = self.dut.cmd(('ethtool %s | grep -iA2 ' +
+                                             '"Advertised FEC"') % iface)
+
                 if not re.search('None', supported, re.MULTILINE):
-                    raise NtiError('Expected interface %s to have None as supported FEC mode' %
-                                   iface)
-                if not re.search('BASER', supported.upper(), re.MULTILINE):
-                    raise NtiError('Expected interface %s to have BaseR as supported FEC mode' %
-                                   iface)
-                if not re.search('RS', supported, re.MULTILINE):
-                    raise NtiError('Expected interface %s to have RS as supported FEC mode' %
-                                   iface)
+                    raise NtiError(('Expected interface %s to have None ' +
+                                   'as supported FEC mode') % iface)
 
-                _, advertised = self.dut.cmd('ethtool %s | grep -iA2 "Advertised FEC"' % iface)
-                if not re.search('BASER', advertised.upper(), re.MULTILINE):
-                    raise NtiError('Expected interface %s to have BaseR as advertised FEC mode' %
-                                   iface)
-                if not re.search('RS', advertised, re.MULTILINE):
-                    raise NtiError('Expected interface %s to have RS as advertised FEC mode' %
-                                   iface)
+                if link_speed == 10000:
+                    if not re.search('BASER',
+                                     supported.upper(),
+                                     re.MULTILINE):
+                        raise NtiError(('Expected interface %s to have ' +
+                                       'BaseR as supported FEC mode') % iface)
+                    if not re.search('BASER',
+                                     advertised.upper(),
+                                     re.MULTILINE):
+                        raise NtiError(('Expected interface %s to have ' +
+                                       'BaseR as advertised FEC mode') % iface)
+                    self.set_and_check_fec_mode(entry, "baser", "Fec1")
+                    self.check_mode_on_other_ports(entry, port_mac_tuple_list)
 
-                self.check_fec_mode(iface, mac_addr, "Fec0", "auto")
-                self.check_mode_on_other_ports(entry, port_mac_tuple_list)
+                if link_speed == 25000:
+                    if not re.search('RS',
+                                     supported,
+                                     re.MULTILINE):
+                        raise NtiError(('Expected interface %s to have ' +
+                                       'RS as supported FEC mode') % iface)
+                    if not re.search('RS',
+                                     advertised,
+                                     re.MULTILINE):
+                        raise NtiError(('Expected interface %s to have ' +
+                                       'RS as advertised FEC mode') % iface)
 
-                self.set_and_check_fec_mode(entry, "baser", "Fec1")
-                self.check_mode_on_other_ports(entry, port_mac_tuple_list)
+                    self.set_and_check_fec_mode(entry, "rs", "Fec2")
+                    self.check_mode_on_other_ports(entry, port_mac_tuple_list)
 
-                self.set_and_check_fec_mode(entry, "rs", "Fec2")
+                self.set_and_check_fec_mode(entry, "auto", "Fec0")
                 self.check_mode_on_other_ports(entry, port_mac_tuple_list)
 
                 self.set_and_check_fec_mode(entry, "off", "Fec3")
                 self.check_mode_on_other_ports(entry, port_mac_tuple_list)
 
-                self.set_and_check_fec_mode(entry, "auto", "Fec0")
-                self.check_mode_on_other_ports(entry, port_mac_tuple_list)
             else:
-                # Other non-Carbon cards are expected to only show "None" as the
+                # Other non-25G cards are expected to only show "None" as the
                 # supported FEC mode. No FEC mode modification is allowed.
-                _, supported = self.dut.cmd('ethtool %s | grep -iA2 "Supported FEC"' % iface)
+                _, supported = self.dut.cmd(('ethtool %s | grep -iA2 ' +
+                                            '"Supported FEC"') % iface)
                 if not re.search('None', supported, re.MULTILINE):
-                    raise NtiError('Expected interface %s to have None as supported FEC mode' %
-                                   iface)
+                    raise NtiError(('Expected interface %s to have None ' +
+                                   'as supported FEC mode') % iface)
                 if re.search('BaseR', supported, re.MULTILINE):
-                    raise NtiError('Expected interface %s to have BaseR as supported FEC mode' %
-                                   iface)
+                    raise NtiError(('Expected interface %s to have BaseR ' +
+                                   'as supported FEC mode') % iface)
                 if re.search('RS', supported, re.MULTILINE):
-                    raise NtiError('Expected interface %s to have RS as supported FEC mode' %
-                                   iface)
+                    raise NtiError(('Expected interface %s to have RS ' +
+                                   'as supported FEC mode') % iface)
 
-                _, advertised = self.dut.cmd('ethtool %s | grep -iA2 "Advertised FEC"' % iface)
+                _, advertised = self.dut.cmd(('ethtool %s | grep -iA2 '
+                                             '"Advertised FEC"') % iface)
                 if not re.search('None', advertised, re.MULTILINE):
-                    raise NtiError('Expected interface %s to have None as advertised FEC mode' %
-                                   iface)
+                    raise NtiError(('Expected interface %s to have None ' +
+                                   'as advertised FEC mode') % iface)
                 if re.search('BaseR', advertised, re.MULTILINE):
-                    raise NtiError('Expected interface %s to have BaseR as advertised FEC mode' %
-                                   iface)
+                    raise NtiError(('Expected interface %s to have BaseR ' +
+                                   'as advertised FEC mode') % iface)
                 if re.search('RS', advertised, re.MULTILINE):
-                    raise NtiError('Expected interface %s to have RS as advertised FEC mode' %
-                                   iface)
+                    raise NtiError(('Expected interface %s to have RS ' +
+                                   'as advertised FEC mode') % iface)
 
                 self.check_fec_mode(iface, mac_addr, "Fec0", "")
                 self.set_fec_and_expect_to_fail(entry, "baser")
