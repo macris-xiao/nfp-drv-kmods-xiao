@@ -753,6 +753,26 @@ TX:		(\d+)"""
             _, out = self.cmd('ethtool -m %s' % (ifc))
         return _parse_ethtool(out)
 
+    def ethtool_set_coalesce(self, ifc, settings_adp, settings_val, ns=None):
+        ret = None
+
+        cmd = 'ethtool -C ' + ifc
+        # Here we need to use two dictionaries because we need to ensure
+        # the sequence of the command. The command will be like 'rx-frames
+        # 64 adaptive-rx off adaptive-tx off rx-usecs 50' with only one
+        # dictionary.
+        for k in settings_adp.keys():
+            cmd += ' %s %s' % (k, settings_adp[k])
+        for k in settings_val.keys():
+            cmd += ' %s %s' % (k, settings_val[k])
+
+        if ns:
+            ret = self.netns_cmd(cmd, ns)
+        else:
+            ret = self.cmd(cmd)
+
+        return ret
+
     def ethtool_get_coalesce(self, ifc, ns=None):
         """
         ethtool -c sample output:
