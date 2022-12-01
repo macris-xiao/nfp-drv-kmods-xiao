@@ -261,10 +261,10 @@ class LinuxSystem(System):
         return ret, json.loads(out)
 
     def ip_link_set_up(self, ifc, fail=True):
-        self.cmd('ip link set dev {ifc} up'.format(ifc=ifc), fail=fail)
+        return self.cmd('ip link set dev %s up' % ifc, fail=fail)
 
     def ip_link_set_down(self, ifc, fail=True):
-        self.cmd('ip link set dev {ifc} down'.format(ifc=ifc), fail=fail)
+        return self.cmd('ip link set dev %s down' % ifc, fail=fail)
 
     def ip_link_stats(self, ifc=None):
         cmd = '-s link show'
