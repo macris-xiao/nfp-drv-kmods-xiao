@@ -46,25 +46,21 @@ class coalescePF(CommonTest):
     def config_coalesce(self, ifc, src_on=False, status='off',
                         req_rx_usecs='50', req_rx_frames='64'):
 
-        if src_on == False:
-            cmd = 'ethtool --coalesce %s '%(ifc)
-            if status == 'off':
-                cmd += 'adaptive-rx off adaptive-tx off rx-usecs %s \
-                rx-frames %s' % (req_rx_usecs, req_rx_frames)
-                self.dut.cmd(cmd)
-            else:
-                cmd += 'adaptive-rx on adaptive-tx on'
-                self.dut.cmd(cmd)
+        M = self.dut
+        if src_on is True:
+            M = self.src
 
-        if src_on == True:
-            cmd = 'ethtool --coalesce %s '% (ifc)
-            if status == 'off':
-                cmd += 'adaptive-rx off adaptive-tx off rx-usecs %s \
-                rx-frames %s' % (req_rx_usecs, req_rx_frames)
-                self.src.cmd(cmd)
-            else:
-                cmd += 'adaptive-rx on adaptive-tx on'
-                self.src.cmd(cmd)
+        if status == 'off':
+            M.ethtool_set_coalesce(ifc,
+                                   {"adaptive-rx": 'off',
+                                    "adaptive-tx": 'off'},
+                                   {"rx-usecs": req_rx_usecs,
+                                    "rx-frames": req_rx_frames})
+        else:
+            M.ethtool_set_coalesce(ifc,
+                                   {"adaptive-rx": 'on',
+                                    "adaptive-tx": 'on'},
+                                   {})
 
     def check_coalesce(self, ifc, src_on=False, status='off', check='post',
                        req_rx_usecs='50', req_rx_frames='64'):

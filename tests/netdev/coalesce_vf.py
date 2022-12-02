@@ -43,6 +43,24 @@ class CoalesceVF(CommonTest):
         self.result_off_latency = []
         self.result_off_throughput = []
 
+    def config_coalesce(self, vstatus='off', vport='vf1', ns='ns1',
+                        req_rx_usecs='50', req_rx_frames='64'):
+        M = self.dut
+
+        if vstatus == 'off':
+            M.ethtool_set_coalesce(vport,
+                                   {"adaptive-rx": 'off',
+                                    "adaptive-tx": 'off'},
+                                   {"rx-usecs": req_rx_usecs,
+                                    "rx-frames": req_rx_frames},
+                                   ns)
+        else:
+            M.ethtool_set_coalesce(vport,
+                                   {"adaptive-rx": 'on',
+                                    "adaptive-tx": 'on'},
+                                   {},
+                                   ns)
+
     def check_coalesce(self, vstatus='off', vport='vf1', ns='ns1', d_usecs='50', d_frames='64'):
         M = self.dut
         c_settings = M.ethtool_get_coalesce(vport, ns)
@@ -98,10 +116,10 @@ class CoalesceVF(CommonTest):
         cmd = 'ip link set dev %s up' % vf2
         self.dut.netns_cmd(cmd, 'ns2')
         # Disable coalesce , set rx-usecs/rx-frames is default
-        cmd = 'ethtool -C %s adaptive-rx off adaptive-tx off rx-usecs 50 rx-frames 64' % vf1
-        self.dut.netns_cmd(cmd, 'ns1')
-        cmd = 'ethtool -C %s adaptive-rx off adaptive-tx off rx-usecs 50 rx-frames 64' % vf2
-        self.dut.netns_cmd(cmd, 'ns2')
+        self.config_coalesce(vport=vf1, ns='ns1', req_rx_usecs='50',
+                             req_rx_frames='64')
+        self.config_coalesce(vport=vf2, ns='ns2', req_rx_usecs='50',
+                             req_rx_frames='64')
         self.check_coalesce(vport=vf1, ns='ns1')
         self.check_coalesce(vport=vf2, ns='ns2')
 
@@ -121,12 +139,10 @@ class CoalesceVF(CommonTest):
 
         # Start netperf , test latency and throughput of coalesce(off-0/1)
         time.sleep(5)
-        cmd = 'ethtool -C %s adaptive-rx off adaptive-tx off rx-usecs 1 \
-            rx-frames 0' % vf1
-        ret, out = self.dut.netns_cmd(cmd, 'ns1')
-        cmd = 'ethtool -C %s adaptive-rx off adaptive-tx off rx-usecs 1 \
-            rx-frames 0' % vf2
-        ret, out = self.dut.netns_cmd(cmd, 'ns2')
+        self.config_coalesce(vport=vf1, ns='ns1', req_rx_usecs='1',
+                             req_rx_frames='0')
+        self.config_coalesce(vport=vf2, ns='ns2', req_rx_usecs='1',
+                             req_rx_frames='0')
         self.check_coalesce(vport=vf1, ns='ns1', d_usecs='1', d_frames='0')
         self.check_coalesce(vport=vf2, ns='ns2', d_usecs='1', d_frames='0')
         cmd = 'netperf -H %s -l 30 -t omni -- -d rr -O "THROUGHPUT"' % \
@@ -142,10 +158,8 @@ class CoalesceVF(CommonTest):
 
         # Enable coalesce
         time.sleep(5)
-        cmd = 'ethtool -C %s adaptive-rx on adaptive-tx on' % vf1
-        self.dut.netns_cmd(cmd, 'ns1')
-        cmd = 'ethtool -C %s adaptive-rx on adaptive-tx on' % vf2
-        self.dut.netns_cmd(cmd, 'ns2')
+        self.config_coalesce(vstatus='on', vport=vf1, ns='ns1')
+        self.config_coalesce(vstatus='on', vport=vf2, ns='ns2')
         self.check_coalesce(vstatus='on', vport=vf1, ns='ns1')
         self.check_coalesce(vstatus='on', vport=vf2, ns='ns2')
 
