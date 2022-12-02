@@ -382,3 +382,14 @@ class DevlinkSplit(CommonNetdevTest):
             self.unsplit(card_info)
             self.reload_driver(partno, card_info, False)
             self.split_check(card_info)
+
+    def cleanup(self):
+        # Ensure ports are unsplit when test is finished
+        self.dut.reset_mods()
+        self.dut.insmod(netdev=True, userspace=True)
+        for ifc in self.dut_ifn:
+            self.dut.cmd('ip link show %s' % (ifc), fail=False)
+        # splitting for indexes of 0 to 8
+        for i in range(0, 9):
+            self.dut.devlink_unsplit(i, fail=False)
+        return super(DevlinkSplit, self).cleanup()
