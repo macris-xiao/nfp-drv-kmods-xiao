@@ -645,6 +645,10 @@ class DrvSystem(LinuxSystem):
             return self.pci_device_id
         _, pci_device_info = self.cmd('lspci | grep %s' % self.grp.pci_id)
         self.pci_device_id = pci_device_info.split()[-1]
+
+        # In case dmesg format is '1da8:3800' or similar
+        if ':' in self.pci_device_id:
+            self.pci_device_id = self.pci_device_id.split(':')[-1]
         return self.pci_device_id
 
     def get_vendor_id(self):
