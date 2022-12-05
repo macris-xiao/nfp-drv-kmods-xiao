@@ -345,7 +345,8 @@ class DrvSystem(LinuxSystem):
             ret, out = self.cmd('modinfo %s | sed -n "s@depends:[ ]*\([a-z0-9\_,]*\)@\\1@p"'
                                 % (module), fail=fail)
             for x in out.split(","):
-                ret, out = self.cmd('modprobe %s' % (x), fail=fail)
+                if x != 'nfp':
+                    ret, out = self.cmd('modprobe %s' % (x), fail=fail)
             ret, out = self.cmd('insmod %s %s' % (module, params), fail=fail)
         if ret == 0:
             # Store the module name for cleanup
