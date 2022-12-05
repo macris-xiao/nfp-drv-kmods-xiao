@@ -814,7 +814,7 @@ jobs:
         env:
           OS: ${{ steps.OS.outputs.stdout }}
           TESTS: ${{ matrix.test_cases }}
-          DEFAULT_BRANCH: ${{ inputs.default_branch }}
+          DEFAULT_BRANCH: ${{ inputs.base_branch }}
 
       - name: Upload test logs to Azure
         if: >-
