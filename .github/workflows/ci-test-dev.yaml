@@ -683,6 +683,9 @@ jobs:
             allow_unsupported_platforms=yes
             kernel_src='custom_package'
             kernel_file_tar=${{ matrix.kernel }}
+            kernel_custom_install_headers_rpm=no
+            kernel_custom_install_dbg=no
+            kernel_custom_install_libc_dev=no
             ci_dev_drv_iproute_version=${{ matrix.iproute_version }}
             ci_dev_drv_install=false
             ci_dev_drv_nfp_source_dir=/root/nfp-drv-kmods-private
