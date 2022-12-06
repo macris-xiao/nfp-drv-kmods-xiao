@@ -784,20 +784,20 @@ exit 0
         if len(result_pkts) < exp_num or len(result_pkts) > exp_num + 5:
             raise NtiError('Captured %d packets, expected %d' %
                            (len(result_pkts), exp_num))
+        if exp_pkt is not None:
+            found = 0
+            for p in result_pkts:
+                if str(p) == exp_pkt:
+                    found += 1
+                else:
+                    self.log('Bad packet',
+                             ':'.join(x.encode('hex') for x in str(p))
+                             + "\n\n" +
+                             ':'.join(x.encode('hex') for x in exp_pkt))
 
-        found = 0
-        for p in result_pkts:
-            if str(p) == exp_pkt:
-                found += 1
-            else:
-                self.log('Bad packet',
-                         ':'.join(x.encode('hex') for x in str(p))
-                         + "\n\n" +
-                         ':'.join(x.encode('hex') for x in exp_pkt))
-
-        if found != exp_num:
-            raise NtiError("Found %d packets, was looking for %d" %
-                           (found, exp_num))
+            if found != exp_num:
+                raise NtiError("Found %d packets, was looking for %d" %
+                               (found, exp_num))
 
         LOG_sec("Capture test OK exp: %d got: %d/%d" % (exp_num, found,
                                                         len(result_pkts)))
