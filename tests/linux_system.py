@@ -46,25 +46,130 @@ class LinuxSystem(System):
         super(LinuxSystem, self).__init__(host, quick, _noendsec)
 
         self.group = group
-        self._bck_pids = []
+        self._bg_pids = []
         self.tmpdir = self.make_temp_dir()
 
     ###############################
     # Standard OS helpers
     ###############################
-    def background_procs_add(self, pid):
-        self._bck_pids.append(pid)
+    def bg_proc_start(self, cmd, fail=True):
+        """
+        Starts a command as a background process (inside a subshell) on the
+        system.
 
-    def background_procs_remove(self, pid):
-        self._bck_pids.remove(pid)
+        Args:
+            cmd:  The command to be executed (string).
+            fail: Boolean indicating whether an exception should be raised if
+                  the process fails immediately.
 
-    def background_procs_cleanup(self):
-        cmds = ""
-        for pid in self._bck_pids:
-            cmds += 'kill -9 $(cat %s);' % pid
-        if cmds:
-            self.cmd(cmds, fail=False)
-        self._bck_pids = []
+        Returns:
+            A tuple containing two elements:
+            tuple[0]: The PID of the background process.
+            tuple[1]: -1 if the background process is running, otherwise the
+                      exit status of the process. If fail=True, this can only
+                      be -1 (running) or 0 (finished successfully).
+        """
+        cmd = '( set -eu; %s ) > /dev/null 2>&1 & echo $!' % cmd
+        # It is necessary to redirect stdout and stderr to /dev/null to allow
+        # the Popen call in the NTI framework to return before the child
+        # process finishes. Otherwise execution will be blocked on
+        # process.communicate() because the spawned process still has handles
+        # to the parent's file descriptors.
+        _, out = self.cmd(cmd, fail=fail)
+        pid = out.strip()
+        ret, _ = self.cmd('ps -p %s' % pid, fail=False)
+        if ret != 0:  # Background process already finished
+            # Get exit status
+            ret, _ = self.cmd('wait %s' % pid, fail=fail)
+        else:
+            ret = -1
+            self._bg_pids.append(pid)
+        return pid, ret
+
+    def bg_proc_stop(self, pid, max_wait=5):
+        """
+        Stop a background process.
+
+        Args:
+            pid:      The PID of the process to kill (string); or
+                      A list of PIDs of processes to kill (list of strings).
+            max_wait: Maximum number of seconds to wait for the process to exit
+                      before issuing a kill signal.
+        """
+        script = '''# Attempting to kill the following PIDs: {pids}.
+(
+fail() {{
+    echo "$2" 1>&2
+    exit $1
+}}
+
+# Ensure that at least one PID is specified
+PIDs="{pids}"
+if [ -z "$PIDs" ]; then
+    fail 1 "No PIDs specified"
+fi
+echo "PIDs to kill: $PIDs"
+
+num_alive () {{
+count=0
+for p in $PIDs; do
+    if [ -d /proc/$p ]; then
+        let count++
+    fi
+done
+return $count
+}}
+
+wait_for_all_killed () {{
+i=0
+while [ ! num_alive ] && [ $i -lt $2 ]; do
+    let i++; sleep $1;
+done
+}}
+
+# Issue SIGTERM to all running processes
+printf "Terminating PIDs:"
+for p in $PIDs; do
+    if [ -d /proc/$p ]; then
+        printf " $p"
+        kill -s TERM $p # This has a small chance to fail if the process
+        # finishes after the check.
+    fi
+done
+printf "\\n"
+wait_for_all_killed 1 {max_wait}
+
+# At this point, all processes should have terminated cleanly.
+# Issue SIGKILL to all remaining running processes to forcefully
+# stop them.
+printf "Killing PIDs:"
+for p in $PIDs; do
+    if [ -d /proc/$p ]; then
+        printf " $p"
+        kill -s KILL $p # This has a small chance to fail if the process
+        # finishes after the check.
+    fi
+done
+printf "\\n"
+wait_for_all_killed 1 {max_wait}
+
+if [ ! num_alive ]; then
+    fail 2 "Timeout. Some processes still alive."
+fi
+exit 0
+)
+'''
+        if type(pid) is str:
+            pid = [pid]
+        if type(pid) is list and len(pid) > 0:
+            script = script.format(pids=' '.join(pid), max_wait=max_wait)
+            self.cmd(script, fail=True)
+            for p in pid:
+                if p in self._bg_pids:
+                    self._bg_pids.remove(p)
+
+    def bg_proc_stop_all(self):
+        self.bg_proc_stop(self._bg_pids)
 
     def wait_online(self):
         ret = -1
@@ -437,22 +542,15 @@ class LinuxSystem(System):
         if name is None:
             name = str(ident) if ident is not None else str(m["id"])
 
-        bpftool_pid = os.path.join(self.tmpdir, 'bpftool%s_pid' % (name))
         events = os.path.join(self.tmpdir, 'events%s.json' % (name))
+        pid, _ = self.bg_proc_start('bpftool -jp map event_pipe %s > %s'
+                                    % (self._bpftool_obj_id(m, ident, pin),
+                                       events))
 
-        self.cmd('bpftool -jp map event_pipe %s > %s 2>/dev/null ' \
-                 '& command ; echo $! > %s' %
-                 (self._bpftool_obj_id(m, ident, pin), events, bpftool_pid))
-        self.background_procs_add(bpftool_pid)
-
-        return events, bpftool_pid
+        return events, pid
 
     def bpftool_map_perf_capture_stop(self, events, bpftool_pid):
-        self.cmd('PID=$(cat {pid}) && echo $PID && rm {pid} && ' \
-                 'kill -INT $PID && ' \
-                 'while [ -d /proc/$PID ]; do true; done'
-                 .format(pid=bpftool_pid))
-        self.background_procs_remove(bpftool_pid)
+        self.bg_proc_stop(bpftool_pid)
 
         self.mv_from(events, self.group.tmpdir)
         return os.path.join(self.group.tmpdir, os.path.basename(events))

@@ -60,7 +60,7 @@ class PerfEventOutputTest(MapTest):
         self.validate_capture(events, self.event_data())
 
     def cleanup(self):
-        self.dut.background_procs_cleanup()
+        self.dut.bg_proc_stop_all()
 
         super(PerfEventOutputTest, self).cleanup()
 
