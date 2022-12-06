@@ -781,7 +781,9 @@ exit 0
         if exp_pkt is None:
             exp_num = 0
 
-        if len(result_pkts) < exp_num or len(result_pkts) > exp_num + 5:
+        exp_num_upper = exp_num + (0.1 * exp_num)
+
+        if len(result_pkts) < exp_num or len(result_pkts) > exp_num_upper:
             raise NtiError('Captured %d packets, expected %d' %
                            (len(result_pkts), exp_num))
         if exp_pkt is not None:
