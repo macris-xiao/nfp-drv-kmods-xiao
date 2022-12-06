@@ -419,27 +419,31 @@ class FlowerBase(CommonTest):
                                port=new_port, filter_overwrite=fltr)
 
         # Define traffic statistic thresholds
+        # Mitigates unexpected packet loss or addition due to environment
         exp_bytes = (len(pkt) + len(Ether()) + pkt_len_diff) * exp_cnt
-        lo_exp_cnt = exp_cnt - 10
+        lo_exp_cnt = exp_cnt - (0.1 * exp_cnt)
         lo_exp_exp_bytes = (len(pkt) + len(Ether()) + pkt_len_diff) * \
-            (exp_cnt - 10)
+            (lo_exp_cnt)
+        hi_exp_cnt = exp_cnt + (0.1 * exp_cnt)
+        hi_exp_exp_bytes = (len(pkt) + len(Ether()) + pkt_len_diff) * \
+            (hi_exp_cnt)
 
         if not fback_check:
             # Validate interface statistics
             stats = self.dut.netifs[interface].stats(get_tc_ing=True)
             if int(stats.tc_ing['tc_49152_pkts']) < lo_exp_cnt or \
-               int(stats.tc_ing['tc_49152_pkts']) > exp_cnt:
+               int(stats.tc_ing['tc_49152_pkts']) > hi_exp_cnt:
                 raise NtiError('Counter missmatch. Expected: %s, Got: %s'
                                % (exp_cnt, stats.tc_ing['tc_49152_pkts']))
             if int(stats.tc_ing['tc_49152_bytes']) < lo_exp_exp_bytes or \
-               int(stats.tc_ing['tc_49152_bytes']) > exp_bytes:
+               int(stats.tc_ing['tc_49152_bytes']) > hi_exp_exp_bytes:
                 raise NtiError('Counter missmatch. Expected: %s, Got: %s'
                                % (exp_bytes, stats.tc_ing['tc_49152_bytes']))
         else:
             # Validate fallback path (PF) statistics
             stats = self.dut.ethtool_stats_diff(self.dut.vnics[0], stats_init)
             if int(stats['rvec_0_rx_pkts']) < lo_exp_cnt or \
-               int(stats['rvec_0_rx_pkts']) > exp_cnt:
+               int(stats['rvec_0_rx_pkts']) > hi_exp_cnt:
                 raise NtiError('Counter missmatch. Expected: %s, Got: %s'
                                % (exp_cnt, stats['rvec_0_rx_pkts']))
 
