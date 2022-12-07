@@ -31,17 +31,19 @@ class NetconsoleRandTest(NetconsoleTest):
         return super(NetconsoleRandTest, self).prepare()
 
     def spawn_background_netcons_noise(self):
-        name = 'netcons_noise_' + self._netconsname + '.pid'
-        self.netcons_noise_pid = os.path.join(self.dut.tmpdir, name)
-
-        self.dut.cmd('while true; do echo noise_%s > /dev/kmsg ; done '
-                     ' >/dev/null 2>/dev/null & command ; echo $! > %s' %
-                     (self._netconsname, self.netcons_noise_pid))
+        pid, _ = self.dut.bg_proc_start('while true; do '
+                                        ''  'echo noise_%s > /dev/kmsg; '
+                                        ''  'sleep 0.01; '
+                                        'done'
+                                        % (self._netconsname))
+        self.netcons_noise_pid = pid
         self.netcons_noise_running = True
 
     def stop_background_netcons_noise(self):
-        self.netcons_noise_running = False
-        self.kill_pidfile(self.dut, self.netcons_noise_pid)
+        if self.netcons_noise_running:
+            self.dut.bg_proc_stop(self.netcons_noise_pid)
+            self.netcons_noise_pid = None
+            self.netcons_noise_running = False
 
     def spawn_netperfs(self, port=0):
         self.dut_netperf = self.dut.spawn_netperfs(self.group.addr_a[port][:-3],
@@ -154,8 +156,7 @@ class NetconsoleRandTest(NetconsoleTest):
                 LOG_endsec()
 
     def cleanup(self):
-        if self.netcons_noise_running:
-            self.stop_background_netcons_noise()
+        self.stop_background_netcons_noise()
         self.stop_netperfs()
         super(NetconsoleRandTest, self).cleanup()
         self.dut.reset_mods()
