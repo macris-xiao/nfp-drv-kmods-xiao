@@ -53,7 +53,6 @@ class NetconsoleTest(CommonTest):
     def spawn_nc(self):
         self.netconsfile = os.path.join(self.src.tmpdir,
                                         'netcons_' + self._netconsname)
-        self.netconspid = self.netconsfile + '.pid'
 
         # Copy the program over
         if not hasattr(self, 'src_udp_sink'):
@@ -64,10 +63,13 @@ class NetconsoleTest(CommonTest):
                            self.src_udp_sink)
 
         # Start listening
-        self.src.cmd('{prog} {port} {outfile} & command ; echo $! > {pidfile}'
-                     .format(prog=self.src_udp_sink, port=self.netconsport,
-                             outfile=self.netconsfile, pidfile=self.netconspid))
-        self.nc_running = True
+        if not self.nc_running:
+            pid, _ = self.src.bg_proc_start('{prog} {port} {outfile}'
+                                            .format(prog=self.src_udp_sink,
+                                                    port=self.netconsport,
+                                                    outfile=self.netconsfile))
+            self.netconspid = pid
+            self.nc_running = True
 
     def stop_nc(self, wait_for_line=None):
         if wait_for_line:
@@ -80,10 +82,12 @@ class NetconsoleTest(CommonTest):
                 fi
             done
             '''
-
             self.src.cmd(cmd.format(line=wait_for_line, dump=self.netconsfile))
-        self.nc_running = False
-        self.kill_pidfile(self.src, self.netconspid)
+
+        if self.nc_running:
+            self.src.bg_proc_stop(self.netconspid)
+            self.netconspid = None
+            self.nc_running = False
 
         self.src.mv_from(self.netconsfile, self.group.tmpdir)
         return os.path.join(self.group.tmpdir,
