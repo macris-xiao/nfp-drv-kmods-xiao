@@ -605,15 +605,22 @@ class IdentifyEthtool(CommonTest):
             reg_normal_bin = format(int(reg_normal, 16), '0>24b')[-bit]
 
             # Get value of register while identify running
-            cmd = "(ethtool -p %s 10 & sleep 5; " % (iface)
-            cmd += "/opt/netronome/bin/nfp-cpld -Z 0000:%s %s)" % (self.group.pci_id,addr)
-            _, reg_blink = self.dut.cmd(cmd)
+            self.dut.bg_proc_start('ethtool -p %s 10' % (iface))  # Blink 10sec
+            cmd = ('sleep 5; /opt/netronome/bin/nfp-cpld -Z 0000:%s %s'
+                   % (self.group.pci_id, addr))
+            _, reg_blink = self.dut.cmd(cmd)  # Wait 5sec, then get reg value
             reg_blink = reg_blink.split()[-1]
             reg_blink_bin = format(int(reg_blink, 16), '0>24b')[-bit]
 
             if reg_blink_bin == reg_normal_bin:
                 raise NtiError("idmode bit for %s not set" % (iface))
         self.ifc_all_up()
+
+    def cleanup(self):
+        self.dut.bg_proc_stop_all()
+
+        super(IdentifyEthtool, self).cleanup()
+
 
 class PauseEthtool(CommonTest):
     info = """
