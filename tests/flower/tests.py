@@ -245,27 +245,50 @@ class FlowerBase(CommonTest):
         raise NtiError('Could not determine PF for %s ' % phy_repr)
 
     def _parse_flower_version(self, fw_name):
+        """ Parse the version string for flower firmware. Extract major
+        version, minor version, symbol, buildnr and calculate the internal
+        version number from these fields. FW version examples:
+        AOTC-2.14.A.61 ; tc-22.09.0 ; tc-1633.597b3
+        """
         fw_v_dict = {}
-        prefix, vers = fw_name.split("-")
+        _, vers = fw_name.split("-")
+        split_version = vers.split(".")
+        major = split_version[0]
+        minor = split_version[1]
+        symbol = ''
+        if len(split_version) > 2:
+            symbol = split_version[2]
+
+        fw_v_dict["name"] = fw_name
+
+        # Handle both int and hex versioning
+        try:
+            fw_v_dict["major"] = int(major)
+        except ValueError:
+            fw_v_dict["major"] = int(major, 16)
+        try:
+            fw_v_dict["minor"] = int(minor)
+        except ValueError:
+            fw_v_dict["minor"] = int(minor, 16)
+        fw_v_dict["symbol"] = symbol
+
         if "tc" in fw_name:
-            major, minor, symbol = vers.split(".")
-            fw_v_dict["name"] = fw_name
-            fw_v_dict["major"] = int(major)
-            fw_v_dict["minor"] = int(minor)
-            fw_v_dict["symbol"] = symbol
-            fw_cmp = int(major) << 16 | int(minor) << 8
-            fw_v_dict["int_ver"] = fw_cmp
-            return fw_v_dict
+            fw_cmp = fw_v_dict["major"] << 16 | fw_v_dict["minor"] << 8
         else:
-            major, minor, symbol, buildnr = vers.split(".")
-            fw_v_dict["name"] = fw_name
-            fw_v_dict["major"] = int(major)
-            fw_v_dict["minor"] = int(minor)
-            fw_v_dict["symbol"] = symbol
-            fw_v_dict["buildnr"] = int(buildnr)
-            fw_cmp = int(major) << 16 | int(minor) << 8 | int(buildnr)
-            fw_v_dict["int_ver"] = fw_cmp
-            return fw_v_dict
+            buildnr = '0'
+            if len(split_version) > 3:
+                buildnr = split_version[3]
+
+            # Handle both int and hex versioning
+            try:
+                fw_v_dict["buildnr"] = int(buildnr)
+            except ValueError:
+                fw_v_dict["buildnr"] = int(buildnr, 16)
+            fw_cmp = fw_v_dict["major"] << 16 | fw_v_dict["minor"] << 8 | \
+                fw_v_dict["buildnr"]
+
+        fw_v_dict["int_ver"] = fw_cmp
+        return fw_v_dict
 
     def _ethtool_get_flower_version(self, host, iface):
         ethtool_fields = host.ethtool_drvinfo(iface)
