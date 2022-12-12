@@ -786,8 +786,9 @@ exit 0
         if len(result_pkts) < exp_num or len(result_pkts) > exp_num_upper:
             raise NtiError('Captured %d packets, expected %d' %
                            (len(result_pkts), exp_num))
+
+        found = 0
         if exp_pkt is not None:
-            found = 0
             for p in result_pkts:
                 if str(p) == exp_pkt:
                     found += 1
