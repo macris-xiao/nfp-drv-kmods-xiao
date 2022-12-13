@@ -26,8 +26,8 @@ class NetconsoleRandTest(NetconsoleTest):
     def prepare(self):
         self.init_state()
         self.netcons_noise_running = False
-        self.src_netperf = None
-        self.dut_netperf = None
+        self.dut_netperf_pids = None
+        self.src_netperf_pids = None
         return super(NetconsoleRandTest, self).prepare()
 
     def spawn_background_netcons_noise(self):
@@ -46,24 +46,20 @@ class NetconsoleRandTest(NetconsoleTest):
             self.netcons_noise_running = False
 
     def spawn_netperfs(self, port=0):
-        self.dut_netperf = self.dut.spawn_netperfs(self.group.addr_a[port][:-3],
-                                                   self._netconsname,
-                                                   self.netperf_num)
-        self.src_netperf = self.src.spawn_netperfs(self.group.addr_x[port][:-3],
-                                                   self._netconsname,
-                                                   self.netperf_num)
+        pids = self.dut.spawn_netperfs(self.group.addr_a[port][:-3],
+                                       self.netperf_num)
+        self.dut_netperf_pids = pids
+        pids = self.src.spawn_netperfs(self.group.addr_x[port][:-3],
+                                       self.netperf_num)
+        self.src_netperf_pids = pids
 
     def stop_netperfs(self):
-        if self.dut_netperf:
-            f = self.dut_netperf
-            self.dut_netperf = None
-            # Some DUT netperfs may have already died because we call this
-            # after taking link down or unloading the driver.
-            self.kill_pidfile(self.dut, f)
-        if self.src_netperf:
-            f = self.src_netperf
-            self.src_netperf = None
-            self.kill_pidfile(self.src, f)
+        if self.dut_netperf_pids:
+            self.dut.bg_proc_stop(self.dut_netperf_pids)
+            self.dut_netperf_pids = None
+        if self.src_netperf_pids:
+            self.src.bg_proc_stop(self.src_netperf_pids)
+            self.src_netperf_pids = None
 
     def flip_xdp(self):
         if self.xdp == None:

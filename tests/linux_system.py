@@ -9,6 +9,7 @@ import os
 import re
 import struct
 import json
+import time
 import netro.testinfra
 from netro.testinfra.system import *
 from netro.testinfra.system import _parse_ethtool
@@ -337,22 +338,16 @@ exit 0
             raise NtiGeneralError("Could TCP ping endpoint")
         return ret
 
-    def spawn_netperfs(self, host, tag="nti", n=16):
-        name = 'netperf_' + tag + '.pid'
+    def spawn_netperfs(self, host, n=16):
+        pids = []
+        for _ in range(n):
+            cmd = ('netperf -H {host} -l 0 -t TCP_STREAM -- -m 400 -M 400'
+                   .format(host=host))
+            pid, _ = self.bg_proc_start(cmd)
+            pids.append(pid)
+            time.sleep(0.1)  # Otherwise some fail to connect and kill barfs
 
-        cmd = ''' # spawn_netperfs
-        echo > {pidfile};
-        for i in `seq {n}`; do
-            netperf -H {host} -l 0 -t TCP_STREAM -- -m 400 -M 400 \
-                >/dev/null 2>/dev/null & command;
-            echo $! >> {pidfile}
-            sleep 0.1 # otherwise some fail to connect and kill barfs
-        done
-        '''
-
-        pidfile = os.path.join(self.tmpdir, name)
-        self.cmd(cmd.format(n=n, host=host, pidfile=pidfile))
-        return pidfile
+        return pids
 
     ###############################
     # ip

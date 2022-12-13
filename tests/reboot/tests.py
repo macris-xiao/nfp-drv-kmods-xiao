@@ -169,15 +169,14 @@ class KexecWithTraffic(CommonNetdevTest):
         self.ping(0)
 
         # Flood with traffic while executing kexec
-        pidfile = self.src.spawn_netperfs(self.group.addr_x[0][:-3])
+        pids = self.src.spawn_netperfs(self.group.addr_x[0][:-3])
         time.sleep(5)
         self.dut.bg_proc_start("kexec -xe", fail=False)
 
         time.sleep(5)
         self.ping(0, should_fail=True)
 
-        # Many of the netperf's may have died already
-        self.kill_pidfile(self.src, pidfile)
+        self.src.bg_proc_stop(pids)
 
         self.dut.wait_online()
         self.reinit_test()
