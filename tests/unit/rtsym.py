@@ -125,7 +125,7 @@ class RTSymDataTest(CommonTest):
     def nth_rtsym_data_write(self, key, val, seek=None, do_fail=False):
         self.dut.dfs_write('nth/rtsym_key', key)
 
-        cmd = 'echo -ne "%s"' % (val)
+        cmd = '/bin/echo -ne "%s"' % (val)
         cmd += ' | dd of=%s bs=4 conv=notrunc' % \
             (os.path.join(self.dut.dfs_dir, 'nth/rtsym_val'))
         if seek:
