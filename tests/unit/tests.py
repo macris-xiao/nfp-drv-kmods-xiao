@@ -942,6 +942,7 @@ class IfConfigDownTest(CommonNonUpstreamTest):
         self.dut.ip_link_set_up(iface)
         self.do_check_port(iface, mac_addr, "\+Configured")
         self.wait_for_link(iface, mac_addr)
+        time.sleep(3)
         self.ping(port)
 
     def check_port_down(self, port_tuple):
