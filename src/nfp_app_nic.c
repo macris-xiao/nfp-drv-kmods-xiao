@@ -3,6 +3,7 @@
 
 #include "nfpcore/nfp_cpp.h"
 #include "nfpcore/nfp_nsp.h"
+#include "nfpcore/nfp_nffw.h"
 #include "nfp_app.h"
 #include "nfp_main.h"
 #include "nfp_net.h"
@@ -32,11 +33,16 @@ int nfp_app_nic_vnic_init_phy_port(struct nfp_pf *pf, struct nfp_app *app,
 int nfp_app_nic_vnic_alloc(struct nfp_app *app, struct nfp_net *nn,
 			   unsigned int id)
 {
+	const struct nfp_rtsym *sym;
 	int err;
 
 	err = nfp_app_nic_vnic_init_phy_port(app->pf, app, nn, id);
 	if (err)
 		return err < 0 ? err : 0;
+
+	sym = nfp_rtsym_lookup(app->pf->rtbl, "hw_flower_version");
+	if (sym)
+		nn->port->is_bmetal = true;
 
 	nfp_net_get_mac_addr(app->pf, nn->dp.netdev, nn->port);
 

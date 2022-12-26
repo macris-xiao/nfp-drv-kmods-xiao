@@ -54,6 +54,7 @@ enum nfp_port_flags {
  * @dl_port:	devlink port structure
  * @eth_id:	for %NFP_PORT_PHYS_PORT port ID in NFP enumeration scheme
  * @eth_forced:	for %NFP_PORT_PHYS_PORT port is forced UP or DOWN, don't change
+ * @is_bmetal:	for %NFP_PORT_PHYS_PORT is base metal card
  * @eth_port:	for %NFP_PORT_PHYS_PORT translated ETH Table port entry
  * @eth_stats:	for %NFP_PORT_PHYS_PORT MAC stats if available
  * @pf_id:	for %NFP_PORT_PF_PORT, %NFP_PORT_VF_PORT ID of the PCI PF (0-3)
@@ -80,6 +81,7 @@ struct nfp_port {
 		struct {
 			unsigned int eth_id;
 			bool eth_forced;
+			bool is_bmetal;
 			struct nfp_eth_table_port *eth_port;
 			u8 __iomem *eth_stats;
 		};
