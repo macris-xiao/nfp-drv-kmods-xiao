@@ -11,11 +11,12 @@ from fw_dumps import FwDumpTest
 from rtsym import RTSymTest, RTSymDataTest
 from versions import VersionsTest
 from netro.testinfra.test import *
+from netro.testinfra.nti_exceptions import NtiError
 from ..drv_grp import NFPKmodGrp
 from ..ebpf.xdp import XDPTest
 from ifstats import IFstats
 from tlv_stats import TLVstatsTest
-from ..common_test import AMDA_25G_CARDS
+from ..common_test import AMDA_25G_CARDS, NtiSkip
 
 ###########################################################################
 # Unit Tests
@@ -40,37 +41,37 @@ class NFPKmodUnit(NFPKmodGrp):
         dut = (self.dut, self.addr_x, self.eth_x, self.addr_v6_x)
         src = (self.host_a, self.addr_a, self.eth_a, self.addr_v6_a)
 
-        T = (('modinfo', Modinfo, "Test if modinfo is correct"),
-             ('serial_and_ifc', NFPSerialAndInterface,
+        T = (('multi_modinfo', Modinfo, "Test if modinfo is correct"),
+             ('multi_serial_and_ifc', NFPSerialAndInterface,
               "Read the serial number and interface ID"),
-             ('resource', ResourceTest, 'Test in-kernel resource table interface'),
-             ('lock_busting', LockBusting, 'Bust resource locks on init'),
-             ('nsp_eth_table', NspEthTable, "Test NSP ETH table functions"),
-             ('hwinfo', HWInfoTest, 'Test in-kernel HWInfo interface'),
-             ('nsp_hwinfo', HWInfoNspTest, 'Test NSP HWInfo interface'),
-             ('rtsym', RTSymTest, 'Test in-kernel RT-Sym interface'),
-             ('rtsym_data', RTSymDataTest, 'Test in-kernel RT-Sym data interface'),
-             ('fw_dump', FwDumpTest, 'Test firmware debug dump'),
-             ('fw_names', FwSearchTest, "Test FW requested by the driver"),
-             ('vnic_tlv_caps', TLVcapTest, "Test basic parsing of TLV vNIC caps"),
-             ('vnic_tlv_stats', TLVstatsTest, "Test vNIC TLV statistics"),
-             ('sriov', SriovTest, 'Test SR-IOV sysfs interface'),
-             ('netdev', NetdevTest, "Test netdev loading"),
+             ('multi_resource', ResourceTest, 'Test in-kernel resource table interface'),
+             ('multi_lock_busting', LockBusting, 'Bust resource locks on init'),
+             ('multi_nsp_eth_table', NspEthTable, "Test NSP ETH table functions"),
+             ('multi_hwinfo', HWInfoTest, 'Test in-kernel HWInfo interface'),
+             ('multi_nsp_hwinfo', HWInfoNspTest, 'Test NSP HWInfo interface'),
+             ('multi_rtsym', RTSymTest, 'Test in-kernel RT-Sym interface'),
+             ('multi_rtsym_data', RTSymDataTest, 'Test in-kernel RT-Sym data interface'),
+             ('multi_fw_dump', FwDumpTest, 'Test firmware debug dump'),
+             ('multi_fw_names', FwSearchTest, "Test FW requested by the driver"),
+             ('multi_vnic_tlv_caps', TLVcapTest, "Test basic parsing of TLV vNIC caps"),
+             ('multi_vnic_tlv_stats', TLVstatsTest, "Test vNIC TLV statistics"),
+             ('multi_sriov', SriovTest, 'Test SR-IOV sysfs interface'),
+             ('multi_netdev', NetdevTest, "Test netdev loading"),
              # Tests which assume netdev FW to be loaded
-             ('params_incompat', ParamsIncompatTest,
+             ('multi_params_incompat', ParamsIncompatTest,
               "Test if incompatible parameter combinations are rejected"),
-             ('dev_cpp', DevCppTest,
+             ('multi_dev_cpp', DevCppTest,
               "Test user space access existence and basic functionality"),
-             ('ifstats_reconfig', IFstats, "Interface statstics vs reconfig"),
-             ('channel_reconfig', ChannelReconfig, "Ethtool channel reconfig"),
-             ('ethtool_aneg', AutonegEthtool,
+             ('multi_ifstats_reconfig', IFstats, "Interface statstics vs reconfig"),
+             ('multi_channel_reconfig', ChannelReconfig, "Ethtool channel reconfig"),
+             ('multi_ethtool_aneg', AutonegEthtool,
               "Test setting autonegotiation with ethtool"),
-             ('port_config', IfConfigDownTest,
+             ('multi_port_config', IfConfigDownTest,
               "Check interface operable after FW load with combinations of ifup/ifdown"),
-             ('sriov_ndos', SriovNDOs, 'Test SR-IOV VF config NDO functions'),
-             ('fec_modes', FECModesTest, 'Test FEC modes configuration'),
-             ('versions', VersionsTest, 'Test devlink dev info (versions)'),
-             ('devlink_param', DevlinkParam, 'Test devlink parameters'),
+             ('multi_sriov_ndos', SriovNDOs, 'Test SR-IOV VF config NDO functions'),
+             ('multi_fec_modes', FECModesTest, 'Test FEC modes configuration'),
+             ('multi_versions', VersionsTest, 'Test devlink dev info (versions)'),
+             ('multi_devlink_param', DevlinkParam, 'Test devlink parameters'),
         )
 
         for t in T:
@@ -523,10 +524,9 @@ class SriovTest(CommonDrvTest):
     def sriov_set(self, num=0):
         self.dut.cmd('echo %s > /sys/bus/pci/devices/0000:%s/sriov_numvfs' %
                      (num, self.group.pci_id))
-        if self.dut.get_part_no() != 'AMDA0145-0002':
-            _, out = self.dut.cmd('lspci -d 19ee:6003 | wc -l')
-        else:
-            _, out = self.dut.cmd('lspci -d 19ee:3803 | wc -l')
+        _, out = self.dut.cmd('lspci -d %s:%s | wc -l' %
+                              (self.dut.get_vendor_id(),
+                               self.dut.get_vf_id()))
         got = int(out)
         if got != num:
             raise NtiGeneralError('Incorrect SR-IOV number got:%d want:%d' %
@@ -538,11 +538,12 @@ class SriovTest(CommonDrvTest):
         # Load pci_stub first so it binds to the VFs
         if self.dut.kernel_ver_ge(4, 12):
             cmd = 'echo 0 > /sys/bus/pci/devices/%s/sriov_drivers_autoprobe' % \
-                self.group.pci_dbdf
+                    self.group.pci_dbdf
             self.dut.cmd(cmd)
         else:
             self.dut.cmd('modprobe pci_stub')
-            cmd = 'echo 19ee 6003 > /sys/bus/pci/drivers/pci-stub/new_id'
+            cmd = 'echo %s %s > /sys/bus/pci/drivers/pci-stub/new_id' % \
+                (self.dut.get_vendor_id(), self.dut.get_vf_id())
             self.dut.cmd(cmd)
 
         M.insmod()
@@ -673,17 +674,22 @@ class SriovNDOs(CommonNetdevTest):
         # We have no way to read the cap upstream right now,
         # hardcode the project capabilities
         _, out = self.dut.nffw_status()
-        loaded_fw_version = re.search('Firmware version: (.*)\n', out).groups()[0]
+        loaded_fw_version = re.search('Firmware version: (.*)\n', out).group(1)
         if loaded_fw_version == '2.1.16':
             sriov_caps = (
-                { "name" : "corenic", "caps" : 0x0f, "reprs" : False, "keyword" : "nic-"},
-                { "name" : "sriov", "caps" : 0x0f, "reprs" : False, "keyword" : "sriov-" },
+                {"name": "corenic", "caps": 0x0f, "reprs": False,
+                 "keyword": "nic-"},
+                {"name": "sriov", "caps": 0x0f, "reprs": False,
+                 "keyword": "sri"},
             )
         else:
             sriov_caps = (
-                { "name" : "flower", "caps" : 0x0b, "reprs" : True, "keyword" : "flo" },
-                { "name" : "corenic", "caps" : 0x1f, "reprs" : False, "keyword" : "nic-"},
-                { "name" : "sriov", "caps" : 0x1f, "reprs" : False, "keyword" : "sriov-" },
+                {"name": "flower", "caps": 0x0b, "reprs": True,
+                 "keyword": "flo"},
+                {"name": "corenic", "caps": 0x1f, "reprs": False,
+                 "keyword": "nic-"},
+                {"name": "sriov", "caps": 0x1f, "reprs": False,
+                 "keyword": "sri"},
             )
 
         info = self.dut.ethtool_drvinfo(self.nfp_netdevs[0])
@@ -871,6 +877,14 @@ class AutonegEthtool(CommonNonUpstreamTest):
         self.check_nsp_min(15)
         self.skip_not_ifc_phys()
 
+        for ifc in self.dut_ifn:
+            aneg_support = self.dut.ethtool_get_autoneg_support(ifc)
+            if not aneg_support:
+                raise NtiSkip('Card does not support Auto-negotiation.')
+
+        # Set stable media modes
+        self.ethtool_set_stable_media_modes()
+
         self.state = {}
 
         for ifc in self.dut_ifn:
@@ -890,6 +904,12 @@ class AutonegEthtool(CommonNonUpstreamTest):
             self.flip_autoneg_status(ifc)
 
         self.state_check()
+
+    def cleanup(self):
+        # Set stable media modes
+        self.ethtool_set_stable_media_modes()
+
+        return super(AutonegEthtool, self).cleanup()
 
 class IfConfigDownTest(CommonNonUpstreamTest):
     def wait_for_link_netdev(self, iface):
@@ -934,16 +954,17 @@ class IfConfigDownTest(CommonNonUpstreamTest):
         mac_addr = port_tuple[1]
         port = port_tuple[2]
 
-        self.dut.cmd('ip link set dev %s up' % iface)
+        self.dut.ip_link_set_up(iface)
         self.do_check_port(iface, mac_addr, "\+Configured")
         self.wait_for_link(iface, mac_addr)
+        time.sleep(3)
         self.ping(port)
 
     def check_port_down(self, port_tuple):
         iface = port_tuple[0]
         mac_addr = port_tuple[1]
 
-        self.dut.cmd('ip link set dev %s down' % iface)
+        self.dut.ip_link_set_down(iface)
         self.do_check_port(iface, mac_addr, "\-Configured")
 
     def netdev_execute(self):
@@ -1039,48 +1060,28 @@ class FECModesTest(CommonNonUpstreamTest):
     def check_mode_on_other_ports(self, entry_to_exclude, list):
         for entry in list:
             if entry[0] != entry_to_exclude[0]:
-                self.check_fec_mode(entry[0], entry[1], "Fec0", "auto")
+                self.check_fec_mode(entry[0], entry[1], "Fec3", "off")
 
     def set_and_check_fec_mode(self, port_tuple, fec, nsp_fec_mode):
         iface = port_tuple[0]
         mac_addr = port_tuple[1]
         port = port_tuple[2]
 
+        self.dut.ip_link_set_down(iface, fail=False)
         self.dut.ethtool_set_fec(iface, fec)
+        self.dut.ip_link_set_up(iface, fail=False)
         self.check_fec_mode(iface, mac_addr, nsp_fec_mode, fec)
 
-        # First we ping with a case that will fail, then we align the
-        # endpoint and expect it to pass.
-        # However, if the DUT is configured for auto FEC detection, the first
-        # ping should succeed.
-        if fec == "off":
-            for port in range(0, len(self.src_ifn)):
-                iface = self.src_ifn[port]
-                self.src.ethtool_set_fec(iface, "baser")
-        else:
-            for port in range(0, len(self.src_ifn)):
-                iface = self.src_ifn[port]
-                self.src.ethtool_set_fec(iface, "off")
-
-        # TODO: Add ping tests back once NO CARRIER issue has been resolved
-
-        # Takes time for ethtool to take action on previous command
-        # time.sleep(3)
-        # if fec != "auto":
-        #     self.ping(port, should_fail=True)
-        # else:
-        #     self.ping(port)
-        for port in range(0, len(self.src_ifn)):
+        if fec != "auto":
             iface = self.src_ifn[port]
+            self.src.ip_link_set_down(iface, fail=False)
             self.src.ethtool_set_fec(iface, fec)
-
-        # Takes time for ethtool to take action on previous command
-        # time.sleep(3)
-        # self.ping(port)
+            self.src.ip_link_set_up(iface, fail=True)
+            time.sleep(5)
+            self.ping(port)
 
     def set_fec_and_expect_to_fail(self, port_tuple, fec):
         iface = port_tuple[0]
-        mac_addr = port_tuple[1]
 
         ret, _ = self.dut.ethtool_set_fec(iface, fec, fail=False)
         if ret == 0:
@@ -1091,21 +1092,10 @@ class FECModesTest(CommonNonUpstreamTest):
         self.is_fec_capable = False
 
     def cleanup(self):
-        if self.is_fec_capable:
-            for port in range(0, len(self.dut_ifn)):
-                iface = self.dut_ifn[port]
-                self.dut.ip_link_set_down(iface)
-                self.dut.ethtool_set_autoneg(iface, "on")
-                self.dut.ip_link_set_up(iface)
-                self.dut.ethtool_set_fec(iface, "auto")
-            for port in range(0, len(self.src_ifn)):
-                iface = self.src_ifn[port]
-                self.src.ip_link_set_down(iface)
-                self.src.ethtool_set_autoneg(iface, "on")
-                self.src.ip_link_set_up(iface)
-                self.src.ethtool_set_fec(iface, "auto")
+        # Set stable media modes
+        self.ethtool_set_stable_media_modes()
 
-        return super(CommonNonUpstreamTest, self).cleanup()
+        return super(FECModesTest, self).cleanup()
 
     def netdev_execute(self):
         self.check_nsp_min(22)
@@ -1121,92 +1111,113 @@ class FECModesTest(CommonNonUpstreamTest):
         # Get AMDAXXXX number
         part_no = self.dut.get_amda_only()
 
+        # Set stable media modes
+        self.ethtool_set_stable_media_modes()
+
+        # Get supported DUT-EP SFP speeds
+        link_speed = self.ethtool_compare_module_speeds(self.dut_ifn[0],
+                                                        self.src_ifn[0])
+
         # This checks for our 25G cards
         if part_no in AMDA_25G_CARDS:
             self.is_fec_capable = True
 
-            # Reset the current FEC mode to default, i.e. auto and switch off
-            # autoneg
+            # Reset the DUT FEC mode to off and switch off autoneg
             for port in range(0, len(self.dut_ifn)):
                 iface = self.dut_ifn[port]
                 self.dut.ip_link_set_down(iface)
-                self.dut.ethtool_set_autoneg(iface, "off")
+                self.dut.ethtool_set_autoneg(iface, "off", fail=False)
                 self.dut.ip_link_set_up(iface)
-                self.dut.ethtool_set_fec(iface, "auto")
+                self.dut.ethtool_set_fec(iface, "off")
 
-            # We always disable autoneg on the endpoint.
-            # Since 25G isn't prevalent at the moment, and no other NIC vendor we
-            # use have this feature, assume that the endpoint will be another Carbon.
+            # Reset the DUT FEC mode to off and switch off autoneg
+            # Assume that EP will be another 25G card
             for port in range(0, len(self.src_ifn)):
                 iface = self.src_ifn[port]
                 self.src.ip_link_set_down(iface)
-                self.src.ethtool_set_autoneg(iface, "off")
+                self.src.ethtool_set_autoneg(iface, "off", fail=False)
                 self.src.ip_link_set_up(iface)
-                self.src.ethtool_set_fec(iface, "auto")
+                self.src.ethtool_set_fec(iface, "off")
 
         for entry in port_mac_tuple_list:
             iface = entry[0]
             mac_addr = entry[1]
 
-            # FEC configuration only available on Carbon
+            # FEC configuration only available on 25G cards
             if self.is_fec_capable:
-                _, supported = self.dut.cmd('ethtool %s | grep -iA2 "Supported FEC"' % iface)
+                self.check_fec_mode(iface, mac_addr, "Fec3", "off")
+                self.check_mode_on_other_ports(entry, port_mac_tuple_list)
+
+                _, supported = self.dut.cmd(('ethtool %s | grep -iA2 ' +
+                                            '"Supported FEC"') % iface)
+                _, advertised = self.dut.cmd(('ethtool %s | grep -iA2 ' +
+                                             '"Advertised FEC"') % iface)
+
                 if not re.search('None', supported, re.MULTILINE):
-                    raise NtiError('Expected interface %s to have None as supported FEC mode' %
-                                   iface)
-                if not re.search('BASER', supported.upper(), re.MULTILINE):
-                    raise NtiError('Expected interface %s to have BaseR as supported FEC mode' %
-                                   iface)
-                if not re.search('RS', supported, re.MULTILINE):
-                    raise NtiError('Expected interface %s to have RS as supported FEC mode' %
-                                   iface)
+                    raise NtiError(('Expected interface %s to have None ' +
+                                   'as supported FEC mode') % iface)
 
-                _, advertised = self.dut.cmd('ethtool %s | grep -iA2 "Advertised FEC"' % iface)
-                if not re.search('BASER', advertised.upper(), re.MULTILINE):
-                    raise NtiError('Expected interface %s to have BaseR as advertised FEC mode' %
-                                   iface)
-                if not re.search('RS', advertised, re.MULTILINE):
-                    raise NtiError('Expected interface %s to have RS as advertised FEC mode' %
-                                   iface)
+                if link_speed == 10000:
+                    if not re.search('BASER',
+                                     supported.upper(),
+                                     re.MULTILINE):
+                        raise NtiError(('Expected interface %s to have ' +
+                                       'BaseR as supported FEC mode') % iface)
+                    if not re.search('BASER',
+                                     advertised.upper(),
+                                     re.MULTILINE):
+                        raise NtiError(('Expected interface %s to have ' +
+                                       'BaseR as advertised FEC mode') % iface)
+                    self.set_and_check_fec_mode(entry, "baser", "Fec1")
+                    self.check_mode_on_other_ports(entry, port_mac_tuple_list)
 
-                self.check_fec_mode(iface, mac_addr, "Fec0", "auto")
-                self.check_mode_on_other_ports(entry, port_mac_tuple_list)
+                if link_speed == 25000:
+                    if not re.search('RS',
+                                     supported,
+                                     re.MULTILINE):
+                        raise NtiError(('Expected interface %s to have ' +
+                                       'RS as supported FEC mode') % iface)
+                    if not re.search('RS',
+                                     advertised,
+                                     re.MULTILINE):
+                        raise NtiError(('Expected interface %s to have ' +
+                                       'RS as advertised FEC mode') % iface)
 
-                self.set_and_check_fec_mode(entry, "baser", "Fec1")
-                self.check_mode_on_other_ports(entry, port_mac_tuple_list)
+                    self.set_and_check_fec_mode(entry, "rs", "Fec2")
+                    self.check_mode_on_other_ports(entry, port_mac_tuple_list)
 
-                self.set_and_check_fec_mode(entry, "rs", "Fec2")
+                self.set_and_check_fec_mode(entry, "auto", "Fec0")
                 self.check_mode_on_other_ports(entry, port_mac_tuple_list)
 
                 self.set_and_check_fec_mode(entry, "off", "Fec3")
                 self.check_mode_on_other_ports(entry, port_mac_tuple_list)
 
-                self.set_and_check_fec_mode(entry, "auto", "Fec0")
-                self.check_mode_on_other_ports(entry, port_mac_tuple_list)
             else:
-                # Other non-Carbon cards are expected to only show "None" as the
+                # Other non-25G cards are expected to only show "None" as the
                 # supported FEC mode. No FEC mode modification is allowed.
-                _, supported = self.dut.cmd('ethtool %s | grep -iA2 "Supported FEC"' % iface)
+                _, supported = self.dut.cmd(('ethtool %s | grep -iA2 ' +
+                                            '"Supported FEC"') % iface)
                 if not re.search('None', supported, re.MULTILINE):
-                    raise NtiError('Expected interface %s to have None as supported FEC mode' %
-                                   iface)
+                    raise NtiError(('Expected interface %s to have None ' +
+                                   'as supported FEC mode') % iface)
                 if re.search('BaseR', supported, re.MULTILINE):
-                    raise NtiError('Expected interface %s to have BaseR as supported FEC mode' %
-                                   iface)
+                    raise NtiError(('Expected interface %s to have BaseR ' +
+                                   'as supported FEC mode') % iface)
                 if re.search('RS', supported, re.MULTILINE):
-                    raise NtiError('Expected interface %s to have RS as supported FEC mode' %
-                                   iface)
+                    raise NtiError(('Expected interface %s to have RS ' +
+                                   'as supported FEC mode') % iface)
 
-                _, advertised = self.dut.cmd('ethtool %s | grep -iA2 "Advertised FEC"' % iface)
+                _, advertised = self.dut.cmd(('ethtool %s | grep -iA2 '
+                                             '"Advertised FEC"') % iface)
                 if not re.search('None', advertised, re.MULTILINE):
-                    raise NtiError('Expected interface %s to have None as advertised FEC mode' %
-                                   iface)
+                    raise NtiError(('Expected interface %s to have None ' +
+                                   'as advertised FEC mode') % iface)
                 if re.search('BaseR', advertised, re.MULTILINE):
-                    raise NtiError('Expected interface %s to have BaseR as advertised FEC mode' %
-                                   iface)
+                    raise NtiError(('Expected interface %s to have BaseR ' +
+                                   'as advertised FEC mode') % iface)
                 if re.search('RS', advertised, re.MULTILINE):
-                    raise NtiError('Expected interface %s to have RS as advertised FEC mode' %
-                                   iface)
+                    raise NtiError(('Expected interface %s to have RS ' +
+                                   'as advertised FEC mode') % iface)
 
                 self.check_fec_mode(iface, mac_addr, "Fec0", "")
                 self.set_fec_and_expect_to_fail(entry, "baser")

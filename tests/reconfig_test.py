@@ -46,16 +46,16 @@ class ReconfigTest(CommonNetdevTest):
         self.state_refresh()
 
     def ifup(self):
-        ret, _ = self.dut.cmd('ip link set up dev %s' % self.dut_ifn[0],
-                              fail=self.fail_policy)
+        ret, _ = self.dut.ip_link_set_up(self.dut_ifn[0],
+                                         fail=self.fail_policy)
         if ret == 0:
             self.ifstate = True
             ret, _ = self.dut.cmd('ip addr replace %s dev %s' %
                                   (self.dut_addr[0], self.dut_ifn[0]))
 
     def ifdown(self):
-        self.dut.cmd('ip link set down dev %s' % self.dut_ifn[0],
-                     fail=self.fail_policy)
+        self.dut.ip_link_set_down(self.dut_ifn[0],
+                                  fail=self.fail_policy)
         self.ifstate = False
 
     def set_ring_config(self, config):

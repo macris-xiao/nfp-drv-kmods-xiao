@@ -29,6 +29,8 @@ class DrvSystem(LinuxSystem):
         self.fw_name = None
         self.fw_name_serial = None
         self.pci_device_id = None
+        self.vendor_id = None
+        self.vf_id = None
         self.netdevfw_dir = None
         self.grp = grp
 
@@ -261,17 +263,14 @@ class DrvSystem(LinuxSystem):
         This function returns the BSP Version as a string format,
         e.g. 22.07-1
         """
-        _, out = self.cmd('dmesg | awk -F ":" "/BSP/ {print \$5}"'
-                          ' | tail -n1 | tr -d "* "')
+        cmd = 'dmesg | tac | sed -n "1,/nfp: NFP PCIe Driver/p"'
+        cmd += ' | grep "nfp 0000:%s"' % (self.group.pci_id)
+        cmd += ' | grep -o "BSP: .*" | cut -c 6- | tr -d "\n"'
+        _, ver = self.cmd(cmd)
+        if ver == "":
+            raise NtiSkip("No reported BSP version.")
 
-        # Check for old BSP version e.g. BSP version is
-        # 010217.010217.010325, therefore out = 010325
-        oldBSP = re.compile(r"[0-9]{6}")
-        if out == oldBSP or out == "":
-            raise NtiSkip("The BSP version is either outdated for "
-                          "these tests or BSP tools is not installed.")
-
-        return out
+        return ver
 
     # Reimplement cp_to with -r parameter
     def cp_to(self, src, dst):
@@ -337,6 +336,17 @@ class DrvSystem(LinuxSystem):
         if self.grp.installed_drv:
             ret, out = self.cmd('modprobe %s %s' % (module, params), fail=fail)
         else:
+            # As this uses insmod, first find the dependencies and load them too
+            # The desired line in the module info is:
+            # depends:        tls
+            # It is preferred to search for the depends field and find all dependecies
+            # rather than simply load the tls module in case in the future the nfp
+            # module is dependent on more than just tls.
+            ret, out = self.cmd('modinfo %s | sed -n "s@depends:[ ]*\([a-z0-9\_,]*\)@\\1@p"'
+                                % (module), fail=fail)
+            for x in out.split(","):
+                if x != 'nfp':
+                    ret, out = self.cmd('modprobe %s' % (x), fail=fail)
             ret, out = self.cmd('insmod %s %s' % (module, params), fail=fail)
         if ret == 0:
             # Store the module name for cleanup
@@ -418,6 +428,10 @@ class DrvSystem(LinuxSystem):
         self.insmod(netdev=True, userspace=True)
         ret, _ = self.cmd_rtsym('_pf0_net_bar0', fail=False)
         if ret != 0:
+            # Make sure the driver is not actively using any firmware by
+            # reloading with `nfp_pf_netdev=0` by setting netdev=False
+            self.rmmod()
+            self.insmod(netdev=False, userspace=True)
             self.nffw_unload()
             self.nffw_load('%s' % fwpath)
             self.rmmod()
@@ -631,9 +645,38 @@ class DrvSystem(LinuxSystem):
             return self.pci_device_id
         _, pci_device_info = self.cmd('lspci | grep %s' % self.grp.pci_id)
         self.pci_device_id = pci_device_info.split()[-1]
+
+        # In case dmesg format is '1da8:3800' or similar
+        if ':' in self.pci_device_id:
+            self.pci_device_id = self.pci_device_id.split(':')[-1]
         return self.pci_device_id
 
-    def get_fw_name(self):
+    def get_vendor_id(self):
+        # Determine vendor ID : 19ee (netronome) or 1da8 (corigine)
+        if self.vendor_id:
+            return self.vendor_id
+
+        _, out = self.cmd('cat /sys/bus/pci/devices/0000:%s/vendor' %
+                          self.group.pci_id, fail=False)
+        vendor_id = out.split('x')[1].strip()
+        if vendor_id not in ['19ee', '1da8']:
+            raise NtiError('Unexpected vendor ID: %s' % (vendor_id))
+        else:
+            self.vendor_id = vendor_id
+        return self.vendor_id
+
+    def get_vf_id(self):
+        # Determine VF ID from PCI device ID
+        if self.vf_id:
+            return self.vf_id
+
+        if self.get_pci_device_id() != '3800':
+            self.vf_id = '6003'
+        else:
+            self.vf_id = '3803'
+        return self.vf_id
+
+    def get_fw_name(self, load_drv=True):
         if self.fw_name:
             return self.fw_name
 
@@ -643,9 +686,12 @@ class DrvSystem(LinuxSystem):
                   '40G' : [ 40 ] }
         amda = self.get_part_no()
 
-        self.insmod()
-        _, media = self.cmd_media()
-        self.rmmod()
+        if load_drv:
+            self.insmod()
+            _, media = self.cmd_media()
+            self.rmmod()
+        else:
+            _, media = self.cmd_media()
 
         links = []
         for phy in media.split('\n'):
@@ -683,7 +729,7 @@ class DrvSystem(LinuxSystem):
         return value
 
     def nfp_phymod_get_speed(self, idx):
-        _, out = self.cmd_phymod('-E | grep -C1 eth%d | tail -1' % (idx))
+        _, out = self.cmd_phymod('-E | grep eth%d | head -1' % (idx))
 
         speed = re.search(' *(\d*)G', out)
 
@@ -738,3 +784,19 @@ class DrvSystem(LinuxSystem):
 
     def cmd_fis(self, cmd='', fail=True):
         return self.bsp_cmd('fis', cmd, fail=fail)
+
+    def netns_cmd(self, cmd, ns, fail=True):
+        nscmd = "ip netns exec {} {}".format(ns, cmd)
+        return self.cmd(nscmd, fail=fail)
+
+    def netns_add(self, ns, fail=True):
+        nscmd = "ip netns add {}".format(ns)
+        return self.cmd(nscmd, fail=fail)
+
+    def netns_del(self, ns, fail=True):
+        nscmd = "ip netns del {}".format(ns)
+        return self.cmd(nscmd, fail=fail)
+
+    def netns_add_iface(self, ns, iface, fail=True):
+        nscmd = "ip link set {} netns {}".format(iface, ns)
+        return self.cmd(nscmd, fail=fail)

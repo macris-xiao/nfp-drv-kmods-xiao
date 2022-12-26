@@ -1,4 +1,6 @@
 name: Driver Regression Tests
+run-name: >-
+  Driver Regressions: ${{ inputs.test }}-${{ inputs.fw_type }}
 
 on:
   workflow_dispatch:
@@ -21,7 +23,6 @@ on:
           - AUTO:all
           - BPF:agilio-bpf-firmware
           - NIC:agilio-nic-firmware
-          - NIC:agilio-sriov-firmware
           - SRIOV:agilio-sriov-firmware
           - DISA:agilio-flower-app-firmware
         description: >-
@@ -41,7 +42,8 @@ on:
         type: choice
         required: false
         options:
-          - release
+          - releases
+          - prereleases
           - interim
           - temporary
         description: >-
@@ -54,26 +56,72 @@ on:
         description: >-
           Which kernel to install on the DUT, if blank the latest build
           available will be used
+      kernel_source:
+        type: choice
+        required: true
+        options:
+          - linux_stable
+          - linux_net_next
+        description: >-
+          Which flavour of kernel to use
       platform:
         type: choice
         required: true
         options:
           - osprey
           - kestrel
+          - all
         description: >-
           NFP architecture on which to run tests
-
+      os:
+        type: choice
+        required: false
+        options:
+          - any
+          - CentOS-8
+          - Ubuntu-20.04
+          - all
+        description: >-
+          Which operating system the cluster DUT should be
+          running.
+      base_branch:
+        description: >-
+          Override default branch definition. This refers to the branch
+          that the testing branch is based on. Only requires changing if
+          branch being tested is a part of a specific project. E.g. if
+          the changes in the branch being tested are a part of a project
+          to provide a specific feature for client01, which has its own branch,
+          wip-client01, one should specify wip-client01 as the base branch.
+        type: string
+        required: true
+        default: 'main'
 jobs:
   # ===================================================
   # PREPARE - derive test parameters, determine workflow skipping
   prepare:
-    name: 'drv-test-dev: Prepare'
+    name: 'Prepare'
     runs-on:
       - self-hosted
       - ci-linter-vm
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
+
+      - name: User inputs
+        shell: python3 {0}
+        run: |
+          import json
+          inputs ={ "test" : "${{ inputs.test }}",
+                    "fw_type" : "${{ inputs.fw_type }}",
+                    "fw_version" : "${{ inputs.fw_version }}",
+                    "fw_release_type" : "${{ inputs.fw_release_type }}",
+                    "kernel" : "${{ inputs.kernel }}",
+                    "kernel_source" : "${{ inputs.kernel_source }}",
+                    "platform" : "${{ inputs.platform }}",
+                    "os" : "${{ inputs.os }}",
+                    "base_branch" : "${{ inputs.base_branch }}"
+                    }
+          print(json.dumps(inputs, indent=1))
 
       - name: Checkout provisioning repo
         uses: actions/checkout@v3
@@ -89,25 +137,67 @@ jobs:
           HEAD_REF="${{ github.head_ref || github.ref_name }}"
           echo "JIRA_TICKET=$(echo $HEAD_REF | grep -Eo '[A-Za-z]+[^[:alnum:]]?[0-9]+' | head -1 || true)" >> $GITHUB_ENV
 
-      - name: Get available kernels
+      - name: Get available kernels - CentOS-8
         uses: ./ci-libs/github_actions/azure/azcopy_list
-        id: artifact
+        id: artifact-centos
         with:
           connection-string: ${{ secrets.AZ_SAS_TOK }}
-          src: tmp/linux_stable_builds/centos-stream8/
+          src: tmp/misc/kernels/${{ inputs.kernel_source }}_builds/CentOS-8/
+          pattern: '.*'
+
+      - name: Get available kernels - Ubuntu-20.04
+        uses: ./ci-libs/github_actions/azure/azcopy_list
+        id: artifact-ubuntu
+        with:
+          connection-string: ${{ secrets.AZ_SAS_TOK }}
+          src: tmp/misc/kernels/${{ inputs.kernel_source }}_builds/Ubuntu-20.04/
           pattern: '.*'
 
       - name: Set kernel to use
         shell: bash
         run: |
-          FILES=$(echo "${{ steps.artifact.outputs.file-list }}" | sed -E 's/^.*?kernel/kernel/')
-          if [ ${{ github.event_name }} = 'workflow_dispatch' ]; then
-            if [ ${{ inputs.kernel }} = '' ]; then
+          FILES_CENTOS=$(echo "${{ steps.artifact-centos.outputs.file-list }}" | sed -E 's/^[a-zA-Z ]*kernel/kernel/')
+          FILES_UBUNTU=$(echo "${{ steps.artifact-ubuntu.outputs.file-list }}" | sed -E 's/^[a-zA-Z ]*kernel/kernel/')
+          if [[ '${{ github.event_name }}' = 'workflow_dispatch' ]]; then
+            if [[ '${{ inputs.kernel }}' = '' ]]; then
               # No kernel specified, use the latest available
-              echo "KERNEL_TAR=$(echo $FILES | awk '{ print $1 }')" >> $GITHUB_ENV
-              echo "::notice::Kernel $(echo $FILES | awk '{ print $1 }') will be used"
+              if [[ '${{ inputs.os }}' = 'all' || '${{ inputs.os }}' = 'any' ]]; then
+              # Need to select the latest kernel that is available for both operating systems
+                KERNEL_TAR=
+                NUM_CENTOS=$(echo $FILES_CENTOS | awk --field-separator=" " "{ print NF }")
+                NUM_UBUNTU=$(echo $FILES_UBUNTU | awk --field-separator=" " "{ print NF }")
+                for i in $(seq $NUM_CENTOS -1 1); do
+                  CENTOS_KERNEL=$(echo $FILES_CENTOS | awk -v index_var=$i '{ print $index_var }')
+                  for j in $(seq $NUM_UBUNTU -1 1); do
+                    UBUNTU_KERNEL=$(echo $FILES_UBUNTU | awk -v index_var=$j '{ print $index_var }')
+                    if [[ $CENTOS_KERNEL = $UBUNTU_KERNEL ]]; then
+                      KERNEL_TAR=$CENTOS_KERNEL
+                      break
+                    fi
+                  done
+                  if [[ $KERNEL_TAR != '' ]]; then
+                    break
+                  fi
+                done
+                if [[ $KERNEL_TAR = '' ]]; then
+                # No kernel is found that is available for both CentOS and Ubuntu
+                  echo "::notice::No appropriate kernel found"
+                  exit 2
+                else
+                  echo "KERNEL_TAR=$KERNEL_TAR" >> $GITHUB_ENV
+                  echo "::notice::Kernel $KERNEL_TAR will be used"
+                fi
+              else
+                if [[ '${{ inputs.os }}' == 'CentOS-8' ]]; then
+                  echo "KERNEL_TAR=$(echo $FILES_CENTOS | awk '{ print $1 }')" >> $GITHUB_ENV
+                  echo "::notice::Kernel $(echo $FILES_CENTOS | awk '{ print $1 }') will be used"
+                else
+                  echo "KERNEL_TAR=$(echo $FILES_UBUNTU | awk '{ print $1 }')" >> $GITHUB_ENV
+                  echo "::notice::Kernel $(echo $FILES_UBUNTU | awk '{ print $1 }') will be used"
+                fi
+              fi
             else
-              KERNEL_TAR="$(echo ${FILES} | grep -Eo '[^ ]*${{ inputs.kernel }}[^ ]*' || true)"
+              KERNEL_TAR="$(echo ${FILES_CENTOS} | grep -Eo '[^ ]*${{ inputs.kernel }}[^ ]*' || true)"
               if [[ -z $KERNEL_TAR ]]; then
                 # Specified kernel is not found
                 echo "::notice::Kernel '' not found"
@@ -142,36 +232,24 @@ jobs:
           FW_VER: ${{ inputs.fw_version }}
 
       - name: Set firmware path
-        if: inputs.fw_type != 'AUTO:all' && github.event_name != 'push'
+        if: github.event_name != 'push'
         shell: bash
         run: |
-          if [ '${{ inputs.fw_release_type }}' == 'release' ]; then
-            RELEASE=releases
+          if [ "$RELEASE" = "releases" ] || [ "$RELEASE" = "prereleases" ]; then
+            echo "BPF_FW_PATH=binaries/nic/bpf/tgz" >> $GITHUB_ENV
+            echo "DISA_FW_PATH=binaries/disa/$RELEASE/tgz" >> $GITHUB_ENV
+            echo "NIC_FW_PATH=binaries/nic/$RELEASE/tgz" >> $GITHUB_ENV
+          elif [ "$RELEASE" = "interim" ]; then
+            echo "BPF_FW_PATH=binaries/nic/bpf/tgz" >> $GITHUB_ENV
+            echo "DISA_FW_PATH=binaries/disa/$RELEASE/agilio-tc-firmware/tgz" >> $GITHUB_ENV
+            echo "NIC_FW_PATH=binaries/nic/$RELEASE/tgz" >> $GITHUB_ENV
           else
-            RELEASE=${{ inputs.fw_release_type }}
-          fi
-
-          if [ ${FW_TYPE%:*} = 'BPF' ]; then
-            if [ '$RELEASE' = 'temporary' ]; then
-              echo "FW_PATH=tmp/bpf_builds/tgz" >> $GITHUB_ENV
-            else
-              echo "FW_PATH=binaries/nic/bpf/tgz" >> $GITHUB_ENV
-            fi
-          elif [ ${FW_TYPE%:*} = 'DISA' ]; then
-            if [ '$RELEASE' = 'temporary' ]; then
-              echo "FW_PATH=tmp/disa_builds/tgz" >> $GITHUB_ENV
-            else
-              echo "FW_PATH=binaries/disa/$RELEASE/tgz" >> $GITHUB_ENV
-            fi
-          else
-            if [ '$RELEASE' = 'temporary' ]; then
-              echo "FW_PATH=tmp/nic_builds/tgz" >> $GITHUB_ENV
-            else
-              echo "FW_PATH=binaries/nic/$RELEASE/tgz" >> $GITHUB_ENV
-            fi
+            echo "BPF_FW_PATH=tmp/bpf_builds/tgz" >> $GITHUB_ENV
+            echo "DISA_FW_PATH=tmp/disa_builds/tgz" >> $GITHUB_ENV
+            echo "NIC_FW_PATH=tmp/corenic_builds/tgz" >> $GITHUB_ENV
           fi
         env:
-          FW_TYPE: ${{ inputs.fw_type }}
+          RELEASE: ${{ inputs.fw_release_type }}
 
       - name: Extract tags name from branch
         if: github.event_name == 'push'
@@ -188,11 +266,12 @@ jobs:
         shell: python3 {0}
         run: |
           import json
+          import os as operating_sys
 
           testMatrix = {'platform':[
                           'osprey'],
                         'os':[
-                          'CentOS-8'],
+                          'ci-CentOS-8'],
                         'kernel':[
                           '${{ env.KERNEL_TAR }}']
                         }
@@ -207,7 +286,7 @@ jobs:
                             'firmware_name':'agilio-nic-firmware-',
                             'firmware_path':'binaries/nic/releases/tgz',
                             'config_file':'generic',
-                            'test_cases':'reboot|'})
+                            'test_cases':'reboot&'})
 
           if 'reload' in tags:
             names.append('reload_tests')
@@ -216,67 +295,25 @@ jobs:
                             'firmware_name':'agilio-nic-firmware-',
                             'firmware_path':'binaries/nic/releases/tgz',
                             'config_file':'generic',
-                            'test_cases':'reload|'})
+                            'test_cases':'reload&'})
 
           if 'unit' in tags:
-            names.append('unit_nic_tests')
-            include.append({'name':'unit_nic_tests',
-                            'iproute_version':'5.15.0',
-                            'firmware_name':'agilio-nic-firmware-',
-                            'firmware_path':'binaries/nic/releases/tgz',
-                            'config_file':'generic',
-                            'test_cases':'unit.modinfo|'\
-                                        'unit.serial_and_ifc|'\
-                                        'unit.resource|'\
-                                        'unit.lock_busting|'\
-                                        'unit.nsp_eth_table|'\
-                                        'unit.hwinfo|'\
-                                        'unit.nsp_hwinfo|'\
-                                        'unit.rtsym|'\
-                                        'unit.rtsym_data|'\
-                                        'unit.fw_dump|'\
-                                        'unit.fw_names|'\
-                                        'unit.vnic_tlv_caps|'\
-                                        'unit.vnic_tlv_stats|'\
-                                        'unit.netdev|'\
-                                        'unit.params_incompat|'\
-                                        'unit.dev_cpp|'\
-                                        'unit.channel_reconfig|'\
-                                        'unit.ethtool_aneg|'\
-                                        'unit.port_config|'\
-                                        'unit.versions|'\
-                                        'unit.devlink_param|'})
-
-            names.append('unit_sriov_tests')
-            include.append({'name':'unit_sriov_tests',
+            names.append('unit_tests')
+            include.append({'name':'unit_tests',
                             'iproute_version':'5.15.0',
                             'firmware_name':'agilio-sriov-firmware-',
                             'firmware_path':'binaries/nic/releases/tgz',
                             'config_file':'generic',
-                            'test_cases':'unit.sriov|'\
-                                        'unit.sriov_ndos|'\
-                                        'unit.fec_modes|'\
-                                        'unit.ifstats_reconfig|'})
+                            'test_cases':'unit.(multi|sriov).*&'})
 
           if 'netdev' in tags:
-            names.append('netdev_nic_tests')
+            names.append('netdev_bpf_tests')
             include.append({'name':'netdev_nic_tests',
                             'iproute_version':'5.15.0',
                             'firmware_name':'agilio-nic-firmware-',
                             'firmware_path':'binaries/nic/releases/tgz',
                             'config_file':'generic',
-                            'test_cases':'netdev.bsp_version|'\
-                                        'netdev.bsp_diag|'\
-                                        'netdev.sensors|'\
-                                        'netdev.phys_port_name|'\
-                                        'netdev.ethtool_drvinfo|'\
-                                        'netdev.ethtool_get_speed|'\
-                                        'netdev.ethtool_stats|'\
-                                        'netdev.ethtool_mac_stats|'\
-                                        'netdev.ethtool_get_mod_eeprom|'\
-                                        'netdev.devlink_port_show|'\
-                                        'netdev.netconsole|'\
-                                        'netdev.huge_ring|'})
+                            'test_cases':'netdev.bpf.*&'})
 
             names.append('netdev_flower_tests')
             include.append({'name':'netdev_flower_tests',
@@ -284,7 +321,7 @@ jobs:
                             'firmware_name':'agilio-flower-app-firmware-',
                             'firmware_path':'binaries/disa/releases/tgz',
                             'config_file':'flower',
-                            'test_cases':'netdev.repr_caps|'})
+                            'test_cases':'netdev.flower.*&'})
 
             names.append('netdev_sriov_tests')
             include.append({'name':'netdev_sriov_tests',
@@ -292,8 +329,7 @@ jobs:
                             'firmware_name':'agilio-sriov-firmware-',
                             'firmware_path':'binaries/nic/releases/tgz',
                             'config_file':'generic',
-                            'test_cases':'netdev.coalesce_pf|'\
-                                        'netdev.coalesce_vf'})
+                            'test_cases':'netdev.(multi|sriov).*&'})
 
           if 'flower' in tags:
             names.append('flower_tests')
@@ -302,60 +338,17 @@ jobs:
                             'firmware_name':'agilio-flower-app-firmware-',
                             'firmware_path':'binaries/disa/releases/tgz',
                             'config_file':'flower',
-                            'test_cases':'flower|'})
+                            'test_cases':'flower&'})
 
           if tags == '-':
-            names.append('corenic_tests')
-            include.append({'name':'corenic_tests',
-                            'iproute_version':'5.15.0',
-                            'firmware_name':'agilio-nic-firmware-',
-                            'firmware_path':'binaries/nic/releases/tgz',
-                            'config_file':'generic',
-                            'test_cases':'netdev.bsp_version|'\
-                                        'netdev.bsp_diag|'\
-                                        'netdev.sensors|'\
-                                        'netdev.phys_port_name|'\
-                                        'netdev.ethtool_drvinfo|'\
-                                        'netdev.ethtool_get_speed|'\
-                                        'netdev.ethtool_stats|'\
-                                        'netdev.ethtool_mac_stats|'\
-                                        'netdev.ethtool_get_mod_eeprom|'\
-                                        'netdev.devlink_port_show|'\
-                                        'netdev.netconsole|'\
-                                        'netdev.mtu_flbufsz_check|'\
-                                        'netdev.huge_ring|'\
-                                        'reboot|'\
-                                        'reload|'\
-                                        'unit.modinfo|'\
-                                        'unit.serial_and_ifc|'\
-                                        'unit.resource|'\
-                                        'unit.lock_busting|'\
-                                        'unit.nsp_eth_table|'\
-                                        'unit.hwinfo|'\
-                                        'unit.nsp_hwinfo|'\
-                                        'unit.rtsym|'\
-                                        'unit.rtsym_data|'\
-                                        'unit.fw_dump|'\
-                                        'unit.fw_names|'\
-                                        'unit.vnic_tlv_caps|'\
-                                        'unit.vnic_tlv_stats|'\
-                                        'unit.netdev|'\
-                                        'unit.params_incompat|'\
-                                        'unit.dev_cpp|'\
-                                        'unit.channel_reconfig|'\
-                                        'unit.ethtool_aneg|'\
-                                        'unit.port_config|'\
-                                        'unit.versions|'\
-                                        'unit.devlink_param|'})
-
             names.append('flower_tests')
             include.append({'name':'flower_tests',
                             'iproute_version':'5.15.0',
                             'firmware_name':'agilio-flower-app-firmware-',
                             'firmware_path':'binaries/disa/releases/tgz',
                             'config_file':'flower',
-                            'test_cases':'flower|'\
-                                        'netdev.repr_caps|'})
+                            'test_cases':'flower&'
+                                         'netdev.flower.*&'})
 
             names.append('sriov_tests')
             include.append({'name':'sriov_tests',
@@ -363,193 +356,244 @@ jobs:
                             'firmware_name':'agilio-sriov-firmware-',
                             'firmware_path':'binaries/nic/releases/tgz',
                             'config_file':'generic',
-                            'test_cases':'netdev.coalesce_pf|'\
-                                        'netdev.coalesce_vf|'\
-                                        'unit.sriov|'\
-                                        'unit.sriov_ndos|'\
-                                        'unit.fec_modes|'\
-                                        'unit.ifstats_reconfig|'})
-
+                            'test_cases':'reload&'
+                                         'reboot&'
+                                         'netdev.(multi|sriov|nic).*&'
+                                         'unit.(multi|sriov|nic).*&'})
 
           testMatrix["name"] = names
           testMatrix["include"] = include
-          print(json.dumps(testMatrix, indent=2))
-
-          print("::set-output name=matrix::" + str(testMatrix))
+          with open(operating_sys.environ['GITHUB_OUTPUT'], 'a') as github_output:
+            github_output.write(f"matrix={testMatrix}")
 
       - name: Populate test matrix on dispatch
         if: github.event_name == 'workflow_dispatch'
         id: matrix_dispatch
         shell: python3 {0}
         run: |
+          import sys
           import json
+          import re
+          import os as operating_sys
 
-          testMatrix = {'platform':[
-                          '${{ inputs.platform }}'],
-                        'os':[
-                          'CentOS-8'],
-                        'kernel':[
+          testMatrix = {'kernel':[
                           '${{ env.KERNEL_TAR }}']
                         }
+          os = []
+          platform = []
           names = []
           include = []
 
-          search_key = '${{ env.SEARCH_KEY }}'
-          fw_path = '${{ env.FW_PATH }}'
+          if ( '${{ inputs.os }}' == 'all' ):
+            os.append('ci-CentOS-8')
+            os.append('ci-Ubuntu-20.04')
+          elif ( '${{ inputs.os }}' == 'any' ):
+            os.append('ci-cluster')
+          else:
+            os.append('ci-${{ inputs.os }}')
 
-          if ( '${{ inputs.test }}' == 'all' and
-              ( '${{ inputs.fw_type }}' == 'BPF:agilio-bpf-firmware' ) ):
+          if ( '${{ inputs.platform }}' == 'all' ):
+            platform.append('osprey')
+            platform.append('kestrel')
+          else:
+            platform.append('${{ inputs.platform }}')
 
-            if ( search_key == '' ):
-              search_key = 'agilio-bpf-firmware-.*${{ inputs.fw_version }}.*'
-              fw_path = 'binaries/nic/bpf/tgz'
+          if ( '${{ inputs.test }}' == 'all' ):
 
-            names.append('BPF_tests')
-            include.append({'name':'BPF_tests',
-                            'iproute_version':'5.12.0',
-                            'firmware_name':search_key,
-                            'firmware_path':fw_path,
-                            'config_file':'generic',
-                            'test_cases':'ebpf|'\
-                                        'ebpfdrv|'\
-                                        'ebpf_perf|'\
-                                        'ebpf_perf_drv|'\
-                                        'netdev.mtu_flbufsz_check|'})
-            search_key = '${{ env.SEARCH_KEY }}'
-            fw_path = '${{ env.FW_PATH }}'
+            if ( '${{ inputs.fw_type }}' == 'BPF:agilio-bpf-firmware' ):
+              search_key = '${{ env.SEARCH_KEY }}'
+              fw_path = '${{ env.BPF_FW_PATH }}'
+              if ( search_key == '' ):
+                search_key = 'agilio-bpf-firmware-.*${{ inputs.fw_version }}.*'
 
-          if ( '${{ inputs.test }}' == 'all' and
-              ( '${{ inputs.fw_type }}' == 'AUTO:all' or
-              '${{ inputs.fw_type }}' == 'DISA:agilio-flower-app-firmware' ) ):
+              names.append('BPF_tests')
+              include.append({'name':'BPF_tests',
+                              'iproute_version':'5.12.0',
+                              'firmware_name':search_key,
+                              'firmware_path':fw_path,
+                              'config_file':'generic',
+                              'test_cases':'ebpf&'
+                                           'ebpfdrv&'
+                                           'ebpf_perf&'
+                                           'ebpf_perf_drv&'
+                                           'netdev.bpf.*&'})
 
-            if ( search_key == '' ):
-              search_key = 'agilio-flower-app-firmware-.*${{ inputs.fw_version }}.*'
-              fw_path = 'binaries/disa/releases/tgz'
+            if ( '${{ inputs.fw_type }}' == 'AUTO:all' or
+              '${{ inputs.fw_type }}' == 'DISA:agilio-flower-app-firmware' ):
+              search_key = '${{ env.SEARCH_KEY }}'
+              fw_path = '${{ env.DISA_FW_PATH }}'
+              if ( search_key == '' ):
+                search_key = 'agilio-flower-app-firmware-.*${{ inputs.fw_version }}.*'
 
-            names.append('DISA_tests')
-            include.append({'name':'DISA_tests',
-                            'iproute_version':'5.15.0',
-                            'firmware_name':search_key,
-                            'firmware_path':fw_path,
-                            'config_file':'flower',
-                            'test_cases':'flower|'\
-                                         'netdev.repr_caps|'})
-            search_key = '${{ env.SEARCH_KEY }}'
-            fw_path = '${{ env.FW_PATH }}'
+              names.append('DISA_tests')
+              include.append({'name':'DISA_tests',
+                              'iproute_version':'5.15.0',
+                              'firmware_name':search_key,
+                              'firmware_path':fw_path,
+                              'config_file':'flower',
+                              'test_cases':'flower&'
+                                           'netdev.flower.*&'})
 
-          if ( '${{ inputs.test }}' == 'all' and
-              ( '${{ inputs.fw_type }}' == 'AUTO:all' or
-              'NIC' in '${{ inputs.fw_type }}' ) ):
+            if ( '${{ inputs.fw_type }}' == 'NIC:agilio-nic-firmware' ):
+              search_key = '${{ env.SEARCH_KEY }}'
+              fw_path = '${{ env.NIC_FW_PATH }}'
 
-            if ( search_key == '' ):
-              search_key = 'agilio-nic-firmware-.*${{ inputs.fw_version }}.*'
-              fw_path = 'binaries/nic/releases/tgz'
+              if ( search_key == '' ):
+                search_key = 'agilio-nic-firmware-.*${{ inputs.fw_version }}.*'
 
-            names.append('CoreNIC_tests')
-            include.append({'name':'CoreNIC_tests',
-                            'iproute_version':'5.15.0',
-                            'firmware_name':search_key,
-                            'firmware_path':fw_path,
-                            'config_file':'generic',
-                            'test_cases':'reboot|'\
-                                        'reload|'\
-                                        'netdev.bsp_version|'\
-                                        'netdev.bsp_diag|'\
-                                        'netdev.sensors|'\
-                                        'netdev.phys_port_name|'\
-                                        'netdev.ethtool_drvinfo|'\
-                                        'netdev.ethtool_get_speed|'\
-                                        'netdev.ethtool_stats|'\
-                                        'netdev.ethtool_mac_stats|'\
-                                        'netdev.ethtool_get_mod_eeprom|'\
-                                        'netdev.devlink_port_show|'\
-                                        'netdev.netconsole|'\
-                                        'netdev.huge_ring|'\
-                                        'unit.modinfo|'\
-                                        'unit.serial_and_ifc|'\
-                                        'unit.resource|'\
-                                        'unit.lock_busting|'\
-                                        'unit.nsp_eth_table|'\
-                                        'unit.hwinfo|'\
-                                        'unit.nsp_hwinfo|'\
-                                        'unit.rtsym|'\
-                                        'unit.rtsym_data|'\
-                                        'unit.fw_dump|'\
-                                        'unit.fw_names|'\
-                                        'unit.vnic_tlv_caps|'\
-                                        'unit.vnic_tlv_stats|'\
-                                        'unit.netdev|'\
-                                        'unit.params_incompat|'\
-                                        'unit.dev_cpp|'\
-                                        'unit.channel_reconfig|'\
-                                        'unit.ethtool_aneg|'\
-                                        'unit.port_config|'\
-                                        'unit.versions|'\
-                                        'unit.devlink_param|'})
-            search_key = '${{ env.SEARCH_KEY }}'
-            fw_path = '${{ env.FW_PATH }}'
+              names.append('CoreNIC_tests')
+              include.append({'name':'CoreNIC_tests',
+                              'iproute_version':'5.15.0',
+                              'firmware_name':search_key,
+                              'firmware_path':fw_path,
+                              'config_file':'generic',
+                              'test_cases':'reload&'
+                                           'reboot&'
+                                           'netdev.(multi|nic).*&'
+                                           'unit.(multi|nic).*&'})
 
-          if ( '${{ inputs.test }}' == 'all' and
-              ( '${{ inputs.fw_type }}' == 'AUTO:all' or
-              '${{ inputs.fw_type }}' == 'SRIOV:agilio-sriov-firmware') ):
+            if ( '${{ inputs.fw_type }}' == 'AUTO:all' or
+                '${{ inputs.fw_type }}' == 'SRIOV:agilio-sriov-firmware' ):
+              search_key = '${{ env.SEARCH_KEY }}'
+              fw_path = '${{ env.NIC_FW_PATH }}'
 
-            if ( search_key == '' ):
-              search_key = 'agilio-sriov-firmware-.*${{ inputs.fw_version }}.*'
-              fw_path = 'binaries/nic/releases/tgz'
+              if ( search_key == '' ):
+                search_key = 'agilio-sriov-firmware-.*${{ inputs.fw_version }}.*'
 
-            names.append('SRIOV_tests')
-            include.append({'name':'SRIOV_tests',
-                            'iproute_version':'5.15.0',
-                            'firmware_name':search_key,
-                            'firmware_path':fw_path,
-                            'config_file':'generic',
-                            'test_cases':'netdev.coalesce_pf|'\
-                                        'netdev.coalesce_vf|'\
-                                        'unit.sriov|'\
-                                        'unit.sriov_ndos|'\
-                                        'unit.fec_modes|'\
-                                        'unit.ifstats_reconfig|'})
-            search_key = '${{ env.SEARCH_KEY }}'
-            fw_path = '${{ env.FW_PATH }}'
+              names.append('SRIOV_tests')
+              include.append({'name':'SRIOV_tests',
+                              'iproute_version':'5.15.0',
+                              'firmware_name':search_key,
+                              'firmware_path':fw_path,
+                              'config_file':'generic',
+                              'test_cases':'reload&'
+                                           'reboot&'
+                                           'netdev.(multi|sriov).*&'
+                                           'unit.(multi|sriov).*&'})
 
-          if ( '${{ inputs.test }}' != 'all' ):
-            if ( 'BPF' in '${{ inputs.fw_type}}' ):
-              iproute = '5.12.0'
+          else:
+            if ( '${{ inputs.fw_type }}' == 'AUTO:all' ):
+
+              fw_dict = {'setup':'multi',
+                         'ebpf':'bpf',
+                         'ebpfdrv':'bpf',
+                         'ebpf_perf':'bpf',
+                         'ebpf_perf_drv':'bpf',
+                         'flower':'flower',
+                         'rand':'multi',
+                         'rand_err':'multi',
+                         'reboot':'multi',
+                         'reload':'multi'
+                        }
+              include_tests = {}
+              user_tests = '${{ inputs.test }}'
+
+              for x in user_tests.split('&'):
+                if (x.split('.')[0] == 'abm' or x.split('.')[0] == 'ktls'):
+                  print("::error::ktls and abm test groups are not supported at this time")
+                  sys.exit(1)
+                else:
+                  group = x.split('.')[0]
+                  test = x[(len(group)+1):]
+
+                  if ( group in fw_dict ):
+                    fw = fw_dict[group]
+                  else:
+                    fw = re.split("\.|_", test)[0]
+
+                  if ( fw == 'multi' ):
+                    fw = 'SRIOV'
+                  else:
+                    fw = fw.upper()
+
+                  if ( fw == 'BPF'):
+                    search_key = 'agilio-bpf-firmware-.*${{ inputs.fw_version }}.*'
+                    fw_path = '${{ env.BPF_FW_PATH }}'
+                    config = 'generic'
+                    iproute_version = '5.12.0'
+                  elif ( fw == 'FLOWER'):
+                    search_key = 'agilio-flower-app-firmware-.*${{ inputs.fw_version }}.*'
+                    fw_path = '${{ env.DISA_FW_PATH }}'
+                    config = 'flower'
+                    iproute_version = '5.15.0'
+                  elif ( fw == 'NIC'):
+                    search_key = 'agilio-nic-firmware-.*${{ inputs.fw_version }}.*'
+                    fw_path = '${{ env.NIC_FW_PATH }}'
+                    config = 'generic'
+                    iproute_version = '5.15.0'
+                  else:
+                    search_key = 'agilio-sriov-firmware-.*${{ inputs.fw_version }}.*'
+                    fw_path = '${{ env.NIC_FW_PATH }}'
+                    config = 'generic'
+                    iproute_version = '5.15.0'
+
+
+                  name = 'user_specified_tests_' + fw
+                  if ( name in include_tests ):
+                    include_tests[name]["test_cases"] += x + '&'
+                  else:
+                    include_tests[name] = {'name': name,
+                                           'iproute_version': iproute_version,
+                                           'firmware_name':search_key,
+                                           'firmware_path':fw_path,
+                                           'config_file':config,
+                                           'test_cases': x + '&'}
+
+              for job in include_tests.keys():
+                names.append(job)
+                include.append(include_tests[job])
+
             else:
-              iproute = '5.15.0'
+              search_key = '${{ env.SEARCH_KEY }}'
+              if ( 'BPF' in '${{ inputs.fw_type}}'):
+                fw_path = '${{ env.BPF_FW_PATH }}'
+                config = 'generic'
+                iproute_version = '5.12.0'
+              elif ( 'DISA' in '${{ inputs.fw_type}}'):
+                fw_path = '${{ env.DISA_FW_PATH }}'
+                config = 'flower'
+                iproute_version = '5.15.0'
+              elif ( 'NIC' in '${{ inputs.fw_type}}'):
+                fw_path = '${{ env.NIC_FW_PATH }}'
+                config = 'generic'
+                iproute_version = '5.15.0'
+              else:
+                fw_path = '${{ env.NIC_FW_PATH }}'
+                config = 'generic'
+                iproute_version = '5.15.0'
 
-            if ( 'DISA' in '${{ inputs.fw_type}}' ):
-              config = 'flower'
-            else:
-              config = 'generic'
+              names.append('user_specified_tests')
+              include.append({'name':'user_specified_tests',
+                'iproute_version':iproute_version,
+                'firmware_name':search_key,
+                'firmware_path':fw_path,
+                'config_file':config,
+                'test_cases':'${{ inputs.test }}&'})
 
-            names.append('user_specified_tests')
-            include.append({'name':'user_specified_tests',
-              'iproute_version':iproute,
-              'firmware_name':search_key,
-              'firmware_path':fw_path,
-              'config_file':'generic',
-              'test_cases':'${{ inputs.test }}|'})
-
+          testMatrix["os"] = os
+          testMatrix["platform"] = platform
           testMatrix["name"] = names
           testMatrix["include"] = include
-          print(json.dumps(testMatrix, indent=2))
-
-          print("::set-output name=matrix::" + str(testMatrix))
+          with open(operating_sys.environ['GITHUB_OUTPUT'], 'a') as github_output:
+            github_output.write(f"matrix={testMatrix}")
 
       - name: Print test matrix
         id: matrix
         shell: python3 {0}
         run: |
           import json
+          import os as operating_sys
+
           if '${{ github.event_name }}' == 'push':
-            print("::set-output name=matrix::" + str(${{ steps.matrix_push.outputs.matrix }}))
+            with open(operating_sys.environ['GITHUB_OUTPUT'], 'a') as github_output:
+              github_output.write(f"matrix={str(${{ steps.matrix_push.outputs.matrix }})}")
 
           if '${{ github.event_name }}' == 'workflow_dispatch':
-            print("::set-output name=matrix::" + str(${{ steps.matrix_dispatch.outputs.matrix }}))
+            with open(operating_sys.environ['GITHUB_OUTPUT'], 'a') as github_output:
+              github_output.write(f"matrix={str(${{ steps.matrix_dispatch.outputs.matrix }})}")
 
   regression-tests:
-    name: 'drv-test-dev: ${{ matrix.name }}'
+    name: '${{ matrix.name }} - ${{ matrix.os }}/${{ matrix.platform }}'
     needs: prepare
     strategy:
       fail-fast: false
@@ -557,7 +601,7 @@ jobs:
     runs-on:
       - self-hosted
       - ${{ matrix.platform }}
-      - ci-${{ matrix.os }}
+      - ${{ matrix.os }}
       - ci-cluster-vm
       - DUT-DUT
       - two-port
@@ -594,12 +638,25 @@ jobs:
           mkdir ci-libs/ansible/roles/kernel_installer/files
           mkdir ci-libs/ansible/roles/llvm/files
 
+      - name: Get DUT OS
+        if: always()
+        id: OS
+        uses: ./ci-libs/github_actions/utilities/remote_command
+        with:
+          host: ${{ env.DUT }}
+          cmd: |
+            DISTRO=$(sed -n "s@^NAME=\"\(.*\)\"@\1@p" /etc/os-release)
+            VERSION=$(sed -n "s@^VERSION_ID=\"\(.*\)\"@\1@p" /etc/os-release)
+            echo ${DISTRO%% *}-$VERSION
+
       - name: Download kernel
         uses: ./ci-libs/github_actions/azure/azcopy_download_sync
         with:
           connection-string: ${{ secrets.AZ_SAS_TOK }}
-          src: tmp/linux_stable_builds/centos-stream8/${{ matrix.kernel }}
+          src: tmp/misc/kernels/${{ inputs.kernel_source }}_builds/${OS//\\n/}/${{ matrix.kernel }}
           dst: ci-libs/ansible/roles/kernel_installer/files/${{ matrix.kernel }}
+        env:
+          OS: ${{ steps.OS.outputs.stdout }}
 
       - name: Find llvm
         uses: ./ci-libs/github_actions/azure/azcopy_list
@@ -626,10 +683,15 @@ jobs:
             allow_unsupported_platforms=yes
             kernel_src='custom_package'
             kernel_file_tar=${{ matrix.kernel }}
+            kernel_custom_install_headers_rpm=no
+            kernel_custom_install_dbg=no
+            kernel_custom_install_libc_dev=no
             ci_dev_drv_iproute_version=${{ matrix.iproute_version }}
             ci_dev_drv_install=false
+            ci_dev_drv_nfp_source_dir=/root/nfp-drv-kmods-private
             ci_dev_drv_nfp_source_dir_orch=${{ github.workspace }}
             drv_llvm_install_src='custom_package'
+            ci_dev_drv_nti_version='main'
             nti_dir=${{ github.workspace }}/nti-private
             dut_drv_version=${{ github.head_ref || github.ref_name }}
             github_token=${{ secrets.GHUB_TOKEN }}
@@ -647,11 +709,10 @@ jobs:
         if: always()
         shell: bash
         run: |
-          KERNEL_RESET=$(echo ${{ steps.KERNEL_RESET.outputs.stdout }} | tr --delete '\n')
-          echo "KERNEL_RESET=$KERNEL_RESET" >> $GITHUB_ENV
-          KERNEL_REMOVE=$(echo ${{ steps.KERNEL_REMOVE.outputs.stdout }} | tr --delete '\n')
-          KERNEL_REMOVE=$(echo $KERNEL_REMOVE | tr '-' '_')
-          echo "KERNEL_REMOVE=$KERNEL_REMOVE" >> $GITHUB_ENV
+          KERNEL_RESET=${{ steps.KERNEL_RESET.outputs.stdout }}
+          echo "KERNEL_RESET=${KERNEL_RESET//\\n/}" >> $GITHUB_ENV
+          KERNEL_REMOVE=${{ steps.KERNEL_REMOVE.outputs.stdout }}
+          echo "KERNEL_REMOVE=${KERNEL_REMOVE//\\n/}" >> $GITHUB_ENV
 
       - name: Create firmware directories for tests
         shell: bash
@@ -680,19 +741,94 @@ jobs:
         run: |
           sudo tar -xvzf ./firmware/firmware.tar.gz --strip-components=1 -C ./firmware/test/
 
+      - name: Select correct card on DUT
+        shell: bash
+        working-directory: ${{ github.workspace }}/ci-libs/ci-config
+        run: |
+          cd $HOSTNAME
+          for i in $(ls | grep AMDA || true); do
+            PLATFORM_PRESENT=$(grep ${{ matrix.platform }} $i || true)
+            if [[ $PLATFORM_PRESENT != '' ]]; then
+              if [[ ${{ matrix.config_file }} = 'generic' ]]; then
+                CONFIG_FILE=generic.$(echo $i | cut -d "-" -f2-).cfg
+              else
+                CONFIG_FILE=flower.$(echo $i | cut -d "-" -f2).cfg
+              fi
+              echo "CONFIG_FILE=$CONFIG_FILE" >> $GITHUB_ENV
+              break
+            fi
+          done
+
+      - name: Add copied driver to git safe directory list
+        run: |
+          cd nfp-drv-kmods-private
+          git config --global --add safe.directory `pwd`
+
       - name: Run tests
+        id: tests
         shell: bash
         working-directory: ${{ github.workspace }}/nfp-drv-kmods-private
         run: |
-          CONFIG_FILE=$(ls ../ci-libs/ci-config/$HOSTNAME/ci-dev-drv/${{ matrix.config_file }}.* | head -1)
+          OS=${OS//\\n/}
+          OS=${OS//\'/}
+          if [[ '${{ matrix.name }}' = 'user_specified_tests' ]]; then
+            TESTNAME=$(echo ${TESTS//&/_} | sed 's/\.\*//g')
+          else
+            TESTNAME=${{ matrix.name }}_
+          fi
+          HASH=$(git rev-parse --short=10 HEAD)
+          RUN_NAME=$(date -u +%Y.%m.%d-%H.%M)_${TESTNAME}$OS.${{matrix.platform}}.${HASH:0:10}
+          LOG_PATH=/tmp/logs/ci-dev-drv/$RUN_NAME
           FAIL=false
-          for test in $(echo '${{ matrix.test_cases }}' | tr '|' ' '); do
-            ../nti-private/ti/ticmd -c $CONFIG_FILE -l /tmp/logs/ci-dev-drv/$test run tests.$test | \
+
+          for test in $(echo $TESTS | tr '&' ' '); do
+            ../nti-private/ti/ticmd \
+            -c ../ci-libs/ci-config/$HOSTNAME/ci-dev-drv/${{ env.CONFIG_FILE }} \
+            -l $LOG_PATH/$test run tests.$test | \
             sed --unbuffered 's/.*FAILED/\0\n::error::\0/' || FAIL=true
           done
+
+          cd $LOG_PATH/../
+          tar -zcf $RUN_NAME.tgz $RUN_NAME
+          echo "LOG_PATH=$LOG_PATH" >> $GITHUB_ENV
+
+          if [ ! "$DEFAULT_BRANCH" = "main" ]; then
+            DST_SUFFIX=".${DEFAULT_BRANCH#wip-}"
+          fi
+          case "$GITHUB_REF" in
+            "refs/heads/release-"*)
+              OUT_PATH="binaries/nfp-drv-dkms/releases$DST_SUFFIX"
+              ;;
+            "refs/heads/prerelease-"*)
+              OUT_PATH="binaries/nfp-drv-dkms/prereleases$DST_SUFFIX"
+              ;;
+            "refs/heads/${DEFAULT_BRANCH}")
+              OUT_PATH="binaries/nfp-drv-dkms/interim$DST_SUFFIX"
+              ;;
+            *)
+              OUT_PATH="tmp/nfp_drv_dkms_builds$DST_SUFFIX"
+              ;;
+          esac
+          echo "OUT_PATH=$OUT_PATH" >> $GITHUB_ENV
+
           if ${FAIL}; then
             exit 1
           fi
+        env:
+          OS: ${{ steps.OS.outputs.stdout }}
+          TESTS: ${{ matrix.test_cases }}
+          DEFAULT_BRANCH: ${{ inputs.base_branch }}
+
+      - name: Upload test logs to Azure
+        if: >-
+          success() && steps.tests.conclusion == 'success' ||
+          failure() && steps.tests.conclusion == 'failure'
+        uses: ./ci-libs/github_actions/azure/azcopy_upload_sync
+        with:
+          connection-string: ${{ secrets.AZ_SAS_TOK }}
+          src: ${{ env.LOG_PATH }}.tgz
+          dst: ${{ env.OUT_PATH }}/test_logs/ci-test-dev
+
 
       - name: Uninstall kernel from test machines
         if: always() && ( env.KERNEL_RESET != env.KERNEL_REMOVE )
@@ -703,10 +839,7 @@ jobs:
           extra_vars: |
             target=${HOSTNAME//-/_}_dut
             allow_unsupported_platforms=yes
-            kernel_remove=${{ env.KERNEL_REMOVE }}
+            kernel_remove=${KERNEL_REMOVE//-/_}
             kernel_uninstaller_ver_reset=${{ env.KERNEL_RESET }}
             github_token=${{ secrets.GHUB_TOKEN }}
           sudo: yes
-
-      - name: Cleanup environment
-        run: sudo git clean -ffdx || sudo find -delete

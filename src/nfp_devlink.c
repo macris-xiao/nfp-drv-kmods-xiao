@@ -328,9 +328,11 @@ nfp_devlink_info_get(struct devlink *devlink, struct devlink_info_req *req,
 	char *buf = NULL;
 	int err;
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 2, 0)
 	err = devlink_info_driver_name_put(req, "nfp");
 	if (err)
 		return err;
+#endif
 
 	vendor = nfp_hwinfo_lookup(pf->hwinfo, "assembly.vendor");
 	part = nfp_hwinfo_lookup(pf->hwinfo, "assembly.partno");
@@ -447,6 +449,10 @@ int nfp_devlink_port_register(struct nfp_app *app, struct nfp_port *port)
 	const u8 *serial;
 	int ret;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0)
+	SET_NETDEV_DEVLINK_PORT(port->netdev, &port->dl_port);
+#endif
+
 	rtnl_lock();
 	ret = nfp_devlink_fill_eth_port(port, &eth_port);
 	rtnl_unlock();
@@ -454,8 +460,8 @@ int nfp_devlink_port_register(struct nfp_app *app, struct nfp_port *port)
 		return ret;
 
 	attrs.split = eth_port.is_split;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
-	attrs.splittable = !attrs.split;
+#if VER_NON_RHEL_GE(5, 9) || VER_RHEL_GE(8, 4)
+	attrs.splittable = eth_port.port_lanes > 1 && !attrs.split;
 	attrs.lanes = eth_port.port_lanes;
 #endif
 	attrs.flavour = DEVLINK_PORT_FLAVOUR_PHYSICAL;
@@ -476,6 +482,7 @@ void nfp_devlink_port_unregister(struct nfp_port *port)
 	devl_port_unregister(&port->dl_port);
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 2, 0)
 void nfp_devlink_port_type_eth_set(struct nfp_port *port)
 {
 	devlink_port_type_eth_set(&port->dl_port, port->netdev);
@@ -485,6 +492,7 @@ void nfp_devlink_port_type_clear(struct nfp_port *port)
 {
 	devlink_port_type_clear(&port->dl_port);
 }
+#endif
 
 struct devlink *nfp_devlink_get_devlink(struct net_device *netdev)
 {

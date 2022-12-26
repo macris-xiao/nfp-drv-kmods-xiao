@@ -26,42 +26,40 @@ class NetconsoleRandTest(NetconsoleTest):
     def prepare(self):
         self.init_state()
         self.netcons_noise_running = False
-        self.src_netperf = None
-        self.dut_netperf = None
+        self.dut_netperf_pids = None
+        self.src_netperf_pids = None
         return super(NetconsoleRandTest, self).prepare()
 
     def spawn_background_netcons_noise(self):
-        name = 'netcons_noise_' + self._netconsname + '.pid'
-        self.netcons_noise_pid = os.path.join(self.dut.tmpdir, name)
-
-        self.dut.cmd('while true; do echo noise_%s > /dev/kmsg ; done '
-                     ' >/dev/null 2>/dev/null & command ; echo $! > %s' %
-                     (self._netconsname, self.netcons_noise_pid))
+        pid, _ = self.dut.bg_proc_start('while true; do '
+                                        ''  'echo noise_%s > /dev/kmsg; '
+                                        ''  'sleep 0.01; '
+                                        'done'
+                                        % (self._netconsname))
+        self.netcons_noise_pid = pid
         self.netcons_noise_running = True
 
     def stop_background_netcons_noise(self):
-        self.netcons_noise_running = False
-        self.kill_pidfile(self.dut, self.netcons_noise_pid)
+        if self.netcons_noise_running:
+            self.dut.bg_proc_stop(self.netcons_noise_pid)
+            self.netcons_noise_pid = None
+            self.netcons_noise_running = False
 
     def spawn_netperfs(self, port=0):
-        self.dut_netperf = self.dut.spawn_netperfs(self.group.addr_a[port][:-3],
-                                                   self._netconsname,
-                                                   self.netperf_num)
-        self.src_netperf = self.src.spawn_netperfs(self.group.addr_x[port][:-3],
-                                                   self._netconsname,
-                                                   self.netperf_num)
+        pids = self.dut.spawn_netperfs(self.group.addr_a[port][:-3],
+                                       self.netperf_num)
+        self.dut_netperf_pids = pids
+        pids = self.src.spawn_netperfs(self.group.addr_x[port][:-3],
+                                       self.netperf_num)
+        self.src_netperf_pids = pids
 
     def stop_netperfs(self):
-        if self.dut_netperf:
-            f = self.dut_netperf
-            self.dut_netperf = None
-            # DUT netperfs may have already died because we call this after
-            # taking link down or unloading the driver, so max_fail=num_started.
-            self.kill_pidfile(self.dut, f, max_fail=self.netperf_num)
-        if self.src_netperf:
-            f = self.src_netperf
-            self.src_netperf = None
-            self.kill_pidfile(self.src, f, max_fail=self.netperf_num)
+        if self.dut_netperf_pids:
+            self.dut.bg_proc_stop(self.dut_netperf_pids)
+            self.dut_netperf_pids = None
+        if self.src_netperf_pids:
+            self.src.bg_proc_stop(self.src_netperf_pids)
+            self.src_netperf_pids = None
 
     def flip_xdp(self):
         if self.xdp == None:
@@ -154,8 +152,7 @@ class NetconsoleRandTest(NetconsoleTest):
                 LOG_endsec()
 
     def cleanup(self):
-        if self.netcons_noise_running:
-            self.stop_background_netcons_noise()
+        self.stop_background_netcons_noise()
         self.stop_netperfs()
         super(NetconsoleRandTest, self).cleanup()
         self.dut.reset_mods()

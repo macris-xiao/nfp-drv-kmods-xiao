@@ -9,6 +9,7 @@ import os
 import re
 import struct
 import json
+import time
 import netro.testinfra
 from netro.testinfra.system import *
 from netro.testinfra.system import _parse_ethtool
@@ -46,25 +47,130 @@ class LinuxSystem(System):
         super(LinuxSystem, self).__init__(host, quick, _noendsec)
 
         self.group = group
-        self._bck_pids = []
+        self._bg_pids = []
         self.tmpdir = self.make_temp_dir()
 
     ###############################
     # Standard OS helpers
     ###############################
-    def background_procs_add(self, pid):
-        self._bck_pids.append(pid)
+    def bg_proc_start(self, cmd, fail=True):
+        """
+        Starts a command as a background process (inside a subshell) on the
+        system.
 
-    def background_procs_remove(self, pid):
-        self._bck_pids.remove(pid)
+        Args:
+            cmd:  The command to be executed (string).
+            fail: Boolean indicating whether an exception should be raised if
+                  the process fails immediately.
 
-    def background_procs_cleanup(self):
-        cmds = ""
-        for pid in self._bck_pids:
-            cmds += 'kill -9 $(cat %s);' % pid
-        if cmds:
-            self.cmd(cmds, fail=False)
-        self._bck_pids = []
+        Returns:
+            A tuple containing two elements:
+            tuple[0]: The PID of the background process.
+            tuple[1]: -1 if the background process is running, otherwise the
+                      exit status of the process. If fail=True, this can only
+                      be -1 (running) or 0 (finished successfully).
+        """
+        cmd = '( set -eu; %s ) > /dev/null 2>&1 & echo $!' % cmd
+        # It is necessary to redirect stdout and stderr to /dev/null to allow
+        # the Popen call in the NTI framework to return before the child
+        # process finishes. Otherwise execution will be blocked on
+        # process.communicate() because the spawned process still has handles
+        # to the parent's file descriptors.
+        _, out = self.cmd(cmd, fail=fail)
+        pid = out.strip()
+        ret, _ = self.cmd('ps -p %s' % pid, fail=False)
+        if ret != 0:  # Background process already finished
+            # Get exit status
+            ret, _ = self.cmd('wait %s' % pid, fail=fail)
+        else:
+            ret = -1
+            self._bg_pids.append(pid)
+        return pid, ret
+
+    def bg_proc_stop(self, pid, max_wait=5):
+        """
+        Stop a background process.
+
+        Args:
+            pid:      The PID of the process to kill (string); or
+                      A list of PIDs of processes to kill (list of strings).
+            max_wait: Maximum number of seconds to wait for the process to exit
+                      before issuing a kill signal.
+        """
+        script = '''# Attempting to kill the following PIDs: {pids}.
+(
+fail() {{
+    echo "$2" 1>&2
+    exit $1
+}}
+
+# Ensure that at least one PID is specified
+PIDs="{pids}"
+if [ -z "$PIDs" ]; then
+    fail 1 "No PIDs specified"
+fi
+echo "PIDs to kill: $PIDs"
+
+num_alive () {{
+count=0
+for p in $PIDs; do
+    if [ -d /proc/$p ]; then
+        let count++
+    fi
+done
+return $count
+}}
+
+wait_for_all_killed () {{
+i=0
+while [ ! num_alive ] && [ $i -lt $2 ]; do
+    let i++; sleep $1;
+done
+}}
+
+# Issue SIGTERM to all running processes
+printf "Terminating PIDs:"
+for p in $PIDs; do
+    if [ -d /proc/$p ]; then
+        printf " $p"
+        kill -s TERM $p # This has a small chance to fail if the process
+        # finishes after the check.
+    fi
+done
+printf "\\n"
+wait_for_all_killed 1 {max_wait}
+
+# At this point, all processes should have terminated cleanly.
+# Issue SIGKILL to all remaining running processes to forcefully
+# stop them.
+printf "Killing PIDs:"
+for p in $PIDs; do
+    if [ -d /proc/$p ]; then
+        printf " $p"
+        kill -s KILL $p # This has a small chance to fail if the process
+        # finishes after the check.
+    fi
+done
+printf "\\n"
+wait_for_all_killed 1 {max_wait}
+
+if [ ! num_alive ]; then
+    fail 2 "Timeout. Some processes still alive."
+fi
+exit 0
+)
+'''
+        if type(pid) is str:
+            pid = [pid]
+        if type(pid) is list and len(pid) > 0:
+            script = script.format(pids=' '.join(pid), max_wait=max_wait)
+            self.cmd(script, fail=True)
+            for p in pid:
+                if p in self._bg_pids:
+                    self._bg_pids.remove(p)
+
+    def bg_proc_stop_all(self):
+        self.bg_proc_stop(self._bg_pids)
 
     def wait_online(self):
         ret = -1
@@ -232,22 +338,16 @@ class LinuxSystem(System):
             raise NtiGeneralError("Could TCP ping endpoint")
         return ret
 
-    def spawn_netperfs(self, host, tag="nti", n=16):
-        name = 'netperf_' + tag + '.pid'
+    def spawn_netperfs(self, host, n=16):
+        pids = []
+        for _ in range(n):
+            cmd = ('netperf -H {host} -l 0 -t TCP_STREAM -- -m 400 -M 400'
+                   .format(host=host))
+            pid, _ = self.bg_proc_start(cmd)
+            pids.append(pid)
+            time.sleep(0.1)  # Otherwise some fail to connect and kill barfs
 
-        cmd = ''' # spawn_netperfs
-        echo > {pidfile};
-        for i in `seq {n}`; do
-            netperf -H {host} -l 0 -t TCP_STREAM -- -m 400 -M 400 \
-                >/dev/null 2>/dev/null & command;
-            echo $! >> {pidfile}
-            sleep 0.1 # otherwise some fail to connect and kill barfs
-        done
-        '''
-
-        pidfile = os.path.join(self.tmpdir, name)
-        self.cmd(cmd.format(n=n, host=host, pidfile=pidfile))
-        return pidfile
+        return pids
 
     ###############################
     # ip
@@ -260,11 +360,11 @@ class LinuxSystem(System):
             return ret, json.loads(out)[0]
         return ret, json.loads(out)
 
-    def ip_link_set_up(self, ifc):
-        self.cmd('ip link set dev {ifc} up'.format(ifc=ifc))
+    def ip_link_set_up(self, ifc, fail=True):
+        return self.cmd('ip link set dev %s up' % ifc, fail=fail)
 
-    def ip_link_set_down(self, ifc):
-        self.cmd('ip link set dev {ifc} down'.format(ifc=ifc))
+    def ip_link_set_down(self, ifc, fail=True):
+        return self.cmd('ip link set dev %s down' % ifc, fail=fail)
 
     def ip_link_stats(self, ifc=None):
         cmd = '-s link show'
@@ -311,6 +411,32 @@ class LinuxSystem(System):
         return self.cmd('ip link set dev {ifc} mtu {mtu}'.format(ifc=ifc,
                                                                  mtu=mtu),
                         fail=fail)
+
+    def is_legal_interface_name(self, if_name):
+        error = ""
+        name_suggestion = if_name
+
+        # Ensure interface name length does not exceed IFNAMSIZ.
+        if len(if_name) > 15:
+            error = "Invalid interface name '%s': Exceeds IFNAMSIZ" % if_name
+
+        # Ensure interface name is not in use already
+        _, out = self.cmd('ls /sys/class/net/')
+        used_interface_names = out.split()
+        if if_name in used_interface_names:
+            error = ("Invalid interface name '%s': Name in use already"
+                     % if_name)
+
+        # Generate a valid name if the provided one is invalid
+        is_legal = (len(error) == 0)
+        if not is_legal:
+            temp = 0
+            name_suggestion = 'testintf%s' % temp
+            while name_suggestion in used_interface_names:
+                temp = temp + 1
+                name_suggestion = 'testintf%s' % temp
+
+        return is_legal, error, name_suggestion
 
     ###############################
     # bpftool
@@ -411,22 +537,15 @@ class LinuxSystem(System):
         if name is None:
             name = str(ident) if ident is not None else str(m["id"])
 
-        bpftool_pid = os.path.join(self.tmpdir, 'bpftool%s_pid' % (name))
         events = os.path.join(self.tmpdir, 'events%s.json' % (name))
+        pid, _ = self.bg_proc_start('bpftool -jp map event_pipe %s > %s'
+                                    % (self._bpftool_obj_id(m, ident, pin),
+                                       events))
 
-        self.cmd('bpftool -jp map event_pipe %s > %s 2>/dev/null ' \
-                 '& command ; echo $! > %s' %
-                 (self._bpftool_obj_id(m, ident, pin), events, bpftool_pid))
-        self.background_procs_add(bpftool_pid)
-
-        return events, bpftool_pid
+        return events, pid
 
     def bpftool_map_perf_capture_stop(self, events, bpftool_pid):
-        self.cmd('PID=$(cat {pid}) && echo $PID && rm {pid} && ' \
-                 'kill -INT $PID && ' \
-                 'while [ -d /proc/$PID ]; do true; done'
-                 .format(pid=bpftool_pid))
-        self.background_procs_remove(bpftool_pid)
+        self.bg_proc_stop(bpftool_pid)
 
         self.mv_from(events, self.group.tmpdir)
         return os.path.join(self.group.tmpdir, os.path.basename(events))
@@ -434,8 +553,11 @@ class LinuxSystem(System):
     ###############################
     # ethtool
     ###############################
-    def ethtool_drvinfo(self, ifc):
-        _, out = self.cmd('ethtool -i %s' % (ifc))
+    def ethtool_drvinfo(self, ifc, ns=None):
+        if ns:
+            _, out = self.netns_cmd('ethtool -i %s' % (ifc), ns)
+        else:
+            _, out = self.cmd('ethtool -i %s' % (ifc))
 
         ret = {}
 
@@ -446,8 +568,11 @@ class LinuxSystem(System):
 
         return ret
 
-    def ethtool_stats(self, ifc):
-        _, out = self.cmd('ethtool -S %s' % (ifc))
+    def ethtool_stats(self, ifc, ns=None):
+        if ns:
+            _, out = self.netns_cmd('ethtool -S %s' % (ifc), ns)
+        else:
+            _, out = self.cmd('ethtool -S %s' % (ifc))
 
         return _parse_ethtool(out)
 
@@ -455,8 +580,11 @@ class LinuxSystem(System):
         new_stats = self.ethtool_stats(ifc)
         return self.stats_diff(old_stats, new_stats)
 
-    def ethtool_features_get(self, ifc):
-        _, out = self.cmd('ethtool -k %s' % (ifc))
+    def ethtool_features_get(self, ifc, ns=None):
+        if ns:
+            _, out = self.netns_cmd('ethtool -k %s' % (ifc), ns)
+        else:
+            _, out = self.cmd('ethtool -k %s' % (ifc))
 
         ret = {}
 
@@ -469,12 +597,15 @@ class LinuxSystem(System):
 
         return ret
 
-    def ethtool_pause_get(self, ifc):
+    def ethtool_pause_get(self, ifc, fail=True, return_code=False, ns=None):
         ret = None
-
+        ret_code = 0
         LOG_sec("GET PAUSE %s for %s" % (self.host, ifc))
         try:
-            _, out = self.cmd("ethtool -a " + ifc)
+            if ns:
+                ret_code, out = self.netns_cmd("ethtool -a " + ifc, ns, fail=fail)
+            else:
+                ret_code, out = self.cmd("ethtool -a " + ifc, fail=fail)
             m = re.search("Autonegotiate:\s+(\w+)\s+RX:\s+(\w+)\s+TX:\s+(\w+)",
                           out, flags=re.M)
 
@@ -488,9 +619,12 @@ class LinuxSystem(System):
         finally:
             LOG_endsec()
 
+        if return_code:
+            return int(ret_code), ret
+
         return ret
 
-    def ethtool_pause_set(self, ifc, settings, force=False, fail=True):
+    def ethtool_pause_set(self, ifc, settings, force=False, fail=True, ns=None):
         ret = None
 
         LOG_sec("SET PAUSE %s for %s to %s" % (self.host, ifc, str(settings)))
@@ -506,13 +640,16 @@ class LinuxSystem(System):
                 for k in settings.keys():
                     cmd += ' %s %s' % (k, "on" if settings[k] else "off")
 
-                ret = self.cmd(cmd)
+                if ns:
+                    ret = self.netns_cmd(cmd, ns)
+                else:
+                    ret = self.cmd(cmd)
         finally:
             LOG_endsec()
 
         return ret
 
-    def ethtool_channels_get(self, ifc):
+    def ethtool_channels_get(self, ifc, ns=None):
         ret = {}
 
         LOG_sec("GET CHAN %s for %s" % (self.host, ifc))
@@ -530,7 +667,10 @@ TX:		(\d+)
 Other:		(\d+)
 Combined:	(\d+)"""
 
-            _, out = self.cmd("ethtool -l " + ifc)
+            if ns:
+                _, out = self.netns_cmd("ethtool -l " + ifc, ns)
+            else:
+                _, out = self.cmd("ethtool -l " + ifc)
             m = re.search(r, out, flags=re.M)
 
             ret = {
@@ -553,20 +693,23 @@ Combined:	(\d+)"""
 
         return ret
 
-    def ethtool_channels_set(self, ifc, settings):
+    def ethtool_channels_set(self, ifc, settings, ns=None):
         LOG_sec("SET CHAN %s for %s to %s" % (self.host, ifc, str(settings)))
         try:
                 cmd = 'ethtool -L ' + ifc
                 for k in settings.keys():
                     cmd += ' %s %s' % (k, settings[k])
 
-                ret = self.cmd(cmd)
+                if ns:
+                    ret = self.netns_cmd(cmd, ns)
+                else:
+                    ret = self.cmd(cmd)
         finally:
             LOG_endsec()
 
         return ret
 
-    def ethtool_rings_get(self, ifc):
+    def ethtool_rings_get(self, ifc, ns=None):
         ret = {}
 
         LOG_sec("SET RING %s for %s" % (self.host, ifc))
@@ -584,7 +727,10 @@ RX Mini:	(\d+|n\/a)
 RX Jumbo:	(\d+|n\/a)
 TX:		(\d+)"""
 
-            _, out = self.cmd("ethtool -g " + ifc)
+            if ns:
+                _, out = self.netns_cmd("ethtool -g " + ifc, ns)
+            else:
+                _, out = self.cmd("ethtool -g " + ifc)
             m = re.search(r, out, flags=re.M)
 
             ret = {
@@ -611,7 +757,7 @@ TX:		(\d+)"""
 
         return ret
 
-    def ethtool_rings_set(self, ifc, settings, fail=True):
+    def ethtool_rings_set(self, ifc, settings, fail=True, ns=None):
         LOG_sec("GET RING %s for %s to %s" % (self.host, ifc, str(settings)))
         try:
                 cmd = 'ethtool -G ' + ifc
@@ -619,7 +765,10 @@ TX:		(\d+)"""
                     if settings[k] is not None:
                         cmd += ' %s %s' % (k, settings[k])
 
-                ret = self.cmd(cmd, fail=fail)
+                if ns:
+                    ret = self.netns_cmd(cmd, ns, fail=fail)
+                else:
+                    ret = self.cmd(cmd, fail=fail)
         finally:
             LOG_endsec()
 
@@ -635,8 +784,12 @@ TX:		(\d+)"""
                         (ifc, mode),
                         include_stderr=True, fail=fail)
 
-    def ethtool_get_autoneg(self, ifc):
-        _, out = self.cmd('ethtool %s | grep Auto-negotiation' % (ifc))
+    def ethtool_get_autoneg(self, ifc, ns=None):
+        if ns:
+            _, out = self.netns_cmd('ethtool %s | grep Auto-negotiation'
+                                    % (ifc), ns)
+        else:
+            _, out = self.cmd('ethtool %s | grep Auto-negotiation' % (ifc))
 
         if out.find(': on') != -1:
             return True
@@ -644,16 +797,33 @@ TX:		(\d+)"""
             return False
         raise NtiError('Invalid ethtool response: %s' % (out))
 
-    def ethtool_get_speed(self, ifc):
-        _, out = self.cmd('ethtool %s' % (ifc))
+    def ethtool_get_autoneg_support(self, ifc, ns=None):
+        if ns:
+            _, out = self.netns_cmd("ethtool %s | grep " +
+                                    "'Supports auto-negotiation'" % (ifc), ns)
+        else:
+            _, out = self.cmd("ethtool %s | grep 'Supports auto-negotiation'"
+                              % (ifc))
+
+        if out.find(': Yes') != -1:
+            return True
+        if out.find(': No') != -1:
+            return False
+        raise NtiError('Invalid ethtool response: %s' % (out))
+
+    def ethtool_get_speed(self, ifc, ns=None):
+        if ns:
+            _, out = self.netns_cmd('ethtool %s' % (ifc), ns)
+        else:
+            _, out = self.cmd('ethtool %s' % (ifc))
 
         speed = re.search('Speed: (\d*)Mb/s', out)
 
         return int(speed.groups()[0])
 
     def ethtool_set_speed(self, ifc, speed, fail=True):
-        return self.cmd('ip link set dev %s down; ethtool -s %s speed %d' %
-                        (ifc, ifc, speed),
+        self.ip_link_set_down(ifc, fail=fail)
+        return self.cmd('ethtool -s %s speed %d' % (ifc, speed),
                         include_stderr=True, fail=fail)
 
     def ethtool_set_fec(self, ifc, fec, fail=True):
@@ -661,9 +831,39 @@ TX:		(\d+)"""
                         (ifc, fec),
                         include_stderr=True, fail=fail)
 
-    def ethtool_get_fec(self, ifc, fail=True):
-        return self.cmd('ethtool --show-fec %s' %
-                        (ifc), fail=fail)
+    def ethtool_get_fec(self, ifc, fail=True, ns=None):
+        if ns:
+            return self.netns_cmd('ethtool --show-fec %s' %
+                                  (ifc), ns, fail=fail)
+        else:
+            return self.cmd('ethtool --show-fec %s' %
+                            (ifc), fail=fail)
+
+    def ethtool_get_module_speed(self, ifc):
+        speeds_dict = {'1': (1000),
+                       '10': (10000),
+                       '25': (25000),
+                       '40': (40000),
+                       '50': (50000),
+                       '100': (100000),
+                       '400': (400000), }
+
+        # Extract transceiver speed modes
+        _, out = self.cmd('ethtool -m %s | grep Transceiver | grep -o '
+                          '"\w*G\w*"' % (ifc), fail=False)  # noqa: W605
+        if not out or 'Cannot get Module EEPROM data' in out:
+            return [0]
+
+        # Map to dictionary in Mbps
+        try:
+            raw_speeds = out.split()
+            module_speeds = list()
+            for speed in raw_speeds:
+                module_speeds.append(
+                    speeds_dict[((speed.strip()).rsplit('G', 1))[0]])
+        except KeyError:
+            return [0]
+        return list(set(module_speeds))
 
     def ethtool_get_fwdump(self, ifc, level, fail=True):
         self.cmd('ethtool -W %s %d' % (ifc, level), fail=fail)
@@ -680,9 +880,130 @@ TX:		(\d+)"""
         file_name = os.path.join(self.grp.tmpdir, os.path.basename(out))
         return 0, file_name
 
-    def ethtool_get_module_eeprom(self, ifc):
-        _, out = self.cmd('ethtool -m %s' % (ifc))
+    def ethtool_get_module_eeprom(self, ifc, ns=None):
+        if ns:
+            _, out = self.netns_cmd('ethtool -m %s' % (ifc), ns)
+        else:
+            _, out = self.cmd('ethtool -m %s' % (ifc))
         return _parse_ethtool(out)
+
+    def ethtool_set_coalesce(self, ifc, settings_adp, settings_val, ns=None):
+        ret = None
+
+        cmd = 'ethtool -C ' + ifc
+        # Here we need to use two dictionaries because we need to ensure
+        # the sequence of the command. The command will be like 'rx-frames
+        # 64 adaptive-rx off adaptive-tx off rx-usecs 50' with only one
+        # dictionary.
+        for k in settings_adp.keys():
+            cmd += ' %s %s' % (k, settings_adp[k])
+        for k in settings_val.keys():
+            cmd += ' %s %s' % (k, settings_val[k])
+
+        if ns:
+            ret = self.netns_cmd(cmd, ns)
+        else:
+            ret = self.cmd(cmd)
+
+        return ret
+
+    def ethtool_get_coalesce(self, ifc, ns=None):
+        """
+        ethtool -c sample output:
+        Coalesce parameters for <netdev>:
+        Adaptive RX: off  TX: off
+        stats-block-usecs: 0
+        sample-interval: 0
+        pkt-rate-low: 0
+
+        This output is converted into a dictionary. The adaptive
+        parameters are returned in a different method compared to
+        the rest of the parameters. Therefore, an extra check
+        is required.
+        """
+        if ns:
+            _, out = self.netns_cmd('ethtool -c %s' % (ifc), ns)
+        else:
+            _, out = self.cmd('ethtool -c %s' % (ifc))
+
+        ret = {}
+
+        parameters = out.split('\n')
+        for param in parameters:
+            vals = param.split(': ')
+            k = vals[0].strip()
+            if k.startswith('Adaptive'):
+                rx = vals[1].split(' ')
+                ret['Adaptive RX'] = rx[0]
+                ret['Adaptive TX'] = vals[2]
+            elif k and not k.startswith('Coalesce parameters for '):
+                ret[k] = vals[1]
+
+        return ret
+
+    def ethtool_get_test(self, ifc, fail=True, ns=None):
+        """
+        ethtool -t sample output:
+        The test result is FAIL
+        The test extra info:
+        Link Test        1
+        NSP Test         0
+        Firmware Test    0
+        Register Test    0
+
+        This output is converted into a dictionary. The
+        PASS/FAIL result is stored using the key "result".
+        The "outcome" key stores the number of tests that
+        return a fail. "1" is considered a FAIL and "0" is
+        considered a PASS.
+        """
+        if ns:
+            _, out = self.netns_cmd('ethtool -t %s' % (ifc), ns, fail=fail)
+        else:
+            _, out = self.cmd('ethtool -t %s' % (ifc), fail=fail)
+
+        ret = {}
+
+        lines = out.split('\n')
+        outcome_count = 0
+        for line in lines:
+            if line.startswith('The test result'):
+                result = line.split(' ')
+                ret['result'] = result[4].strip()
+            elif line and not line.startswith('The test'):
+                k = line.split(' ')
+                key = k[0].strip()
+                ret[key] = int(k[2].strip())
+                if k[2].strip() == '1':
+                    outcome_count += 1
+
+        ret['outcome'] = outcome_count
+
+        return ret
+
+    def ethtool_set_mac(self, ifc, magic_num, mac_addr, offset=0, fail=True):
+        # Check for valid MAC address
+        if len(mac_addr) != 17 or mac_addr.count(':') != 5:
+            msg = 'The specified MAC address is invalid!'
+            raise NtiGeneralError(msg)
+
+        # Modify the MAC address of the interface one byte at a time
+        offset_val = offset
+        for byte in mac_addr.split(':'):
+            if len(byte) != 2:
+                msg = 'Byte values in the specified MAC address have an ' \
+                      'incorrect length!'
+                raise NtiGeneralError(msg)
+
+        # A second loop to avoid partial mac address changes
+        for byte in mac_addr.split(':'):
+            # Set the MAC address of dst interface
+            out = self.cmd('ethtool -E %s magic %s offset %s length 1 '
+                           'value 0x%s' % (ifc, magic_num, offset_val, byte),
+                           fail=fail)
+            offset_val += 1
+
+        return out
 
     ###############################
     # devlink

@@ -33,6 +33,6 @@ class KTLSMixedThroughput(KTLSTrafficTestBase):
 
         for k in self.netperf.keys():
             if self.netperf[k]:
-                self.kill_pidfile(k, self.netperf[k], max_fail=4)
+                self.kill_pidfile(k, self.netperf[k])
 
         return super(KTLSMixedThroughput, self).cleanup()

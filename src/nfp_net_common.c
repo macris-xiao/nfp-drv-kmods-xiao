@@ -36,7 +36,6 @@
 #endif
 #include <linux/pci.h>
 #include <linux/pci_regs.h>
-#include <linux/msi.h>
 #include <linux/ethtool.h>
 #include <linux/log2.h>
 #include <linux/if_vlan.h>
@@ -773,8 +772,11 @@ static unsigned int nfp_net_calc_fl_bufsz_xsk(struct nfp_net_dp *dp)
  */
 static void nfp_net_vecs_init(struct nfp_net *nn)
 {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0)
+	int numa_node = dev_to_node(&nn->pdev->dev);
+#endif
 	struct nfp_net_r_vector *r_vec;
-	int r;
+	unsigned int r;
 
 	nn->lsc_handler = nfp_net_irq_lsc;
 	nn->exn_handler = nfp_net_irq_exn;
@@ -805,7 +807,11 @@ static void nfp_net_vecs_init(struct nfp_net *nn)
 			tasklet_disable(&r_vec->tasklet);
 		}
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0)
+		cpumask_set_cpu(cpumask_local_spread(r, numa_node), &r_vec->affinity_mask);
+#else
 		cpumask_set_cpu(r, &r_vec->affinity_mask);
+#endif
 	}
 }
 
@@ -814,9 +820,13 @@ nfp_net_napi_add(struct nfp_net_dp *dp, struct nfp_net_r_vector *r_vec, int idx)
 {
 	if (dp->netdev)
 		netif_napi_add(dp->netdev, &r_vec->napi,
+#if VER_NON_RHEL_LT(6, 1) || RHEL_RELEASE_LT(9, 196, 0, 0)
 			       nfp_net_has_xsk_pool_slow(dp, idx) ?
 			       dp->ops->xsk_poll : dp->ops->poll,
 			       NAPI_POLL_WEIGHT);
+#else
+			       nfp_net_has_xsk_pool_slow(dp, idx) ? dp->ops->xsk_poll : dp->ops->poll);
+#endif
 	else
 		tasklet_enable(&r_vec->tasklet);
 }
@@ -1054,6 +1064,7 @@ static int nfp_net_set_config_and_enable(struct nfp_net *nn)
 		new_ctrl |= NFP_NET_CFG_CTRL_RINGCFG;
 
 	nn_writel(nn, NFP_NET_CFG_CTRL, new_ctrl);
+	nn_writel(nn, NFP_NET_CFG_CTRL_WORD1, nn->dp.ctrl_w1);
 	err = nfp_net_reconfig(nn, update);
 	if (err) {
 		nfp_net_clear_config_and_disable(nn);
@@ -1397,17 +1408,60 @@ err_unlock:
 	return err;
 }
 
+#if LINUX_VERSION_CODE > KERNEL_VERSION(3, 15, 0)
+static int nfp_net_mc_cfg(struct net_device *netdev, const unsigned char *addr, const u32 cmd)
+{
+	struct nfp_net *nn = netdev_priv(netdev);
+	int ret;
+
+	ret = nfp_net_mbox_lock(nn, NFP_NET_CFG_MULTICAST_SZ);
+	if (ret)
+		return ret;
+
+	nn_writel(nn, nn->tlv_caps.mbox_off + NFP_NET_CFG_MULTICAST_MAC_HI,
+		  get_unaligned_be32(addr));
+	nn_writew(nn, nn->tlv_caps.mbox_off + NFP_NET_CFG_MULTICAST_MAC_LO,
+		  get_unaligned_be16(addr + 4));
+
+	return nfp_net_mbox_reconfig_and_unlock(nn, cmd);
+}
+
+static int nfp_net_mc_sync(struct net_device *netdev, const unsigned char *addr)
+{
+	struct nfp_net *nn = netdev_priv(netdev);
+
+	if (netdev_mc_count(netdev) > NFP_NET_CFG_MAC_MC_MAX) {
+		nn_err(nn, "Requested number of MC addresses (%d) exceeds maximum (%d).\n",
+		       netdev_mc_count(netdev), NFP_NET_CFG_MAC_MC_MAX);
+		return -EINVAL;
+	}
+
+	return nfp_net_mc_cfg(netdev, addr, NFP_NET_CFG_MBOX_CMD_MULTICAST_ADD);
+}
+
+static int nfp_net_mc_unsync(struct net_device *netdev, const unsigned char *addr)
+{
+	return nfp_net_mc_cfg(netdev, addr, NFP_NET_CFG_MBOX_CMD_MULTICAST_DEL);
+}
+#endif
+
 static void nfp_net_set_rx_mode(struct net_device *netdev)
 {
 	struct nfp_net *nn = netdev_priv(netdev);
-	u32 new_ctrl;
+	u32 new_ctrl, new_ctrl_w1;
 
 	new_ctrl = nn->dp.ctrl;
+	new_ctrl_w1 = nn->dp.ctrl_w1;
 
 	if (!netdev_mc_empty(netdev) || netdev->flags & IFF_ALLMULTI)
 		new_ctrl |= nn->cap & NFP_NET_CFG_CTRL_L2MC;
 	else
 		new_ctrl &= ~NFP_NET_CFG_CTRL_L2MC;
+
+	if (netdev->flags & IFF_ALLMULTI)
+		new_ctrl_w1 &= ~NFP_NET_CFG_CTRL_MCAST_FILTER;
+	else
+		new_ctrl_w1 |= nn->cap_w1 & NFP_NET_CFG_CTRL_MCAST_FILTER;
 
 	if (netdev->flags & IFF_PROMISC) {
 		if (nn->cap & NFP_NET_CFG_CTRL_PROMISC)
@@ -1418,13 +1472,23 @@ static void nfp_net_set_rx_mode(struct net_device *netdev)
 		new_ctrl &= ~NFP_NET_CFG_CTRL_PROMISC;
 	}
 
-	if (new_ctrl == nn->dp.ctrl)
+#if LINUX_VERSION_CODE > KERNEL_VERSION(3, 15, 0)
+	if ((nn->cap_w1 & NFP_NET_CFG_CTRL_MCAST_FILTER) &&
+	    __dev_mc_sync(netdev, nfp_net_mc_sync, nfp_net_mc_unsync))
+		netdev_err(netdev, "Sync mc address failed\n");
+#endif
+
+	if (new_ctrl == nn->dp.ctrl && new_ctrl_w1 == nn->dp.ctrl_w1)
 		return;
 
-	nn_writel(nn, NFP_NET_CFG_CTRL, new_ctrl);
+	if (new_ctrl != nn->dp.ctrl)
+		nn_writel(nn, NFP_NET_CFG_CTRL, new_ctrl);
+	if (new_ctrl_w1 != nn->dp.ctrl_w1)
+		nn_writel(nn, NFP_NET_CFG_CTRL_WORD1, new_ctrl_w1);
 	nfp_net_reconfig_post(nn, NFP_NET_CFG_UPDATE_GEN);
 
 	nn->dp.ctrl = new_ctrl;
+	nn->dp.ctrl_w1 = new_ctrl_w1;
 }
 
 static void nfp_net_rss_init_itbl(struct nfp_net *nn)
@@ -2331,15 +2395,10 @@ const struct net_device_ops nfp_nfd3_netdev_ops = {
 	.ndo_get_port_parent_id	= nfp_port_get_port_parent_id,
 #endif
 #ifdef CONFIG_NFP_NET_PF
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 2, 0)
+#if VER_NON_RHEL_GE(5, 2) && VER_NON_RHEL_LT(6, 1) || VER_RHEL_GE(8, 2)
+	.ndo_get_devlink_port	= nfp_devlink_get_devlink_port,
+#elif VER_NON_RHEL_GE(5, 1) && VER_NON_RHEL_LT(5, 2)
 	.ndo_get_devlink	= nfp_devlink_get_devlink,
-#else
-	.ndo_get_devlink_port	= nfp_devlink_get_devlink_port,
-#endif
-#endif
-#if VER_RHEL_GE(8, 2)
-	.ndo_get_devlink_port	= nfp_devlink_get_devlink_port,
 #endif
 #endif
 #endif
@@ -2428,15 +2487,10 @@ const struct net_device_ops nfp_nfdk_netdev_ops = {
 	.ndo_get_port_parent_id	= nfp_port_get_port_parent_id,
 #endif
 #ifdef CONFIG_NFP_NET_PF
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 2, 0)
+#if VER_NON_RHEL_GE(5, 2) && VER_NON_RHEL_LT(6, 1) || VER_RHEL_GE(8, 2)
+	.ndo_get_devlink_port	= nfp_devlink_get_devlink_port,
+#elif VER_NON_RHEL_GE(5, 1) && VER_NON_RHEL_LT(5, 2)
 	.ndo_get_devlink	= nfp_devlink_get_devlink,
-#else
-	.ndo_get_devlink_port	= nfp_devlink_get_devlink_port,
-#endif
-#endif
-#if VER_RHEL_GE(8, 2)
-	.ndo_get_devlink_port	= nfp_devlink_get_devlink_port,
 #endif
 #endif
 #endif
@@ -2505,7 +2559,7 @@ void nfp_net_info(struct nfp_net *nn)
 		nn->fw_ver.extend, nn->fw_ver.class,
 		nn->fw_ver.major, nn->fw_ver.minor,
 		nn->max_mtu);
-	nn_info(nn, "CAP: %#x %s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s\n",
+	nn_info(nn, "CAP: %#x %s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s\n",
 		nn->cap,
 		nn->cap & NFP_NET_CFG_CTRL_PROMISC  ? "PROMISC "  : "",
 		nn->cap & NFP_NET_CFG_CTRL_L2BC     ? "L2BCFILT " : "",
@@ -2533,6 +2587,7 @@ void nfp_net_info(struct nfp_net *nn)
 		nn->cap & NFP_NET_CFG_CTRL_CSUM_COMPLETE ?
 						      "RXCSUM_COMPLETE " : "",
 		nn->cap & NFP_NET_CFG_CTRL_LIVE_ADDR ? "LIVE_ADDR " : "",
+		nn->cap_w1 & NFP_NET_CFG_CTRL_MCAST_FILTER ? "MULTICAST_FILTER " : "",
 		nfp_app_extra_cap(nn->app, nn));
 }
 
@@ -2794,6 +2849,12 @@ static void nfp_net_netdev_init(struct nfp_net *nn)
 	}
 	if (nn->cap & NFP_NET_CFG_CTRL_RSS_ANY)
 		netdev->hw_features |= NETIF_F_RXHASH;
+
+#ifdef CONFIG_NFP_NET_IPSEC
+       if (nn->cap_w1 & NFP_NET_CFG_CTRL_IPSEC)
+               netdev->hw_features |= NETIF_F_HW_ESP | NETIF_F_HW_ESP_TX_CSUM;
+#endif
+
 	if (nn->cap & NFP_NET_CFG_CTRL_VXLAN) {
 		if (nn->cap & NFP_NET_CFG_CTRL_LSO){
 #if VER_NON_RHEL_GE(4, 7) || VER_RHEL_GE(7, 4)
@@ -2891,6 +2952,7 @@ static int nfp_net_read_caps(struct nfp_net *nn)
 {
 	/* Get some of the read-only fields from the BAR */
 	nn->cap = nn_readl(nn, NFP_NET_CFG_CAP);
+	nn->cap_w1 = nn_readl(nn, NFP_NET_CFG_CAP_WORD1);
 	nn->max_mtu = nn_readl(nn, NFP_NET_CFG_MAX_MTU);
 
 	/* ABI 4.x and ctrl vNIC always use chained metadata, in other cases
@@ -2980,6 +3042,9 @@ int nfp_net_init(struct nfp_net *nn)
 	if (nn->cap & NFP_NET_CFG_CTRL_TXRWB)
 		nn->dp.ctrl |= NFP_NET_CFG_CTRL_TXRWB;
 
+	if (nn->cap_w1 & NFP_NET_CFG_CTRL_MCAST_FILTER)
+		nn->dp.ctrl_w1 |= NFP_NET_CFG_CTRL_MCAST_FILTER;
+
 	/* Stash the re-configuration queue away.  First odd queue in TX Bar */
 	nn->qcp_cfg = nn->tx_bar + NFP_QCP_QUEUE_ADDR_SZ;
 
@@ -2987,6 +3052,7 @@ int nfp_net_init(struct nfp_net *nn)
 	nn_writel(nn, NFP_NET_CFG_CTRL, 0);
 	nn_writeq(nn, NFP_NET_CFG_TXRS_ENABLE, 0);
 	nn_writeq(nn, NFP_NET_CFG_RXRS_ENABLE, 0);
+	nn_writel(nn, NFP_NET_CFG_CTRL_WORD1, 0);
 	err = nfp_net_reconfig(nn, NFP_NET_CFG_UPDATE_RING |
 				   NFP_NET_CFG_UPDATE_GEN);
 	if (err)
@@ -3002,6 +3068,8 @@ int nfp_net_init(struct nfp_net *nn)
 		err = nfp_net_tls_init(nn);
 		if (err)
 			goto err_clean_mbox;
+
+		nfp_net_ipsec_init(nn);
 	}
 
 	nfp_net_vecs_init(nn);
@@ -3025,6 +3093,7 @@ void nfp_net_clean(struct nfp_net *nn)
 		return;
 
 	unregister_netdev(nn->dp.netdev);
+	nfp_net_ipsec_clean(nn);
 	nfp_ccm_mbox_clean(nn);
 	nfp_net_reconfig_wait_posted(nn);
 }

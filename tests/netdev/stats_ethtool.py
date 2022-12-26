@@ -7,6 +7,17 @@ from netro.testinfra.nti_exceptions import NtiError
 from ..common_test import CommonTest
 
 class StatsEthtool(CommonTest):
+    info = """
+    The purpose of this test is to ensure that the command `ethtool -S`
+    returns the correct statistics. Not necessarily that the statistics
+    are correct, but that the statistics that the driver is supposed to
+    support are present.
+
+    This is done by running the ethtool command and then inspecting the
+    number of statistics, of each known type, that are returned.
+
+    If any stats are missing, the test will fail.
+    """
     def check_sw_stats_present(self, keys, num_rings=1):
         if len(filter(lambda x: x.startswith('rvec_'), keys)) < 3 * num_rings:
             raise NtiError("rvec stats missing")
@@ -35,13 +46,22 @@ class StatsEthtool(CommonTest):
                            (expected, len(keys)))
 
     def execute(self):
-        # Spawn VFs so that we test the entire gamut
-        vf_ifcs = self.spawn_vf_netdev()
+        for ifc in self.dut.nfp_netdevs:
+            info = self.dut.ethtool_drvinfo(ifc)
+            fw = info['firmware-version']
+            vf_list = []
+            # If this is sriov firmware then create a VF so those stats can be
+            # included in the check as well
+            if "sri" in fw:
+                # create a vf
+                vf_ifcs = self.spawn_vf_netdev(1)
+                for vfs in vf_ifcs:
+                    vf_list.append(vfs["name"])
 
         # Check if FW supports MAC stats
         self.mac_stats = self.read_sym_nffw('_mac_stats') is not None
 
-        all_netdevs = vf_ifcs + self.dut.nfp_netdevs
+        all_netdevs = vf_list + self.dut.nfp_netdevs
         names = {}
         stats = {}
         infos = {}

@@ -10,6 +10,18 @@ from netro.testinfra.test import *
 from ..common_test import CommonTest, assert_equal
 
 class NetconsoleTest(CommonTest):
+    info = """
+    Netconsole is a kernel module that logs kernel printk messages over UDP,
+    the purpose of this test is to ensure that the driver is able to correctly
+    log its activity using netconsole.
+
+    The test will create a file in which to log the relevant information and
+    then starts up netconsole with this file.
+
+    Lines of data are then echoed, nstat is checked for packet losses and the netconsole
+    process is stopped. More data is then echoed and then the contents of the file are
+    logged. If the expected lines are then not present, the test will fail.
+    """
     def prepare(self):
         self.port = 0
         self.netconsname = None
@@ -41,7 +53,6 @@ class NetconsoleTest(CommonTest):
     def spawn_nc(self):
         self.netconsfile = os.path.join(self.src.tmpdir,
                                         'netcons_' + self._netconsname)
-        self.netconspid = self.netconsfile + '.pid'
 
         # Copy the program over
         if not hasattr(self, 'src_udp_sink'):
@@ -52,10 +63,13 @@ class NetconsoleTest(CommonTest):
                            self.src_udp_sink)
 
         # Start listening
-        self.src.cmd('{prog} {port} {outfile} & command ; echo $! > {pidfile}'
-                     .format(prog=self.src_udp_sink, port=self.netconsport,
-                             outfile=self.netconsfile, pidfile=self.netconspid))
-        self.nc_running = True
+        if not self.nc_running:
+            pid, _ = self.src.bg_proc_start('{prog} {port} {outfile}'
+                                            .format(prog=self.src_udp_sink,
+                                                    port=self.netconsport,
+                                                    outfile=self.netconsfile))
+            self.netconspid = pid
+            self.nc_running = True
 
     def stop_nc(self, wait_for_line=None):
         if wait_for_line:
@@ -68,10 +82,12 @@ class NetconsoleTest(CommonTest):
                 fi
             done
             '''
-
             self.src.cmd(cmd.format(line=wait_for_line, dump=self.netconsfile))
-        self.nc_running = False
-        self.kill_pidfile(self.src, self.netconspid)
+
+        if self.nc_running:
+            self.src.bg_proc_stop(self.netconspid)
+            self.netconspid = None
+            self.nc_running = False
 
         self.src.mv_from(self.netconsfile, self.group.tmpdir)
         return os.path.join(self.group.tmpdir,

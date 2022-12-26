@@ -157,8 +157,8 @@ class KexecWithTraffic(CommonNetdevTest):
         return self.tool_required("kexec", "kexec-tools")
 
     def netdev_execute(self):
-        self.dut.cmd('''kexec -l /boot/vmlinuz-$(uname -r) \
-            --ramdisk=/boot/initramfs-$(uname -r).img --reuse-cmdline''')
+        self.dut.cmd('kexec -l /boot/vmlinuz-$(uname -r) --ramdisk='
+                     '/boot/initramfs-$(uname -r).img --reuse-cmdline')
 
         time.sleep(5)
 
@@ -169,15 +169,14 @@ class KexecWithTraffic(CommonNetdevTest):
         self.ping(0)
 
         # Flood with traffic while executing kexec
-        pidfile = self.src.spawn_netperfs(self.group.addr_x[0][:-3])
+        pids = self.src.spawn_netperfs(self.group.addr_x[0][:-3])
         time.sleep(5)
-        self.dut.cmd("kexec -xe >/dev/null 2>/dev/null & command", fail=False)
+        self.dut.bg_proc_start("kexec -xe", fail=False)
 
         time.sleep(5)
         self.ping(0, should_fail=True)
 
-        # Many of the netperf's may have died already
-        self.kill_pidfile(self.src, pidfile, max_fail=16)
+        self.src.bg_proc_stop(pids)
 
         self.dut.wait_online()
         self.reinit_test()
@@ -194,3 +193,9 @@ class KexecWithTraffic(CommonNetdevTest):
         time.sleep(5)
         # Check we can still pass traffic after kexec
         self.ping(0)
+
+    def cleanup(self):
+        self.dut.bg_proc_stop_all()
+        self.src.bg_proc_stop_all()
+
+        super(KexecWithTraffic, self).cleanup()

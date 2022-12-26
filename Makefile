@@ -34,6 +34,8 @@ endif
 
 EXTRA_CFLAGS += $(CFLAGS_EXTRA)
 
+CPATH := $(KSRC)/certs
+
 ###########################################################################
 # Build rules
 
@@ -58,6 +60,19 @@ clean:
 	$(MAKE) -C $(KSRC) M=`pwd` clean
 
 install: build
+ifeq ("$(wildcard /lib/modules/$(KVER)/build/System.map)","")
+	ln -sf /boot/System.map-$(KVER) /lib/modules/$(KVER)/build/System.map
+endif
+ifeq ("$(wildcard $(CPATH))","")
+	$(shell mkdir -p $(CPATH))
+endif
+ifeq ("$(wildcard $(CPATH)/signing_key.pem)","")
+ifneq (, $(shell which openssl))
+	openssl req -new -x509 -newkey rsa:2048 -keyout $(CPATH)/signing_key.pem -outform DER -out $(CPATH)/signing_key.x509 -nodes -subj '/CN=localhost'
+else
+	$(warning OpenSSL not installed. Kernel module will not be signed.)
+endif
+endif
 	$(MAKE) $(COMMON_ARGS) modules_install
 
 uninstall:
@@ -68,7 +83,8 @@ uninstall:
 
 test_prepare:
 	$(MAKE) -C tests/samples/c
-	$(MAKE) -C tests/samples/mefw -j1
+	$(MAKE) -C tests/samples/mefw -j1 CHIP=nfp-38xxc
+	$(MAKE) -C tests/samples/mefw -j1 CHIP=nfp-4xxx-b0
 	$(MAKE) -C tests/samples/bpf
 	$(MAKE) -C tests/samples/xdp
 	$(MAKE) -C tests/samples/xdp_performance

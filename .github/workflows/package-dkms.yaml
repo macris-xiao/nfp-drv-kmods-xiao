@@ -61,7 +61,7 @@ jobs:
 
       # --- CLONE REPOSITORIES ---
       - name: Checkout nfp driver kmods repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
@@ -69,7 +69,7 @@ jobs:
         run: git config --global --add safe.directory `pwd`
 
       - name: Clone ci-libs (for other GH actions)
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           repository: Corigine/ci-libs
           token: ${{ secrets.GHUB_TOKEN }}
@@ -99,12 +99,12 @@ jobs:
 
           PACKAGE_NAME=$(.github/scripts/describe-head.sh --pkg_name)
 
-          echo "::set-output name=pkg_name::${PACKAGE_NAME}"
-          echo "::set-output name=binary_type::${BINARY_TYPE}"
+          echo "pkg_name=${PACKAGE_NAME}" >> $GITHUB_OUTPUT
+          echo "binary_type=${BINARY_TYPE}" >> $GITHUB_OUTPUT
 
           # DEFAULT_BRANCH defaults to public-main, but can be used to denote
           # other long-running branches for separate interim releases
-          echo "::set-output name=default_branch::$DEFAULT_BRANCH"
+          echo "default_branch=${DEFAULT_BRANCH}" >> $GITHUB_OUTPUT
         env:
           DISTRO: ${{ matrix.distro }}
           DEFAULT_BRANCH: public-main
@@ -142,6 +142,9 @@ jobs:
             "refs/heads/release-"*)
               AZURE_PATH="binaries/nfp-drv-dkms/releases${DST_SUFFIX}"
               ;;
+            "refs/heads/prerelease-"*)
+              AZURE_PATH="binaries/nfp-drv-dkms/prereleases${DST_SUFFIX}"
+              ;;
             "refs/heads/${DEFAULT_BRANCH}")
               AZURE_PATH="binaries/nfp-drv-dkms/interim${DST_SUFFIX}/${BIN_PKG_NAME}"
               ;;
@@ -150,9 +153,9 @@ jobs:
               ;;
           esac
 
-          AZURE_DEST=$(echo "${AZURE_PATH}/${BIN_TYPE}/${DKMS_PKG_NAME}")
-          echo "::set-output name=dkms_bin_path::$(echo "${BIN_TYPE}/${BIN_PKG_NAME}/${DKMS_PKG_NAME}")"
-          echo "::set-output name=azure_dest::${AZURE_DEST}"
+          AZURE_DEST=$(echo "${AZURE_PATH}/${BIN_TYPE}")
+          echo "dkms_bin_path=$(echo "${BIN_TYPE}/${BIN_PKG_NAME}/${DKMS_PKG_NAME}")" >> $GITHUB_OUTPUT
+          echo "azure_dest=${AZURE_DEST}" >> $GITHUB_OUTPUT
         env:
           DEFAULT_BRANCH: ${{steps.describe.outputs.default_branch}}
           BIN_TYPE: '${{ steps.describe.outputs.binary_type }}'

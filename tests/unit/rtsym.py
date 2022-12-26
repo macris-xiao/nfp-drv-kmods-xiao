@@ -49,22 +49,41 @@ class RTSymTest(CommonTest):
         fwdir = os.path.join('/lib/firmware/netronome/', fwdir_base)
 
         for tu in self.fws:
-            if tu[0] == 'rm2_rts_100' and \
-               self.dut.get_part_no() == 'AMDA0145-0002':
-                continue
-            if not tu[0]:
-                self.dut.dfs_read('nth/reset')
-            elif not user_space_load:
-                self.dut.dfs_write('nth/fw_load', 'netronome/%s/%s.nffw' % \
-                                   (fwdir_base, tu[0]))
-            else:
-                if self.loaded:
-                    self.dut.nffw_unload()
-                self.dut.nffw_load('%s.nffw' % (os.path.join(fwdir, tu[0])))
+            # Intermediary for kernel/user space firmware loading
+            fw = [tu[0], tu[1]]
 
-            self.loaded = bool(tu[0])
-            self.check_cnt(tu[0], tu[1])
-            self.check_syms(tu[0], tu[1])
+            if not fw[0]:
+                # Reset NFP
+                self.dut.dfs_read('nth/reset')
+            else:
+                # Load sample firmware
+                if self.dut.get_pci_device_id() == '3800':
+                    # Kestrel (nfp-3800) cannot use -mip_v2
+                    if tu[0] == 'rm2_rts_100':
+                        continue
+
+                    # Use Kestrel pre-built firmware
+                    fw = ['%s_nfp-38xxc' % tu[0], tu[1]]
+                else:
+                    # Use Osprey pre-built firmware
+                    fw = ['%s_nfp-4xxx-b0' % tu[0], tu[1]]
+
+                if not user_space_load:
+                    # Kernel space firmware load
+                    sample_fw_path = 'netronome/%s/%s.nffw' % \
+                                     (fwdir_base, fw[0])
+                    self.dut.dfs_write('nth/fw_load', sample_fw_path)
+                else:
+                    # User space firmware load
+                    if self.loaded:
+                        self.dut.nffw_unload()
+                    sample_fw_path = '%s.nffw' % (os.path.join(fwdir, fw[0]))
+                    self.dut.nffw_load(sample_fw_path)
+
+            # Verify loaded firmware
+            self.loaded = bool(fw[0])
+            self.check_cnt(fw[0], fw[1])
+            self.check_syms(fw[0], fw[1])
 
 
     def execute(self):
@@ -106,7 +125,7 @@ class RTSymDataTest(CommonTest):
     def nth_rtsym_data_write(self, key, val, seek=None, do_fail=False):
         self.dut.dfs_write('nth/rtsym_key', key)
 
-        cmd = 'echo -ne "%s"' % (val)
+        cmd = '/bin/echo -ne "%s"' % (val)
         cmd += ' | dd of=%s bs=4 conv=notrunc' % \
             (os.path.join(self.dut.dfs_dir, 'nth/rtsym_val'))
         if seek:
@@ -155,8 +174,12 @@ class RTSymDataTest(CommonTest):
 
     def execute(self):
         self.fw_loaded = False
-        self.fw_path = os.path.join(self.dut.tmpdir, 'rts_vals.nffw')
-        self.dut.cp_to(os.path.join(self.group.mefw, 'rts_vals.nffw'),
+        if self.dut.get_pci_device_id() == '3800':
+            fw = 'rts_vals_nfp-38xxc.nffw'
+        else:
+            fw = 'rts_vals_nfp-4xxx-b0.nffw'
+        self.fw_path = os.path.join(self.dut.tmpdir, fw)
+        self.dut.cp_to(os.path.join(self.group.mefw, fw),
                        self.dut.tmpdir)
 
         self.dut.insmod()

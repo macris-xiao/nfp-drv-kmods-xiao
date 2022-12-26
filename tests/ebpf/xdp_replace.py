@@ -32,9 +32,9 @@ class XDPReplaceTest(CommonTest):
 
         ret, out = self.dut.cmd('ls /sys/bus/netdevsim/devices/netdevsim1/net')
         netdevsim = out.strip().split(' ')[-1]
-        self.dut.cmd('ip link set %s down' % netdevsim)
+        self.dut.ip_link_set_down(netdevsim)
         self.dut.cmd('ip link set %s name %s' % (netdevsim, self.nsim_name))
-        self.dut.cmd('ip link set %s up' % self.nsim_name)
+        self.dut.ip_link_set_up(self.nsim_name)
 
         self.xdp_start('pass.o', ifc=self.nsim_name, mode="offload")
 

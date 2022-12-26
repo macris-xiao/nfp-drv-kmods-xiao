@@ -106,14 +106,14 @@ class ChannelReconfig(ReconfigTest):
                     self.orig['ring_max_comb']))
 
         for t in down_up:
-            self.dut.cmd('ip link set down dev %s' % (self.dut_ifn[0]))
+            self.dut.ip_link_set_down(self.dut_ifn[0])
 
             ret, _ = self.set_ring_config(t)
             if ret != 0:
                 raise NtiGeneralError("Good config rx %d tx %d comb %d rejected"
                                       % t)
 
-            self.dut.cmd('ip link set up dev %s' % (self.dut_ifn[0]))
+            self.dut.ip_link_set_up(self.dut_ifn[0])
 
             self.check_ring_config()
 

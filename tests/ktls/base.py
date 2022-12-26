@@ -18,7 +18,7 @@ class KTLSTestBase(CommonTest):
 
     def kill_procs(self):
         for m in self.procs.keys():
-            self.kill_pidfile(m, self.procs.pop(m), max_fail=4)
+            self.kill_pidfile(m, self.procs.pop(m))
 
     def prepare(self):
         self.procs = dict()

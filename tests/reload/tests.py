@@ -5,15 +5,27 @@
 Unit test group for the NFP Linux driver tests which require a driver reload.
 """
 
+import os
+import re
 import random
 import netro.testinfra
 from netro.testinfra.test import *
 from ..drv_grp import NFPKmodGrp
 from fw_load import KernelLoadTest
+import time
+from netro.testinfra.nti_exceptions import NtiGeneralError
+from netro.testinfra.nrt_result import NrtResult
+from netro.testinfra.system import cmd_log
+from ..common_test import CommonNetdevTest, NtiSkip
+from ..common_test import AMDA_10G_CARDS, AMDA_25G_CARDS, AMDA_40G_CARDS, \
+    AMDA_100G_CARDS
+from ..drv_system import DrvSystem
+from mac_ethtool import EthtoolMac
 
 ###########################################################################
 # Unit Tests
 ###########################################################################
+
 
 class NFPKmodReload(NFPKmodGrp):
     """Unit tests for the NFP Linux drivers"""
@@ -32,20 +44,14 @@ class NFPKmodReload(NFPKmodGrp):
 
         T = (('set_speed', SpeedSet, "Flip speed and reload driver"),
              ('port_split', DevlinkSplit,
-              "Split/unspliet port and reload driver in between"),
+              "Split/unsplit port and reload driver in between"),
              ('kernel_fw_load', KernelLoadTest, "Test kernel firmware loader"),
-        )
+             ('mac_ethtool', EthtoolMac, "Test ethtool -E functionality"),
+             )
 
         for t in T:
             self._tests[t[0]] = t[1](src, dut, self, t[0], t[2])
 
-
-import time
-from netro.testinfra.nti_exceptions import NtiGeneralError
-from netro.testinfra.nrt_result import NrtResult
-from netro.testinfra.system import cmd_log
-from ..common_test import *
-from ..drv_system import DrvSystem
 
 class SpeedSet(CommonNetdevTest):
     def port_index_obtain(self):
@@ -58,27 +64,39 @@ class SpeedSet(CommonNetdevTest):
 
     def reload_fw_to_2x10G(self, ifc_list):
         self.dut.cmd('mkdir -p /lib/firmware/netronome')
-        self.netdevfw_2x10G = os.path.join(os.path.dirname(self.group.netdevfw),
-                                           'nic_AMDA0099-0001_2x10.nffw')
+        partno = self.dut.get_part_no()
+        nffw_file = "nic_" + partno + "_2x10.nffw"
+        self.netdevfw_2x10G = os.path.dirname(self.group.netdevfw)
+        self.netdevfw_2x10G = self.netdevfw_2x10G + "/" + nffw_file
+        # netdevfw_2x10G: Path to 2x10 fw example:
+        # /root/firmware/agilio-nic-firmware-22.07-1/nfdk/nic_AMDA0144-0002_2x10.nffw
+
         self.dut.cp_to(self.netdevfw_2x10G, '/lib/firmware/netronome/')
         self.dut.nffw_unload()
         self.dut.reset_mods()
         self.dut.insmod(netdev=True, userspace=True)
         for ifc in ifc_list:
-            self.dut.cmd('ip link set dev %s up' % (ifc))
+            self.dut.ip_link_set_up(ifc)
 
     def set_src_speed(self, speed, ifc_list):
         for ifc in ifc_list:
-            self.src.cmd('ip link set dev %s down; ethtool -s %s speed %d' %
-                         (ifc, ifc, speed))
+            self.src.ip_link_set_down(ifc)
+            self.src.cmd('ethtool -s %s speed %d' % (ifc, speed))
+        # Reload the driver on the EP (src) using modprobe as self.src
+        # is of type LinuxSystem and rmmod helper function self.src.rmmod()
+        # doesn't exist for LinuxSystem
         self.src.cmd('rmmod nfp && modprobe nfp')
         for ifc in ifc_list:
-            self.src.cmd('ip link set dev %s up' % ifc)
+            self.src.ip_link_set_up(ifc)
 
-        self.src.cmd('ip addr add dev %s %s' % (self.src_ifn[0], self.src_addr[0]))
-        self.src.cmd('ip addr add dev %s %s' % (self.src_ifn[0], self.src_addr_v6[0]))
-        self.src.cmd('ip addr add dev %s %s' % (self.src_ifn[1], self.src_addr[1]))
-        self.src.cmd('ip addr add dev %s %s' % (self.src_ifn[1], self.src_addr_v6[1]))
+        self.src.cmd('ip addr add dev %s %s' % (self.src_ifn[0],
+                     self.src_addr[0]))
+        self.src.cmd('ip addr add dev %s %s' % (self.src_ifn[0],
+                     self.src_addr_v6[0]))
+        self.src.cmd('ip addr add dev %s %s' % (self.src_ifn[1],
+                     self.src_addr[1]))
+        self.src.cmd('ip addr add dev %s %s' % (self.src_ifn[1],
+                     self.src_addr_v6[1]))
 
     def check_fails(self, ifc, all_speeds, skip_speeds=[]):
         for speed in all_speeds:
@@ -86,7 +104,13 @@ class SpeedSet(CommonNetdevTest):
                 continue
 
             ret, out = self.dut.ethtool_set_speed(ifc, speed, fail=False)
-            if out[1].find('link settings update failed') == -1:
+
+            correct_fail_output1 = out[1].find('link settings update failed')
+            correct_fail_output2 = out[1].find('Cannot set new settings')
+
+            # if neither failing outputs are seen, it must mean that the speed
+            # was set
+            if correct_fail_output1 == -1 and correct_fail_output2 == -1:
                 raise NtiError('Set %s speed to %d did not fail' %
                                (ifc, speed))
 
@@ -99,25 +123,41 @@ class SpeedSet(CommonNetdevTest):
         for ifc in self.src_ifn:
             _, src_drv_info = self.src.cmd('ethtool -i %s | grep driver' % ifc)
             if src_drv_info.split()[1] != 'nfp':
-                raise NtiSkip("EP expect: nfp, actual: %s" % src_drv_info.split()[1])
+                raise NtiSkip("EP expect: nfp, actual: %s"
+                              % src_drv_info.split()[1])
 
-        all_speeds = ( 0, 1, 1237, 10000, 25000, 40000 )
+        all_speeds = (0, 1, 1237, 10000, 25000, 40000)
 
-        # Check for old NSP
         if self.dut.get_nsp_ver(self.dut_ifn[0]) < 15:
             self.check_fails_all(all_speeds)
             return
 
-        supported_speeds = {
-            "AMDA0099-0001"	:	( 25000, 10000 ),
-        }
+        # Get AMDAXXXX number
+        AMDA_no = self.dut.get_amda_only()
 
-        partno = self.dut.get_hwinfo('assembly.partno')
+        str_def_speed = None
+
+        # Get the default speed depending on card type
+        if AMDA_no in AMDA_10G_CARDS:
+            default_speed = 10000
+            str_def_speed = "10G"
+        elif AMDA_no in AMDA_25G_CARDS:
+            default_speed = 25000
+            str_def_speed = "25G"
+
+        # Note that 40G and 100G cards cannot change their speed setting, but
+        # can be split into ports with slower speeds. See port_split test. 40G
+        # and 100G cards are still checked in this test if it fails where
+        # expected.
+        supported_speeds = {
+            "10G": (10000, 1000),
+            "25G": (25000, 10000),
+        }
 
         self.ifc_skip_if_not_all_up()
 
         # All cards not in supported_speeds can't do ethtool speed setting
-        if not partno in supported_speeds:
+        if str_def_speed not in supported_speeds:
             for ifc in self.dut_ifn:
                 cur_speed = self.dut.ethtool_get_speed(ifc)
                 self.check_fails(ifc, all_speeds, [cur_speed])
@@ -128,8 +168,7 @@ class SpeedSet(CommonNetdevTest):
         for ifc in self.dut_ifn[1:]:
             if cur_speed != self.dut.ethtool_get_speed(ifc):
                 raise NtiError("Ports don't all have the same speed")
-
-        speeds = supported_speeds[partno]
+        speeds = supported_speeds[str_def_speed]
         if cur_speed not in speeds:
             raise NtiError("Speed %d is not on the supported list" % cur_speed)
 
@@ -155,7 +194,7 @@ class SpeedSet(CommonNetdevTest):
             # try to keep the last port in default mode when mixed config
             ifc_list = self.dut_ifn
             src_ifc_list = self.src_ifn
-            if speeds[0] == supported_speeds[partno][0]:
+            if speeds[0] == supported_speeds[str_def_speed][0]:
                 ifc_list = list(reversed(ifc_list))
                 src_ifc_list = list(reversed(src_ifc_list))
 
@@ -166,12 +205,12 @@ class SpeedSet(CommonNetdevTest):
                                    (ifc, speeds[0]))
 
                 # Make sure port disappears
-                time.sleep(3) # Refresh of eth table may take some time
+                time.sleep(3)  # Refresh of eth table may take some time
                 ret, _ = self.dut.cmd('ip link show %s' % (ifc), fail=False)
                 if ret == 0:
                     raise NtiError("Netdev didn't disappear")
 
-            if speeds[0] == supported_speeds[partno][0]:
+            if speeds[0] == supported_speeds[str_def_speed][0]:
                 self.reload_driver()
             else:
                 self.reload_fw_to_2x10G(ifc_list)
@@ -199,6 +238,19 @@ class SpeedSet(CommonNetdevTest):
                 return
             speeds = speeds[1:] + speeds[:1]
 
+    def cleanup(self):
+        # Reset the speed with BSP media command.
+        # nfp-media -C should output the default speed
+        # eg. phy0=25G+ (default)
+
+        _, out = self.dut.cmd_media('-C')  # /opt/netronome/bin/nfp-media
+        if 'default' not in out:
+            raise NtiError("Speed could not be reset to default with"
+                           " nfp-media -C")
+        return super(SpeedSet, self).cleanup()
+
+
+###########################################################################
 class DevlinkSplit(CommonNetdevTest):
     def check_fails_split(self, idx, bad_counts):
         for count in bad_counts:
@@ -219,7 +271,7 @@ class DevlinkSplit(CommonNetdevTest):
         cur_cnt = len(self.dut.phys_netdevs)
         bad_ports = range(cur_cnt, cur_cnt + 2)
         if card_info[0] > 1:
-            bad_ports.append(0) # fail because of order
+            bad_ports.append(0)  # fail because of order
         bad_ports.append(-1)
 
         if cur_cnt != card_info[0] * card_info[1]:
@@ -232,24 +284,26 @@ class DevlinkSplit(CommonNetdevTest):
             self.check_fails_unsplit(i)
 
     def unsplit(self, card_info):
-        for i in [x * card_info[1] for x in list(reversed(range(0, card_info[0])))]:
-            self.dut.devlink_unsplit(i)
+        for x in list(reversed(range(0, card_info[0]))):
+            for i in [x * card_info[1]]:
+                self.dut.devlink_unsplit(i)
 
         cur_cnt_remain = 0
         for ifc in self.dut_ifn:
-            ret,_ = self.dut.cmd('ip link show %s' % ifc, fail=False)
+            ret, _ = self.dut.cmd('ip link show %s' % ifc, fail=False)
             if ret == 0:
                 cur_cnt_remain += 1
 
         if cur_cnt_remain:
-            raise NtiError('Not all netdevs disappeared %d left' % (cur_cnt_remain))
+            raise NtiError('Not all netdevs disappeared %d left'
+                           % (cur_cnt_remain))
 
     def split_check(self, card_info):
         cur_cnt = len(self.dut.phys_netdevs)
         bad_ports = [x for x in range(1, (cur_cnt + 1) * card_info[1])
-                        if x % card_info[1] != 0]
+                     if x % card_info[1] != 0]
         if card_info[0] > 1:
-            bad_ports.append(cur_cnt - 1) # fail because of order
+            bad_ports.append(cur_cnt - 1)  # fail because of order
         bad_ports.append(-1)
 
         if cur_cnt != card_info[0]:
@@ -267,12 +321,13 @@ class DevlinkSplit(CommonNetdevTest):
 
         cur_cnt_remain = 0
         for ifc in self.dut_ifn:
-            ret,_ = self.dut.cmd('ip link show %s' % ifc, fail=False)
+            ret, _ = self.dut.cmd('ip link show %s' % ifc, fail=False)
             if ret == 0:
                 cur_cnt_remain += 1
 
         if cur_cnt_remain:
-            raise NtiError('Not all netdevs disappeared %d left' % (cur_cnt_remain))
+            raise NtiError('Not all netdevs disappeared %d left'
+                           % (cur_cnt_remain))
 
     def reload_driver(self, partno, card_info, split):
         if split:
@@ -294,15 +349,15 @@ class DevlinkSplit(CommonNetdevTest):
             return
 
         supported_splits = {
-            "AMDA0081-0001"	:	(1, 4, 10),
-            "AMDA0097-0001"	:	(2, 4, 10),
+            "AMDA0081-0001": (1, 4, 10),
+            "AMDA0097-0001": (2, 4, 10),
         }
 
         partno = self.dut.get_hwinfo('assembly.partno')
         cur_cnt = len(self.dut.phys_netdevs)
 
         # All cards not in supported_splits can't do splits
-        if not partno in supported_splits:
+        if partno not in supported_splits:
             for i in range(-1, cur_cnt + 2):
                 self.check_all_fails(i, range(-1, 9))
             return
@@ -329,3 +384,14 @@ class DevlinkSplit(CommonNetdevTest):
             self.unsplit(card_info)
             self.reload_driver(partno, card_info, False)
             self.split_check(card_info)
+
+    def cleanup(self):
+        # Ensure ports are unsplit when test is finished
+        self.dut.reset_mods()
+        self.dut.insmod(netdev=True, userspace=True)
+        for ifc in self.dut_ifn:
+            self.dut.cmd('ip link show %s' % (ifc), fail=False)
+        # splitting for indexes of 0 to 8
+        for i in range(0, 9):
+            self.dut.devlink_unsplit(i, fail=False)
+        return super(DevlinkSplit, self).cleanup()

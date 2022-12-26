@@ -49,11 +49,11 @@
 #endif
 
 /* Redefine LINUX_VERSION_CODE for net and *-next kernels */
-#if LINUX_VERSION_CODE == KERNEL_VERSION(6, 0, 0)
-#include <linux/btf.h>
-#ifdef KF_SLEEPABLE
+#if LINUX_VERSION_CODE == KERNEL_VERSION(6, 1, 0)
+#include <linux/netdevice.h>
+#ifdef SET_NETDEV_DEVLINK_PORT
 #undef LINUX_VERSION_CODE
-#define LINUX_VERSION_CODE KERNEL_VERSION(6, 1, 0)
+#define LINUX_VERSION_CODE KERNEL_VERSION(6, 2, 0)
 #endif
 #endif
 
@@ -148,11 +148,17 @@
 #ifndef ETH_MODULE_SFF_8636_LEN
 #define ETH_MODULE_SFF_8636_LEN	256
 #endif
+#ifndef ETH_MODULE_SFF_8636_MAX_LEN
+#define ETH_MODULE_SFF_8636_MAX_LEN	640
+#endif
 #ifndef ETH_MODULE_SFF_8436
 #define ETH_MODULE_SFF_8436	0x4
 #endif
 #ifndef ETH_MODULE_SFF_8436_LEN
 #define ETH_MODULE_SFF_8436_LEN	256
+#endif
+#ifndef ETH_MODULE_SFF_8436_MAX_LEN
+#define ETH_MODULE_SFF_8436_MAX_LEN	640
 #endif
 
 #ifndef IANA_VXLAN_UDP_PORT
@@ -1570,7 +1576,7 @@ bool devl_lock_is_held(struct devlink *devlink);
 #define devl_port_unregister	devlink_port_unregister
 #endif
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 19, 0)
+#if VER_NON_RHEL_LT(5, 19) || RHEL_RELEASE_LT(9, 191, 0, 0)
 #define netif_set_tso_max_segs netif_set_gso_max_segs
 void netif_inherit_tso_max(struct net_device *to,
 			   const struct net_device *from);

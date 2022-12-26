@@ -9,6 +9,7 @@ from netro.testinfra.test import *
 from netro.testinfra.nti_exceptions import NtiGeneralError
 from ..common_test import CommonTest, NtiSkip
 
+
 class KernelLoadTest(CommonTest):
     def load_test(self, expect_dummy, expect_reset):
         M = self.dut
@@ -61,11 +62,11 @@ class KernelLoadTest(CommonTest):
             # Ignore possible VF/PF representors and vNICs, but bring them up.
             # One of them may be our CPU port.
             if ifc not in self.dut_ifn:
-                self.dut.cmd('ip link set dev %s up' % (ifc))
+                M.ip_link_set_up(ifc)
                 continue
 
             i = self.dut_ifn.index(ifc)
-            M.cmd('ip link set dev %s up' % ifc)
+            M.ip_link_set_up(ifc)
             M.cmd('ip addr add dev %s %s' % (ifc, self.dut_addr[i]))
 
         for ifc in self.dut_ifn:
@@ -89,8 +90,10 @@ class KernelLoadTest(CommonTest):
 
         if self.dut.get_pci_device_id() != '3800':
             self.spi_bus = 0
+            fw_suffix = '_nfp-4xxx-b0'
         else:
             self.spi_bus = 1
+            fw_suffix = '_nfp-38xxc'
 
         tests = [
             # HWinfo keys, expect dummy FW, expect explicit soft reset
@@ -108,7 +111,7 @@ class KernelLoadTest(CommonTest):
         M.cmd('mkdir -p /lib/firmware/netronome')
         M.cp_to(self.group.netdevfw,
                 '/lib/firmware/netronome/%s' % M.get_fw_name_any())
-        M.cp_to(os.path.join(self.group.mefw, 'dummy_nfd.nffw'),
+        M.cp_to(os.path.join(self.group.mefw, 'dummy_nfd%s.nffw' % fw_suffix),
                 self.dut.tmpdir)
 
         # Base case, executable on both upstream and oot drivers
@@ -120,7 +123,8 @@ class KernelLoadTest(CommonTest):
 
         # Need at least hwinfo string lookup and FW loaded commands
         if self.group.upstream_drv:
-            raise NtiSkip('Cannot test more complex FW loading scenarios upstream')
+            raise NtiSkip('Cannot test more complex FW loading scenarios '
+                          'upstream')
 
         M.insmod(netdev=False, userspace=True)
         self.check_nsp_min(26)
@@ -130,7 +134,7 @@ class KernelLoadTest(CommonTest):
         if len(phy) != 2:
             raise NtiSkip('Sample FW only supports 2 port cards')
 
-        fw_path = os.path.join(self.dut.tmpdir, 'dummy_nfd.nffw')
+        fw_path = os.path.join(self.dut.tmpdir, 'dummy_nfd%s.nffw' % fw_suffix)
         M.cmd_fis('-b %d delete nti.fw' % self.spi_bus, fail=False)
         M.cmd_fis('-b %d -b0 init' % self.spi_bus)
         M.cmd_fis('-b %d create -b %s nti.fw' % (self.spi_bus, fw_path))
@@ -162,3 +166,4 @@ class KernelLoadTest(CommonTest):
             self.src.cmd('ip a flush %s ' % ifc)
 
         self.dut.reset_mods()
+        return super(KernelLoadTest, self).cleanup()

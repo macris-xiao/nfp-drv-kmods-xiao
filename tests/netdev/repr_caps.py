@@ -11,6 +11,19 @@ from ..common_test import CommonTest, NtiSkip, NtiError, assert_eq
 from ..nfd import NfdBarOff, NfdCap, NfdTlvCap
 
 class ReprCaps(CommonTest):
+    info = """
+    The purpose of this test is to confirm that the driver is correctly
+    reporting the capabilities of a vNIC.
+
+    The test initially checks to see if representors are available, before
+    getting the vNIC and representor features. The hw-tc-offload value is
+    set to OFF and the features are checked, with the actual values being
+    compared to the expected values. The hw-tc-offload value is then set to
+    ON and the features are checked again. This is repeated for all device
+    capabilities.
+
+    If any actual values do not match the expected values, the test will fail.
+    """
     f_dont_care = { 'tx-nocache-copy', 'tx-checksumming', 'scatter-gather',
                     'generic-receive-offload', 'udp-fragmentation-offload',
                     'tcp-segmentation-offload' }

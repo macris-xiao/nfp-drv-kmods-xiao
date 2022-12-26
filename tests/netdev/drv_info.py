@@ -7,14 +7,22 @@ from netro.testinfra.nti_exceptions import NtiError
 from ..common_test import CommonTest
 
 class DrvInfoEthtool(CommonTest):
+    info = """
+    Confirm features supported by driver by making use of the 'ethtool -i' command:
+    Expected values:
+    \tsupports-priv-flags:\t\tno
+    \tsupports-statistics:\t\tyes
+    \tsupports-test:\t\t\tyes
+    \tsupports-eeprom-access:\t\tyes
+    """
+
     def check_common(self, info):
         # Checking that ethtool correctly shows what features the driver
         # supports:
         # It is expected that info (ethtool -i output) will have features set
         # to "yes" and "no" according to what is expected of the driver to
         # support.
-        yes = [ "supports-statistics", "supports-test",
-                "supports-eeprom-access"]
+        yes = ["supports-statistics", "supports-test"]
         no = ["supports-priv-flags" ]
 
         for i in yes:
@@ -45,7 +53,6 @@ class DrvInfoEthtool(CommonTest):
         if not info["firmware-version"].startswith("0.0.") and \
            not info["firmware-version"].startswith("1.0."):
             raise NtiError("Bad NFD version")
-
         self.check_common(info)
 
     def check_info_repr(self, info):
@@ -63,6 +70,9 @@ class DrvInfoEthtool(CommonTest):
             raise NtiError("FW version has %d items, expected 4" %
                            (len(fw_ver)))
 
+        if info["supports-eeprom-access"] != "yes":
+            raise NtiError("supports-eeprom-access: " +
+                           info["supports-eeprom-access"] + ", expected yes")
         self.check_common(info)
 
     def check_info_vf(self, info):
@@ -78,6 +88,9 @@ class DrvInfoEthtool(CommonTest):
             raise NtiError("FW version has %d items, expected 1" %
                            (len(fw_ver)))
 
+        if info["supports-eeprom-access"] != "no":
+            raise NtiError("supports-eeprom-access: " +
+                           info["supports-eeprom-access"] + ", expected no")
         self.check_common_vnic(info)
 
     def check_info_pf(self, info):
@@ -93,23 +106,29 @@ class DrvInfoEthtool(CommonTest):
             raise NtiError("FW version has %d items, expected 4" %
                            (len(fw_ver)))
 
+        if info["supports-eeprom-access"] != "yes":
+            raise NtiError("supports-eeprom-access: " +
+                           info["supports-eeprom-access"] + ", expected yes")
         self.check_common_vnic(info)
 
     def execute(self):
-        new_ifcs = self.spawn_vf_netdev()
-
-        for ifc in new_ifcs:
-            info = self.dut.ethtool_drvinfo(ifc)
-            if info["driver"] == "nfp":
-                self.check_info_repr(info)
-            elif info["driver"] == "nfp_netvf":
-                self.check_info_vf(info)
-            else:
-                raise NtiError("Driver not reported")
-
         for ifc in self.dut.nfp_netdevs:
             info = self.dut.ethtool_drvinfo(ifc)
-            if info["firmware-version"][0] != "*":
+            fw = info['firmware-version']
+            # for virtual interfaces:
+            if "sri" in fw:
+                new_ifcs = self.spawn_vf_netdev(1)
+
+                for vf_ifc in new_ifcs:
+                    vf_info = self.dut.ethtool_drvinfo(vf_ifc["name"])
+                    if vf_info["driver"] == "nfp":
+                        self.check_info_repr(vf_info)
+                    elif vf_info["driver"] == "nfp_netvf":
+                        self.check_info_vf(vf_info)
+                    else:
+                        raise NtiError("Driver not reported")
+            # for all physical interfaces:
+            if fw[0] != "*":
                 self.check_info_pf(info)
             else:
                 self.check_info_repr(info)

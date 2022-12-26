@@ -5,10 +5,11 @@ name: Build
 on:
   push:
     branches:
-      - main          # default branch name
-      - '*-build*'    # Temporary build, no testing
-      - '*build-*'    # Temporary build, no testing
-      - 'release-*'   # Release build
+      - main            # default branch name
+      - '*-build*'      # Temporary build, no testing
+      - '*build-*'      # Temporary build, no testing
+      - 'prerelease-*'  # Prerelease build
+      - 'release-*'     # Release build
       - '*.check'
 
 env:
@@ -35,7 +36,7 @@ jobs:
         ]
     steps:
       - name: Check out repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Set HWE Environment (Ubuntu 20.04)
         if: matrix.release.hwe != ''
@@ -112,7 +113,8 @@ jobs:
                 { "name": "9.0", "container": "rockylinux:9.0" },
                 { "name": "9-stream", "container": "rockylinux:9.0" },
                 # openEuler
-                { "name": "openEuler-22.03-LTS",   "container": "openeuler/openeuler:22.03-lts" },
+                { "name": "openEuler-20.03-LTS", "container": "openeuler/openeuler:20.03-lts-sp3" },
+                { "name": "openEuler-22.03-LTS", "container": "openeuler/openeuler:22.03-lts" },
                 # BCLinux
                 #{ "name": "el8",   "container": "rockylinux:8.5" },
                 #{ "name": "el8.1", "container": "rockylinux:8.5" },
@@ -122,7 +124,7 @@ jobs:
       image: ${{ matrix.release.container }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Set Download Environment
         env:
@@ -132,7 +134,8 @@ jobs:
           el8*)                MIRROR="mirrors.bclinux.org/bclinux" ;;
           openEuler*)          MIRROR="repo.openeuler.org" ;;
           7.[0-8].*|8.[0-5].*) MIRROR="vault.centos.org" ;;
-          9.*)                 MIRROR="dl.rockylinux.org/pub/rocky" ;;
+          9.0)                 MIRROR="dl.rockylinux.org/vault/rocky" ;;
+          9.[1-9])             MIRROR="dl.rockylinux.org/pub/rocky" ;;
           9-*)                 MIRROR="mirror.stream.centos.org" ;;
           *)                   MIRROR="mirror.centos.org/centos" ;;
           esac
@@ -162,7 +165,7 @@ jobs:
           echo "UPDATE_PATH=$UPDATE_PATH" >> $GITHUB_ENV
 
       - name: Cache OS Kernel Header Packages
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         env:
           cache-name: cache-os-headers
         with:
@@ -171,7 +174,7 @@ jobs:
 
       - name: Cache Update Kernel Header Packages
         if: startsWith(matrix.release.name, '7')
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         env:
           cache-name: cache-update-headers
         with:
@@ -236,9 +239,15 @@ jobs:
       - name: Filter latest openEuler kernel
         if: startsWith(matrix.release.name, 'openEuler')
         run: |
-          KVER=$(curl -s "http://${{ env.OS_PATH }}/" | \
-            sed -En 's/.*kernel-devel-(5.10.0-[0-9].*).oe2203.*rpm.*/\1/p' | \
-            tail -n 1)
+          if [ ${{ contains(matrix.release.name, '20') }} ]; then
+            KVER=$(curl -s "http://${{ env.OS_PATH }}/" | \
+              sed -En 's/.*kernel-devel-(4.19.90-[0-9].*).oe1.*rpm.*/\1/p' | \
+              tail -n 1)
+          elif [ ${{ contains(matrix.release.name, '22') }} ]; then
+            KVER=$(curl -s "http://${{ env.OS_PATH }}/" | \
+              sed -En 's/.*kernel-devel-(5.10.0-[0-9].*).oe2203.*rpm.*/\1/p' | \
+              tail -n 1)
+          fi
           echo $KVER
           echo "KVER=${KVER}*" >> $GITHUB_ENV
 
@@ -302,7 +311,7 @@ jobs:
         ]
     steps:
       - name: Check out repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Set Environment (Release)
         if: startsWith(matrix.release.name, 'net') != true
@@ -328,7 +337,7 @@ jobs:
           echo "TAR_FLAGS=-z" >> $GITHUB_ENV
 
       - name: Cache Kernel Header Package
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         id: header-cache
         env:
           cache-name: cache-headers-upstream
@@ -413,7 +422,7 @@ jobs:
       image: ubuntu:18.04
     steps:
       - name: Check out repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Set Environment (Release)
         run: |
@@ -428,7 +437,7 @@ jobs:
           echo "TAR_FLAGS=-J" >> $GITHUB_ENV
 
       - name: Cache Kernel Header Package
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         id: header-cache
         env:
           cache-name: cache-headers-upstream
@@ -518,7 +527,7 @@ jobs:
       image: centos:7.5.1804
     steps:
       - name: Check out repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Set Environment (Release)
         run: |

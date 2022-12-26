@@ -5,6 +5,8 @@
 ABM NIC test group for the NFP Linux drivers.
 """
 
+import re
+
 from ..drv_grp import NFPKmodAppGrp
 from drv_info import DrvInfoEthtool
 from mac_stats import MacStatsEthtool
@@ -14,6 +16,10 @@ from repr_caps import ReprCaps
 from stats_ethtool import StatsEthtool
 from coalesce_pf import coalescePF
 from coalesce_vf import CoalesceVF
+from test_ethtool import TestEthtool
+from vf_qos import VfQoS
+from vlan_qinq import VlanQinq
+import time
 
 class NFPKmodNetdev(NFPKmodAppGrp):
     """Basic FW-independent NIC tests for the NFP Linux drivers"""
@@ -39,25 +45,32 @@ class NFPKmodNetdev(NFPKmodAppGrp):
         src = (self.host_a, self.addr_a, self.eth_a, self.addr_v6_a)
 
         tests = (
-            ('bsp_version', BspVerTest, "Test NSP BSP Version function"),
-            ('bsp_diag', BSPDiag, "Test the basic BSP diagnostics"),
-            ('sensors', SensorsTest, "Test Hwmon sensors functionality"),
-            ('phys_port_name', PhysPortName, "Test port naming"),
-            ('ethtool_drvinfo', DrvInfoEthtool, "Ethtool -i test"),
-            ('ethtool_get_speed', LinkSpeedEthtool, "Ethtool get settings"),
-            ('ethtool_stats', StatsEthtool, "Ethtool stats"),
-            ('ethtool_mac_stats', MacStatsEthtool, "Ethtool MAC stats"),
-            ('ethtool_get_mod_eeprom', ModuleEepromEthtool,
+            ('multi_bsp_version', BspVerTest, "Test NSP BSP Version function"),
+            ('multi_bsp_diag', BSPDiag, "Test the basic BSP diagnostics"),
+            ('multi_sensors', SensorsTest, "Test Hwmon sensors functionality"),
+            ('multi_phys_port_name', PhysPortName, "Test port naming"),
+            ('multi_ethtool_drvinfo', DrvInfoEthtool, "Ethtool -i test"),
+            ('multi_ethtool_get_speed', LinkSpeedEthtool, "Ethtool get settings"),
+            ('multi_ethtool_stats', StatsEthtool, "Ethtool stats"),
+            ('multi_ethtool_mac_stats', MacStatsEthtool, "Ethtool MAC stats"),
+            ('multi_ethtool_get_mod_eeprom', ModuleEepromEthtool,
              "Ethtool get module EEPROM"),
-            ('devlink_port_show', DevlinkPortsShow,
+            ('multi_test_ethtool', TestEthtool, "Ethtool --test"),
+            ('multi_ethtool_identify', IdentifyEthtool, "Ethtool -p test"),
+            ('multi_devlink_port_show', DevlinkPortsShow,
              "Check basic devlink port output"),
-            ('netconsole', NetconsoleTest, 'Test netconsole over the NFP'),
-            ('mtu_flbufsz_check', MtuFlbufCheck,
+            ('multi_vlan_qinq', VlanQinq,
+             "Test VLAN (rx & tx) and QinQ (rx only) offloading"),
+            ('multi_netconsole', NetconsoleTest, 'Test netconsole over the NFP'),
+            ('bpf_mtu_flbufsz_check', MtuFlbufCheck,
              "Check if driver sets correct fl_bufsz and mtu"),
-            ('huge_ring', HugeRings, "Check allocation of huge rings"),
-            ('repr_caps', ReprCaps, "Representor capabilities"),
-            ('coalesce_pf', coalescePF, "Test coalesce function on PF"),
-            ('coalesce_vf', CoalesceVF, "Test coalesce function on VF"),
+            ('multi_huge_ring', HugeRings, "Check allocation of huge rings"),
+            ('flower_repr_caps', ReprCaps, "Representor capabilities"),
+            ('sriov_coalesce_pf', coalescePF, "Test coalesce function on PF"),
+            ('sriov_coalesce_vf', CoalesceVF, "Test coalesce function on VF"),
+            ('sriov_ethtool_pause', PauseEthtool,
+             "Reports pause parameters for a physical device"),
+            ('sriov_vf_qos', VfQoS, "Test VF rate limiting"),
         )
 
         for t in tests:
@@ -76,58 +89,71 @@ from ..common_test import CommonTest, NtiSkip, assert_eq, assert_ge
 from ..nfd import NfdBarOff
 
 class BspVerTest(CommonTest):
+    info = """
+    Verify that the function 'nfp_nsp_identify' is working correctly, i.e. that
+    the function is receiving information that could be the BSP version. The
+    test also checks that the BSP version is in the correct format, e.g.
+    22.07-0, indicating that the installed BSP is not outdated or a WIP
+    version. If the version is recognised as an old or a WIP format, then the
+    test will skip, if it is unrecognised, the test will fail.
+    """
     def execute(self):
-        # This test verifies if the function nfp_nsp_identify is working
-        # correctly, thus, if that function is receiving information that seems
-        # like it could be the BSP version. It also checks that the BSP
-        # version is in the correct format.
         self.check_nsp_min(16)
+        ver = self.dut.get_bsp_ver()
+        # Well formed versions: "YY.MM" or "YY.MM-R" or "YY.MM.R-rcC"
+        # Where YY = last two digits of the year
+        #       MM = Month (including leading zero)
+        #       R  = Revision number
+        #       C  = Release candidate number
 
-        cmd  = 'dmesg | tac | sed -n "1,/nfp: NFP PCIe Driver/p"'
-        cmd += ' | grep "nfp 0000:%s"' % (self.group.pci_id)
-        cmd += ' | grep -o "BSP: .*" | cut -c 6- | tr -d "\n"'
-        _, ver = self.dut.cmd(cmd)
-        # Split version into two with the second part possibly containing the
-        # revision number as well:
-        comp = ver.split('.')
-        # Well formed version example: 22.07-0
-        # with comp[0] = 22; comp[1] = 07-0
+        version_pattern_old = re.compile(r'\d{6}\.\d{6}\.\d{6}$')
+        # Matching example: 010217.010217.010325
 
-        # Check if there is only two parts (e.g. 22 and 07-0) after the split:
-        if len(comp) != 2:
-            # if the following is true, then it is a non-release build:
-            if '~' in comp[1] and 'main' in comp[2]:
-                raise NtiSkip('Non-release version of BSP: version: %s which '
-                              'could cause failure of other tests '
-                              % (ver))
-            else:
-                raise NtiError('bad BSP version format: version: %s and number '
-                               'of components: %d. Expecting number of '
-                               'components to be 2' % (ver, len(comp)))
+        version_pattern_wip = re.compile(r'\d\d\.\d\d~\d{5}\.'
+                                         r'[a-zA-Z0-9]+\.[a-f\d]{7}-\d{1,2}$')
+        # Matching example:  22.03~00072.main.8dac5bd-0
 
-        # Check if all the components of the version is the correct length:
-        if len(comp[0]) != 2: # expecting comp[0] = "22" or similar
-            raise NtiError('bad BSP version format: version: %s with length of '
-                           'first part: %d, but expecting length: 2.'
-                           % (ver, len(comp[0])))
-        if len(comp[1]) == 2: # expecting "07"
-            decimal = comp[1]
-        elif (len(comp[1]) == 4 and comp[1][2] == '-'):
-            # or expecting "07-0" with "-" or similar
-            decimal = comp[1].split("-")[0]
-            revision = comp[1].split("-")[1]
-        else:
-            raise NtiError('bad BSP version format: version: %s with length of '
-                           'second part: %d, but expecting length: 2 or 4.'
-                           % (ver, len(comp[1])))
+        version_pattern_rc = re.compile(r'\d\d\.\d\d\.\d{1,2}-rc\d{1,2}$')
+        # Matching example:  22.08.1-rc2
 
-        # Check if certain parts of the version are numbers:
-        if (comp[0].isdigit() == False or decimal.isdigit() == False or
-            revision.isdigit() == False):
-            raise NtiError('bad BSP version format: version: %s with '
-                           'non-numerical values' % (ver))
+        version_pattern_rev0 = re.compile(r'\d\d\.\d\d$')
+        # Matching example:  22.08
+
+        version_pattern_rev = re.compile(r'\d\d\.\d\d-\d{1,2}$')
+        # Matching example:  22.08-0
+
+        version_match_old = version_pattern_old.match(ver)
+        if version_match_old:
+            raise NtiSkip("Old BSP version: Reported version: '%s'. "
+                          "This could cause failure of other tests."
+                          % ver)
+
+        version_match_wip = version_pattern_wip.match(ver)
+        if version_match_wip:
+            raise NtiSkip("WIP BSP version: Reported version: '%s'. "
+                          "This could cause failure of other tests."
+                          % ver)
+
+        version_match_rc = version_pattern_rc.match(ver)
+        version_match_rev0 = version_pattern_rev0.match(ver)
+        version_match_rev = version_pattern_rev.match(ver)
+        if (not version_match_rc and
+                not version_match_rev0 and
+                not version_match_rev):
+            raise NtiError("Bad BSP version: Reported version: '%s', "
+                           "Expected format 'YY.MM' or 'YY.MM-R' or "
+                           "'YY.MM.R-rcC'" % ver)
 
 class BSPDiag(CommonTest):
+    info = """
+    Check the basic BSP diagnostics by inspecting the output from `ethtool -i` and
+    ethtool -w.
+    When inspecting the output of `ethtool -i`, if there is no firmware version reported,
+    then the test will fail. The test will also fail if the NSP ABI version returned by
+    ethtool does not match that returned by the `nfp-nsp` BSP tool.
+    Finally the test will fail if the `ethtool -w` command fails to return a dump report
+    for each interface.
+    """
     def execute(self):
         regx_sp = re.compile('[^ ]* (\d*\.\d*).*', re.M | re.S)
         for ifc in self.dut.nfp_netdevs:
@@ -153,6 +179,14 @@ class BSPDiag(CommonTest):
             _, out = self.dut.cmd('ethtool -w %s data /dev/null' % (ifc))
 
 class SensorsTest(CommonTest):
+    info = """
+    Verify the functionality of the Hwmon sensors.
+    Firstly the test will ensure that there are in fact sensors detected by
+    driver, otherwise the test will fail.
+
+    Then for both temperature and power consumption, if the returned values are
+    outside of a possible range then the test will fail.
+    """
     def get_attr(self, array, attr):
         for s in array :
             if attr in s :
@@ -189,6 +223,13 @@ class SensorsTest(CommonTest):
                 raise NtiError('invalid power val')
 
 class LinkSpeedEthtool(CommonTest):
+    info = """
+    The purpose of this test is to ensure that the speed reported
+    by the driver, via Ethtool, is accurate. For each interface,
+    the speed of the port relating to the interface is obtained using
+    `phymod`, this is compared to the speed shown by the `ethtool` command.
+    If these values are not the same, the test will fail.
+    """
     def execute(self):
         if self.group.upstream_drv:
             raise NtiSkip('BSP tools upstream')
@@ -214,6 +255,23 @@ class LinkSpeedEthtool(CommonTest):
                                (i, phymod, ethtool))
 
 class ModuleEepromEthtool(CommonTest):
+    info = """
+    The purpose of this test is to validate the output of the `ethtool -m`
+    command.
+
+    First, the details of both the phy and eth interfaces are obtained using
+    phymod, if the return values of these respective commands are not equal in
+    length then the test is skipped, as it does not support breakout mode.
+
+    Thereafter, for each DUT interface, the output of phymod and ethtool are
+    compared for:
+    - Vendor name
+    - Vendor oui
+    - Vendor PN
+    - Vendor SN
+
+    If any of these values differ between the two commands, the test will fail.
+    """
     def execute(self):
         self.check_nsp_min(29)
 
@@ -241,13 +299,22 @@ class ModuleEepromEthtool(CommonTest):
             # phymod output looks a bit different on older BSPs so need
             # to use a different offset in the output.
             if "NBI" in lines[0]:
-                phy = lines[1].split()
+                nbi_line = lines[1]
             else:
-                phy = lines[0].split()
+                nbi_line = lines[0]
+
+            # Find all entries in double quotation marks:
+            phy = re.findall(r'"([A-Za-z0-9 -]*)"', nbi_line)
+            # Expected to find 3 entries
+            if len(phy) != 3:
+                raise NtiError("List does not contain 3 entries as"
+                               "expected. Length of list: %s" % len(phy))
+            phy_oui = re.findall('(oui:\S*)', nbi_line)
+            phy.append(phy_oui[0]) # for phy[3]
 
             vendor_oui = '0x%s' % ethtool['Vendor OUI'].replace(':', '')
             vendor_oui = int(vendor_oui, 16)
-            phymod_oui = phy[3].strip('\"').replace("oui:","")
+            phymod_oui = phy[3].replace("oui:","")
             phymod_oui = int(phymod_oui, 16)
 
             # Only check the standard Vendor info per phy
@@ -272,26 +339,41 @@ class ModuleEepromEthtool(CommonTest):
                                    (iface, length, out))
 
 class MtuFlbufCheck(CommonTest):
-    def get_vnic_reg(self, offset):
-        return self.dut.nfd_reg_read_le32(self.dut.vnics[0], offset)
+    info = """
+    The purpose of this test is to ensure that the driver sets the correct
+    mtu and flbufsz.
 
-    def get_bar_rx_offset(self):
-        return self.get_vnic_reg(NfdBarOff.RX_OFFSET)
+    The test will skip if the dev is not a vNIC or if the XDP samples are not
+    found.
 
-    def get_bar_mtu(self):
-        return self.get_vnic_reg(NfdBarOff.MTU)
+    The tx and rx channels are set, using `ethtool -L` and the xdp `pass.o` is
+    loaded using `ip link`.
 
-    def get_bar_flbufsz(self):
-        return self.get_vnic_reg(NfdBarOff.FLBUFSZ)
+    The xdp is checked by, for each of the MTU values, setting the MTU and
+    retrieving the bar values. The test will then fail if the MTU is not equal
+    to the bar MTU or the fl_bufsz is not equal to the bar fl_bufsz.
+    """
 
-    def check(self, has_xdp):
+    def get_vnic_reg(self, ifc, offset):
+        return self.dut.nfd_reg_read_le32(ifc, offset)
+
+    def get_bar_rx_offset(self, ifc):
+        return self.get_vnic_reg(ifc, NfdBarOff.RX_OFFSET)
+
+    def get_bar_mtu(self, ifc):
+        return self.get_vnic_reg(ifc, NfdBarOff.MTU)
+
+    def get_bar_flbufsz(self, ifc):
+        return self.get_vnic_reg(ifc, NfdBarOff.FLBUFSZ)
+
+    def check(self, ifc, has_xdp):
         check_mtus = [1500, 1024, 2049, 2047, 2048 - 32, 2048 - 64]
 
         for mtu in check_mtus:
-            self.dut.ip_link_set_mtu(self.dut.vnics[0], mtu)
-            bmtu = self.get_bar_mtu()
-            bflbufsz = self.get_bar_flbufsz()
-            rxoffset = self.get_bar_rx_offset()
+            self.dut.ip_link_set_mtu(ifc, mtu)
+            bmtu = self.get_bar_mtu(ifc)
+            bflbufsz = self.get_bar_flbufsz(ifc)
+            rxoffset = self.get_bar_rx_offset(ifc)
 
             if has_xdp:
                 xdp_off = 256 - rxoffset
@@ -308,46 +390,56 @@ class MtuFlbufCheck(CommonTest):
             self.log("vals", [mtu, bmtu, rxoffset, bflbufsz, fl_bufsz])
 
             if mtu != bmtu:
-                raise NtiError("MTU doesn't match BAR (was:%d expect:%d)" %
-                               (mtu, bmtu))
+                raise NtiError("MTU doesn't match BAR (was:%d expect:%d)"
+                               % (mtu, bmtu))
             if fl_bufsz != bflbufsz:
-                raise NtiError("FL_BUFSZ doesn't match BAR (was:%d expect:%d)" %
-                               (fl_bufsz, bflbufsz))
+                raise NtiError("FL_BUFSZ doesn't match BAR (was:%d expect:%d)"
+                               % (fl_bufsz, bflbufsz))
 
     def execute(self):
         # For flower vNIC 0 is actually a repr..
-        info = self.dut.ethtool_drvinfo(self.dut.vnics[0])
+        info = self.dut.ethtool_drvinfo(self.dut_ifn[0])
         nfd_abi = info["firmware-version"].strip().split(' ')[0]
         if nfd_abi == "*":
             raise NtiSkip('Not a vNIC')
 
-        self.check(False)
+        if not self.dut.kernel_ver_ge(4, 8):
+            raise NtiSkip("Kernel version %s is less than 4.8"
+                          % (self.dut.kernel_ver()))
 
-        if self.kernel_min(4, 8):
-            return
         ret, _ = cmd_log('ls %s' % (os.path.join(self.group.samples_xdp,
                                                  'pass.o')),
                          fail=False)
         if ret != 0:
             raise NtiSkip('XDP samples not found')
-
         self.dut.copy_xdp_samples()
 
-        self.dut.cmd('ethtool -L %s rx 0 tx 0 combined 1' % (self.dut.vnics[0]))
-        self.xdp_start('pass.o')
-
-        self.check(True)
-
-        self.xdp_stop()
+        for ifc in self.dut_ifn:
+            self.check(ifc, False)
+            self.dut.cmd('ethtool -L %s rx 0 tx 0 combined 1'
+                         % ifc)
+            try:
+                self.xdp_start('pass.o', ifc=ifc)
+                self.check(ifc, True)
+            finally:
+                self.xdp_stop(ifc=ifc)
 
     def cleanup(self):
-        vnic = self.dut.vnics[0]
-        self.dut.ip_link_set_mtu(vnic, 1500)
-        self.dut.ethtool_channels_set(vnic, self.dut.defaults[vnic]["chan"])
+        for ifc in self.dut_ifn:
+            self.dut.ip_link_set_mtu(ifc, 1500)
+            self.dut.ethtool_channels_set(ifc, self.dut.defaults[ifc]["chan"])
 
         return super(MtuFlbufCheck, self).cleanup()
 
 class DevlinkPortsShow(CommonTest):
+    info = """
+    The purpose of this test is to ensure that the driver, via Devlink,
+    accurately reports information regarding the count and split of the
+    ports.
+
+    phymod and devlink are both used to retrieve information on the ports
+    of the device. If the number of ports are not the same the test will fail.
+    """
     def execute(self):
         if self.group.upstream_drv:
             raise NtiSkip('BSP tools upstream')
@@ -398,6 +490,16 @@ class DevlinkPortsShow(CommonTest):
                 raise NtiError("Split group not reported for non-0th subport")
 
 class HugeRings(CommonTest):
+    info = """
+    Test to verify that Huge rings are correctly allocated by the driver.
+
+    The test will skip if switchdev firmware is running on the NFP.
+
+    The test first obtains the information from ethtool -g for the first vNIC.
+    Thereafter the total number of rings for both RX and TX are set to the
+    maximum. Finally, dmesg output is inspected to ensure that the rings
+    were set correctly.
+    """
     def execute(self):
         self.port = 0
         self.rings_changed = False
@@ -427,3 +529,141 @@ class HugeRings(CommonTest):
             self.dut.ethtool_rings_set(self.dut.vnics[self.port], defaults)
 
         return super(HugeRings, self).cleanup()
+
+class IdentifyEthtool(CommonTest):
+    info = """
+    Test functionality of the `ethtool -p` command by checking the value
+    of the cpld register using the nfp-cpld BSP tool.
+
+    The test will pass if the value of the register is correct when running
+    the `ethtool -p` command.
+
+    The test will fail if there is no change to the cpld register or if
+    the value of the cpld register is incorrect.
+    """
+    def execute(self):
+        # Check the bsp version as a minimum
+        self.check_bsp_min("22.09-0")
+        self.ifc_all_down()
+
+        amda = self.dut.get_amda_only()
+        if amda == 'AMDA0144' or amda == 'AMDA0145':
+            raise NtiSkip("Test does not support %s cards" % (amda))
+
+        for iface in self.dut_ifn:
+
+            # Test whether ethtool -p can execute at all
+            cmd = "ethtool -p %s 1" % (iface)
+            ret = self.dut.cmd(cmd, fail=False)
+            # Wait to ensure that the ethtool -p command has finished executing
+            # and the pin.idmode/ledblink bit is not in the blink state.
+            time.sleep(2)
+
+            if ret[0] != 0:
+                raise NtiError("Non-zero return value, %s, for ethtool -p on interface %s" % (ret, iface))
+
+            # Get the physical port number associated with iface
+            # e.g.:
+            # 'cat /sys/class/net/enp1s0np0/phys_port_name' will return 'p0'
+            # the '0' is the important character here so it is isolated with [-1]
+            cmd = "cat /sys/class/net/%s/phys_port_name" % (iface)
+            phy = self.dut.cmd(cmd)[1].strip()[-1]
+
+            # Get the addr and position of the idmode bit for the physical
+            # port associated with the interface.
+            # Using the port number obtained above, e.g.:
+            # 'self.dut.get_hwinfo('phy0.pin.idmode')' would return
+            # 'phy0.pin.idmode=-cpld:2:2:0xd.3' which is then manipulated to return
+            # the address and bit number with `split(':')[-1].split('.')`.
+            # the address and bit position are returned as tuple '('0xd','3')'
+
+            hwinfo = self.dut.get_hwinfo('phy%s.pin.idmode' % (phy)).strip()
+            if (hwinfo == ''):
+                hwinfo = self.dut.get_hwinfo('phy%s.ledblink' % (phy)).strip()
+                if (hwinfo == ''):
+                    raise NtiError("Neither phy%s.pin.idmode nor "
+                                   "phy%s.ledblink are present in hwinfo, "
+                                   "feature not supported on card."
+                                   % (ret, iface))
+
+            addr, bit = hwinfo.split(':')[-1].split('.')
+            bit = int(bit) + 1
+
+            # Get initial value of register
+            # For both reg_normal and reg_blink, the process is as follows:
+            # The command to read the CPLD register at the specified address
+            # will return something along the lines of '2.2.0x0d: 0x003fc0ff'
+            # we are only interested in the Hex value here, so that is isolated
+            # using the split() method.
+            # The Hex value is then converted into binary first converting the
+            # Hex value, in string form, into and integer by casting it to an int()
+            # and specifying base 16, before then formatting it to a 24 bit binary
+            # number in the form of a string. Thereafter the idmode bit is isolated,
+            # counting right to left.
+            _, reg_normal = self.dut.bsp_cmd('cpld', addr, fail=True)
+            reg_normal = reg_normal.split()[-1]
+            reg_normal_bin = format(int(reg_normal, 16), '0>24b')[-bit]
+
+            # Get value of register while identify running
+            self.dut.bg_proc_start('ethtool -p %s 10' % (iface))  # Blink 10sec
+            cmd = ('sleep 5; /opt/netronome/bin/nfp-cpld -Z 0000:%s %s'
+                   % (self.group.pci_id, addr))
+            _, reg_blink = self.dut.cmd(cmd)  # Wait 5sec, then get reg value
+            reg_blink = reg_blink.split()[-1]
+            reg_blink_bin = format(int(reg_blink, 16), '0>24b')[-bit]
+
+            if reg_blink_bin == reg_normal_bin:
+                raise NtiError("idmode bit for %s not set" % (iface))
+        self.ifc_all_up()
+
+    def cleanup(self):
+        self.dut.bg_proc_stop_all()
+
+        super(IdentifyEthtool, self).cleanup()
+
+
+class PauseEthtool(CommonTest):
+    info = """
+            This test confirms if Ethtool -a works as expected.
+            Ethtool -a can only report the pause parameters of a
+            physical device.
+           """
+    def execute(self):
+        self.port = 0
+
+        # ethtool -a test on physical device
+        ret, pause = self.dut.ethtool_pause_get(self.dut_ifn[self.port],
+                                                return_code=True)
+        if ret != 0:
+            NtiError("Ethtool failed to get pause parameters on a physical device")
+
+        # check if ethtool -a returns correct autoneg output
+        autoneg = self.dut.ethtool_get_autoneg(self.dut_ifn[self.port])
+        if (pause['autoneg'] == 'off' and autoneg):
+            NtiError("autoneg expected to be ON, but got OFF")
+        elif (pause['autoneg'] == 'on' and not autoneg):
+            NtiError("autoneg expected to be OFF, but got ON")
+
+        # check for sriov firmware
+        for ifc in self.dut.nfp_netdevs:
+            info = self.dut.ethtool_drvinfo(ifc)
+
+            fw = info['firmware-version']
+            if "sri" in fw:
+                # create a vf
+                vfs = self.spawn_vf_netdev(1)
+                vf1 = vfs[0]["name"]
+
+                # ethool -a test on a vf
+                ret, pause = self.src.ethtool_pause_get(vf1, fail=False,
+                                                        return_code=True)
+                if ret == 0:
+                    NtiError("Expected ethtool -a to fail on virtual \
+                             functions, but got a pass")
+
+        return 0
+
+    def cleanup(self):
+        # delete all vfs
+        self.dut.cmd('echo 0 > /sys/bus/pci/devices/%s/sriov_numvfs' %
+                     self.group.pci_dbdf)

@@ -814,7 +814,7 @@ class BnicNetdevs(BnicTest):
 
         # Check we can't bring up any non-vNIC netdev
         for ifc in self.group.pf_ports + self.group.mac_ports:
-            ret, _ = self.dut.cmd('ip link set dev %s up' % (ifc), fail=False)
+            ret, _ = self.dut.ip_link_set_up(ifc, fail=False)
             if ret == 0:
                 t = "mac" if ifc in self.group.mac_ports else "pf"
                 raise NtiError('Brought %s netdev %s up' % (t, ifc))

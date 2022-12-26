@@ -24,8 +24,12 @@ from netro.tests.tcpdump import TCPDump
 # Assorted Cards
 ###############################################################################
 
-# This list contains all AMDA numbers related to 25G cards
-AMDA_25G_CARDS = ['AMDA0099', 'AMDA0161', 'AMDA0144', 'AMDA2000']
+# This list contains all AMDA numbers related to cards with specific speeds
+AMDA_10G_CARDS = ['AMDA0096', 'AMDA0119', 'AMDA0145', 'AMDA2001', 'AMDA3000']
+AMDA_25G_CARDS = ['AMDA0099', 'AMDA0131', 'AMDA0138', 'AMDA0144', 'AMDA0151',
+                  'AMDA0161', 'AMDA2000']
+AMDA_40G_CARDS = ['AMDA0058', 'AMDA0081', 'AMDA0097', 'AMDA0156']
+AMDA_100G_CARDS = ['AMDA0078', 'AMDA0157']
 
 ###############################################################################
 # Assert-style helper functions
@@ -106,42 +110,99 @@ class NtiFail(DrvTestResultException):
 
 def bsp_string_to_num(version):
     """
-    Converts BSP version to a new number and returns it
-    """
-    # Split digits at non-numerical characters,
-    # e.g. 22.07-0 => ["22","07","0"]
-    version = version.strip()
-    version = re.split(r'\D+', version)
+    Parse BSP version string into an integer. The returned value carries very
+    little meaning and should exclusively be used to compare release date
+    recency. Earlier releases will return a lower number.
 
-    # Check for if there is a version revision
-    if len(version) == 3:
-        revision = int(version[2])
+    The different supported version formats are listed in the table below:
+    | Priority  | Name                | Example                       |
+    |-----------|---------------------|-------------------------------|
+    | Lowest    | Old release version | 010217.010217.010325          |
+    | Low       | WIP version         | 22.10~00117.CICD832.af3a07f-0 |
+    | Medium    | Release candidate   | 22.10.0-rc1                   |
+    | High      | Release version     | 22.10                         |
+    | Highest   | Revised release     | 22.10-1                       |
+    but one format does not simply outweigh any other, their respective
+    fields (year, month, revision, release candidate, and commits) are
+    considered.
+
+    Ranking of some example version strings (newest to oldest):
+    | Input version                 |              Return |
+    |-------------------------------|---------------------|
+    | "23.01"                       |       2301009900000 |
+    | "22.10-1"                     |       2210019900000 |
+    | "22.10.1-rc3"                 |       2210010300000 |
+    | "22.10~98765.XXXXX.dabad00-0" |       2210009998765 |
+    | "22.10~00001.XXXXX.dedbeaf-0" |       2210009900001 |
+    | "22.10"                       |       2210009900000 |
+    | "22.10.0-rc3"                 |       2210000300000 |
+    | "22.09-3"                     |       2209039900000 |
+    | "999999.999999.999999"        |                  -1 |
+    | "000000.100000.100000"        | -999999899999900000 |
+    """
+
+    pattern_old_v = re.compile(r'(\d{6})\.(\d{6})\.(\d{6})$')
+    # Matching example: 010217.010217.010325
+    pattern_wip = re.compile(r'(\d\d)\.(\d\d)~(\d{5})\.'
+                             r'([a-zA-Z0-9]+)\.([a-z\d]{7})-(\d+)$')
+    # Matching example: 22.10~00117.CICD832.af3a07f-0
+    pattern_version_rc = re.compile(r'(\d\d)\.(\d\d)\.(\d{1,2})-rc(\d{1,2})?$')
+    # Matching example: 22.10.0-rc1
+    pattern_version_rev0 = re.compile(r'(\d\d)\.(\d\d)$')
+    # Matching example: 22.10
+    pattern_version_rev = re.compile(r'(\d\d)\.(\d\d)-(\d+)$')
+    # Matching example: 22.10-1
+
+    match_old_v = pattern_old_v.match(version)
+    match_wip = pattern_wip.match(version)
+    match_version_rc = pattern_version_rc.match(version)
+    match_version_rev0 = pattern_version_rev0.match(version)
+    match_version_rev = pattern_version_rev.match(version)
+
+    ret = 0
+    if match_old_v:
+        ret = (int(match_old_v.group(1)) * 10**12
+               + int(match_old_v.group(2)) * 10**6
+               + int(match_old_v.group(3))
+               - 10**18)  # Lower priority than all other formats
     else:
-        revision = 0
+        if match_wip:
+            year = int(match_wip.group(1))
+            month = int(match_wip.group(2))
+            revision = int(match_wip.group(6))
+            candidate = 10**2 - 1
+            commits = int(match_wip.group(3))
+            LOG("WARNING: Evaluating WIP version '%s' with bsp_string_to_num "
+                "could lead to inaccurate version comparisons within the same "
+                "month." % version)
+        elif match_version_rc:
+            year = int(match_version_rc.group(1))
+            month = int(match_version_rc.group(2))
+            revision = int(match_version_rc.group(3))
+            candidate = int(match_version_rc.group(4))
+            commits = 0
+        elif match_version_rev0:
+            year = int(match_version_rev0.group(1))
+            month = int(match_version_rev0.group(2))
+            revision = 0
+            candidate = 10**2 - 1
+            commits = 0
+        elif match_version_rev:
+            year = int(match_version_rev.group(1))
+            month = int(match_version_rev.group(2))
+            revision = int(match_version_rev.group(3))
+            candidate = 10**2 - 1
+            commits = 0
+        else:
+            raise NtiSkip("Unrecognised BSP version: '%s'" % version)
 
-    # Create new number by shifting their bits.
-    # This is used to compare BSP versions
-    # but as a new encoded number.
-    # 22.07-0 will be 1443584 as follows:
-    # 0x160000 + 0x700 + 0x0 = 0x160700 => 1443584
-    bsp_ver = (int(version[0]) << 16) + (int(version[1]) << 8) + revision
+        ret = (year * 10**11
+               + month * 10**9
+               + revision * 10**7
+               + candidate * 10**5
+               + commits)
 
-    return bsp_ver
-
-
-def bsp_num_to_string(number):
-    """
-    Returns BSP version as follows: 22.07-0
-    """
-    # 22   07   0
-    # |    |    |
-    # maj  min  ref
-    maj = (number >> 16) & 0xff
-    min = (number >> 8) & 0xff
-    ref = number & 0xff
-    version = "%s.0%s-%s" % (maj, min, ref)
-
-    return version
+    return ret
 
 def drv_load_record_ifcs(obj, group, fwname=None):
     # Load the driver and remember which interfaces got spawned
@@ -338,8 +399,8 @@ class CommonTest(Test):
         exp_bsp_num = bsp_string_to_num(exp_ver)
 
         if bsp_num < exp_bsp_num:
-            raise NtiSkip("BSP version \"%s\" is outdated, the tests"
-                          " requires \"%s\"" % (nsp_flash_ver, exp_ver))
+            raise NtiSkip("BSP version \"%s\" is outdated, the tests "
+                          "requires \"%s\"" % (nsp_flash_ver, exp_ver))
 
     def check_nsp_min(self, exp_ver):
         """
@@ -360,28 +421,89 @@ class CommonTest(Test):
             if ret or not re.search('p\d+(s\d+)*$', name):
                 raise NtiSkip('Interface %s is not a physical ifc' % ifc)
 
-    def kill_pidfile(self, host, pidfile, sig="-HUP", max_fail=0):
-        cmd = ''' # kill_pidfile
-        fail=0
+    def kill_pidfile(self, host, pidfile, max_retry=10, retry_period=1):
+        """
+        Terminate all processes specified in pidfile using the SIGTERM signal.
 
-        PID=$(cat {pid}) &&
-        echo $PID &&
-        rm {pid} ||
-        exit 1
+        If no PIDs are specified, the function will fail with exit code 1.
 
-        for p in $PID; do
-            kill {sig} $p || ((fail++))
-        done
-        for p in $PID; do
-            while [ -d /proc/$p ]; do true; done
-        done
+        If a kill command fails, the function will fail with exit code 2.
 
-        if [ $fail -gt {max_fail} ]; then
-            exit 1
+        If any process fails to terminate within
+        {max_retry * retry_period} seconds, a SIGKILL signal will be issued.
+        If any of the processes are still alive after another
+        {max_retry * retry_period} seconds, the function will fail with
+        exit code 3.
+        """
+        script = '''
+# kill_pidfile: This script kills all processes specified
+#               in {pid}.
+
+fail() {{
+    echo "$2" 1>&2;
+    exit $1
+}}
+
+# Ensure that at least one PID is specified
+if [[ ! -e {pid} || -z "$(cat {pid})" ]]; then
+    fail 1 "No PIDs specified in {pid}"
+fi
+
+PID=$(cat {pid}) &&
+echo "PIDs to kill:" $PID &&
+rm {pid} ||
+fail 1 "Could not read/remove {pid}"
+
+num_alive () {{
+count=0
+for p in $PID; do
+    if [ -d /proc/$p ]; then
+        let count++
+    fi
+done
+return $count
+}}
+
+wait_for_all_killed () {{
+i=0
+while [[ ! num_alive && $i -lt $2 ]]; do
+    let i++; sleep $1;
+done
+}}
+
+# Issue SIGTERM to all running processes
+for p in $PID; do
+    if [ -d /proc/$p ]; then
+        if ! kill -s TERM $p; then
+            fail 2 "kill command failed to issue SIGTERM to '$p'"
         fi
-        '''
+    fi
+done
+wait_for_all_killed {retry_period} {max_retry}
 
-        return host.cmd(cmd.format(pid=pidfile, sig=sig, max_fail=max_fail))
+# At this point, all processes should have terminated cleanly.
+# Issue SIGKILL to all remaining running processes to forcefully
+# stop them.
+for p in $PID; do
+    if [ -d /proc/$p ]; then
+        if ! kill -s KILL $p; then
+            fail 2 "kill command failed to issue SIGKILL to '$p'"
+        fi
+    fi
+done
+wait_for_all_killed {retry_period} {max_retry}
+
+if [ ! num_alive ]; then
+    fail 3 "Timeout. Some processes still alive."
+fi
+exit 0
+'''
+        script = script.format(pid=pidfile, max_retry=max_retry,
+                               retry_period=retry_period)
+        script = script.replace('"', '\\"')  # Escape all quotes
+        script = script.replace('$', '\\$')  # Escape all $
+        # because the script will be passed as a string to bash
+        return host.cmd('bash -c "%s"' % script)
 
     def nfp_ifc_is_vnic(self, ethtool_info):
         return ethtool_info["firmware-version"][0] == "0" or \
@@ -391,14 +513,21 @@ class CommonTest(Test):
         return ethtool_info["firmware-version"][0] == "*"
 
     def ifc_all_up(self):
+        """
+        This function assigns IPv4 addresses to all interfaces specified
+        in the test's config file. If the interface already has an address,
+        it is assigned a secondary address without removing the original.
+        Thereafter, the link state of all interfaces are brought up.
+        """
         for i in range(0, len(self.dut_ifn)):
             self.dut.cmd(
-                'ip addr replace %s dev %s && ip link set dev %s up' %
-                        (self.dut_addr[i], self.dut_ifn[i], self.dut_ifn[i]))
+                'ip addr replace %s dev %s' %
+                        (self.dut_addr[i], self.dut_ifn[i]))
+            self.dut.ip_link_set_up(self.dut_ifn[i])
 
     def ifc_all_down(self):
         for i in range(0, len(self.dut_ifn)):
-            self.dut.cmd('ip link set %s down' % (self.dut_ifn[i]))
+            self.dut.ip_link_set_down(self.dut_ifn[i])
 
     def ifc_skip_if_not_all_up(self):
         for i in range(0, len(self.dut_ifn)):
@@ -407,6 +536,47 @@ class CommonTest(Test):
             _, out = self.dut.cmd('ethtool %s' % (self.dut_ifn[i]))
             if out.find('Link detected: yes') == -1:
                 raise NtiSkip("Interface %s is not up" % (self.dut_ifn[i]))
+
+    def ethtool_compare_module_speeds(self, dut_ifc, src_ifc):
+        # Get peer SFP speeds
+        speeds_dut = self.dut.ethtool_get_module_speed(dut_ifc)
+        speeds_src = self.src.ethtool_get_module_speed(src_ifc)
+
+        # Supported SFP modes
+        supported_speeds = [1000, 10000, 25000, 40000]
+
+        # Find peer speed match
+        for speed_dut in sorted(speeds_dut, reverse=True):
+            for speed_src in sorted(speeds_src, reverse=True):
+                # Match found and supported
+                if speed_dut == speed_src and speed_dut in supported_speeds:
+                    return speed_dut
+                # Peer speed cannot be determined or not supported
+                if (speed_dut == 0) or (speed_src == 0):
+                    return 0
+        raise NtiError('SFP module speed mismatch between DUT & EP.')
+
+    def ethtool_set_stable_media(self, dev, ifc, speed=None, fail=False):
+        dev.ip_link_set_down(ifc, fail=False)
+        dev.ethtool_set_autoneg(ifc, 'off', fail=fail)
+
+        if speed is None:
+            speed = dev.ethtool_get_module_speed(ifc).sort(reverse=True)[0]
+        if speed != 0:
+            dev.ethtool_set_speed(ifc, speed, fail=fail)
+
+        dev.ethtool_set_fec(ifc, 'off', fail=fail)
+        dev.ip_link_set_up(ifc, fail=False)
+        time.sleep(3)
+        return 0
+
+    def ethtool_set_stable_media_modes(self):
+        for ifcn in range(len(self.dut_ifn)):
+            dut_ifc = self.dut_ifn[ifcn]
+            src_ifc = self.src_ifn[ifcn]
+            speed = self.ethtool_compare_module_speeds(dut_ifc, src_ifc)
+            self.ethtool_set_stable_media(self.dut, dut_ifc, speed)
+            self.ethtool_set_stable_media(self.src, src_ifc, speed)
 
     def tc_bpf_load(self, obj, flags="", act="", verifier_log="", extack="",
                     needle_noextack="", skip_sw=False, skip_hw=False,
@@ -652,23 +822,26 @@ class CommonTest(Test):
         if exp_pkt is None:
             exp_num = 0
 
-        if len(result_pkts) < exp_num or len(result_pkts) > exp_num + 5:
+        exp_num_upper = exp_num + (0.1 * exp_num)
+
+        if len(result_pkts) < exp_num or len(result_pkts) > exp_num_upper:
             raise NtiError('Captured %d packets, expected %d' %
                            (len(result_pkts), exp_num))
 
         found = 0
-        for p in result_pkts:
-            if str(p) == exp_pkt:
-                found += 1
-            else:
-                self.log('Bad packet',
-                         ':'.join(x.encode('hex') for x in str(p))
-                         + "\n\n" +
-                         ':'.join(x.encode('hex') for x in exp_pkt))
+        if exp_pkt is not None:
+            for p in result_pkts:
+                if str(p) == exp_pkt:
+                    found += 1
+                else:
+                    self.log('Bad packet',
+                             ':'.join(x.encode('hex') for x in str(p))
+                             + "\n\n" +
+                             ':'.join(x.encode('hex') for x in exp_pkt))
 
-        if found != exp_num:
-            raise NtiError("Found %d packets, was looking for %d" %
-                           (found, exp_num))
+            if found != exp_num:
+                raise NtiError("Found %d packets, was looking for %d" %
+                               (found, exp_num))
 
         LOG_sec("Capture test OK exp: %d got: %d/%d" % (exp_num, found,
                                                         len(result_pkts)))
@@ -774,26 +947,58 @@ class CommonTest(Test):
 
         return value
 
-    def spawn_vf_netdev(self):
-        # Enable VFs if supported
+    def spawn_vf_netdev(self, num):
+        """
+        Generates vfs. Returns a list containing the vf names
+        and vf numbers.
+        """
         max_vfs = self.read_scalar_nffw('nfd_vf_cfg_max_vfs')
-        ret, num = self.dut.cmd('cat /sys/bus/pci/devices/%s/sriov_numvfs' %
-                                self.group.pci_dbdf)
-        num_vfs = int(num) + 1
-        if max_vfs > 0:
-            if num_vfs != 1:
-                self.dut.cmd('echo 0 > /sys/bus/pci/devices/%s/sriov_numvfs' %
-                             self.group.pci_dbdf)
-            if not self.dut.kernel_ver_ge(4, 12):
-                self.dut.cmd('modprobe -r pci_stub')
-            ret, _ = self.dut.cmd('echo %d > /sys/bus/pci/devices/%s/sriov_numvfs' %
-                                  (num_vfs, self.group.pci_dbdf))
+        num_vfs = int(num)
+        if num_vfs > max_vfs:
+            raise NtiError('num_vfs must less than max_vfs')
 
-        netifs_old = self.dut._netifs
+        # Clear old vfs
+        self.dut.cmd('echo 0 > /sys/bus/pci/devices/%s/sriov_numvfs' %
+                     self.group.pci_dbdf)
         self.dut.cmd("udevadm settle")
         self.dut._get_netifs()
+        netifs_old = self.dut._netifs
 
-        return list(set(self.dut._netifs) - set(netifs_old))
+        # Generate the new vfs
+        if not self.dut.kernel_ver_ge(4, 12):
+            self.dut.cmd('modprobe -r pci_stub')
+        ret, _ = self.dut.cmd('echo %d > /sys/bus/pci/devices/%s/sriov_numvfs' %
+                              (num_vfs, self.group.pci_dbdf))
+
+        # Generate the list containing vf names
+        self.dut.cmd("udevadm settle")
+        self.dut._get_netifs()
+        vfs = list(set(self.dut._netifs) - set(netifs_old))
+        vf_list = []
+
+        # A separate list is created to add the vf names
+        # and corresponding vf numbers
+        for vf in vfs:
+            vf_out = {}
+            vf_out["name"] = vf
+            # Get the pci of the vf
+            _, vf_pci = self.dut.cmd("readlink /sys/class/net/%s/device | \
+                                  sed 's|.*/||g'" % vf)
+            # Get the pci of the pf
+            _, pf_pci = self.dut.cmd("readlink /sys/class/net/%s/device/physfn | \
+                                  sed 's|.*/||g'" % vf)
+            # Extract virtfn, it is returned as a list with other details
+            _, virtfn = self.dut.cmd("ls -l /sys/bus/pci/devices/%s/virtfn* | \
+                                     grep %s" % (pf_pci.strip('\n'),
+                                     vf_pci.strip('\n')))
+            virtfn = virtfn.split()[8].split('/')
+            v_num = int(virtfn[6].replace("virtfn", ""))
+            vf_out["vf_number"] = v_num
+            vf_list.append(vf_out)
+
+        # vf_list contains the vf details in the following format:
+        # [ {"name": "ens4v0", "vf_number": 0}, {"name": "ens4v1", "vf_number": 1} ]
+        return vf_list
 
     def spawn_tc_vf_netdev(self, num):
         # Enable TC VFs if supported
@@ -807,7 +1012,8 @@ class CommonTest(Test):
                                   (num_vfs, self.group.pci_dbdf))
         pci_dbdf = self.group.pci_dbdf
         pci_dbdf_cut = re.findall("\d+", pci_dbdf)
-        ret, out = self.dut.cmd('lspci | grep Eth | grep "6003" | grep %s' % pci_dbdf_cut[1])
+        ret, out = self.dut.cmd('lspci | grep Eth | grep %s | grep %s' %
+                                (self.dut.get_vf_id(), pci_dbdf_cut[1]))
         lines = out.split("\n")
         vfs = []
         vf_reps = []
@@ -845,8 +1051,16 @@ class CommonTest(Test):
             self.dut_addr_v6 = [0] * len(self.vnics)
 
         for ifc in self.nfp_netdevs:
-            self.dut.cmd('ip link set %s up' % (ifc))
+            # Bring up the link state of all netdevs (including the VNIC for
+            # flower firmware, e.g. ens6)
+            self.dut.ip_link_set_up(ifc)
         self.ifc_all_up()
+
+        # See if links are up to make debugging easier
+        # This gets logged in the details.log file at the specified test's
+        # log location
+        self.dut.cmd('ip link', fail=False)
+        self.src.cmd('ip link', fail=False)
 
         LOG_endsec() # NFP netdev test prep
 
@@ -856,6 +1070,18 @@ class CommonTest(Test):
         LOG("reprs: " + str(self.reprs))
         LOG("phys_netdevs: " + str(self.phys_netdevs))
         LOG_endsec()
+
+    def check_prereq(self, check, description, on_src=False):
+        if on_src:
+            res, _ = self.src.cmd(check, fail=False)
+        else:
+            res, _ = self.dut.cmd(check, fail=False)
+
+        if res == 1:
+            if on_src:
+                raise NtiSkip('SRC does not support feature:%s' % description)
+            else:
+                raise NtiSkip('DUT does not support feature:%s' % description)
 
 class CommonDrvTest(CommonTest):
     def cleanup(self):

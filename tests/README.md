@@ -8,7 +8,7 @@ test environment up and running, as well as running tests.
 
 ## Setting up the test environment
 
-The test configuration looks like this:
+The topology of the testing cluster is as seen below:
 ```
          +---------+
          |   DUT   |
@@ -16,25 +16,12 @@ The test configuration looks like this:
          |ethX ethY|
          +-^-----^-+
 +------+   |     |   +-------+
-|Host A|   |     |   |Host B*|
+|Host A|   |     |   |Host B|
 |  ethA<---+     +--->ethB   |
 +------+             +-------+
-                     *optional
 ```
 
-The setup process detailed below is for machines running Centos Stream 8.
 ### DUT:
-
-#### Package dependencies
-
-```bash
-dnf -y install dwarves clang python27 iproute pciutils binutils-devel openssl-devel netperf hping3 lm-sensors
-```
-Set `python27` as system-wide python command:
-```bash
-alias python=python2.7
-alias pip=pip2.7
-```
 
 #### Install a newer Linux kernel
 
@@ -49,11 +36,100 @@ configuration file when building the kernel:
 CONFIG_PCI_STUB: m
 CONFIG_DEBUG_INFO_BTF: y
 ```
+One can either install a kernel from source by cloning one of the above
+mentioned repos and configuring them appropriately, or by installing one of the
+pre-configured kernel packages available on the Azure cloud storage at
+```
+internal/tmp/linux-stable-builds/
+```
+
+The packages come in the form of a tarball, for example:
+<b>kernel-5.19.9-drv-616.tar.gz</b>
+Extracting this will show the following files:
+##### CentOS Stream 8
+```
+kernel-5.19.9_drv_616-1.x86_64.rpm
+kernel-devel-5.19.9_drv_616-1.x86_64.rpm
+kernel-headers-5.19.9_drv_616-1.x86_64.rpm
+```
+##### Ubuntu 20.04
+```
+linux-headers-5.19.9-drv-616_5.19.9-drv-616-1_amd64.deb
+linux-image-5.19.9-drv-616-dbg_5.19.9-drv-616-1_amd64.deb
+linux-image-5.19.9-drv-616_5.19.9-drv-616-1_amd64.deb
+linux-libc-dev_5.19.9-drv-616-1_amd64.deb
+linux-upstream_5.19.9-drv-616-1.diff.gz
+linux-upstream_5.19.9-drv-616-1.dsc
+linux-upstream_5.19.9-drv-616-1_amd64.buildinfo
+linux-upstream_5.19.9-drv-616-1_amd64.changes
+linux-upstream_5.19.9-drv-616.orig.tar.gz
+```
+
+For <b>CentOS Stream 8</b>, one must simply install all of the extracted
+<b>.rpm</b> package files using the <b>dnf</b> command line utility.
+
+For <b>Ubuntu 20.04</b>, one must first install all of the extracted <b>.deb</b>
+package files using either the <b>dpkg</b> or <b>apt</b> command line utilities.
+However, this does not include the Kconfig files in the kernel source directory,
+which are necessary in order to build bpftool in the step to follow. To ensure
+the presence of these files one must extract the contents of
+<b>linux-upstream_5.19.9-drv-616.orig.tar.gz</b> into the kernel source
+directory using the following command:
+
+```bash
+sudo tar xvfz linux-upstream_5.19.9-drv-616.orig.tar.gz --strip-components 1 -C /usr/src/linux-headers-5.19.9-drv-616/
+```
+
+Once the new kernel is installed on the DUT, restart the machine.
+
+#### Package dependencies
+
+##### CentOS Stream 8
+```bash
+dnf -y install dwarves clang python27 iproute pciutils binutils-devel openssl-devel netperf hping3 lm_sensors
+```
+##### Ubuntu 20.04
+```bash
+apt -y install dwarves clang python2.7 iproute2 pciutils binutils-dev libssl-dev netperf hping3 lm-sensors
+```
+
+Set `Python 2.7` as system-wide python command:
+##### CentOS Stream 8
+```bash
+sudo update-alternatives --install /usr/bin/unversioned-python python /usr/bin/python3 0
+sudo update-alternatives --install /usr/bin/unversioned-python python /usr/bin/python2 51
+```
+##### Ubuntu 20.04
+```bash
+sudo update-alternatives --install /usr/bin/python python /usr/bin/python3 0
+sudo update-alternatives --install /usr/bin/python python /usr/bin/python2.7 51
+```
+
+
+
+
 #### Build bpftool
+bpftool must be built and installed using the newly installed kernel. For this,
+one must first determine the kernel source directory.
+
+If the kernel was installed from source by cloning one of the above-mentioned
+repos and configuring it oneself before building and installing, this source
+directory will simply be the location of the cloned repo.
+
+If the kernel was installed using packages, then the kernel source directory,
+hereafter defined as <b>$KSRC</b>, will be located in
+##### CentOS Stream 8
+```bash
+/usr/src/kernels/5.19.9-drv-616
+```
+##### Ubuntu 20.04
+```bash
+/usr/src/linux-headers-5.19.9-drv-616/
+```
 
 For example:
 ```bash
-cd /root/linux-kernel-source
+cd $KSRC
 make -C tools/lib/bpf
 make -C tools/lib/bpf install
 make -C tools/bpf/bpftool install
@@ -64,10 +140,18 @@ export LIBBPF_PATH=/root/linux-kernel-source/tools/lib/bpf/
 
 For example:
 
+##### CentOS Stream 8
 ```bash
 cd /root/
 wget http://storage-01.cpt.corigine.com/cloud/binaries/nfp-sdk/releases/6.4.0/6.4.0.9/nfp-toolchain-6.4.0.9-0-5072.x86_64.rpm
 dnf -y install nfp-toolchain-6.4.0.9-0-5072.x86_64.rpm
+```
+
+##### Ubuntu 20.04
+```bash
+cd /root/
+wget http://storage-01.cpt.corigine.com/cloud/binaries/nfp-sdk/releases/6.4.0/6.4.0.9/nfp-toolchain_6.4.0.9-5072-2_amd64.deb
+apt -y install ./nfp-toolchain_6.4.0.9-5072-2_amd64.deb
 ```
 
 #### Add SDK directory to path:
@@ -80,11 +164,20 @@ PATH=${PATH}:${NETRONOME_DIR}/bin
 
 Most of the tests require not only the nfp-sdk but also the nfp-bsp.
 An example of how to install this can be seen below:
+##### CentOS Stream 8
 ```bash
-wget http://storage-01.cpt.corigine.com/cloud/binaries/nfp-bsp/distros/default/x86_64/rpm/nfp-bsp_2021.08.09.1610_1_x86_64.rpm
-dnf -y install nfp-bsp_2021.08.09.1610_1_x86_64.rpm
-wget http://storage-01.cpt.corigine.com/cloud/binaries/nfp-bsp/distros/default/x86_64/rpm/nfp-bsp-dev_2021.08.09.1610_1_x86_64.rpm
-dnf -y install nfp-bsp-dev_2021.08.09.1610_1_x86_64.rpm
+wget http://storage-01.cpt.corigine.com/cloud/binaries/nfp-bsp/releases/rpm/nfp-bsp_22.09-0.el8.x86_64.rpm
+dnf -y install nfp-bsp_22.09-0.el8.x86_64.rpm
+wget http://storage-01.cpt.corigine.com/cloud/binaries/nfp-bsp/releases/rpm/nfp-bsp-dev_22.09-0.el8.x86_64.rpm
+dnf -y install nfp-bsp-dev_22.09-0.el8.x86_64.rpm
+```
+
+##### Ubuntu 20.04
+```bash
+wget http://storage-01.cpt.corigine.com/cloud/binaries/nfp-bsp/releases/deb/nfp-bsp_22.09-0.bionic_amd64.deb
+apt -y install ./nfp-bsp_22.09-0.bionic_amd64.deb
+wget http://storage-01.cpt.corigine.com/cloud/binaries/nfp-bsp/releases/deb/nfp-bsp-dev_22.09-0.bionic_amd64.deb
+apt -y install ./nfp-bsp-dev_22.09-0.bionic_amd64.deb
 ```
 
 After installing the nfp-bsp packages on the machine it is a good idea to then
@@ -93,17 +186,52 @@ update the bsp version on the NIC itself using the following command:
 nfp-fw-update -Z 0000:02:00.0 --update
 ```
 with the PCI address of the NIC you intend to use for the tests.
+
+#### Install llvm and clang
+It is recommended to install the pre-built <b>llvm</b> and <b>clang</b>
+packages, to ensure the correct version and dependencies are installed,
+regardless of OS.
+
+Similarly to the custom kernel packages, these packages can be found on the
+Azure storage server at
+
+```
+/mnt/cloud/binaries/misc/llvm/
+```
+
+After downloading a tarball, they can be installed using the following commands:
+
+##### CentOS Stream 8
+```bash
+sudo tar xvfz llvm-toolchain-13-2022-06-20.tar.gz
+sudo dnf -y --nogpgcheck install ./centos8/*.rpm
+```
+##### Ubuntu 20.04
+```bash
+sudo tar xvfz llvm-toolchain-13-2022-06-20.tar.gz
+sudo dpkg -i ubuntu2004/*.deb
+```
+
 #### Install nfp-drv-kmods-private
 
 ```bash
 git clone https://github.com/Corigine/nfp-drv-kmods-private.git
 cd nfp-drv-kmods-private/
 make
-make install
 make test_prepare
 ```
-Note that when testing on nfp 3800 it is necessary to run
-```make test_prepare CHIP=nfp-38xx``` instead of simply ```make test_prepare```
+
+Depending on the user, one may wish to also install the driver on the DUT
+using the ```make install``` Makefile target, if one is working on the tests
+themselves this can be helpful to save the nti framework and Orchestrator
+from having to install it each time an instance of the tests is run.
+
+But generally speaking it is preferred to have the installation handled by the
+Orchestrator as it will then also uninstall the driver being tested, resulting
+in a cleaner setup once testing is finished.
+
+*Note that when testing on nfp 3800 it is necessary to run
+```make test_prepare CHIP=nfp-38xxc``` instead of simply ```make test_prepare```
 in order to compile the firmwares under the `tests/samples/mefw` directory.
 
 ### EP
@@ -113,9 +241,18 @@ difference in the installation of the driver, and additional step,
 the installation of firmware for the smartNIC.
 
 #### Driver
-The process for installing the driver for the EP differs only in that
-you do not have to build with the `test_prepare` tag. The installation
-of the driver on the EP is accomplished as follows:
+The process for installing the driver for the EP differs slightly, as this is
+not the version of the driver being tested, it is only really important that the
+versions are not so different that the tests fail due to missing features on the
+EP driver.
+
+If the versions are close enough then the EP can simply use the in-tree driver,
+enabled with the ```modprobe nfp``` command.
+
+If the versions are too out of date, then it is best to install the out of tree
+driver, the process is similar to that on the DUT, with substitution of the
+```install``` target for the previously used ```test_prepare``` target.
+The installation of the driver on the EP is accomplished as follows:
 ```bash
 git clone https://github.com/Corigine/nfp-drv-kmods-private.git
 cd nfp-drv-kmods-private/
@@ -177,7 +314,87 @@ pip install enum34 python-dateutil paramiko pyelftools scapy Flask Flask-SQLAlch
 ```
 git clone https://github.com/Corigine/nti-private.git
 ```
+## Provisioning using Ansible
 
+While the above process is acceptable to get the test framework up and running,
+certain tests require additional dependencies which are not detailed here, such
+as the installation of OVS required by the <b>tests.flower</b> test group.
+
+As new tests are developed, the Ansible provisioning playbook will be updated
+more regularly than this document. For these reasons it is recommended to
+instead provision the testing cluster using the ```provision_ci_dev_drv.yaml```
+playbook in the [ci-libs](https://github.com/Corigine/ci-libs "https://github.com/Corigine/ci-libs")
+repository.
+
+This section will detail the use of Ansible to provision a cluster of machines
+for Driver regression tests. The following example cluster in the za-cpt lab
+will be used:
+
+| Hostname                    | Role         |
+|-----------------------------|--------------|
+| example_vm.cpt.corigine.com | Orchestrator |
+| rick.cpt.corigine.com       | DUT          |
+| morty.cpt.corigine.com      | EP           |
+
+Working on the Orchestrator VM, clone the ```ci-libs``` repo:
+```bash
+git clone https://github.com/Corigine/ci-libs.git
+```
+
+Install ansible on the Orchestrator VM:
+##### CentOS Stream 8
+```bash
+sudo dnf -y epel-release python3 python3-pip sshpass
+pip3 install jmespath ansible
+```
+##### Ubuntu 20.04
+```bash
+sudo apt -y epel-release python3 python3-pip sshpass
+pip3 install jmespath ansible
+```
+
+This cluster then needs to be added to the inventory file for the za-cpt lab,
+located in ```ansible/inventories/za-cpt/hosts.yaml``` in the form:
+
+```yaml
+driver_regressions:
+  hosts:
+    example_vm.cpt.corigine.com:       # Orchestrator
+    rick.cpt.corigine.com:             # DUT
+    morty.cpt.corigine.com:            # EP
+  children:
+    driver_regressions_orch:
+      hosts:
+        example_vm.cpt.corigine.com:       # Orchestrator
+    driver_regressions_dut:
+      hosts:
+        rick.cpt.corigine.com:             # DUT
+    driver_regressions_ep:
+      hosts:
+        morty.cpt.corigine.com:            # EP
+```
+Once the inventory file has been updated, the custom kernel and llvm tarballs
+need to be copied to the appropriate directories using the following command:
+
+```bash
+mkdir ci-libs/ansible/roles/kernel_installer/files
+cp kernel-5.19.9-drv-616.tar.gz ci-libs/ansible/roles/kernel_installer/files/
+
+mkdir ci-libs/ansible/roles/llvm/files
+cp llvm-toolchain-13-2022-06-20.tar.gz ci-libs/ansible/roles/llvm/files/
+```
+Finally, run the ```provision_ci_dev_drv.yaml``` playbook:
+
+```bash
+cd ci-libs/ansible
+ansible-playbook provision_ci_dev_drv.yaml -i inventories/za-cpt/hosts.yaml -e \
+'{"target":"driver_regressions","kernel_src":"custom_package","kernel_file_tar":"kernel-5.19.9-drv-616.tar.gz","ci_dev_drv_install":"false","drv_llvm_install_src":"custom_package","dut_drv_version":"<DRIVER_VERSION_TO_TEST>"}' \
+-t "provision" --ask-vault-password
+```
+
+After the playbook is run, all that remains is to copy the built driver across
+to the Orchestrator from the DUT, as detailed in the previous section, and set
+up the test config files.
 ## Setting up the test config files:
 
 In order to run the tests using the nti tool, a config file must be created that
@@ -188,28 +405,29 @@ regarding the parameters used in the config files can be found in
 An example config:
 ```
 [General]
-noclean: True
+noclean: False
 force_fw_reload: True
 rm_fw_dir: True
 installed_drv: False
 tun_net: 10.10.1
 
 [DUT]
-name: test1.zay.corigine.com
-ethX: ens4np0
-addrX: 10.7.1.1/24
-addr6X: fc00:7:1:1::1/64
-netdevfw: /root/firmware/corenic/nic_AMDA0099-0001_2x25.nffw
+name: rick.cpt.corigine.com
+ethX: ens4np0 ens4np1
+addrX: 169.254.1.1/24 169.254.2.1/24
+addr6X: fc00:7:1:1::1/64 fc00:7:1:2::1/64
+netdevfw: ../firmware/nic_AMDA0099-0001_2x25.nffw
+netdevfw_dir: ../firmware/
 netdevfw_nfd3: True
-nfpkmods: /root/nfp-drv-kmods-private/src
-samples=/root/nfp-drv-kmods-private/tests/samples
-serial= 00:15:4d:12:20:d4
+nfpkmods: ../nfp-drv-kmods-private/src
+samples: ../nfp-drv-kmods-private/tests/samples
+serial:  00:15:4d:16:57:fb
 
 [HostA]
-name: test2.zay.corigine.com
-ethA: ens4np0
-addrA: 10.7.1.2/24
-addr6A: fc00:7:1:1::2/64
+name: morty.cpt.corigine.com
+ethA: ens5np0 ens5np1
+addrA: 169.254.1.2/24 169.254.2.2/24
+addr6A: fc00:7:1:1::2/64 fc00:7:1:2::2/64
 reload: False
 ```
 `serial` refers to the serial number of the smartNIC itself and can be obtained
@@ -228,7 +446,8 @@ Notes:
 - if using the parameter `rm_fw_dir: True`, it might be
 required to re-create the symlink in `/lib/firmware/netronome/` between tests.
 - Only use absolute paths in the config file, i.e. no "~/"
-
+- Newer Corigine cards will have a vendor ID of `1da8`, not `19ee`. Adjust the `lspci`
+command accordingly if using a newer card.
 ## Running the tests in the nfp-drv-kmods-private/tests/ folder:
 
 The tests are run from the context of the driver source directory:
@@ -274,7 +493,9 @@ example:
 
 ### Test Specific Firmware
 This section contains a table detailing the appropriate firmware to use for
-each test group.
+each test group. Test groups requiring multiple types of firmware for different
+tests within the same group now have that firmware type prepended to the test
+name.
 
 | Test group    | Test name        | Firmware to use               | Where to find the firmware
 | ------------- | ---------------- | ----------------------------- | --------------------------
@@ -284,20 +505,17 @@ each test group.
 | ebpfdrv       |                  | bpf *or* bpf_upd *or* bpf_big | http://storage-01.cpt.corigine.com/cloud/binaries/nic/bpf/tgz
 | ebpf_perf     |                  | bpf *or* bpf_upd *or* bpf_big | http://storage-01.cpt.corigine.com/cloud/binaries/nic/bpf/tgz
 | ebpf_perf_drv |                  | bpf *or* bpf_upd *or* bpf_big | http://storage-01.cpt.corigine.com/cloud/binaries/nic/bpf/tgz
-| rand          |                  | coreNIC                       | http://storage-01.cpt.corigine.com/cloud/binaries/nic/2.1/tgz
-| rand_err      |                  | coreNIC                       | http://storage-01.cpt.corigine.com/cloud/binaries/nic/2.1/tgz
-| flower        |                  | flower                        | http://storage-01.cpt.corigine.com/cloud/binaries/disa/releases/tar
-| unit          | sriov_ndos       | SRIOV                         | http://storage-01.cpt.corigine.com/cloud/binaries/nic/2.1/tgz
-| unit          | fec_modes        | SRIOV                         | http://storage-01.cpt.corigine.com/cloud/binaries/nic/2.1/tgz
-| unit          | ifstats_reconfig | SRIOV                         | http://storage-01.cpt.corigine.com/cloud/binaries/nic/2.1/tgz
-| unit          |                  | coreNIC                       | http://storage-01.cpt.corigine.com/cloud/binaries/nic/2.1/tgz
-| netdev        | repr_caps        | flower                        | http://storage-01.cpt.corigine.com/cloud/binaries/disa/releases/tar
-| netdev        | coalesce_pf      | SRIOV                         | http://storage-01.cpt.corigine.com/cloud/binaries/nic/2.1/tgz
-| netdev        | coalesce_vf      | SRIOV                         | http://storage-01.cpt.corigine.com/cloud/binaries/nic/2.1/tgz
-| netdev        |                  | coreNIC                       | http://storage-01.cpt.corigine.com/cloud/binaries/nic/2.1/tgz
-| reboot        |                  | coreNIC                       | http://storage-01.cpt.corigine.com/cloud/binaries/nic/2.1/tgz
-| reload        |                  | coreNIC                       | http://storage-01.cpt.corigine.com/cloud/binaries/nic/2.1/tgz
-| setup         |                  | coreNIC                       | http://storage-01.cpt.corigine.com/cloud/binaries/nic/2.1/tgz
+| rand          |                  | coreNIC                       | http://storage-01.cpt.corigine.com/cloud/binaries/nic/releases/tgz
+| rand_err      |                  | coreNIC                       | http://storage-01.cpt.corigine.com/cloud/binaries/nic/releases/tgz
+| flower        |                  | flower                        | http://storage-01.cpt.corigine.com/cloud/binaries/disa/releases/tgz
+| unit          | multi.*          | SRIOV *or* CoreNIC            | http://storage-01.cpt.corigine.com/cloud/binaries/nic/releases/tgz
+| netdev        | multi.*          | SRIOV *or* CoreNIC            | http://storage-01.cpt.corigine.com/cloud/binaries/nic/releases/tgz
+| netdev        | sriov.*          | SRIOV                         | http://storage-01.cpt.corigine.com/cloud/binaries/nic/releases/tgz
+| netdev        | flower.*         | flower                        | http://storage-01.cpt.corigine.com/cloud/binaries/disa/releases/tgz
+| netdev        | bpf.*            | bpf *or* bpf_upd *or* bpf_big | http://storage-01.cpt.corigine.com/cloud/binaries/nic/releases/tgz
+| reboot        |                  | coreNIC                       | http://storage-01.cpt.corigine.com/cloud/binaries/nic/releases/tgz
+| reload        |                  | coreNIC                       | http://storage-01.cpt.corigine.com/cloud/binaries/nic/releases/tgz
+| setup         |                  | coreNIC                       | http://storage-01.cpt.corigine.com/cloud/binaries/nic/releases/tgz
 
 ### Check test setup
 Finally, you can check if your test setup is properly provisioned by running
@@ -306,3 +524,62 @@ directory on the test orchestrator run the following command:
 ```
 ../nti-private/ti/ticmd -v -c ../<config>.cfg run tests.setup
 ```
+
+## Using the Driver Regression Tests GitHub Workflow
+
+If for some reason one is unable to run these tests on one's own cluster, it is
+recommended to make use of the Driver Regression Tests GitHub workflow. To use
+the workflow, first navigate to the appropriate page by going to the Actions
+pane within the ```Corigine/nfp-drv-kmods-private``` repo using the GitHub web
+interface and then selecting the appropriate workflow from the list:
+
+<p align="center">
+  <img src="https://github.com/Corigine/nfp-drv-kmods-private/blob/main/.github/images/readme_img1.png" />
+</p>
+
+Thereafter you can select the ```Run workflow``` dropdown menu to customize your
+workflow run:
+
+<p align="center">
+  <img src="https://github.com/Corigine/nfp-drv-kmods-private/blob/main/.github/images/readme_img2.png" />
+</p>
+
+Leaving the ```tests``` field as the default value ```all``` will result in all
+tests which make use of the selected firmware type to run, this combined with
+the default value for firmware type, ```AUTO:all```, will result in all tests
+being run.
+
+If the user enters a specific test, or test group, to run, the firmware type
+cannot be set to ```AUTO:all```, i.e. if the user specifies a test, they must
+also specifiy which firmware to use for the test.
+
+If the user is wishing to use these tests to a wip firmware build, the firmware
+type must also be specified. For example, if the user wishes to test a custom
+BPF firmware build, the values of the various fields should be as follows:
+
+<p align="center">
+  <img src="https://github.com/Corigine/nfp-drv-kmods-private/blob/main/.github/images/readme_img3.png" />
+</p>
+
+Which results in 4 jobs being created, for all of them all BPF related tests will
+be run, but the platform and OS combinations will be as follows:
+- CentOS/Osprey
+- CentOS/Kestrel
+- Ubuntu/Osprey
+- Ubuntu/Kestrel
+
+It is also important in this case, that the firmware that the user wishes to
+test is located in the correct directory, and named correctly.
+
+All wip/temporary firmware builds to be used for this workflow should be
+follow the naming convention ```agilio-<fw>-firmware-<Name/Version>.tar.gz```,
+where ```<fw>``` refers to one of the following:
+- bpf
+- nic
+- sriov
+- flower-app
+
+The tarballs should be located in the following places:
+- ```internal/tmp/bpf_builds/tgz``` for BPF firmware
+- ```internal/tmp/disa_builds/tgz``` for flower firmware
+- ```internal/tmp/nic_builds/tgz``` for NIC or SRIOV firmware

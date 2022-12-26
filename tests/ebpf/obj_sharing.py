@@ -123,7 +123,7 @@ class XDPProgXIfc(CommonTest):
         for ifc in self.dut_ifn:
             self.dut.cmd('ip -force link set dev %s xdpoffload off' % (ifc))
         self.dut.cmd('rm -f ' + self.prog_path + '*')
-        self.dut.background_procs_cleanup()
+        self.dut.bg_proc_stop_all()
         return super(XDPProgXIfc, self).cleanup()
 
 # Install different programs on two interfaces, then swap them around

@@ -214,13 +214,14 @@ class NFPKmodGrp(netro.testinfra.Group):
             else:
                 raise NtiGeneralError('ERROR: driver tests require standard firmware directory to not be present!   Please remove the /lib/firmware/netronome/ directory!')
 
-        _, out = self.dut.cmd('lspci -D -d "19ee:" | cut -d" " -f1')
+        _, out = self.dut.cmd("(lspci -D -d 19ee: && lspci -D -d 1da8:) | \
+                              cut -d ' ' -f1")
         devices = out.split()
 
         # Resolve serial if given
         if self.serial:
             self.nfp = None
-            cmd = 'lspci -d "19ee:" -v'
+            cmd = '(lspci -d 19ee: -v && lspci -d 1da8: -v)'
             cmd += ' | sed -n "s/-/:/g;s/.*Serial Number \(.*\)/\\1/p"'
             _, out = self.dut.cmd(cmd)
 
