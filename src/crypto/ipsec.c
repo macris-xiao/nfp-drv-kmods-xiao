@@ -260,7 +260,12 @@ static void set_sha2_512hmac(struct nfp_ipsec_cfg_add_sa *cfg, int *trunc_len)
 	}
 }
 
+#if VER_NON_RHEL_GE(6, 2)
+static int nfp_net_xfrm_add_state(struct xfrm_state *x,
+				  struct netlink_ext_ack *extack)
+#else
 static int nfp_net_xfrm_add_state(struct xfrm_state *x)
+#endif
 {
 	struct net_device *netdev = x->xso.dev;
 	struct nfp_ipsec_cfg_mssg msg = {};
