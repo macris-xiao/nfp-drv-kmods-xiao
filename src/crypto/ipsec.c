@@ -286,7 +286,11 @@ static int nfp_net_xfrm_add_state(struct xfrm_state *x)
 		cfg->ctrl_word.mode = NFP_IPSEC_PROTMODE_TRANSPORT;
 		break;
 	default:
+#if VER_NON_RHEL_GE(6, 3)
+		NL_SET_ERR_MSG_MOD(extack, "Unsupported mode for xfrm offload");
+#else
 		nn_err(nn, "Unsupported mode for xfrm offload\n");
+#endif
 		return -EINVAL;
 	}
 
@@ -298,18 +302,30 @@ static int nfp_net_xfrm_add_state(struct xfrm_state *x)
 		cfg->ctrl_word.proto = NFP_IPSEC_PROTOCOL_AH;
 		break;
 	default:
+#if VER_NON_RHEL_GE(6, 3)
+		NL_SET_ERR_MSG_MOD(extack, "Unsupported protocol for xfrm offload");
+#else
 		nn_err(nn, "Unsupported protocol for xfrm offload\n");
+#endif
 		return -EINVAL;
 	}
 
 	if (x->props.flags & XFRM_STATE_ESN) {
+#if VER_NON_RHEL_GE(6, 3)
+		NL_SET_ERR_MSG_MOD(extack, "Unsupported XFRM_REPLAY_MODE_ESN for xfrm offload");
+#else
 		nn_err(nn, "Unsupported XFRM_REPLAY_MODE_ESN for xfrm offload\n");
+#endif
 		return -EINVAL;
 	}
 
 #if VER_NON_RHEL_GE(6, 2)
 	if (x->xso.type != XFRM_DEV_OFFLOAD_CRYPTO) {
+#if VER_NON_RHEL_GE(6, 3)
+		NL_SET_ERR_MSG_MOD(extack, "Unsupported xfrm offload type");
+#else
 		nn_err(nn, "Unsupported xfrm offload tyoe\n");
+#endif
 		return -EINVAL;
 	}
 #endif
@@ -327,7 +343,11 @@ static int nfp_net_xfrm_add_state(struct xfrm_state *x)
 		if (x->aead) {
 			trunc_len = -1;
 		} else {
+#if VER_NON_RHEL_GE(6, 3)
+			NL_SET_ERR_MSG_MOD(extack, "Unsupported authentication algorithm");
+#else
 			nn_err(nn, "Unsupported authentication algorithm\n");
+#endif
 			return -EINVAL;
 		}
 		break;
@@ -351,19 +371,31 @@ static int nfp_net_xfrm_add_state(struct xfrm_state *x)
 		set_sha2_512hmac(cfg, &trunc_len);
 		break;
 	default:
+#if VER_NON_RHEL_GE(6, 3)
+		NL_SET_ERR_MSG_MOD(extack, "Unsupported authentication algorithm");
+#else
 		nn_err(nn, "Unsupported authentication algorithm\n");
+#endif
 		return -EINVAL;
 	}
 
 	if (!trunc_len) {
+#if VER_NON_RHEL_GE(6, 3)
+		NL_SET_ERR_MSG_MOD(extack, "Unsupported authentication algorithm trunc length");
+#else
 		nn_err(nn, "Unsupported authentication algorithm trunc length\n");
+#endif
 		return -EINVAL;
 	}
 
 	if (x->aalg) {
 		key_len = DIV_ROUND_UP(x->aalg->alg_key_len, BITS_PER_BYTE);
 		if (key_len > sizeof(cfg->auth_key)) {
+#if VER_NON_RHEL_GE(6, 3)
+			NL_SET_ERR_MSG_MOD(extack, "Insufficient space for offloaded auth key");
+#else
 			nn_err(nn, "Insufficient space for offloaded auth key\n");
+#endif
 			return -EINVAL;
 		}
 		for (i = 0; i < key_len / sizeof(cfg->auth_key[0]) ; i++)
@@ -385,12 +417,20 @@ static int nfp_net_xfrm_add_state(struct xfrm_state *x)
 	case SADB_X_EALG_AES_GCM_ICV16:
 	case SADB_X_EALG_NULL_AES_GMAC:
 		if (!x->aead) {
+#if VER_NON_RHEL_GE(6, 3)
+			NL_SET_ERR_MSG_MOD(extack, "Invalid AES key data");
+#else
 			nn_err(nn, "Invalid AES key data\n");
+#endif
 			return -EINVAL;
 		}
 
 		if (x->aead->alg_icv_len != 128) {
+#if VER_NON_RHEL_GE(6, 3)
+			NL_SET_ERR_MSG_MOD(extack, "ICV must be 128bit with SADB_X_EALG_AES_GCM_ICV16");
+#else
 			nn_err(nn, "ICV must be 128bit with SADB_X_EALG_AES_GCM_ICV16\n");
+#endif
 			return -EINVAL;
 		}
 		cfg->ctrl_word.cimode = NFP_IPSEC_CIMODE_CTR;
@@ -398,23 +438,39 @@ static int nfp_net_xfrm_add_state(struct xfrm_state *x)
 
 		/* Aead->alg_key_len includes 32-bit salt */
 		if (set_aes_keylen(cfg, x->props.ealgo, x->aead->alg_key_len - 32)) {
+#if VER_NON_RHEL_GE(6, 3)
+			NL_SET_ERR_MSG_MOD(extack, "Unsupported AES key length");
+#else
 			nn_err(nn, "Unsupported AES key length %d\n", x->aead->alg_key_len);
+#endif
 			return -EINVAL;
 		}
 		break;
 	case SADB_X_EALG_AESCBC:
 		cfg->ctrl_word.cimode = NFP_IPSEC_CIMODE_CBC;
 		if (!x->ealg) {
+#if VER_NON_RHEL_GE(6, 3)
+			NL_SET_ERR_MSG_MOD(extack, "Invalid AES key data");
+#else
 			nn_err(nn, "Invalid AES key data\n");
+#endif
 			return -EINVAL;
 		}
 		if (set_aes_keylen(cfg, x->props.ealgo, x->ealg->alg_key_len) < 0) {
+#if VER_NON_RHEL_GE(6, 3)
+			NL_SET_ERR_MSG_MOD(extack, "Unsupported AES key length");
+#else
 			nn_err(nn, "Unsupported AES key length %d\n", x->ealg->alg_key_len);
+#endif
 			return -EINVAL;
 		}
 		break;
 	default:
+#if VER_NON_RHEL_GE(6, 3)
+		NL_SET_ERR_MSG_MOD(extack, "Unsupported encryption algorithm for offload");
+#else
 		nn_err(nn, "Unsupported encryption algorithm for offload\n");
+#endif
 		return -EINVAL;
 	}
 
@@ -425,7 +481,11 @@ static int nfp_net_xfrm_add_state(struct xfrm_state *x)
 		key_len -= salt_len;
 
 		if (key_len > sizeof(cfg->ciph_key)) {
+#if VER_NON_RHEL_GE(6, 3)
+			NL_SET_ERR_MSG_MOD(extack, "aead: Insufficient space for offloaded key");
+#else
 			nn_err(nn, "aead: Insufficient space for offloaded key\n");
+#endif
 			return -EINVAL;
 		}
 
@@ -441,7 +501,11 @@ static int nfp_net_xfrm_add_state(struct xfrm_state *x)
 		key_len = DIV_ROUND_UP(x->ealg->alg_key_len, BITS_PER_BYTE);
 
 		if (key_len > sizeof(cfg->ciph_key)) {
+#if VER_NON_RHEL_GE(6, 3)
+			NL_SET_ERR_MSG_MOD(extack, "ealg: Insufficient space for offloaded key");
+#else
 			nn_err(nn, "ealg: Insufficient space for offloaded key\n");
+#endif
 			return -EINVAL;
 		}
 		for (i = 0; i < key_len / sizeof(cfg->ciph_key[0]) ; i++)
@@ -464,7 +528,11 @@ static int nfp_net_xfrm_add_state(struct xfrm_state *x)
 		}
 		break;
 	default:
+#if VER_NON_RHEL_GE(6, 3)
+		NL_SET_ERR_MSG_MOD(extack, "Unsupported address family");
+#else
 		nn_err(nn, "Unsupported address family\n");
+#endif
 		return -EINVAL;
 	}
 
@@ -483,7 +551,11 @@ static int nfp_net_xfrm_add_state(struct xfrm_state *x)
 	err = xa_alloc(&nn->xa_ipsec, &saidx, x,
 		       XA_LIMIT(0, NFP_NET_IPSEC_MAX_SA_CNT - 1), GFP_KERNEL);
 	if (err < 0) {
+#if VER_NON_RHEL_GE(6, 3)
+		NL_SET_ERR_MSG_MOD(extack, "Unable to get sa_data number for IPsec");
+#else
 		nn_err(nn, "Unable to get sa_data number for IPsec\n");
+#endif
 		return err;
 	}
 
@@ -491,7 +563,11 @@ static int nfp_net_xfrm_add_state(struct xfrm_state *x)
 	err = nfp_ipsec_cfg_cmd_issue(nn, NFP_IPSEC_CFG_MSSG_ADD_SA, saidx, &msg);
 	if (err) {
 		xa_erase(&nn->xa_ipsec, saidx);
+#if VER_NON_RHEL_GE(6, 3)
+		NL_SET_ERR_MSG_MOD(extack, "Failed to issue IPsec command");
+#else
 		nn_err(nn, "Failed to issue IPsec command err ret=%d\n", err);
+#endif
 		return err;
 	}
 
