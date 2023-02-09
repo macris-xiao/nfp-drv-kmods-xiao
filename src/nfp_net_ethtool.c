@@ -513,10 +513,10 @@ static void nfp_add_media_link_mode(struct nfp_port *port,
 			if (supported_modes[0] & BIT_ULL(i)) {
 				__set_bit(nfp_eth_media_table[i].speed,
 					  port->speed_bitmap);
-			} else if (nfp_eth_media_table[i].ethtool_link_mode) {
 #if VER_NON_RHEL_GE(4, 6) || VER_RHEL_GE(7, 5)
-				__set_bit(nfp_eth_media_table[i].ethtool_link_mode,
-					  cmd->link_modes.supported);
+				if (nfp_eth_media_table[i].ethtool_link_mode)
+					__set_bit(nfp_eth_media_table[i].ethtool_link_mode,
+						  cmd->link_modes.supported);
 #endif
 			}
 
@@ -530,10 +530,10 @@ static void nfp_add_media_link_mode(struct nfp_port *port,
 			if (supported_modes[1] & BIT_ULL(i - 64)) {
 				__set_bit(nfp_eth_media_table[i].speed,
 					  port->speed_bitmap);
-			} else if (nfp_eth_media_table[i].ethtool_link_mode) {
 #if VER_NON_RHEL_GE(4, 6) || VER_RHEL_GE(7, 5)
-				__set_bit(nfp_eth_media_table[i].ethtool_link_mode,
-					  cmd->link_modes.supported);
+				if (nfp_eth_media_table[i].ethtool_link_mode)
+					__set_bit(nfp_eth_media_table[i].ethtool_link_mode,
+						  cmd->link_modes.supported);
 #endif
 			}
 
